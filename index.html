@@ -2393,7 +2393,106 @@
             container.appendChild(row);
         }
 
-        function parsePastedNotes() {
+        // --- SMART ADDRESS FINDER & PASTE PARSER ---
+
+        async function autoFindAddress(locationStr) {
+            // Check if the string uses the tech's "Customer - City - Street" format
+            if(!locationStr.includes(" - ")) {
+                document.getElementById('invCustNameInput').value = locationStr.trim().toUpperCase();
+                return;
+            }
+
+            const parts = locationStr.split(" - ");
+            const custName = parts[0].trim().toUpperCase();
+            document.getElementById('invCustNameInput').value = custName;
+
+            let city = "";
+            let street = "";
+            let state = "WI"; // Default for Twin Pillars
+
+            if (parts.length >= 3) {
+                city = parts[1].trim().toUpperCase();
+                street = parts[2].trim().toUpperCase();
+            } else if (parts.length === 2) {
+                street = parts[1].trim().toUpperCase();
+            }
+
+            document.getElementById('invCityInput').value = city;
+            document.getElementById('invStreetInput').value = street;
+            document.getElementById('invStateInput').value = state;
+
+            // Step 1: Check Local CRM Database first (Fastest)
+            let db = getCustomerDB();
+            let foundLocally = false;
+            
+            if(db[custName]) {
+                document.getElementById('invCustNumInput').value = db[custName].id || "";
+                for (let locId in db[custName].locations) {
+                    let existingStreet = db[custName].locations[locId].street;
+                    if (existingStreet && existingStreet.includes(street)) {
+                        document.getElementById('invStreetInput').value = existingStreet;
+                        document.getElementById('invLocNumInput').value = locId;
+                        if(db[custName].locations[locId].zip) {
+                            document.getElementById('invZipInput').value = db[custName].locations[locId].zip;
+                        }
+                        foundLocally = true;
+                        break;
+                    }
+                }
+            }
+
+            // Step 2: If not in local CRM, go out to the Internet (OpenStreetMap API)
+            if (!foundLocally && city && street) {
+                try {
+                    document.getElementById("invServiceLoc").value = "Searching global map database for zip code...";
+                    
+                    const query = `${street}, ${city}, ${state}`;
+                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1`);
+                    const data = await res.json();
+
+                    if (data && data.length > 0) {
+                        const addr = data[0].address;
+                        
+                        // Grab the official postal code
+                        if (addr.postcode) {
+                            document.getElementById('invZipInput').value = addr.postcode;
+                        }
+                        
+                        // Correct the city name if the tech misspelled it
+                        const foundCity = addr.city || addr.town || addr.village;
+                        if (foundCity) {
+                            document.getElementById('invCityInput').value = foundCity.toUpperCase();
+                        }
+                    }
+                } catch (err) {
+                    console.log("Map DB search failed:", err);
+                }
+            }
+
+            // Final Step: Format the UI Textboxes
+            const finalStreet = document.getElementById('invStreetInput').value;
+            const finalCity = document.getElementById('invCityInput').value;
+            const finalState = document.getElementById('invStateInput').value;
+            const finalZip = document.getElementById('invZipInput').value;
+
+            let formattedLoc = custName;
+            if(finalStreet) formattedLoc += "\n" + finalStreet;
+            
+            let csz = [];
+            if(finalCity) csz.push(finalCity);
+            let sz = [];
+            if(finalState) sz.push(finalState);
+            if(finalZip) sz.push(finalZip);
+            if(sz.length > 0) csz.push(sz.join(" "));
+            
+            if(csz.length > 0) formattedLoc += "\n" + csz.join(", ");
+
+            document.getElementById('invBillTo').value = formattedLoc;
+            document.getElementById('invServiceLoc').value = formattedLoc;
+        }
+
+
+        async function parsePastedNotes() {
             const text = document.getElementById("invPasteArea").value;
             if (!text) return;
 
@@ -2403,25 +2502,30 @@
                 return m && m[1] ? m[1].trim() : "";
             };
 
+            // 1. Extract and Intelligently Find Address
             const loc = extract("Location");
             if (loc) {
-                let formattedLoc = loc;
-                if(loc.includes(" - ")) {
-                    formattedLoc = loc.replace(" - ", "\n");
-                    const locName = loc.split(" - ")[0];
-                    document.getElementById('invCustNameInput').value = locName;
-                    
-                    let db = getCustomerDB();
-                    if(db[locName]) {
-                        document.getElementById('invCustNumInput').value = db[locName].id || "";
-                        // Try to auto-link street
-                        let streetPart = loc.split(" - ")[2] || "";
-                        if(streetPart) document.getElementById('invStreetInput').value = streetPart;
-                    }
-                }
-                document.getElementById("invServiceLoc").value = formattedLoc;
-                document.getElementById("invBillTo").value = formattedLoc; 
+                await autoFindAddress(loc);
             }
+
+            // 2. Extract Other Info
+            const equip = extract("Equipment on Site") || extract("Equipment worked on");
+            if (equip) document.getElementById("invEquip").value = equip.replace(/\n/g, ", ");
+
+            const notes = extract("Notes / Repairs") || extract("Findings / Diagnosis");
+            if (notes) document.getElementById("invNotes").value = notes;
+
+            const work = extract("Work done") || extract("Repairs made");
+            if (work) document.getElementById("invWork").value = work;
+
+            const parts = extract("Parts used");
+            if (parts && parts.toUpperCase() !== "NONE") {
+                document.getElementById('invPartsContainer').innerHTML = `<div class="inv-parts-grid-layout part-header-row"><label>QTY</label><label>Part Description</label><label>Our Cost $</label><label style="color:#27ae60;">Retail $ (Auto)</label><label></label></div>`;
+                addInvoicePartRow("Preventative Maintenance parts"); 
+            }
+            
+            calcInvoice();
+        }
 
             const equip = extract("Equipment on Site") || extract("Equipment worked on");
             if (equip) document.getElementById("invEquip").value = equip.replace(/\n/g, ", ");
