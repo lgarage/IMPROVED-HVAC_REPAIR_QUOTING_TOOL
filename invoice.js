@@ -1,5 +1,5 @@
 // ====================================================================
-// --- INVOICE CLOUD LOGIC & SMART PARSING ---
+// --- INVOICE CLOUD LOGIC & GOOGLE MAPS PARSING ---
 // ====================================================================
 
 function clearInvoiceForm() {
@@ -18,7 +18,6 @@ function clearInvoiceForm() {
     document.getElementById('invWork').value = "";
     document.getElementById('invLaborHours').value = "1.0";
     
-    // Clear warnings
     document.getElementById('invCustNameInput').style.backgroundColor = "";
     document.getElementById('invStreetInput').style.backgroundColor = "";
     if(document.getElementById('invCustWarning')) document.getElementById('invCustWarning').remove();
@@ -48,14 +47,36 @@ function addInvoicePartRow(desc = "") {
     container.appendChild(row);
 }
 
+// --- GOOGLE PLACES API LOOKUP FUNCTION ---
+function performGoogleSearch(query) {
+    return new Promise((resolve, reject) => {
+        // Wait briefly if Google Maps is still secretly loading from config.js
+        if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+            console.log("Google Maps API not loaded yet.");
+            resolve(null);
+            return;
+        }
+        
+        const dummyDiv = document.createElement('div');
+        const service = new google.maps.places.PlacesService(dummyDiv);
+        
+        service.textSearch({ query: query }, (results, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                resolve(results[0].formatted_address);
+            } else {
+                resolve(null);
+            }
+        });
+    });
+}
+
 // --- UPGRADED SMART CRM LOOKUP ENGINE ---
 async function smartProcessLocation(locationStr) {
     let custName = locationStr.trim().toUpperCase();
     let city = "";
     let streetSearch = "";
-    let state = "WI"; // Default
+    let state = "WI"; 
 
-    // Smarter split: handles " - ", "-", " -", etc.
     if (locationStr.includes("-")) {
         const parts = locationStr.split(/\s*-\s*/);
         custName = parts[0].trim().toUpperCase();
@@ -76,23 +97,19 @@ async function smartProcessLocation(locationStr) {
     document.getElementById('invStreetInput').value = streetSearch;
     document.getElementById('invStateInput').value = state;
 
-    // Reset visual warnings
     custNameInput.style.backgroundColor = "";
     streetInput.style.backgroundColor = "";
     if(document.getElementById('invCustWarning')) document.getElementById('invCustWarning').remove();
     if(document.getElementById('invLocWarning')) document.getElementById('invLocWarning').remove();
 
-    let db = getCustomerDB(); // Grabs local CRM
+    let db = getCustomerDB(); 
     let custData = db[custName];
     let foundLocally = false;
 
     if (custData) {
-        // Customer exists in CRM
         document.getElementById('invCustNumInput').value = custData.id;
-        
         for (let locId in custData.locations) {
             let loc = custData.locations[locId];
-            // Check if street matches
             if ((streetSearch && loc.street.includes(streetSearch)) || (city && loc.city === city)) {
                 document.getElementById('invLocNumInput').value = locId;
                 document.getElementById('invStreetInput').value = loc.street;
@@ -116,7 +133,6 @@ async function smartProcessLocation(locationStr) {
             streetInput.parentNode.appendChild(warning);
         }
     } else {
-        // Customer does NOT exist in CRM
         document.getElementById('invCustNumInput').value = "Auto-generated";
         document.getElementById('invLocNumInput').value = "Auto-generated";
         
@@ -132,37 +148,43 @@ async function smartProcessLocation(locationStr) {
         if(streetSearch) streetInput.style.backgroundColor = "#fff3cd";
     }
 
-    // Step 2: If not found perfectly in CRM, ask the Internet (OpenStreetMap API)
-    if (!foundLocally && city) {
+    // Step 2: If the CRM doesn't have the exact details, ask Google Maps
+    if (!foundLocally && (city || streetSearch)) {
         try {
-            // Try specific query first (Street + City)
-            let query = `${streetSearch}, ${city}, ${state}`;
-            let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1`);
-            let data = await res.json();
+            document.getElementById("invServiceLoc").value = "Asking Google Maps...";
+            
+            let query = `${custName} ${streetSearch} ${city} ${state}`;
+            let googleAddress = await performGoogleSearch(query);
 
-            // Fallback: If street fails (because missing house number), search JUST the city for the zip code
-            if (!data || data.length === 0) {
-                query = `${city}, ${state}`;
-                res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1`);
-                data = await res.json();
+            if (!googleAddress) {
+                query = `${streetSearch} ${city} ${state}`;
+                googleAddress = await performGoogleSearch(query);
             }
 
-            // Apply findings to the form
-            if (data && data.length > 0) {
-                const addr = data[0].address;
-                if (addr.postcode) document.getElementById('invZipInput').value = addr.postcode;
+            if (googleAddress) {
+                let addrParts = googleAddress.split(',').map(p => p.trim());
                 
-                const foundCity = addr.city || addr.town || addr.village;
-                if (foundCity && !document.getElementById('invCityInput').value) {
-                    document.getElementById('invCityInput').value = foundCity.toUpperCase();
+                if (addrParts[addrParts.length - 1] === "USA") {
+                    addrParts.pop();
+                }
+                
+                if (addrParts.length >= 3) {
+                    const stateZip = addrParts[addrParts.length - 1].split(' ');
+                    const parsedCity = addrParts[addrParts.length - 2];
+                    const parsedStreet = addrParts.slice(0, addrParts.length - 2).join(', ');
+                    
+                    document.getElementById('invStreetInput').value = parsedStreet.toUpperCase();
+                    document.getElementById('invCityInput').value = parsedCity.toUpperCase();
+                    if(stateZip.length >= 1) document.getElementById('invStateInput').value = stateZip[0].toUpperCase();
+                    if(stateZip.length >= 2) document.getElementById('invZipInput').value = stateZip[1];
                 }
             }
         } catch (err) {
-            console.log("Map DB search failed:", err);
+            console.log("Google Maps search failed:", err);
         }
     }
 
-    // Format Bill To Textboxes
+    // Format the final visual Bill To Textboxes
     const finalStreet = document.getElementById('invStreetInput').value;
     const finalCity = document.getElementById('invCityInput').value;
     const finalState = document.getElementById('invStateInput').value;
@@ -194,13 +216,11 @@ async function parsePastedNotes() {
         return m && m[1] ? m[1].trim() : "";
     };
 
-    // 1. Process Location with Smart API
     const locRaw = extract("Location");
     if (locRaw) {
         await smartProcessLocation(locRaw);
     }
 
-    // 2. Extract Other Info
     const equip = extract("Equipment on Site") || extract("Equipment worked on");
     if (equip) document.getElementById("invEquip").value = equip.replace(/\n/g, ", ");
 
@@ -280,7 +300,7 @@ function generateInvoiceHTML() {
     const invNum = document.getElementById("invNum").value || "INV-XXXXXX";
     const billToText = document.getElementById("invBillTo").value || "Client Name";
     const shipToText = document.getElementById("invServiceLoc").value || "Service Location";
-    const dateStr = today(); // Uses global today() function
+    const dateStr = today(); 
     
     document.getElementById("pInvNum").innerText = invNum;
     document.getElementById("pInvDate").innerText = dateStr;
@@ -342,7 +362,6 @@ async function saveAndPrintInvoice() {
     const nameInput = document.getElementById('invCustNameInput').value.trim().toUpperCase() || "UNKNOWN CUSTOMER";
     const streetInput = document.getElementById('invStreetInput').value.trim().toUpperCase();
     
-    // Auto-save any new Customer/Location data to the CRM before pushing to cloud
     syncCustomerToDirectory({
         customerName: nameInput,
         customerNum: document.getElementById('invCustNumInput').value,
