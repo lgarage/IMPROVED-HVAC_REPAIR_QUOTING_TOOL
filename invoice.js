@@ -48,16 +48,18 @@ function addInvoicePartRow(desc = "") {
     container.appendChild(row);
 }
 
-// --- NEW SMART CRM LOOKUP ENGINE ---
-function smartProcessLocation(locationStr) {
+// --- UPGRADED SMART CRM LOOKUP ENGINE ---
+async function smartProcessLocation(locationStr) {
     let custName = locationStr.trim().toUpperCase();
     let city = "";
     let streetSearch = "";
+    let state = "WI"; // Default
 
-    // Parse "Customer - City - Street"
-    if (locationStr.includes(" - ")) {
-        const parts = locationStr.split(" - ");
+    // Smarter split: handles " - ", "-", " -", etc.
+    if (locationStr.includes("-")) {
+        const parts = locationStr.split(/\s*-\s*/);
         custName = parts[0].trim().toUpperCase();
+        
         if (parts.length >= 3) {
             city = parts[1].trim().toUpperCase();
             streetSearch = parts[2].trim().toUpperCase();
@@ -72,6 +74,7 @@ function smartProcessLocation(locationStr) {
     custNameInput.value = custName;
     document.getElementById('invCityInput').value = city;
     document.getElementById('invStreetInput').value = streetSearch;
+    document.getElementById('invStateInput').value = state;
 
     // Reset visual warnings
     custNameInput.style.backgroundColor = "";
@@ -79,29 +82,29 @@ function smartProcessLocation(locationStr) {
     if(document.getElementById('invCustWarning')) document.getElementById('invCustWarning').remove();
     if(document.getElementById('invLocWarning')) document.getElementById('invLocWarning').remove();
 
-    let db = getCustomerDB(); // Requires getCustomerDB() to be in index.html global scope
+    let db = getCustomerDB(); // Grabs local CRM
     let custData = db[custName];
+    let foundLocally = false;
 
     if (custData) {
         // Customer exists in CRM
         document.getElementById('invCustNumInput').value = custData.id;
         
-        let locFound = false;
         for (let locId in custData.locations) {
             let loc = custData.locations[locId];
-            if ((streetSearch && loc.street.includes(streetSearch)) || (city && loc.city.includes(city))) {
+            // Check if street matches
+            if ((streetSearch && loc.street.includes(streetSearch)) || (city && loc.city === city)) {
                 document.getElementById('invLocNumInput').value = locId;
                 document.getElementById('invStreetInput').value = loc.street;
                 document.getElementById('invCityInput').value = loc.city;
                 document.getElementById('invStateInput').value = loc.state;
                 document.getElementById('invZipInput').value = loc.zip;
-                locFound = true;
+                foundLocally = true;
                 break;
             }
         }
 
-        if (!locFound && streetSearch) {
-            // Customer exists, but Location is new
+        if (!foundLocally && streetSearch) {
             document.getElementById('invLocNumInput').value = "Auto-generated";
             streetInput.style.backgroundColor = "#fff3cd"; 
             const warning = document.createElement('div');
@@ -129,10 +132,53 @@ function smartProcessLocation(locationStr) {
         if(streetSearch) streetInput.style.backgroundColor = "#fff3cd";
     }
 
+    // Step 2: If not found perfectly in CRM, ask the Internet (OpenStreetMap API)
+    if (!foundLocally && city) {
+        try {
+            // Try specific query first (Street + City)
+            let query = `${streetSearch}, ${city}, ${state}`;
+            let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1`);
+            let data = await res.json();
+
+            // Fallback: If street fails (because missing house number), search JUST the city for the zip code
+            if (!data || data.length === 0) {
+                query = `${city}, ${state}`;
+                res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1`);
+                data = await res.json();
+            }
+
+            // Apply findings to the form
+            if (data && data.length > 0) {
+                const addr = data[0].address;
+                if (addr.postcode) document.getElementById('invZipInput').value = addr.postcode;
+                
+                const foundCity = addr.city || addr.town || addr.village;
+                if (foundCity && !document.getElementById('invCityInput').value) {
+                    document.getElementById('invCityInput').value = foundCity.toUpperCase();
+                }
+            }
+        } catch (err) {
+            console.log("Map DB search failed:", err);
+        }
+    }
+
     // Format Bill To Textboxes
+    const finalStreet = document.getElementById('invStreetInput').value;
+    const finalCity = document.getElementById('invCityInput').value;
+    const finalState = document.getElementById('invStateInput').value;
+    const finalZip = document.getElementById('invZipInput').value;
+
     let formattedLoc = custName;
-    if(streetSearch) formattedLoc += "\n" + streetSearch;
-    if(city) formattedLoc += "\n" + city + ", WI";
+    if(finalStreet) formattedLoc += "\n" + finalStreet;
+    
+    let csz = [];
+    if(finalCity) csz.push(finalCity);
+    let sz = [];
+    if(finalState) sz.push(finalState);
+    if(finalZip) sz.push(finalZip);
+    if(sz.length > 0) csz.push(sz.join(" "));
+    if(csz.length > 0) formattedLoc += "\n" + csz.join(", ");
+
     document.getElementById('invBillTo').value = formattedLoc;
     document.getElementById('invServiceLoc').value = formattedLoc;
 }
@@ -142,17 +188,16 @@ async function parsePastedNotes() {
     const text = document.getElementById("invPasteArea").value;
     if (!text) return;
 
-    // Advanced regex to reliably grab multi-line blocks between headers
     const extract = (header) => {
         const regex = new RegExp(`${header}:\\s*\\n(.*?)(?=\\n[A-Z][a-zA-Z /]+:|$)`, 'is');
         const m = text.match(regex);
         return m && m[1] ? m[1].trim() : "";
     };
 
-    // 1. Process Location
+    // 1. Process Location with Smart API
     const locRaw = extract("Location");
     if (locRaw) {
-        smartProcessLocation(locRaw);
+        await smartProcessLocation(locRaw);
     }
 
     // 2. Extract Other Info
