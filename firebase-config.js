@@ -17,9 +17,6 @@ firebase.initializeApp(firebaseConfig);
 // Initialize Firestore Database (we will use this 'db' variable in our other files)
 const db = firebase.firestore();
 
-// Initialize Firestore Database
-const db = firebase.firestore();
-
 // --- DYNAMICALLY LOAD GOOGLE MAPS ---
 // This safely injects Google Maps into the page using your secure key above
 (function loadGoogleMaps() {
