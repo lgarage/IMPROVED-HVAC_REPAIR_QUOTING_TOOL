@@ -937,24 +937,35 @@
                 </div>
             </div>
 
-           <div class="database-section">
-                <h3>Recent Invoices Database</h3>
-                <input type="text" id="invoiceSearch" placeholder="Search by Invoice #, Customer Name, or Address..." onkeyup="filterInvoices()" style="margin-bottom: 15px; width: 100%; max-width: 400px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
-                <table class="db-table">
-                    <thead>
-                        <tr>
-                            <th width="80">Preview</th>
-                            <th>Date</th>
-                            <th>Invoice #</th>
-                            <th>Customer</th>
-                            <th>Location</th>
-                            <th>Total</th>
-                        </tr>
-                    </thead>
-                    <tbody id="invoiceDbTableBody">
-                        </tbody>
-                </table>
+          <div class="database-section" style="margin-top: 0; margin-bottom: 30px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0; color: #1e4b85;">Invoice Database & Search</h2>
+                    <input type="text" id="invoiceSearch" placeholder="Search by Invoice #, Customer Name, or Address..." onkeyup="filterInvoices()" style="width: 100%; max-width: 400px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div style="max-height: 300px; overflow-y: auto; border: 1px solid #eaeaea; border-radius: 4px;">
+                    <table class="db-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th width="80">Preview</th>
+                                <th>Date</th>
+                                <th>Invoice #</th>
+                                <th>Customer</th>
+                                <th>Location</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoiceDbTableBody">
+                            </tbody>
+                    </table>
+                </div>
             </div>
+            ```
+
+### Step 3: Bump the Cache Buster
+Scroll to the very bottom of the file and change the script link to **`?v=7`**:
+`<script src="invoice.js?v=7"></script>`
+
+**Save, Commit, Sync, and Hard Refresh (`Ctrl + Shift + R`).** You will now have a beautiful, scrollable search database sitting proudly at the top of the page, with your search bar perfectly aligned to the right! Let me know how it looks.
 
         </div>
 
