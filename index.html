@@ -937,8 +937,9 @@
                 </div>
             </div>
 
-            <div class="database-section">
+           <div class="database-section">
                 <h3>Recent Invoices Database</h3>
+                <input type="text" id="invoiceSearch" placeholder="Search by Invoice #, Customer Name, or Address..." onkeyup="filterInvoices()" style="margin-bottom: 15px; width: 100%; max-width: 400px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
                 <table class="db-table">
                     <thead>
                         <tr>
@@ -2405,6 +2406,6 @@
         }
 
     </script>
-    <script src="invoice.js?v=5"></script>
+    <script src="invoice.js?v=6"></script>
 </body>
 </html>

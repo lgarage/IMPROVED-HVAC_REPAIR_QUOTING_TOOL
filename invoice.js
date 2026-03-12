@@ -2,6 +2,8 @@
 // --- INVOICE CLOUD LOGIC & GOOGLE MAPS PARSING ---
 // ====================================================================
 
+let cloudInvoices = []; // Stores the database list in local memory for instant searching
+
 function clearInvoiceForm() {
     document.getElementById('invPasteArea').value = "";
     document.getElementById('invCustNameInput').value = "";
@@ -47,7 +49,6 @@ function addInvoicePartRow(desc = "") {
     container.appendChild(row);
 }
 
-// --- GOOGLE PLACES API LOOKUP FUNCTION ---
 function performGoogleSearch(query) {
     return new Promise((resolve, reject) => {
         if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
@@ -69,7 +70,6 @@ function performGoogleSearch(query) {
     });
 }
 
-// --- UPGRADED SMART CRM LOOKUP ENGINE ---
 async function smartProcessLocation(locationStr) {
     let custName = locationStr.trim().toUpperCase();
     let city = "";
@@ -92,10 +92,6 @@ async function smartProcessLocation(locationStr) {
         originalSiteName = custName;
     }
 
-    // =========================================================================================
-    // TODO (FUTURE FIX): REMOVE HARDCODED ALIASES AND MOVE THIS TO FIREBASE CUSTOMER DIRECTORY
-    // We need to build a "Parent/Child" UI so dispatchers can link these without touching code.
-    // =========================================================================================
     const dbaAliases = {
         "TAKE 5": {
             company: "AMERICAN PLATINUM DOOR & GATE",
@@ -107,11 +103,9 @@ async function smartProcessLocation(locationStr) {
     let customBillTo = null;
 
     if (matchedAlias) {
-        // 1. Swap Customer Name to the Management Company
         custName = dbaAliases[matchedAlias].company;
         customBillTo = dbaAliases[matchedAlias].billToAddress;
         
-        // 2. Prepend the DBA to the Street Address (e.g., "TAKE 5 - 1821 N SHAWANO ST")
         if (streetSearch && !streetSearch.startsWith(matchedAlias)) {
             streetSearch = `${matchedAlias} - ${streetSearch}`;
         } else if (!streetSearch) {
@@ -119,7 +113,6 @@ async function smartProcessLocation(locationStr) {
         }
         originalSiteName = matchedAlias; 
     }
-    // =========================================================================================
 
     const custNameInput = document.getElementById('invCustNameInput');
     const streetInput = document.getElementById('invStreetInput');
@@ -180,12 +173,10 @@ async function smartProcessLocation(locationStr) {
         if(streetSearch) streetInput.style.backgroundColor = "#fff3cd";
     }
 
-    // Ask Google Maps to fill in missing gaps
     if (!foundLocally && (city || streetSearch)) {
         try {
             document.getElementById("invServiceLoc").value = "Asking Google Maps...";
             
-            // Strip the DBA off temporarily so Google Maps doesn't get confused
             let cleanGoogleStreet = streetSearch;
             if (dbaAliases[originalSiteName]) {
                  cleanGoogleStreet = streetSearch.replace(`${originalSiteName} - `, '');
@@ -201,17 +192,13 @@ async function smartProcessLocation(locationStr) {
 
             if (googleAddress) {
                 let addrParts = googleAddress.split(',').map(p => p.trim());
-                
-                if (addrParts[addrParts.length - 1] === "USA") {
-                    addrParts.pop();
-                }
+                if (addrParts[addrParts.length - 1] === "USA") addrParts.pop();
                 
                 if (addrParts.length >= 3) {
                     const stateZip = addrParts[addrParts.length - 1].split(' ');
                     const parsedCity = addrParts[addrParts.length - 2];
                     const parsedStreet = addrParts.slice(0, addrParts.length - 2).join(', ');
                     
-                    // Put the DBA back on for the final text box
                     let finalStreetDisplay = parsedStreet.toUpperCase();
                     if (dbaAliases[originalSiteName]) {
                         finalStreetDisplay = `${originalSiteName} - ${finalStreetDisplay}`;
@@ -228,14 +215,12 @@ async function smartProcessLocation(locationStr) {
         }
     }
 
-    // Format the final visual Bill To Textboxes for the PDF
     const finalStreet = document.getElementById('invStreetInput').value;
     const finalCity = document.getElementById('invCityInput').value;
     const finalState = document.getElementById('invStateInput').value;
     const finalZip = document.getElementById('invZipInput').value;
 
     let formattedLoc = finalStreet;
-    
     let csz = [];
     if(finalCity) csz.push(finalCity);
     let sz = [];
@@ -244,10 +229,8 @@ async function smartProcessLocation(locationStr) {
     if(sz.length > 0) csz.push(sz.join(" "));
     if(csz.length > 0) formattedLoc += "\n" + csz.join(", ");
 
-    // Service Location gets the physical site address
     document.getElementById('invServiceLoc').value = formattedLoc;
 
-    // Bill To gets the corporate OH address if defined, otherwise it matches the Service Loc
     if (customBillTo) {
         document.getElementById('invBillTo').value = customBillTo;
     } else {
@@ -255,7 +238,6 @@ async function smartProcessLocation(locationStr) {
     }
 }
 
-// Fires when clicking out of the Paste Box
 async function parsePastedNotes() {
     const text = document.getElementById("invPasteArea").value;
     if (!text) return;
@@ -267,9 +249,7 @@ async function parsePastedNotes() {
     };
 
     const locRaw = extract("Location");
-    if (locRaw) {
-        await smartProcessLocation(locRaw);
-    }
+    if (locRaw) await smartProcessLocation(locRaw);
 
     const equip = extract("Equipment on Site") || extract("Equipment worked on");
     if (equip) document.getElementById("invEquip").value = equip.replace(/\n/g, ", ");
@@ -296,7 +276,7 @@ function calcInvoice() {
         
         let retailUnit = 0;
         if(cost > 0) {
-            const markup = getInvoiceMarkup(cost); // Uses getInvoiceMarkup from index.html
+            const markup = getInvoiceMarkup(cost);
             retailUnit = cost + (cost * markup);
         }
         
@@ -431,7 +411,6 @@ async function saveAndPrintInvoice() {
         }
     }
 
-    // Fallback: Use whatever ID is currently sitting in the locked input box
     if (finalCustId === "CST-XXXX") finalCustId = document.getElementById('invCustNumInput').value;
     if (finalLocId === "LOC-XXXX") finalLocId = document.getElementById('invLocNumInput').value;
 
@@ -445,6 +424,16 @@ async function saveAndPrintInvoice() {
 
     const invNumText = document.getElementById("invNum").value;
     const grandTotal = document.getElementById("invGrandDisplay").innerText;
+    
+    // --- GATHER FULL INVOICE DATA FOR CLOUD REGENERATION ---
+    const mathData = calcInvoice();
+    let partsData = [];
+    document.querySelectorAll('.inv-part-line').forEach(row => {
+        const qty = parseInt(row.querySelector('.p-qty').value) || 1;
+        const desc = row.querySelector('.p-desc').value.trim();
+        const retailUnit = parseFloat(row.querySelector('.p-retail').value) || 0;
+        if(desc !== "") partsData.push({ qty, desc, retailUnit });
+    });
 
     document.getElementById("pBottomCust").innerText = finalCustId + " - " + nameInput;
 
@@ -457,6 +446,16 @@ async function saveAndPrintInvoice() {
             locationId: finalLocId,
             locationStreet: streetInput,
             totalAmount: grandTotal,
+            equip: document.getElementById('invEquip').value,
+            notes: document.getElementById('invNotes').value,
+            work: document.getElementById('invWork').value,
+            billTo: document.getElementById('invBillTo').value,
+            serviceLoc: document.getElementById('invServiceLoc').value,
+            parts: partsData,
+            laborTotal: mathData.laborTotal,
+            tripTotal: mathData.trip,
+            taxTotal: mathData.tax,
+            subtotal: mathData.sub,
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
 
@@ -485,30 +484,119 @@ async function saveAndPrintInvoice() {
     }
 }
 
+// ====================================================================
+// --- INVOICE SEARCH & VIEW OLD INVOICE ENGINE ---
+// ====================================================================
+
 function loadFirebaseInvoices() {
     if (typeof db === 'undefined') return;
-    const tbody = document.getElementById('invoiceDbTableBody');
     
-    db.collection('invoices').orderBy('timestamp', 'desc').limit(20).get().then(snapshot => {
-        tbody.innerHTML = "";
-        if(snapshot.empty) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color:#777;">No cloud invoices found.</td></tr>`;
-            return;
-        }
+    db.collection('invoices').orderBy('timestamp', 'desc').limit(50).get().then(snapshot => {
+        cloudInvoices = [];
         snapshot.forEach(doc => {
-            const data = doc.data();
-            tbody.innerHTML += `
-                <tr>
-                    <td><button class="preview-btn" style="background:#bdc3c7; cursor:not-allowed;" disabled>View</button></td>
-                    <td>${data.date}</td>
-                    <td><strong>${data.invoiceNumber}</strong></td>
-                    <td>${data.customerName}<br><span style="font-size:11px; color:#777;">${data.customerId}</span></td>
-                    <td>${data.locationStreet}<br><span style="font-size:11px; color:#777;">${data.locationId}</span></td>
-                    <td><strong style="color:#27ae60;">${data.totalAmount}</strong></td>
-                </tr>
-            `;
+            cloudInvoices.push({ id: doc.id, ...doc.data() });
         });
+        renderInvoiceTable();
     }).catch(e => {
         console.log("Could not load invoices: ", e);
     });
+}
+
+function renderInvoiceTable(filterText = "") {
+    const tbody = document.getElementById('invoiceDbTableBody');
+    tbody.innerHTML = "";
+    
+    if (cloudInvoices.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color:#777;">No cloud invoices found.</td></tr>`;
+        return;
+    }
+
+    const lowerFilter = filterText.toLowerCase();
+    let hasResults = false;
+
+    cloudInvoices.forEach(data => {
+        const searchString = `${data.invoiceNumber} ${data.customerName} ${data.locationStreet} ${data.customerId} ${data.locationId}`.toLowerCase();
+        
+        if (searchString.includes(lowerFilter)) {
+            hasResults = true;
+            tbody.innerHTML += `
+                <tr>
+                    <td><button class="preview-btn" style="background:#3498db; cursor:pointer;" onclick="viewOldInvoice('${data.id}')">View</button></td>
+                    <td>${data.date || ''}</td>
+                    <td><strong>${data.invoiceNumber || ''}</strong></td>
+                    <td>${data.customerName || ''}<br><span style="font-size:11px; color:#777;">${data.customerId || ''}</span></td>
+                    <td>${data.locationStreet || ''}<br><span style="font-size:11px; color:#777;">${data.locationId || ''}</span></td>
+                    <td><strong style="color:#27ae60;">${data.totalAmount || ''}</strong></td>
+                </tr>
+            `;
+        }
+    });
+
+    if (!hasResults) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color:#777;">No matching invoices.</td></tr>`;
+    }
+}
+
+function filterInvoices() {
+    const filterText = document.getElementById('invoiceSearch').value;
+    renderInvoiceTable(filterText);
+}
+
+function viewOldInvoice(docId) {
+    const data = cloudInvoices.find(inv => inv.id === docId);
+    if(!data) return;
+
+    // Fill in basic PDF Text
+    document.getElementById("pInvNum").innerText = data.invoiceNumber || "";
+    
+    // Format Date from YYYY-MM-DD to M/D/YYYY
+    let dateStr = data.date || "";
+    if (dateStr.includes('-')) {
+        let parts = dateStr.split('-');
+        dateStr = `${parseInt(parts[1])}/${parseInt(parts[2])}/${parts[0]}`; 
+    }
+    document.getElementById("pInvDate").innerText = dateStr;
+    
+    document.getElementById("pInvBillName").innerHTML = (data.billTo || data.customerName || "Unknown").replace(/\n/g, "<br>");
+    document.getElementById("pInvShipName").innerHTML = (data.serviceLoc || data.locationStreet || "Unknown").replace(/\n/g, "<br>");
+
+    document.getElementById("pInvEquip").innerText = data.equip || "N/A";
+    document.getElementById("pInvNotes").innerText = data.notes || "N/A";
+    document.getElementById("pInvWork").innerText = data.work || "N/A";
+    
+    // Rebuild the Pricing Table
+    let tableHTML = "";
+    if (data.work && (!data.parts || data.parts.length === 0)) {
+       tableHTML += `<tr><td>Preventative Maintenance - ${data.work}</td><td></td></tr>`;
+    }
+
+    if (data.parts) {
+        data.parts.forEach(p => {
+            let lineTotal = p.retailUnit * p.qty;
+            let descDisplay = p.qty > 1 ? `${p.qty}x ${p.desc}` : p.desc;
+            tableHTML += `<tr><td>${descDisplay}</td><td>$${lineTotal.toFixed(2)}</td></tr>`;
+        });
+    }
+    
+    if(data.laborTotal > 0) tableHTML += `<tr><td>Labor charge</td><td>$${data.laborTotal.toFixed(2)}</td></tr>`;
+    if(data.tripTotal > 0) tableHTML += `<tr><td>Trip charge</td><td>$${data.tripTotal.toFixed(2)}</td></tr>`;
+    if(data.taxTotal > 0) tableHTML += `<tr><td>Sales Tax (5.5%)</td><td>$${data.taxTotal.toFixed(2)}</td></tr>`;
+    
+    document.getElementById("pInvTableBody").innerHTML = tableHTML;
+    
+    // Fill Totals
+    const grandStr = data.totalAmount || "$0.00";
+    document.getElementById("pTotal1").innerText = grandStr;
+    document.getElementById("pTotal2").innerText = grandStr;
+    document.getElementById("pInvGrandTotal").innerText = grandStr;
+    document.getElementById("pBottomTotal").innerText = grandStr;
+    
+    document.getElementById("pBottomCust").innerText = (data.customerId || "N/A") + " - " + (data.customerName || "Unknown");
+    document.getElementById("pBottomInv").innerText = data.invoiceNumber || "";
+
+    // Show it to the user
+    document.getElementById('invoiceResultsSection').style.display = 'block';
+    document.getElementById('printInvoiceView').classList.add('screen-preview');
+    document.getElementById('customerQuoteView').classList.remove('screen-preview');
+    document.getElementById('printInvoiceView').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
