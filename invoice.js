@@ -154,7 +154,7 @@ async function smartProcessLocation(locationStr) {
         }
 
         if (!foundLocally && streetSearch) {
-            document.getElementById('invLocNumInput').value = "Auto-generated";
+            document.getElementById('invLocNumInput').value = "LOC-" + Math.floor(1000 + Math.random() * 9000);
             streetInput.style.backgroundColor = "#fff3cd"; 
             const warning = document.createElement('div');
             warning.id = 'invLocWarning';
@@ -165,8 +165,8 @@ async function smartProcessLocation(locationStr) {
             streetInput.parentNode.appendChild(warning);
         }
     } else {
-        document.getElementById('invCustNumInput').value = "Auto-generated";
-        document.getElementById('invLocNumInput').value = "Auto-generated";
+        document.getElementById('invCustNumInput').value = "CST-" + Math.floor(1000 + Math.random() * 9000);
+        document.getElementById('invLocNumInput').value = "LOC-" + Math.floor(1000 + Math.random() * 9000);
         
         custNameInput.style.backgroundColor = "#fff3cd"; 
         const warning = document.createElement('div');
@@ -228,7 +228,7 @@ async function smartProcessLocation(locationStr) {
         }
     }
 
-    // Format the final visual Bill To and Service Loc Textboxes for the PDF
+    // Format the final visual Bill To Textboxes for the PDF
     const finalStreet = document.getElementById('invStreetInput').value;
     const finalCity = document.getElementById('invCityInput').value;
     const finalState = document.getElementById('invStateInput').value;
@@ -430,6 +430,10 @@ async function saveAndPrintInvoice() {
             if (dbLoc[nameInput].locations[locId].street === streetInput) { finalLocId = locId; break; }
         }
     }
+
+    // Fallback: Use whatever ID is currently sitting in the locked input box
+    if (finalCustId === "CST-XXXX") finalCustId = document.getElementById('invCustNumInput').value;
+    if (finalLocId === "LOC-XXXX") finalLocId = document.getElementById('invLocNumInput').value;
 
     if (typeof db === 'undefined') {
         alert("Firebase is not connected. Printing locally.");

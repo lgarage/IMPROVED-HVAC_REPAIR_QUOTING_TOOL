@@ -359,10 +359,7 @@
                         </div>
                         <div class="input-group">
                             <label>Customer #</label>
-                            <div class="gen-wrapper">
-                                <input type="text" id="scCustNumInput" placeholder="Auto-generated">
-                                <button type="button" class="gen-btn" onclick="generateRandomId('scCustNumInput', 'CST')">Gen</button>
-                            </div>
+                            <input type="text" id="scCustNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
                         </div>
                     </div>
 
@@ -388,10 +385,7 @@
                         </div>
                         <div class="input-group">
                             <label>Location #</label>
-                            <div class="gen-wrapper">
-                                <input type="text" id="scLocNumInput" placeholder="Auto-generated">
-                                <button type="button" class="gen-btn" onclick="generateRandomId('scLocNumInput', 'LOC')">Gen</button>
-                            </div>
+                            <input type="text" id="scLocNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
                         </div>
                     </div>
 
@@ -509,10 +503,7 @@
                         </div>
                         <div class="input-group">
                             <label>Customer #</label>
-                            <div class="gen-wrapper">
-                                <input type="text" id="custNumInput" placeholder="Auto-generated">
-                                <button type="button" class="gen-btn" onclick="generateRandomId('custNumInput', 'CST')">Gen</button>
-                            </div>
+                            <input type="text" id="custNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
                         </div>
                     </div>
 
@@ -530,10 +521,7 @@
                         </div>
                         <div class="input-group">
                             <label>Location #</label>
-                            <div class="gen-wrapper">
-                                <input type="text" id="locNumInput" placeholder="Auto-generated">
-                                <button type="button" class="gen-btn" onclick="generateRandomId('locNumInput', 'LOC')">Gen</button>
-                            </div>
+                            <input type="text" id="locNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
                         </div>
                     </div>
 
@@ -768,10 +756,7 @@
                         </div>
                         <div class="input-group">
                             <label>Customer #</label>
-                            <div class="gen-wrapper">
-                                <input type="text" id="invCustNumInput" placeholder="Auto-generated">
-                                <button type="button" class="gen-btn" onclick="generateRandomId('invCustNumInput', 'CST')">Gen</button>
-                            </div>
+                            <input type="text" id="invCustNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
                         </div>
                         <div class="input-group">
                             <label>Invoice # (Cloud Assigned)</label>
@@ -786,10 +771,7 @@
                         </div>
                         <div class="input-group">
                             <label>Location #</label>
-                            <div class="gen-wrapper">
-                                <input type="text" id="invLocNumInput" placeholder="Auto-generated">
-                                <button type="button" class="gen-btn" onclick="generateRandomId('invLocNumInput', 'LOC')">Gen</button>
-                            </div>
+                            <input type="text" id="invLocNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
                         </div>
                     </div>
                     <div class="form-row">
@@ -1381,18 +1363,30 @@
             if (!data.customerName || data.customerName === "UNKNOWN CUSTOMER" || data.customerName.length < 3) return;
             let db = getCustomerDB();
             
+            // 1. Handle Customer ID
             if (!db[data.customerName]) {
                 let custId = data.customerNum;
-                if (!custId || custId === "N/A" || custId === "") custId = `CST-${Math.floor(1000+Math.random()*9000)}`;
+                if (!custId || custId === "N/A" || custId === "Auto-generated" || custId === "") {
+                    custId = `CST-${Math.floor(1000+Math.random()*9000)}`;
+                }
                 db[data.customerName] = { id: custId, locations: {} };
-            } else if (data.customerNum && data.customerNum !== "N/A" && data.customerNum !== "") {
+                
+                // Force update the UI box if it was blank
+                let pfx = currentActiveView === 'service' ? 'sc' : (currentActiveView === 'invoice' ? 'inv' : '');
+                let idField = pfx ? pfx + 'CustNumInput' : 'custNumInput';
+                if (document.getElementById(idField)) document.getElementById(idField).value = custId;
+
+            } else if (data.customerNum && data.customerNum !== "N/A" && data.customerNum !== "" && data.customerNum !== "Auto-generated") {
                 db[data.customerName].id = data.customerNum;
             } 
             
+            // 2. Handle Location ID
             let street = data.locationAddress;
             if (street && street !== "UNKNOWN LOCATION" && street.length > 3) {
                 let locId = data.locationNum;
-                if (!locId || locId === "N/A" || locId === "") locId = `LOC-${Math.floor(1000+Math.random()*9000)}`;
+                if (!locId || locId === "N/A" || locId === "Auto-generated" || locId === "") {
+                    locId = `LOC-${Math.floor(1000+Math.random()*9000)}`;
+                }
                 
                 let existingLoc = db[data.customerName].locations[locId] || {};
                 db[data.customerName].locations[locId] = {
@@ -1401,6 +1395,11 @@
                     phone: data.contactPhone || existingLoc.phone || "",
                     email: data.contactEmail || existingLoc.email || ""
                 };
+
+                // Force update the UI box if it was blank
+                let pfx = currentActiveView === 'service' ? 'sc' : (currentActiveView === 'invoice' ? 'inv' : '');
+                let locField = pfx ? pfx + 'LocNumInput' : 'locNumInput';
+                if (document.getElementById(locField)) document.getElementById(locField).value = locId;
             }
             saveCustomerDB(db);
         }
@@ -2406,6 +2405,6 @@
         }
 
     </script>
-    <script src="invoice.js?v=2"></script>
+    <script src="invoice.js?v=5"></script>
 </body>
 </html>
