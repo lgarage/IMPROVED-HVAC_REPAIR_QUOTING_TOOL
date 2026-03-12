@@ -76,10 +76,13 @@ async function smartProcessLocation(locationStr) {
     let city = "";
     let streetSearch = "";
     let state = "WI"; 
+    let originalSiteName = "";
 
+    // Step 1: Split the tech note
     if (locationStr.includes("-")) {
         const parts = locationStr.split(/\s*-\s*/);
         custName = parts[0].trim().toUpperCase();
+        originalSiteName = custName;
         
         if (parts.length >= 3) {
             city = parts[1].trim().toUpperCase();
@@ -87,7 +90,31 @@ async function smartProcessLocation(locationStr) {
         } else if (parts.length === 2) {
             streetSearch = parts[1].trim().toUpperCase();
         }
+    } else {
+        originalSiteName = custName;
     }
+
+    // ==============================================================
+    // --- AUTO-PARSER DBA ALIAS DICTIONARY (THE MAGIC TRANSLATOR) ---
+    // ==============================================================
+    const dbaAliases = {
+        "TAKE 5": "AMERICAN PLATINUM DOOR & GATE"
+        // Add more here in the future! Format: "TECH NOTE NAME": "BILLING COMPANY"
+        // Example: "PLANET FITNESS": "NATIONAL FITNESS PARTNERS"
+    };
+
+    if (dbaAliases[originalSiteName]) {
+        // 1. Swap Customer Name to the Management Company
+        custName = dbaAliases[originalSiteName];
+        
+        // 2. Prepend the DBA to the Street Address (e.g., "TAKE 5 - 1821 N SHAWANO ST")
+        if (streetSearch && !streetSearch.startsWith(originalSiteName)) {
+            streetSearch = `${originalSiteName} - ${streetSearch}`;
+        } else if (!streetSearch) {
+            streetSearch = originalSiteName;
+        }
+    }
+    // ==============================================================
 
     const custNameInput = document.getElementById('invCustNameInput');
     const streetInput = document.getElementById('invStreetInput');
@@ -106,6 +133,7 @@ async function smartProcessLocation(locationStr) {
     let custData = db[custName];
     let foundLocally = false;
 
+    // Step 2: Check Local Database First
     if (custData) {
         document.getElementById('invCustNumInput').value = custData.id;
         for (let locId in custData.locations) {
@@ -148,16 +176,22 @@ async function smartProcessLocation(locationStr) {
         if(streetSearch) streetInput.style.backgroundColor = "#fff3cd";
     }
 
-    // Step 2: If the CRM doesn't have the exact details, ask Google Maps
+    // Step 3: Ask Google Maps to fill in missing gaps (Zip Codes, exact street numbering)
     if (!foundLocally && (city || streetSearch)) {
         try {
             document.getElementById("invServiceLoc").value = "Asking Google Maps...";
             
-            let query = `${custName} ${streetSearch} ${city} ${state}`;
+            // Strip the DBA off temporarily so Google Maps doesn't get confused
+            let cleanGoogleStreet = streetSearch;
+            if (dbaAliases[originalSiteName]) {
+                 cleanGoogleStreet = streetSearch.replace(`${originalSiteName} - `, '');
+            }
+            
+            let query = `${originalSiteName} ${cleanGoogleStreet} ${city} ${state}`;
             let googleAddress = await performGoogleSearch(query);
 
             if (!googleAddress) {
-                query = `${streetSearch} ${city} ${state}`;
+                query = `${cleanGoogleStreet} ${city} ${state}`;
                 googleAddress = await performGoogleSearch(query);
             }
 
@@ -173,7 +207,13 @@ async function smartProcessLocation(locationStr) {
                     const parsedCity = addrParts[addrParts.length - 2];
                     const parsedStreet = addrParts.slice(0, addrParts.length - 2).join(', ');
                     
-                    document.getElementById('invStreetInput').value = parsedStreet.toUpperCase();
+                    // Put the DBA back on for the final text box
+                    let finalStreetDisplay = parsedStreet.toUpperCase();
+                    if (dbaAliases[originalSiteName]) {
+                        finalStreetDisplay = `${originalSiteName} - ${finalStreetDisplay}`;
+                    }
+
+                    document.getElementById('invStreetInput').value = finalStreetDisplay;
                     document.getElementById('invCityInput').value = parsedCity.toUpperCase();
                     if(stateZip.length >= 1) document.getElementById('invStateInput').value = stateZip[0].toUpperCase();
                     if(stateZip.length >= 2) document.getElementById('invZipInput').value = stateZip[1];
@@ -184,7 +224,7 @@ async function smartProcessLocation(locationStr) {
         }
     }
 
-    // Format the final visual Bill To Textboxes
+    // Step 4: Format the final visual Bill To Textboxes for the PDF
     const finalStreet = document.getElementById('invStreetInput').value;
     const finalCity = document.getElementById('invCityInput').value;
     const finalState = document.getElementById('invStateInput').value;
