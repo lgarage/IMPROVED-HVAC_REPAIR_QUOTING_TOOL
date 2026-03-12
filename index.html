@@ -46,9 +46,9 @@
         button { cursor: pointer; border-radius: 4px; font-weight: bold; font-family: inherit; }
 
         /* Auto Uppercase */
-        input[type="text"]:not(#newRequoteNote):not(#customerSearch):not(#scIssueInput):not(#scNotesInput):not(#invPasteArea), 
+        input[type="text"]:not(#newRequoteNote):not(#customerSearch):not(#invoiceSearch):not(#scIssueInput):not(#scNotesInput):not(#invPasteArea), 
         textarea:not(#requoteNoteHistory):not(#scIssueInput):not(#scNotesInput):not(#invPasteArea) { text-transform: uppercase; }
-        #customerSearch { text-transform: uppercase; }
+        #customerSearch, #invoiceSearch { text-transform: uppercase; }
 
         /* --- Sidebar Stylings --- */
         .sidebar {
@@ -146,7 +146,8 @@
         .db-table th, .db-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eaeaea; vertical-align: middle; }
         .db-table th { background: #1e4b85; color: #fff; position: sticky; top: 0; z-index: 10;}
         
-        .preview-btn { background: #8e44ad; color: #fff; border: none; padding: 6px 12px; font-size: 12px; width: 100%;}
+        .preview-btn { background: #8e44ad; color: #fff; border: none; padding: 6px 12px; font-size: 12px; width: 100%; cursor: pointer;}
+        .preview-btn:hover { opacity: 0.9; }
         .edit-btn { background: #3498db; color: #fff; border: none; padding: 6px 12px; font-size: 12px; margin-right: 5px;}
         .delete-btn { background: #e74c3c; color: #fff; border: none; padding: 6px 12px; font-size: 12px; cursor: pointer;}
         .delete-btn:hover { background: #c0392b; }
@@ -735,9 +736,29 @@
 
         <div id="view-invoice" class="app-view">
             <div class="form-container" id="invoiceBuilder">
-                <div class="tool-header">
-                    <h2>Invoice Generator</h2>
-                    <button class="gen-btn" style="background-color: #7f8c8d; padding: 10px 15px;" onclick="clearInvoiceForm()">+ Clear Form</button>
+                <div class="tool-header" style="display: flex; align-items: center; justify-content: flex-start; gap: 30px;">
+                    <h2 style="margin: 0; white-space: nowrap;">Invoice Generator</h2>
+                    
+                    <input type="text" id="invoiceSearch" placeholder="🔍 Search past invoices (Name, Invoice #, Address)..." onkeyup="filterInvoices()" style="flex: 1; max-width: 500px; padding: 10px 15px; border: 2px solid #1e4b85; border-radius: 20px; font-size: 14px; outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
+                    
+                    <button class="gen-btn" style="background-color: #7f8c8d; padding: 10px 15px; margin-left: auto; white-space: nowrap;" onclick="clearInvoiceForm()">+ Clear Form</button>
+                </div>
+
+                <div style="max-height: 250px; overflow-y: auto; border: 1px solid #eaeaea; border-radius: 6px; margin-bottom: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                    <table class="db-table" style="width: 100%; margin: 0;">
+                        <thead style="position: sticky; top: 0; z-index: 10;">
+                            <tr>
+                                <th width="80">Preview</th>
+                                <th>Date</th>
+                                <th>Invoice #</th>
+                                <th>Customer</th>
+                                <th>Location</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoiceDbTableBody">
+                        </tbody>
+                    </table>
                 </div>
                 
                 <div class="form-section">
@@ -845,7 +866,7 @@
                         <span id="invSubtotalDisplay">$0.00</span>
                     </div>
                     <div class="inv-total-line" style="border-top: none; padding-top: 0; color:#555;">
-                        <span>Sales Tax (5.5%):</span>
+                        <span>Sales Tax (5.5%)</span>
                         <span id="invTaxDisplay">$0.00</span>
                     </div>
                     <div class="inv-total-line inv-grand-line" style="color:#27ae60;">
@@ -936,36 +957,6 @@
                     </div>
                 </div>
             </div>
-
-          <div class="database-section" style="margin-top: 0; margin-bottom: 30px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h2 style="margin: 0; color: #1e4b85;">Invoice Database & Search</h2>
-                    <input type="text" id="invoiceSearch" placeholder="Search by Invoice #, Customer Name, or Address..." onkeyup="filterInvoices()" style="width: 100%; max-width: 400px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
-                </div>
-                <div style="max-height: 300px; overflow-y: auto; border: 1px solid #eaeaea; border-radius: 4px;">
-                    <table class="db-table" style="width: 100%;">
-                        <thead>
-                            <tr>
-                                <th width="80">Preview</th>
-                                <th>Date</th>
-                                <th>Invoice #</th>
-                                <th>Customer</th>
-                                <th>Location</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody id="invoiceDbTableBody">
-                            </tbody>
-                    </table>
-                </div>
-            </div>
-            ```
-
-### Step 3: Bump the Cache Buster
-Scroll to the very bottom of the file and change the script link to **`?v=7`**:
-`<script src="invoice.js?v=7"></script>`
-
-**Save, Commit, Sync, and Hard Refresh (`Ctrl + Shift + R`).** You will now have a beautiful, scrollable search database sitting proudly at the top of the page, with your search bar perfectly aligned to the right! Let me know how it looks.
 
         </div>
 
@@ -1602,12 +1593,6 @@ Scroll to the very bottom of the file and change the script link to **`?v=7`**:
             if(confirm(`Are you sure you want to completely delete ${custName} and all of its locations?`)) {
                 let db = getCustomerDB(); delete db[custName]; saveCustomerDB(db); renderCustomerDirectory();
             }
-        }
-        function generateRandomId(inputId, prefix) {
-            const randomNum = Math.floor(1000 + Math.random() * 9000);
-            document.getElementById(inputId).value = `${prefix}-${randomNum}`;
-            if(currentActiveView === 'quoting') triggerQuoteAutoSave();
-            if(currentActiveView === 'service') triggerServiceAutoSave();
         }
 
         function checkCustomerAutoNumber(context) {
@@ -2417,6 +2402,6 @@ Scroll to the very bottom of the file and change the script link to **`?v=7`**:
         }
 
     </script>
-    <script src="invoice.js?v=6"></script>
+    <script src="invoice.js?v=8"></script>
 </body>
 </html>
