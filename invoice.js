@@ -50,7 +50,6 @@ function addInvoicePartRow(desc = "") {
 // --- GOOGLE PLACES API LOOKUP FUNCTION ---
 function performGoogleSearch(query) {
     return new Promise((resolve, reject) => {
-        // Wait briefly if Google Maps is still secretly loading from config.js
         if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
             console.log("Google Maps API not loaded yet.");
             resolve(null);
@@ -78,7 +77,6 @@ async function smartProcessLocation(locationStr) {
     let state = "WI"; 
     let originalSiteName = "";
 
-    // Step 1: Split the tech note
     if (locationStr.includes("-")) {
         const parts = locationStr.split(/\s*-\s*/);
         custName = parts[0].trim().toUpperCase();
@@ -99,20 +97,22 @@ async function smartProcessLocation(locationStr) {
     // ==============================================================
     const dbaAliases = {
         "TAKE 5": "AMERICAN PLATINUM DOOR & GATE"
-        // Add more here in the future! Format: "TECH NOTE NAME": "BILLING COMPANY"
-        // Example: "PLANET FITNESS": "NATIONAL FITNESS PARTNERS"
     };
 
-    if (dbaAliases[originalSiteName]) {
+    // Make it ultra-smart: check if the original name contains "TAKE 5"
+    let matchedAlias = Object.keys(dbaAliases).find(key => originalSiteName.includes(key));
+
+    if (matchedAlias) {
         // 1. Swap Customer Name to the Management Company
-        custName = dbaAliases[originalSiteName];
+        custName = dbaAliases[matchedAlias];
         
         // 2. Prepend the DBA to the Street Address (e.g., "TAKE 5 - 1821 N SHAWANO ST")
-        if (streetSearch && !streetSearch.startsWith(originalSiteName)) {
-            streetSearch = `${originalSiteName} - ${streetSearch}`;
+        if (streetSearch && !streetSearch.startsWith(matchedAlias)) {
+            streetSearch = `${matchedAlias} - ${streetSearch}`;
         } else if (!streetSearch) {
-            streetSearch = originalSiteName;
+            streetSearch = matchedAlias;
         }
+        originalSiteName = matchedAlias; // Keeps the memory synced
     }
     // ==============================================================
 
@@ -133,7 +133,6 @@ async function smartProcessLocation(locationStr) {
     let custData = db[custName];
     let foundLocally = false;
 
-    // Step 2: Check Local Database First
     if (custData) {
         document.getElementById('invCustNumInput').value = custData.id;
         for (let locId in custData.locations) {
@@ -176,7 +175,7 @@ async function smartProcessLocation(locationStr) {
         if(streetSearch) streetInput.style.backgroundColor = "#fff3cd";
     }
 
-    // Step 3: Ask Google Maps to fill in missing gaps (Zip Codes, exact street numbering)
+    // Ask Google Maps to fill in missing gaps
     if (!foundLocally && (city || streetSearch)) {
         try {
             document.getElementById("invServiceLoc").value = "Asking Google Maps...";
@@ -224,7 +223,7 @@ async function smartProcessLocation(locationStr) {
         }
     }
 
-    // Step 4: Format the final visual Bill To Textboxes for the PDF
+    // Format the final visual Bill To Textboxes
     const finalStreet = document.getElementById('invStreetInput').value;
     const finalCity = document.getElementById('invCityInput').value;
     const finalState = document.getElementById('invStateInput').value;
