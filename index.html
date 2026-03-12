@@ -2381,6 +2381,29 @@
             document.getElementById('printInvoiceView').classList.remove('screen-preview');
             window.print();
         }
+        // ====================================================================
+        // --- CRITICAL HELPERS FOR INVOICE BUTTONS ---
+        // ====================================================================
+
+        function todayDB() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        function today() {
+            const d = new Date();
+            return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
+        }
+
+        function getInvoiceMarkup(cost) {
+            if (cost <= 5) return 4.00;
+            if (cost <= 10) return 3.00;
+            if (cost <= 15) return 2.00;
+            if (cost <= 100) return 1.50;
+            if (cost <= 500) return 1.00;
+            if (cost <= 1000) return 0.85;
+            if (cost <= 1500) return 0.75;
+            return 0.65;
+        }
 
     </script>
     <script src="invoice.js"></script>
