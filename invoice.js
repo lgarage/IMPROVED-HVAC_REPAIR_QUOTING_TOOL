@@ -92,19 +92,24 @@ async function smartProcessLocation(locationStr) {
         originalSiteName = custName;
     }
 
-    // ==============================================================
-    // --- AUTO-PARSER DBA ALIAS DICTIONARY (THE MAGIC TRANSLATOR) ---
-    // ==============================================================
+    // =========================================================================================
+    // TODO (FUTURE FIX): REMOVE HARDCODED ALIASES AND MOVE THIS TO FIREBASE CUSTOMER DIRECTORY
+    // We need to build a "Parent/Child" UI so dispatchers can link these without touching code.
+    // =========================================================================================
     const dbaAliases = {
-        "TAKE 5": "AMERICAN PLATINUM DOOR & GATE"
+        "TAKE 5": {
+            company: "AMERICAN PLATINUM DOOR & GATE",
+            billToAddress: "AMERICAN PLATINUM DOOR & GATE\n29001 SOLON RD UNIT Q\nSOLON, OH 44139"
+        }
     };
 
-    // Make it ultra-smart: check if the original name contains "TAKE 5"
     let matchedAlias = Object.keys(dbaAliases).find(key => originalSiteName.includes(key));
+    let customBillTo = null;
 
     if (matchedAlias) {
         // 1. Swap Customer Name to the Management Company
-        custName = dbaAliases[matchedAlias];
+        custName = dbaAliases[matchedAlias].company;
+        customBillTo = dbaAliases[matchedAlias].billToAddress;
         
         // 2. Prepend the DBA to the Street Address (e.g., "TAKE 5 - 1821 N SHAWANO ST")
         if (streetSearch && !streetSearch.startsWith(matchedAlias)) {
@@ -112,9 +117,9 @@ async function smartProcessLocation(locationStr) {
         } else if (!streetSearch) {
             streetSearch = matchedAlias;
         }
-        originalSiteName = matchedAlias; // Keeps the memory synced
+        originalSiteName = matchedAlias; 
     }
-    // ==============================================================
+    // =========================================================================================
 
     const custNameInput = document.getElementById('invCustNameInput');
     const streetInput = document.getElementById('invStreetInput');
@@ -223,14 +228,13 @@ async function smartProcessLocation(locationStr) {
         }
     }
 
-    // Format the final visual Bill To Textboxes
+    // Format the final visual Bill To and Service Loc Textboxes for the PDF
     const finalStreet = document.getElementById('invStreetInput').value;
     const finalCity = document.getElementById('invCityInput').value;
     const finalState = document.getElementById('invStateInput').value;
     const finalZip = document.getElementById('invZipInput').value;
 
-    let formattedLoc = custName;
-    if(finalStreet) formattedLoc += "\n" + finalStreet;
+    let formattedLoc = finalStreet;
     
     let csz = [];
     if(finalCity) csz.push(finalCity);
@@ -240,8 +244,15 @@ async function smartProcessLocation(locationStr) {
     if(sz.length > 0) csz.push(sz.join(" "));
     if(csz.length > 0) formattedLoc += "\n" + csz.join(", ");
 
-    document.getElementById('invBillTo').value = formattedLoc;
+    // Service Location gets the physical site address
     document.getElementById('invServiceLoc').value = formattedLoc;
+
+    // Bill To gets the corporate OH address if defined, otherwise it matches the Service Loc
+    if (customBillTo) {
+        document.getElementById('invBillTo').value = customBillTo;
+    } else {
+        document.getElementById('invBillTo').value = custName + "\n" + formattedLoc;
+    }
 }
 
 // Fires when clicking out of the Paste Box
