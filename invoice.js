@@ -2,7 +2,7 @@
 // --- INVOICE CLOUD LOGIC & GOOGLE MAPS PARSING ---
 // ====================================================================
 
-let cloudInvoices = []; // Stores the database list in local memory for instant searching
+let cloudInvoices = []; // Memory array for instant searching
 
 function clearInvoiceForm() {
     document.getElementById('invPasteArea').value = "";
@@ -56,10 +56,8 @@ function performGoogleSearch(query) {
             resolve(null);
             return;
         }
-        
         const dummyDiv = document.createElement('div');
         const service = new google.maps.places.PlacesService(dummyDiv);
-        
         service.textSearch({ query: query }, (results, status) => {
             if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
                 resolve(results[0].formatted_address);
@@ -70,48 +68,69 @@ function performGoogleSearch(query) {
     });
 }
 
+// --- UPGRADED SMART CRM LOOKUP ENGINE ---
 async function smartProcessLocation(locationStr) {
-    let custName = locationStr.trim().toUpperCase();
+    // Force normal hyphens to fix iOS/Android em-dash formatting
+    let rawInput = locationStr.trim().toUpperCase().replace(/[–—]/g, '-');
+    let custName = rawInput;
     let city = "";
     let streetSearch = "";
     let state = "WI"; 
-    let originalSiteName = "";
-
-    if (locationStr.includes("-")) {
-        const parts = locationStr.split(/\s*-\s*/);
-        custName = parts[0].trim().toUpperCase();
-        originalSiteName = custName;
-        
-        if (parts.length >= 3) {
-            city = parts[1].trim().toUpperCase();
-            streetSearch = parts[2].trim().toUpperCase();
-        } else if (parts.length === 2) {
-            streetSearch = parts[1].trim().toUpperCase();
-        }
-    } else {
-        originalSiteName = custName;
-    }
+    let originalSiteName = rawInput;
 
     const dbaAliases = {
         "TAKE 5": {
             company: "AMERICAN PLATINUM DOOR & GATE",
             billToAddress: "AMERICAN PLATINUM DOOR & GATE\n29001 SOLON RD UNIT Q\nSOLON, OH 44139"
+        },
+        "TAKE FIVE": {
+            company: "AMERICAN PLATINUM DOOR & GATE",
+            billToAddress: "AMERICAN PLATINUM DOOR & GATE\n29001 SOLON RD UNIT Q\nSOLON, OH 44139"
         }
     };
 
-    let matchedAlias = Object.keys(dbaAliases).find(key => originalSiteName.includes(key));
+    let matchedAlias = Object.keys(dbaAliases).find(key => rawInput.includes(key));
     let customBillTo = null;
 
     if (matchedAlias) {
+        // Step 1: Swap Customer Name to the Management Company
+        originalSiteName = matchedAlias;
         custName = dbaAliases[matchedAlias].company;
         customBillTo = dbaAliases[matchedAlias].billToAddress;
         
-        if (streetSearch && !streetSearch.startsWith(matchedAlias)) {
-            streetSearch = `${matchedAlias} - ${streetSearch}`;
-        } else if (!streetSearch) {
-            streetSearch = matchedAlias;
+        // Step 2: Strip the DBA name out of the string so the parser doesn't get confused
+        let restOfStr = rawInput.replace(new RegExp(matchedAlias, "i"), "").replace(/^-+|-+$/g, '').trim();
+
+        // Step 3: Find the actual street number (e.g. 1821 or 648)
+        let addressMatch = restOfStr.match(/\b\d+\b/);
+        if (addressMatch) {
+            let addrIndex = addressMatch.index;
+            city = restOfStr.substring(0, addrIndex).replace(/-/, '').trim();
+            let foundStreet = restOfStr.substring(addrIndex).replace(/^-/, '').trim();
+            streetSearch = `${matchedAlias} - ${foundStreet}`;
+        } else {
+            streetSearch = `${matchedAlias} - ${restOfStr}`;
         }
-        originalSiteName = matchedAlias; 
+    } else {
+        // Normal parsing for non-aliased names
+        if (rawInput.includes("-")) {
+            const parts = rawInput.split(/\s*-\s*/);
+            custName = parts[0].trim();
+            originalSiteName = custName;
+            if (parts.length >= 3) {
+                city = parts[1].trim();
+                streetSearch = parts[2].trim();
+            } else if (parts.length === 2) {
+                streetSearch = parts[1].trim();
+            }
+        } else {
+            let addressMatch = rawInput.match(/\b\d+\s+[A-Z]+/i);
+            if (addressMatch) {
+                originalSiteName = rawInput.substring(0, addressMatch.index).trim();
+                custName = originalSiteName;
+                streetSearch = rawInput.substring(addressMatch.index).trim();
+            }
+        }
     }
 
     const custNameInput = document.getElementById('invCustNameInput');
@@ -127,8 +146,8 @@ async function smartProcessLocation(locationStr) {
     if(document.getElementById('invCustWarning')) document.getElementById('invCustWarning').remove();
     if(document.getElementById('invLocWarning')) document.getElementById('invLocWarning').remove();
 
-    let db = getCustomerDB(); 
-    let custData = db[custName];
+    let dbLocal = getCustomerDB(); 
+    let custData = dbLocal[custName];
     let foundLocally = false;
 
     if (custData) {
@@ -145,7 +164,6 @@ async function smartProcessLocation(locationStr) {
                 break;
             }
         }
-
         if (!foundLocally && streetSearch) {
             document.getElementById('invLocNumInput').value = "LOC-" + Math.floor(1000 + Math.random() * 9000);
             streetInput.style.backgroundColor = "#fff3cd"; 
@@ -176,17 +194,16 @@ async function smartProcessLocation(locationStr) {
     if (!foundLocally && (city || streetSearch)) {
         try {
             document.getElementById("invServiceLoc").value = "Asking Google Maps...";
-            
             let cleanGoogleStreet = streetSearch;
-            if (dbaAliases[originalSiteName]) {
-                 cleanGoogleStreet = streetSearch.replace(`${originalSiteName} - `, '');
+            if (matchedAlias) {
+                 cleanGoogleStreet = streetSearch.replace(`${matchedAlias} - `, '');
             }
             
-            let query = `${originalSiteName} ${cleanGoogleStreet} ${city} ${state}`;
+            let query = `${cleanGoogleStreet} ${city} ${state}`.trim();
             let googleAddress = await performGoogleSearch(query);
 
-            if (!googleAddress) {
-                query = `${cleanGoogleStreet} ${city} ${state}`;
+            if (!googleAddress && matchedAlias) {
+                query = `${matchedAlias} ${cleanGoogleStreet} ${city} ${state}`.trim();
                 googleAddress = await performGoogleSearch(query);
             }
 
@@ -200,8 +217,8 @@ async function smartProcessLocation(locationStr) {
                     const parsedStreet = addrParts.slice(0, addrParts.length - 2).join(', ');
                     
                     let finalStreetDisplay = parsedStreet.toUpperCase();
-                    if (dbaAliases[originalSiteName]) {
-                        finalStreetDisplay = `${originalSiteName} - ${finalStreetDisplay}`;
+                    if (matchedAlias) {
+                        finalStreetDisplay = `${matchedAlias} - ${finalStreetDisplay}`;
                     }
 
                     document.getElementById('invStreetInput').value = finalStreetDisplay;
@@ -242,8 +259,9 @@ async function parsePastedNotes() {
     const text = document.getElementById("invPasteArea").value;
     if (!text) return;
 
-    const extract = (header) => {
-        const regex = new RegExp(`${header}:\\s*\\n(.*?)(?=\\n[A-Z][a-zA-Z /]+:|$)`, 'is');
+    // More forgiving extractor: Ignores spaces in headers and captures to next double line-break
+    const extract = (pattern) => {
+        const regex = new RegExp(`${pattern}:?\\s*(.*?)(?=\\n\\s*\\n|$)`, 'is');
         const m = text.match(regex);
         return m && m[1] ? m[1].trim() : "";
     };
@@ -251,20 +269,22 @@ async function parsePastedNotes() {
     const locRaw = extract("Location");
     if (locRaw) await smartProcessLocation(locRaw);
 
-    const equip = extract("Equipment on Site") || extract("Equipment worked on");
+    const equip = extract("Equipment on [Ss]ite") || extract("Equipment worked on");
     if (equip) document.getElementById("invEquip").value = equip.replace(/\n/g, ", ");
 
-    const notes = extract("Notes / Repairs") || extract("Findings / Diagnosis");
+    const notes = extract("Notes\\s*/\\s*repairs") || extract("Findings\\s*/\\s*Diagnosis");
     if (notes) document.getElementById("invNotes").value = notes;
 
     const work = extract("Work done") || extract("Repairs made");
     if (work) document.getElementById("invWork").value = work;
 
-    const parts = extract("Parts used");
-    if (parts && parts.toUpperCase() !== "NONE") {
-        document.getElementById('invPartsContainer').innerHTML = `<div class="inv-parts-grid-layout part-header-row"><label>QTY</label><label>Part Description</label><label>Our Cost $</label><label style="color:#27ae60;">Retail $ (Auto)</label><label></label></div>`;
-        addInvoicePartRow("Preventative Maintenance parts"); 
-    }
+    let parts = extract("Parts used");
+    if (text.match(/no parts used/i)) parts = "NONE";
+
+    // Always pre-fill PM Parts Row for default ease of use
+    document.getElementById('invPartsContainer').innerHTML = `<div class="inv-parts-grid-layout part-header-row"><label>QTY</label><label>Part Description</label><label>Our Cost $</label><label style="color:#27ae60;">Retail $ (Auto)</label><label></label></div>`;
+    addInvoicePartRow("Preventative Maintenance parts"); 
+    
     calcInvoice();
 }
 
@@ -304,24 +324,31 @@ function calcInvoice() {
 }
 
 async function fetchNextInvoiceNumber() {
-    if (typeof db === 'undefined') {
-        document.getElementById("invNum").value = "INV-1000 (Local)";
+    let firestoreDb;
+    try {
+        firestoreDb = firebase.firestore();
+    } catch(e) {
+        document.getElementById("invNum").value = "INV-10001 (Local)";
         return;
     }
+
     try {
-        const docRef = db.collection('metadata').doc('invoiceData');
+        const docRef = firestoreDb.collection('metadata').doc('invoiceData');
         const docSnap = await docRef.get();
-        let nextNum = 1000;
+        let nextNum = 10001; 
+        
         if (docSnap.exists && docSnap.data().lastInvoiceNumber) {
             nextNum = docSnap.data().lastInvoiceNumber + 1;
+            if (nextNum < 10001) nextNum = 10001; 
         } else {
-            await docRef.set({ lastInvoiceNumber: 999 });
+            await docRef.set({ lastInvoiceNumber: 10000 }, { merge: true });
         }
+        
         document.getElementById("invNum").value = "INV-" + nextNum;
         fetchedNextInvoice = true;
     } catch (error) {
         console.error("Firebase connection error:", error);
-        document.getElementById("invNum").value = "INV-XXXX";
+        document.getElementById("invNum").value = "INV-10001 (Local)";
     }
 }
 
@@ -414,7 +441,10 @@ async function saveAndPrintInvoice() {
     if (finalCustId === "CST-XXXX") finalCustId = document.getElementById('invCustNumInput').value;
     if (finalLocId === "LOC-XXXX") finalLocId = document.getElementById('invLocNumInput').value;
 
-    if (typeof db === 'undefined') {
+    let firestoreDb;
+    try {
+        firestoreDb = firebase.firestore();
+    } catch(e) {
         alert("Firebase is not connected. Printing locally.");
         document.getElementById('customerQuoteView').style.display = 'none';
         document.getElementById('printInvoiceView').classList.remove('screen-preview');
@@ -425,7 +455,6 @@ async function saveAndPrintInvoice() {
     const invNumText = document.getElementById("invNum").value;
     const grandTotal = document.getElementById("invGrandDisplay").innerText;
     
-    // --- GATHER FULL INVOICE DATA FOR CLOUD REGENERATION ---
     const mathData = calcInvoice();
     let partsData = [];
     document.querySelectorAll('.inv-part-line').forEach(row => {
@@ -438,7 +467,7 @@ async function saveAndPrintInvoice() {
     document.getElementById("pBottomCust").innerText = finalCustId + " - " + nameInput;
 
     try {
-        await db.collection('invoices').add({
+        await firestoreDb.collection('invoices').add({
             invoiceNumber: invNumText,
             date: todayDB(),
             customerName: nameInput,
@@ -461,7 +490,7 @@ async function saveAndPrintInvoice() {
 
         const numOnly = parseInt(invNumText.replace("INV-", ""));
         if (!isNaN(numOnly)) {
-             await db.collection('metadata').doc('invoiceData').set({
+             await firestoreDb.collection('metadata').doc('invoiceData').set({
                  lastInvoiceNumber: numOnly
              }, { merge: true });
         }
@@ -484,14 +513,15 @@ async function saveAndPrintInvoice() {
     }
 }
 
-// ====================================================================
-// --- INVOICE SEARCH & VIEW OLD INVOICE ENGINE ---
-// ====================================================================
-
 function loadFirebaseInvoices() {
-    if (typeof db === 'undefined') return;
+    let firestoreDb;
+    try {
+        firestoreDb = firebase.firestore();
+    } catch(e) {
+        return;
+    }
     
-    db.collection('invoices').orderBy('timestamp', 'desc').limit(50).get().then(snapshot => {
+    firestoreDb.collection('invoices').orderBy('timestamp', 'desc').limit(50).get().then(snapshot => {
         cloudInvoices = [];
         snapshot.forEach(doc => {
             cloudInvoices.push({ id: doc.id, ...doc.data() });
@@ -520,7 +550,7 @@ function renderInvoiceTable(filterText = "") {
         if (searchString.includes(lowerFilter)) {
             hasResults = true;
             tbody.innerHTML += `
-                <tr>
+                <tr style="border-bottom: 1px solid #eaeaea;">
                     <td><button class="preview-btn" style="background:#3498db; cursor:pointer;" onclick="viewOldInvoice('${data.id}')">View</button></td>
                     <td>${data.date || ''}</td>
                     <td><strong>${data.invoiceNumber || ''}</strong></td>
@@ -546,10 +576,8 @@ function viewOldInvoice(docId) {
     const data = cloudInvoices.find(inv => inv.id === docId);
     if(!data) return;
 
-    // Fill in basic PDF Text
     document.getElementById("pInvNum").innerText = data.invoiceNumber || "";
     
-    // Format Date from YYYY-MM-DD to M/D/YYYY
     let dateStr = data.date || "";
     if (dateStr.includes('-')) {
         let parts = dateStr.split('-');
@@ -564,7 +592,6 @@ function viewOldInvoice(docId) {
     document.getElementById("pInvNotes").innerText = data.notes || "N/A";
     document.getElementById("pInvWork").innerText = data.work || "N/A";
     
-    // Rebuild the Pricing Table
     let tableHTML = "";
     if (data.work && (!data.parts || data.parts.length === 0)) {
        tableHTML += `<tr><td>Preventative Maintenance - ${data.work}</td><td></td></tr>`;
@@ -584,7 +611,6 @@ function viewOldInvoice(docId) {
     
     document.getElementById("pInvTableBody").innerHTML = tableHTML;
     
-    // Fill Totals
     const grandStr = data.totalAmount || "$0.00";
     document.getElementById("pTotal1").innerText = grandStr;
     document.getElementById("pTotal2").innerText = grandStr;
@@ -594,7 +620,6 @@ function viewOldInvoice(docId) {
     document.getElementById("pBottomCust").innerText = (data.customerId || "N/A") + " - " + (data.customerName || "Unknown");
     document.getElementById("pBottomInv").innerText = data.invoiceNumber || "";
 
-    // Show it to the user
     document.getElementById('invoiceResultsSection').style.display = 'block';
     document.getElementById('printInvoiceView').classList.add('screen-preview');
     document.getElementById('customerQuoteView').classList.remove('screen-preview');
