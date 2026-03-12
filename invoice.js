@@ -83,7 +83,7 @@ async function smartProcessLocation(locationStr) {
             company: "AMERICAN PLATINUM DOOR & GATE",
             billToAddress: "AMERICAN PLATINUM DOOR & GATE\n29001 SOLON RD UNIT Q\nSOLON, OH 44139"
         },
-        "TAKE FIVE": {
+        "TAKE FIVE": { // Captures the spelled out version!
             company: "AMERICAN PLATINUM DOOR & GATE",
             billToAddress: "AMERICAN PLATINUM DOOR & GATE\n29001 SOLON RD UNIT Q\nSOLON, OH 44139"
         }
@@ -101,15 +101,27 @@ async function smartProcessLocation(locationStr) {
         // Step 2: Strip the DBA name out of the string so the parser doesn't get confused
         let restOfStr = rawInput.replace(new RegExp(matchedAlias, "i"), "").replace(/^-+|-+$/g, '').trim();
 
-        // Step 3: Find the actual street number (e.g. 1821 or 648)
-        let addressMatch = restOfStr.match(/\b\d+\b/);
-        if (addressMatch) {
-            let addrIndex = addressMatch.index;
-            city = restOfStr.substring(0, addrIndex).replace(/-/, '').trim();
-            let foundStreet = restOfStr.substring(addrIndex).replace(/^-/, '').trim();
-            streetSearch = `${matchedAlias} - ${foundStreet}`;
+        // Step 3: Handle hyphens vs non-hyphens
+        if (restOfStr.includes("-")) {
+             let parts = restOfStr.split(/\s*-\s*/);
+             if (parts.length >= 2) {
+                 city = parts[0].trim();
+                 streetSearch = parts[1].trim();
+             } else {
+                 streetSearch = restOfStr;
+             }
+             streetSearch = `${matchedAlias} - ${streetSearch}`;
         } else {
-            streetSearch = `${matchedAlias} - ${restOfStr}`;
+             // Fallback for no hyphens (e.g. "NEW LONDON 1821 N SHAWANO ST")
+             let addressMatch = restOfStr.match(/\b\d+\b/);
+             if (addressMatch) {
+                 let addrIndex = addressMatch.index;
+                 city = restOfStr.substring(0, addrIndex).trim();
+                 let foundStreet = restOfStr.substring(addrIndex).trim();
+                 streetSearch = `${matchedAlias} - ${foundStreet}`;
+             } else {
+                 streetSearch = `${matchedAlias} - ${restOfStr}`;
+             }
         }
     } else {
         // Normal parsing for non-aliased names
@@ -259,9 +271,11 @@ async function parsePastedNotes() {
     const text = document.getElementById("invPasteArea").value;
     if (!text) return;
 
-    // More forgiving extractor: Ignores spaces in headers and captures to next double line-break
+    // Smart lookahead prevents the extractor from needing double line-breaks
+    const nextHeader = "(?:\\n\\s*(?:Location|Date|Equipment|Notes|Work|Parts|Cost|Pictures)[a-zA-Z0-9 \\/\\(\\)]*?:|$)";
+    
     const extract = (pattern) => {
-        const regex = new RegExp(`${pattern}:?\\s*(.*?)(?=\\n\\s*\\n|$)`, 'is');
+        const regex = new RegExp(`${pattern}:?\\s*(.*?)(?=${nextHeader})`, 'is');
         const m = text.match(regex);
         return m && m[1] ? m[1].trim() : "";
     };
@@ -272,14 +286,11 @@ async function parsePastedNotes() {
     const equip = extract("Equipment on [Ss]ite") || extract("Equipment worked on");
     if (equip) document.getElementById("invEquip").value = equip.replace(/\n/g, ", ");
 
-    const notes = extract("Notes\\s*/\\s*repairs") || extract("Findings\\s*/\\s*Diagnosis");
+    const notes = extract("Notes\\s*[/\\\\]\\s*repairs") || extract("Findings\\s*[/\\\\]\\s*Diagnosis");
     if (notes) document.getElementById("invNotes").value = notes;
 
     const work = extract("Work done") || extract("Repairs made");
     if (work) document.getElementById("invWork").value = work;
-
-    let parts = extract("Parts used");
-    if (text.match(/no parts used/i)) parts = "NONE";
 
     // Always pre-fill PM Parts Row for default ease of use
     document.getElementById('invPartsContainer').innerHTML = `<div class="inv-parts-grid-layout part-header-row"><label>QTY</label><label>Part Description</label><label>Our Cost $</label><label style="color:#27ae60;">Retail $ (Auto)</label><label></label></div>`;
