@@ -1,0 +1,413 @@
+// ====================================================================
+// --- MAP ENGINE & DISPATCH BOARD LOGIC ---
+// ====================================================================
+
+function initMap() {
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    });
+
+    dispatchMap = L.map('dispatchMapContainer', { zoomControl: false }).setView([44.5133, -88.0133], 12);
+    L.control.zoom({ position: 'bottomright' }).addTo(dispatchMap);
+
+    streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
+    satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
+
+    streetLayer.addTo(dispatchMap); 
+    markerLayer = L.layerGroup().addTo(dispatchMap);
+}
+
+function setMapType(type) {
+    if (type === 'm') { dispatchMap.removeLayer(satLayer); streetLayer.addTo(dispatchMap); } 
+    else { dispatchMap.removeLayer(streetLayer); satLayer.addTo(dispatchMap); }
+}
+
+async function plotMarkerOnMap(address, sc) {
+    if (!address || address.includes("UNKNOWN LOCATION")) return;
+    let cache = JSON.parse(localStorage.getItem('tp_geo_cache') || '{}');
+    if (cache[address]) { addCustomPin(cache[address], sc); return; }
+
+    try {
+        let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+        let data = await res.json();
+        if (data && data.length > 0) {
+            let coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+            cache[address] = coords;
+            localStorage.setItem('tp_geo_cache', JSON.stringify(cache));
+            addCustomPin(coords, sc);
+        } else {
+            let fallback = [44.5133 + (Math.random()-0.5)*0.05, -88.0133 + (Math.random()-0.5)*0.05];
+            addCustomPin(fallback, sc);
+        }
+    } catch(e) { console.log("Geocode failed", e); }
+}
+
+function addCustomPin(coords, sc) {
+    let color = '#3498db'; 
+    if(sc.priority === 'Emergency') color = '#e74c3c';
+    if(sc.priority === 'Urgent') color = '#f39c12';
+    if(sc.priority === 'Routine') color = '#95a5a6';
+
+    const markerHtml = `<div style="background-color: ${color}; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.6);"></div>`;
+    const customIcon = L.divIcon({ html: markerHtml, className: 'custom-leaflet-marker', iconSize: [22, 22], iconAnchor: [11, 11] });
+    let marker = L.marker(coords, {icon: customIcon}).addTo(markerLayer);
+    marker.bindPopup(`<strong style="color:#1e4b85;">${sc.customerName}</strong><br>${sc.ticketNum}<br><button class="gen-btn" style="margin-top:8px; padding:4px 8px; font-size:11px; background:#2ecc71; width:100%;" onclick="openTicketDetails('${sc.id}')">View Details</button>`);
+}
+
+function centerMapOnTicket(dbId) {
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    const sc = db.find(s => s.id === dbId);
+    if (!sc) return;
+    const fullAddress = `${sc.locationAddress}, ${sc.custCity}, ${sc.custState} ${sc.custZip}`;
+    let cache = JSON.parse(localStorage.getItem('tp_geo_cache') || '{}');
+    if (cache[fullAddress]) { dispatchMap.flyTo(cache[fullAddress], 16, { animate: true, duration: 1.5 }); }
+}
+
+function initDragAndDrop() {
+    const requestList = document.getElementById('serviceRequestList');
+    requestList.addEventListener('dragstart', e => { if(e.target.classList.contains('glass-card')) e.target.classList.add('dragging'); });
+    requestList.addEventListener('dragend', e => { if(e.target.classList.contains('glass-card')) { e.target.classList.remove('dragging'); saveBoardOrder(); }});
+    requestList.addEventListener('dragover', e => {
+        e.preventDefault();
+        const afterElement = getDragAfterElement(requestList, e.clientY);
+        const draggable = document.querySelector('.dragging');
+        if(draggable) {
+            if (afterElement == null) requestList.appendChild(draggable);
+            else requestList.insertBefore(draggable, afterElement);
+        }
+    });
+}
+
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.glass-card:not(.dragging)')];
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } 
+        else { return closest; }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+function saveBoardOrder() {
+    const cards = document.querySelectorAll('#serviceRequestList .glass-card');
+    const visualIds = Array.from(cards).map(card => card.getAttribute('data-id'));
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    let newDb = [];
+    visualIds.reverse().forEach(id => { let item = db.find(sc => sc.id === id); if(item) newDb.push(item); });
+    localStorage.setItem('twinPillarsServiceDB', JSON.stringify(newDb));
+    renderScheduleTimelineOnly(); 
+}
+
+function renderScheduleTimelineOnly() {
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    const timelineContainer = document.getElementById('scheduleTimeline');
+    timelineContainer.innerHTML = "";
+    let techCounter = 1; 
+
+    [...db].reverse().forEach((sc, index) => {
+        if (sc.status !== 'Canceled') {
+            let leftOffset = 10 + (index * 15) % 60; 
+            let width = 20 + (sc.issue.length % 20); 
+            let blockColor = sc.priority === 'Emergency' ? '#e74c3c' : (sc.priority === 'Urgent' ? '#f39c12' : '#3498db');
+            let statusLabel = sc.status === 'Unassigned' ? 'Unassigned Block' : sc.ticketNum;
+            if (sc.status === 'Unassigned') blockColor = '#bdc3c7'; 
+            let techNameDisplay = sc.assignedTech && sc.assignedTech !== 'Unassigned' ? sc.assignedTech.split(' ')[0] : 'Unassigned';
+
+            timelineContainer.innerHTML += `
+                <div class="tech-row">
+                    <div class="tech-name" title="${sc.assignedTech || 'Unassigned'}">${techNameDisplay}</div>
+                    <div class="time-blocks" style="width: 100%; position: relative; margin-left: 90px; height: 100%;">
+                        <div class="job-block" style="left: ${leftOffset}%; width: ${width}%; background: ${blockColor}; cursor: pointer;" onclick="openTicketDetails('${sc.id}')" title="${sc.customerName} - ${sc.issue}">
+                            ${statusLabel}
+                        </div>
+                    </div>
+                </div>
+            `;
+            techCounter++;
+            if(techCounter > 5) techCounter = 1; 
+        }
+    });
+}
+
+function triggerServiceAutoSave() {
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(() => { saveServiceCall(true); }, 250); 
+}
+
+function setNextServiceNumber() {
+    let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
+    document.getElementById('scTicketNumberInput').value = 'SRV-' + counter;
+}
+
+function incrementServiceNumber() {
+    let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
+    localStorage.setItem('tp_service_counter', counter + 1);
+}
+
+function gatherServiceData() {
+    return {
+        id: document.getElementById('scCurrentId').value,
+        ticketNum: document.getElementById('scTicketNumberInput').value,
+        date: document.getElementById('scDateInput').value,
+        customerName: document.getElementById('scCustNameInput').value.trim().toUpperCase() || "UNKNOWN CUSTOMER",
+        customerNum: document.getElementById('scCustNumInput').value || "N/A",
+        contactName: document.getElementById('scContactNameInput').value.trim().toUpperCase(),
+        contactPhone: document.getElementById('scContactPhoneInput').value.trim(),
+        contactEmail: document.getElementById('scContactEmailInput').value.trim(),
+        locationAddress: document.getElementById('scCustStreetInput').value.trim().toUpperCase(),
+        custCity: document.getElementById('scCustCityInput').value.trim().toUpperCase(),
+        custState: document.getElementById('scCustStateInput').value.trim().toUpperCase(),
+        custZip: document.getElementById('scCustZipInput').value.trim().toUpperCase(),
+        locationNum: document.getElementById('scLocNumInput').value || "N/A",
+        jobType: document.getElementById('scJobTypeInput').value,
+        priority: document.getElementById('scPriorityInput').value,
+        assignedTech: document.getElementById('scAssignedTechInput').value,
+        status: document.getElementById('scStatusInput').value,
+        issue: document.getElementById('scIssueInput').value.trim(),
+        equip: document.getElementById('scEquipInput').value.trim().toUpperCase(),
+        notes: document.getElementById('scNotesInput').value.trim()
+    };
+}
+
+function clearServiceForm() {
+    document.getElementById('scCurrentId').value = "";
+    document.getElementById('scCustNameInput').value = "";
+    document.getElementById('scCustNumInput').value = "";
+    document.getElementById('scContactNameInput').value = "";
+    document.getElementById('scContactPhoneInput').value = "";
+    document.getElementById('scContactEmailInput').value = "";
+    document.getElementById('scCustStreetInput').value = "";
+    document.getElementById('scCustCityInput').value = "";
+    document.getElementById('scCustStateInput').value = "";
+    document.getElementById('scCustZipInput').value = "";
+    document.getElementById('scLocNumInput').value = "";
+    document.getElementById('scJobTypeInput').value = "Diagnostic / Repair";
+    document.getElementById('scPriorityInput').value = "Standard";
+    document.getElementById('scAssignedTechInput').value = "Unassigned";
+    document.getElementById('scStatusInput').value = "Unassigned";
+    document.getElementById('scIssueInput').value = "";
+    document.getElementById('scEquipInput').value = "";
+    document.getElementById('scNotesInput').value = "";
+    
+    document.getElementById('scDateInput').valueAsDate = new Date();
+    setNextServiceNumber();
+    document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function saveServiceCall(isAutoSave = false) {
+    const data = gatherServiceData();
+    
+    if (isAutoSave && data.id === "" && data.customerName === "UNKNOWN CUSTOMER") return false;
+
+    if (!isAutoSave) {
+        if (data.customerName === "UNKNOWN CUSTOMER" || data.issue === "") {
+            alert("A Customer Name and Reported Issue are required to log a service call.");
+            return false;
+        }
+        syncCustomerToDirectory(data);
+    } else if (data.id !== "") {
+        syncCustomerToDirectory(data); 
+    }
+
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+
+    if (data.id) {
+        const index = db.findIndex(sc => sc.id === data.id);
+        if (index !== -1) {
+            db[index] = data;
+            if (!isAutoSave) { showSaveCue("✓ Ticket Updated!"); clearServiceForm(); }
+        }
+    } else {
+        if (!isAutoSave) { 
+            data.id = 'SC-ID-' + Date.now(); 
+            db.push(data);
+            incrementServiceNumber(); 
+            showSaveCue(`✓ Ticket Logged! (${data.ticketNum})`);
+            clearServiceForm();
+        } else { return false; } 
+    }
+
+    localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+    renderServiceBoard();
+    if (isAutoSave) showSaveCue("✓ Auto-Saved");
+    return true;
+}
+
+function openTicketDetails(dbId) {
+    currentOpenDetailsId = dbId;
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    const sc = db.find(s => s.id === dbId);
+    if (!sc) return;
+
+    document.getElementById('tdModalTitle').innerText = `Ticket ${sc.ticketNum} - ${sc.customerName}`;
+    
+    let contactStr = sc.contactName ? `<strong>${sc.contactName}</strong>` : `N/A`;
+    if(sc.contactPhone) contactStr += ` | ${sc.contactPhone}`;
+    if(sc.contactEmail) contactStr += ` | ${sc.contactEmail}`;
+
+    document.getElementById('tdModalContent').innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <span class="badge badge-${sc.status.replace(' ','')}">${sc.status}</span>
+            <span class="badge badge-${sc.priority}">Priority: ${sc.priority}</span>
+        </div>
+        <div style="background: #fcfdfe; padding: 15px; border: 1px solid #eaeaea; border-radius: 4px; margin-bottom: 15px;">
+            <p style="margin-top:0; margin-bottom: 5px;"><strong>Assign Technician:</strong></p>
+            <select id="tdTechSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;">
+                <option value="Unassigned" ${sc.assignedTech === 'Unassigned' || !sc.assignedTech ? 'selected' : ''}>Unassigned</option>
+                <option value="Dave (Tech 1)" ${sc.assignedTech === 'Dave (Tech 1)' ? 'selected' : ''}>Dave (Tech 1)</option>
+                <option value="Sarah (Tech 2)" ${sc.assignedTech === 'Sarah (Tech 2)' ? 'selected' : ''}>Sarah (Tech 2)</option>
+                <option value="Mike (Tech 3)" ${sc.assignedTech === 'Mike (Tech 3)' ? 'selected' : ''}>Mike (Tech 3)</option>
+                <option value="Tom (Tech 4)" ${sc.assignedTech === 'Tom (Tech 4)' ? 'selected' : ''}>Tom (Tech 4)</option>
+            </select>
+            <div style="font-size: 11px; color: #777; margin-top: 5px;">*Closing this window automatically saves the assignment.</div>
+        </div>
+        <p><strong>Location:</strong><br>${sc.locationAddress}<br>${sc.custCity}, ${sc.custState} ${sc.custZip}</p>
+        <p><strong>Site Contact:</strong><br>${contactStr}</p>
+        <hr style="border:0; border-top:1px solid #eaeaea; margin: 15px 0;">
+        <p><strong>Reported Issue:</strong><br><span style="background:#f4f7f6; padding:10px; display:block; border-radius:4px; margin-top:5px;">${sc.issue}</span></p>
+        <p><strong>Equipment:</strong> ${sc.equip || 'N/A'}</p>
+        <p><strong>Dispatch Notes:</strong> ${sc.notes || 'N/A'}</p>
+    `;
+
+    document.getElementById('tdEditBtn').onclick = function() {
+        closeTicketDetails();
+        loadServiceCall(dbId);
+        setTimeout(() => {
+            const formEl = document.getElementById('serviceFormContainer');
+            formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            formEl.style.boxShadow = "0 0 25px rgba(200, 155, 83, 0.8)";
+            setTimeout(() => { formEl.style.boxShadow = "0 4px 15px rgba(0,0,0,0.1)"; }, 1200);
+        }, 200);
+    };
+
+    document.getElementById('ticketDetailsModal').style.display = 'block';
+}
+
+function closeTicketDetails() {
+    if (currentOpenDetailsId) {
+        let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+        let scIndex = db.findIndex(s => s.id === currentOpenDetailsId);
+        if (scIndex !== -1) {
+            const techSelect = document.getElementById('tdTechSelect');
+            if (techSelect) {
+                const selectedTech = techSelect.value;
+                db[scIndex].assignedTech = selectedTech;
+                
+                if (selectedTech !== 'Unassigned' && db[scIndex].status === 'Unassigned') {
+                    db[scIndex].status = 'Dispatched';
+                } else if (selectedTech === 'Unassigned' && db[scIndex].status === 'Dispatched') {
+                    db[scIndex].status = 'Unassigned';
+                }
+            }
+            localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+            renderServiceBoard(); 
+        }
+    }
+    document.getElementById('ticketDetailsModal').style.display = 'none';
+    currentOpenDetailsId = null;
+}
+
+function renderServiceBoard() {
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    const listContainer = document.getElementById('serviceRequestList');
+    const timelineContainer = document.getElementById('scheduleTimeline');
+    const counter = document.getElementById('ticketCountBadge');
+    
+    listContainer.innerHTML = "";
+    timelineContainer.innerHTML = "";
+    counter.innerText = db.length;
+
+    if (db.length === 0) {
+        listContainer.innerHTML = `<div style="text-align:center; padding: 20px; color: #555; font-style: italic; background: rgba(255,255,255,0.7); border-radius: 6px;">No active service calls.</div>`;
+        timelineContainer.innerHTML = `<div style="text-align:center; padding: 20px; color: #999; font-style: italic;">Schedule clear.</div>`;
+        return;
+    }
+
+    markerLayer.clearLayers();
+
+    [...db].reverse().forEach((sc, index) => {
+        if (sc.status !== 'Canceled' && sc.status !== 'Completed') {
+            let fullAddr = `${sc.locationAddress}, ${sc.custCity}, ${sc.custState} ${sc.custZip}`;
+            plotMarkerOnMap(fullAddr, sc);
+        }
+
+        let locStr = sc.locationAddress;
+        if(sc.custCity) locStr += ` | ${sc.custCity}, ${sc.custState}`;
+        let issueStr = sc.issue.length > 60 ? sc.issue.substring(0, 60) + "..." : sc.issue;
+        
+        let titleDisplay = sc.customerName;
+        if (sc.contactName && sc.contactName !== "") {
+            titleDisplay += ` <span style="font-size:12px; color:#7f8c8d; font-weight:normal;">(${sc.contactName})</span>`;
+        }
+
+        let techNameDisplay = sc.assignedTech && sc.assignedTech !== 'Unassigned' ? sc.assignedTech.split(' ')[0] : '';
+        let techBadgeHTML = techNameDisplay ? `<span style="color:#1e4b85; font-weight:bold; font-size:12px; margin-left:8px; display:inline-flex; align-items:center;">👨‍🔧 ${techNameDisplay}</span>` : '';
+
+        listContainer.innerHTML += `
+            <div class="glass-card priority-${sc.priority}" draggable="true" data-id="${sc.id}" onclick="centerMapOnTicket('${sc.id}')">
+                <div style="display:flex; justify-content:space-between; align-items: flex-start;">
+                    <div style="flex:1;">
+                        <div class="tc-title">
+                            <span>${titleDisplay}</span>
+                            <span style="color:#555; font-size:12px; margin-left:10px;">${sc.ticketNum}</span>
+                        </div>
+                        <div class="tc-loc">📍 ${locStr}</div>
+                        <div class="tc-issue"><strong>Issue:</strong> ${issueStr}</div>
+                        <div class="tc-footer">
+                            <div style="display:flex; align-items:center;">
+                                <span class="badge badge-${sc.status.replace(' ','')}">${sc.status}</span>
+                                ${techBadgeHTML}
+                            </div>
+                            <div style="display:flex; gap:5px;">
+                                <button class="gen-btn" style="background:#2ecc71; padding: 4px 8px; font-size:11px;" onclick="event.stopPropagation(); openTicketDetails('${sc.id}')">Details</button>
+                                <button class="gen-btn" style="background:#e74c3c; padding: 4px 8px; font-size:11px;" onclick="event.stopPropagation(); deleteServiceCall('${sc.id}')">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="drag-handle" style="color:#aaa; cursor:grab; font-size:20px; padding-left:10px; user-select:none;" title="Drag to reorder">⋮⋮</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    renderScheduleTimelineOnly();
+}
+
+function deleteServiceCall(dbId) {
+    if(confirm("Permanently delete this service ticket?")) {
+        let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+        db = db.filter(s => s.id !== dbId);
+        localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+        renderServiceBoard();
+    }
+}
+
+function loadServiceCall(dbId) {
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    const data = db.find(s => s.id === dbId);
+    if(!data) return;
+    
+    document.getElementById('scCurrentId').value = data.id;
+    document.getElementById('scTicketNumberInput').value = data.ticketNum;
+    document.getElementById('scDateInput').value = data.date;
+    document.getElementById('scCustNameInput').value = data.customerName;
+    document.getElementById('scCustNumInput').value = data.customerNum;
+    document.getElementById('scContactNameInput').value = data.contactName;
+    document.getElementById('scContactPhoneInput').value = data.contactPhone;
+    document.getElementById('scContactEmailInput').value = data.contactEmail;
+    document.getElementById('scCustStreetInput').value = data.locationAddress;
+    document.getElementById('scCustCityInput').value = data.custCity;
+    document.getElementById('scCustStateInput').value = data.custState;
+    document.getElementById('scCustZipInput').value = data.custZip;
+    document.getElementById('scLocNumInput').value = data.locationNum;
+    document.getElementById('scJobTypeInput').value = data.jobType;
+    document.getElementById('scPriorityInput').value = data.priority;
+    document.getElementById('scAssignedTechInput').value = data.assignedTech;
+    document.getElementById('scStatusInput').value = data.status;
+    document.getElementById('scIssueInput').value = data.issue;
+    document.getElementById('scEquipInput').value = data.equip;
+    document.getElementById('scNotesInput').value = data.notes;
+}
