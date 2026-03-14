@@ -1,6 +1,44 @@
 // ====================================================================
-// --- MAP ENGINE & DISPATCH BOARD LOGIC ---
+// --- MAP ENGINE & CLOUD DISPATCH BOARD LOGIC ---
 // ====================================================================
+
+// 1. Initial Cloud Sync (Pulls active tickets from Firebase on load)
+window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(loadServiceCallsFromCloud, 2000); 
+});
+
+async function loadServiceCallsFromCloud() {
+    try {
+        let firestoreDb = firebase.firestore();
+        const snapshot = await firestoreDb.collection('service_calls').get();
+        let cloudDb = [];
+        
+        snapshot.forEach(doc => {
+            cloudDb.push({ id: doc.id, ...doc.data() });
+        });
+        
+        if (cloudDb.length > 0) {
+            localStorage.setItem('twinPillarsServiceDB', JSON.stringify(cloudDb));
+            renderServiceBoard();
+        }
+    } catch (e) {
+        console.warn("Cloud Service Call load failed. Using local cache.", e);
+    }
+}
+
+// 2. Master Sync Function (Pushes local changes to Firebase silently)
+async function syncSingleServiceCallToCloud(dbId, data) {
+    try {
+        let firestoreDb = firebase.firestore();
+        if (data === null) {
+            await firestoreDb.collection('service_calls').doc(dbId).delete();
+        } else {
+            await firestoreDb.collection('service_calls').doc(dbId).set(data, { merge: true });
+        }
+    } catch (e) {
+        console.error("Failed to sync service call to cloud:", e);
+    }
+}
 
 function initMap() {
     delete L.Icon.Default.prototype._getIconUrl;
@@ -230,7 +268,12 @@ function saveServiceCall(isAutoSave = false) {
         } else { return false; } 
     }
 
+    // Save locally
     localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+    
+    // **PUSH TO FIREBASE CLOUD**
+    syncSingleServiceCallToCloud(data.id, data); 
+    
     renderServiceBoard();
     if (isAutoSave) showSaveCue("✓ Auto-Saved");
     return true;
@@ -302,7 +345,13 @@ function closeTicketDetails() {
                     db[scIndex].status = 'Unassigned';
                 }
             }
+            
+            // Save locally
             localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+            
+            // **PUSH TECH ASSIGNMENT TO FIREBASE CLOUD**
+            syncSingleServiceCallToCloud(db[scIndex].id, db[scIndex]);
+            
             renderServiceBoard(); 
         }
     }
@@ -380,7 +429,13 @@ function deleteServiceCall(dbId) {
     if(confirm("Permanently delete this service ticket?")) {
         let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
         db = db.filter(s => s.id !== dbId);
+        
+        // Save local deletion
         localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+        
+        // **PUSH DELETE TO FIREBASE CLOUD**
+        syncSingleServiceCallToCloud(dbId, null);
+        
         renderServiceBoard();
     }
 }
