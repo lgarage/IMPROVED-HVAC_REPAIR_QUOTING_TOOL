@@ -1,13 +1,77 @@
 // ====================================================================
-// --- CUSTOMER DIRECTORY & AUTO-COMPLETE ENGINE ---
+// --- CUSTOMER DIRECTORY & CLOUD CRM LOGIC ---
 // ====================================================================
 
-function getCustomerDB() { return JSON.parse(localStorage.getItem('tp_customers_db') || '{}'); }
-function saveCustomerDB(db) { localStorage.setItem('tp_customers_db', JSON.stringify(db)); updateCustomerDatalist(); }
+// 1. Initial Cloud Sync (Pulls from Firebase when the app loads)
+window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(loadCustomersFromCloud, 1500); 
+});
+
+async function loadCustomersFromCloud() {
+    try {
+        let firestoreDb = firebase.firestore();
+        const snapshot = await firestoreDb.collection('customers').get();
+        let cloudDb = {};
+        
+        snapshot.forEach(doc => {
+            let data = doc.data();
+            if(data.name) {
+                cloudDb[data.name] = { id: doc.id, locations: data.locations || {} };
+            }
+        });
+        
+        localStorage.setItem('tp_customers_db', JSON.stringify(cloudDb));
+        updateCustomerDatalist();
+        
+        // If the directory modal is open, refresh it with the new cloud data
+        const modal = document.getElementById('customerModal');
+        if (modal && modal.style.display === 'block') {
+            renderCustomerDirectory();
+        }
+    } catch (e) {
+        console.warn("Cloud CRM load failed. Using local cache.", e);
+    }
+}
+
+function getCustomerDB() { 
+    return JSON.parse(localStorage.getItem('tp_customers_db') || '{}'); 
+}
+
+// 2. Master Sync Function (Updates local UI instantly, pushes to Firebase silently)
+async function syncSingleCustomerToCloud(custName, custData) {
+    let db = getCustomerDB();
+    
+    if (custData === null) {
+        delete db[custName]; // Delete command
+    } else {
+        db[custName] = custData; // Update/Create command
+    }
+    
+    localStorage.setItem('tp_customers_db', JSON.stringify(db));
+    updateCustomerDatalist();
+
+    try {
+        let firestoreDb = firebase.firestore();
+        if (custData === null) {
+            // Delete from Cloud
+            const snapshot = await firestoreDb.collection('customers').where('name', '==', custName).get();
+            snapshot.forEach(doc => doc.ref.delete());
+        } else {
+            // Update/Create in Cloud
+            await firestoreDb.collection('customers').doc(custData.id).set({
+                name: custName,
+                locations: custData.locations
+            }, { merge: true });
+        }
+    } catch (e) {
+        console.error("Failed to sync customer to cloud:", e);
+    }
+}
 
 function repairAndSyncCustomerDB() {
     let db = getCustomerDB();
     let needsSave = false;
+
     for (let custName in db) {
         let cust = db[custName];
         let cleanLocs = {};
@@ -34,13 +98,18 @@ function repairAndSyncCustomerDB() {
             }
         }
         cust.locations = cleanLocs;
-    }
-    for (let custName in db) {
-        if (custName.length < 3 || custName === "UNKNOWN CUSTOMER") {
-            delete db[custName]; needsSave = true;
+        
+        if (needsSave) {
+            syncSingleCustomerToCloud(custName, cust);
+            needsSave = false; 
         }
     }
-    if (needsSave) saveCustomerDB(db);
+
+    for (let custName in db) {
+        if (custName.length < 3 || custName === "UNKNOWN CUSTOMER") {
+            syncSingleCustomerToCloud(custName, null); 
+        }
+    }
 }
 
 function toggleNewCustomerForm() {
@@ -69,7 +138,8 @@ function saveCustomerFromDirectory() {
         db[name].locations[locId] = { street, city, state, zip, contact, phone, email };
     }
 
-    saveCustomerDB(db);
+    syncSingleCustomerToCloud(name, db[name]);
+    
     document.getElementById('dirNewName').value = ''; document.getElementById('dirNewContact').value = '';
     document.getElementById('dirNewPhone').value = ''; document.getElementById('dirNewEmail').value = '';
     document.getElementById('dirNewStreet').value = ''; document.getElementById('dirNewCity').value = '';
@@ -117,7 +187,8 @@ function syncCustomerToDirectory(data) {
         let locField = pfx ? pfx + 'LocNumInput' : 'locNumInput';
         if (document.getElementById(locField)) document.getElementById(locField).value = locId;
     }
-    saveCustomerDB(db);
+    
+    syncSingleCustomerToCloud(data.customerName, db[data.customerName]);
 }
 
 function updateCustomerDatalist() {
@@ -297,12 +368,18 @@ function loadCustomerIntoForm(name, custId, street, city, state, zip, locId, con
 function deleteCustomerLocation(custName, locId) {
     if(confirm(`Remove Location ID ${locId} from ${custName}?`)) {
         let db = getCustomerDB();
-        if(db[custName] && db[custName].locations) { delete db[custName].locations[locId]; saveCustomerDB(db); renderCustomerDirectory(); }
+        if(db[custName] && db[custName].locations) { 
+            delete db[custName].locations[locId]; 
+            syncSingleCustomerToCloud(custName, db[custName]); 
+            renderCustomerDirectory(); 
+        }
     }
 }
+
 function deleteCustomerEntirely(custName) {
     if(confirm(`Are you sure you want to completely delete ${custName} and all of its locations?`)) {
-        let db = getCustomerDB(); delete db[custName]; saveCustomerDB(db); renderCustomerDirectory();
+        syncSingleCustomerToCloud(custName, null); 
+        renderCustomerDirectory();
     }
 }
 
