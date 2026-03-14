@@ -511,55 +511,95 @@ function startDispatcherVoiceSearch() {
     dispatcherRecognition.start();
 }
 
+// --- ALL PREVIOUS PUSH-TO-TALK CODE STAYS EXACTLY THE SAME ABOVE THIS ---
+// Replace everything from processDispatcherVoiceSearch(query) down to the bottom with this:
+
+let currentGoogleResults = []; // Temporary memory for the popup window
+
 async function processDispatcherVoiceSearch(query) {
     if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
         alert("Google Maps API is still loading. Try again in a moment.");
         return;
     }
     
-    // We use a dummy div to initialize the Google Places Service
     const dummyDiv = document.createElement('div');
     const service = new google.maps.places.PlacesService(dummyDiv);
     
-    // Query Google Maps just like you would type it in the Google Maps search bar
     service.textSearch({ query: query }, (results, status) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-            const place = results[0];
-            const name = place.name.toUpperCase();
-            const addressStr = place.formatted_address.toUpperCase(); // e.g. "1640 W MASON ST, GREEN BAY, WI 54303, USA"
             
-            // Clean up the Google Address format into individual fields
-            let addrParts = addressStr.split(',').map(p => p.trim());
-            if (addrParts[addrParts.length - 1] === "USA") addrParts.pop(); // Remove "USA"
-            
-            let city = ""; let state = ""; let zip = ""; let street = "";
-
-            if (addrParts.length >= 3) {
-                const stateZip = addrParts[addrParts.length - 1].split(' ');
-                city = addrParts[addrParts.length - 2];
-                street = addrParts.slice(0, addrParts.length - 2).join(', ');
-                
-                if(stateZip.length >= 1) state = stateZip[0];
-                if(stateZip.length >= 2) zip = stateZip[1];
-            } else {
-                street = addressStr; // Fallback if format is weird
+            // If Google is 100% sure and only returns 1 result, auto-fill it!
+            if (results.length === 1) {
+                applyGoogleLocationToForm(results[0]);
+            } 
+            // If Google finds multiple matches, pop open the window!
+            else {
+                currentGoogleResults = results; // Save to temporary memory
+                showGoogleResultsModal(results);
             }
-
-            // Populate the UI fields!
-            document.getElementById('scCustNameInput').value = name;
-            document.getElementById('scCustStreetInput').value = street;
-            document.getElementById('scCustCityInput').value = city;
-            document.getElementById('scCustStateInput').value = state;
-            document.getElementById('scCustZipInput').value = zip;
-
-            // Trigger your custom CRM rules to check if we already have this in the database
-            checkCustomerAutoNumber('service');
-            checkLocationAutoNumber('service');
-            updateLocationDatalist();
-
-            showSaveCue("✓ Found: " + name);
+            
         } else {
             alert("Google Maps couldn't find a match for: " + query);
         }
     });
+}
+
+function showGoogleResultsModal(results) {
+    const listContainer = document.getElementById('googleResultsList');
+    listContainer.innerHTML = ""; // Clear out old searches
+    
+    results.forEach((place, index) => {
+        listContainer.innerHTML += `
+            <div style="padding: 15px; border-bottom: 1px solid #eaeaea; cursor: pointer; transition: background 0.2s;" 
+                 onmouseover="this.style.background='#f4f7f6'" 
+                 onmouseout="this.style.background='#fff'"
+                 onclick="selectGoogleLocation(${index})">
+                <strong style="color: #1e4b85; font-size: 15px;">${place.name}</strong><br>
+                <span style="color: #555; font-size: 13px;">${place.formatted_address}</span>
+            </div>
+        `;
+    });
+    
+    document.getElementById('googleResultsModal').style.display = 'block';
+    showSaveCue("⚠️ Multiple matches found");
+}
+
+function selectGoogleLocation(index) {
+    const selectedPlace = currentGoogleResults[index];
+    document.getElementById('googleResultsModal').style.display = 'none'; // Close the popup
+    applyGoogleLocationToForm(selectedPlace); // Fill the form
+}
+
+function applyGoogleLocationToForm(place) {
+    const name = place.name.toUpperCase();
+    const addressStr = place.formatted_address.toUpperCase(); 
+    
+    let addrParts = addressStr.split(',').map(p => p.trim());
+    if (addrParts[addrParts.length - 1] === "USA") addrParts.pop(); 
+    
+    let city = ""; let state = ""; let zip = ""; let street = "";
+
+    if (addrParts.length >= 3) {
+        const stateZip = addrParts[addrParts.length - 1].split(' ');
+        city = addrParts[addrParts.length - 2];
+        street = addrParts.slice(0, addrParts.length - 2).join(', ');
+        
+        if(stateZip.length >= 1) state = stateZip[0];
+        if(stateZip.length >= 2) zip = stateZip[1];
+    } else {
+        street = addressStr; 
+    }
+
+    document.getElementById('scCustNameInput').value = name;
+    document.getElementById('scCustStreetInput').value = street;
+    document.getElementById('scCustCityInput').value = city;
+    document.getElementById('scCustStateInput').value = state;
+    document.getElementById('scCustZipInput').value = zip;
+
+    // Trigger CRM rules to see if this customer already exists
+    checkCustomerAutoNumber('service');
+    checkLocationAutoNumber('service');
+    updateLocationDatalist();
+
+    showSaveCue("✓ Form Populated: " + name);
 }
