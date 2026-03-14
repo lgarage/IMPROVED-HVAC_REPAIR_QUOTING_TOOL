@@ -773,3 +773,143 @@ function applySearchResultToForm(data) {
     if(typeof showSaveCue === 'function') showSaveCue("✓ Form Populated: " + data.custName);
     resetDispatcherMicBtn();
 }
+
+// ====================================================================
+// --- DISPATCHER VOICE INPUT: ISSUE DESCRIPTION (AI ENHANCED) ---
+// ====================================================================
+
+let issueRecognition;
+let currentIssueVoiceText = "";
+let isIssueRecording = false;
+
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    issueRecognition = new SpeechRecognition();
+    issueRecognition.continuous = true; 
+    issueRecognition.interimResults = true; 
+
+    issueRecognition.onresult = (event) => {
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            transcript += event.results[i][0].transcript;
+        }
+        currentIssueVoiceText = transcript;
+        
+        const micBtn = document.getElementById('scIssueMicBtn');
+        if (isIssueRecording && micBtn) {
+            micBtn.innerText = "🗣️ " + currentIssueVoiceText;
+        }
+    };
+
+    issueRecognition.onerror = (event) => {
+        console.error('Speech error', event.error);
+        resetIssueMicBtn();
+    };
+}
+
+function startIssueVoiceInput() {
+    if (!issueRecognition) {
+        alert("Voice input not supported in this browser. Please use Chrome or Safari.");
+        return;
+    }
+    if (isIssueRecording) return;
+    
+    isIssueRecording = true;
+    currentIssueVoiceText = ""; 
+    
+    const micBtn = document.getElementById('scIssueMicBtn');
+    if(micBtn) {
+        micBtn.innerText = "🔴 LISTENING... (Speak Now)";
+        micBtn.style.backgroundColor = "#e74c3c";
+        micBtn.style.transform = "scale(0.95)"; 
+    }
+    
+    window.addEventListener('mouseup', stopIssueVoiceInput);
+    try { issueRecognition.start(); } catch(e) {}
+}
+
+async function stopIssueVoiceInput() {
+    if (!isIssueRecording) return;
+    isIssueRecording = false;
+    
+    window.removeEventListener('mouseup', stopIssueVoiceInput);
+    try { issueRecognition.stop(); } catch(e) {}
+    
+    const micBtn = document.getElementById('scIssueMicBtn');
+    if(micBtn) micBtn.style.transform = "scale(1)"; 
+    
+    if (currentIssueVoiceText.trim() !== "") {
+        if(micBtn) {
+            micBtn.innerText = "✨ AI Cleaning Notes...";
+            micBtn.style.backgroundColor = "#9b59b6"; // Purple for AI
+        }
+        
+        // Send the raw transcript to Gemini for cleanup
+        await cleanIssueWithAI(currentIssueVoiceText);
+        
+    } else {
+        resetIssueMicBtn();
+    }
+}
+
+function resetIssueMicBtn() {
+    const micBtn = document.getElementById('scIssueMicBtn');
+    if(micBtn) {
+        micBtn.innerText = "🎤 HOLD TO SPEAK";
+        micBtn.style.backgroundColor = "#f39c12";
+    }
+}
+
+async function cleanIssueWithAI(rawText) {
+    if (typeof firebaseConfig === 'undefined' || !firebaseConfig.apiKey) {
+        // Fallback if API key isn't loaded: just use the raw text
+        document.getElementById('scIssueInput').value = rawText.toUpperCase();
+        resetIssueMicBtn();
+        return;
+    }
+
+    const prompt = `
+    You are a professional HVAC Dispatcher. Rewrite the following spoken notes into a clean, concise, and highly professional service call description.
+    Rules:
+    - Fix any grammar or spelling mistakes.
+    - Remove filler words (uh, um, like, the customer said).
+    - Keep it to 1-3 sentences maximum.
+    - Do NOT add any pleasantries or conversational text. Return ONLY the cleaned description.
+    
+    Raw Spoken Notes: "${rawText}"
+    `;
+
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${firebaseConfig.apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.2 }
+            })
+        });
+
+        const data = await response.json();
+        if (data.candidates && data.candidates.length > 0) {
+            let cleanText = data.candidates[0].content.parts[0].text.trim().toUpperCase();
+            
+            // Append it to whatever is already in the box (in case they add more later)
+            let existingText = document.getElementById('scIssueInput').value;
+            if(existingText !== "") {
+                document.getElementById('scIssueInput').value = existingText + "\n" + cleanText;
+            } else {
+                document.getElementById('scIssueInput').value = cleanText;
+            }
+            
+            if(typeof showSaveCue === 'function') showSaveCue("✨ Notes Cleaned by AI");
+        } else {
+            // Fallback
+            document.getElementById('scIssueInput').value = rawText.toUpperCase();
+        }
+    } catch (error) {
+        console.error("AI Cleanup Failed:", error);
+        document.getElementById('scIssueInput').value = rawText.toUpperCase();
+    }
+    
+    resetIssueMicBtn();
+}
