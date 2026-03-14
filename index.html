@@ -467,9 +467,16 @@
                         </div>
                     </div>
 
-                    <div class="form-row">
+               <div class="form-row">
                         <div class="input-group" style="width:100%;">
-                            <label style="color:#e74c3c;">Reported Issue / Scope of Work</label>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <label style="color:#e74c3c; margin-bottom:0;">Reported Issue / Scope of Work</label>
+                                <button type="button" id="scIssueMicBtn" 
+                                    onmousedown="startIssueVoiceInput()" 
+                                    style="background:#f39c12; color:#fff; border:none; border-radius:8px; padding:8px 20px; font-size:13px; font-weight:bold; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.15); user-select: none;">
+                                    🎤 HOLD TO SPEAK
+                                </button>
+                            </div>
                             <textarea id="scIssueInput" style="resize:vertical; min-height:80px; font-family:inherit;" placeholder="Describe what the customer is reporting..."></textarea>
                         </div>
                     </div>
