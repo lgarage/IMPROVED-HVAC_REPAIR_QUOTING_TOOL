@@ -1,5 +1,5 @@
 // ====================================================================
-// --- INVOICE CLOUD LOGIC & GOOGLE MAPS PARSING ---
+// --- INVOICE CLOUD LOGIC & GENERATION ---
 // ====================================================================
 
 let cloudInvoices = []; // Memory array for instant searching
@@ -49,28 +49,41 @@ function addInvoicePartRow(desc = "") {
     container.appendChild(row);
 }
 
-function performGoogleSearch(query) {
-    return new Promise((resolve, reject) => {
-        if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
-            console.log("Google Maps API not loaded yet.");
-            resolve(null);
-            return;
-        }
-        const dummyDiv = document.createElement('div');
-        const service = new google.maps.places.PlacesService(dummyDiv);
-        service.textSearch({ query: query }, (results, status) => {
-            if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-                resolve(results[0].formatted_address);
-            } else {
-                resolve(null);
-            }
-        });
-    });
+// --- SMART PASTED NOTES PARSER ---
+async function parsePastedNotes() {
+    const text = document.getElementById("invPasteArea").value;
+    if (!text) return;
+
+    // Smart lookahead prevents the extractor from needing double line-breaks
+    const nextHeader = "(?:\\n\\s*(?:Location|Date|Equipment|Notes|Work|Parts|Cost|Pictures)[a-zA-Z0-9 \\/\\(\\)]*?:|$)";
+    
+    const extract = (pattern) => {
+        const regex = new RegExp(`${pattern}:?\\s*(.*?)(?=${nextHeader})`, 'is');
+        const m = text.match(regex);
+        return m && m[1] ? m[1].trim() : "";
+    };
+
+    const locRaw = extract("Location");
+    // We send this to the smart Process Location function from the old code
+    if (locRaw) await smartProcessLocation(locRaw);
+
+    const equip = extract("Equipment on [Ss]ite") || extract("Equipment worked on");
+    if (equip) document.getElementById("invEquip").value = equip.replace(/\n/g, ", ");
+
+    const notes = extract("Notes\\s*[/\\\\]\\s*repairs") || extract("Findings\\s*[/\\\\]\\s*Diagnosis");
+    if (notes) document.getElementById("invNotes").value = notes;
+
+    const work = extract("Work done") || extract("Repairs made");
+    if (work) document.getElementById("invWork").value = work;
+
+    // Always pre-fill PM Parts Row for default ease of use
+    document.getElementById('invPartsContainer').innerHTML = `<div class="inv-parts-grid-layout part-header-row"><label>QTY</label><label>Part Description</label><label>Our Cost $</label><label style="color:#27ae60;">Retail $ (Auto)</label><label></label></div>`;
+    addInvoicePartRow("Preventative Maintenance parts"); 
+    
+    calcInvoice();
 }
 
-// --- UPGRADED SMART CRM LOOKUP ENGINE ---
 async function smartProcessLocation(locationStr) {
-    // Force normal hyphens to fix iOS/Android em-dash formatting
     let rawInput = locationStr.trim().toUpperCase().replace(/[–—]/g, '-');
     let custName = rawInput;
     let city = "";
@@ -79,40 +92,25 @@ async function smartProcessLocation(locationStr) {
     let originalSiteName = rawInput;
 
     const dbaAliases = {
-        "TAKE 5": {
-            company: "AMERICAN PLATINUM DOOR & GATE",
-            billToAddress: "AMERICAN PLATINUM DOOR & GATE\n29001 SOLON RD UNIT Q\nSOLON, OH 44139"
-        },
-        "TAKE FIVE": { // Captures the spelled out version!
-            company: "AMERICAN PLATINUM DOOR & GATE",
-            billToAddress: "AMERICAN PLATINUM DOOR & GATE\n29001 SOLON RD UNIT Q\nSOLON, OH 44139"
-        }
+        "TAKE 5": { company: "AMERICAN PLATINUM DOOR & GATE", billToAddress: "AMERICAN PLATINUM DOOR & GATE\n29001 SOLON RD UNIT Q\nSOLON, OH 44139" },
+        "TAKE FIVE": { company: "AMERICAN PLATINUM DOOR & GATE", billToAddress: "AMERICAN PLATINUM DOOR & GATE\n29001 SOLON RD UNIT Q\nSOLON, OH 44139" }
     };
 
     let matchedAlias = Object.keys(dbaAliases).find(key => rawInput.includes(key));
     let customBillTo = null;
 
     if (matchedAlias) {
-        // Step 1: Swap Customer Name to the Management Company
         originalSiteName = matchedAlias;
         custName = dbaAliases[matchedAlias].company;
         customBillTo = dbaAliases[matchedAlias].billToAddress;
-        
-        // Step 2: Strip the DBA name out of the string so the parser doesn't get confused
         let restOfStr = rawInput.replace(new RegExp(matchedAlias, "i"), "").replace(/^-+|-+$/g, '').trim();
 
-        // Step 3: Handle hyphens vs non-hyphens
         if (restOfStr.includes("-")) {
              let parts = restOfStr.split(/\s*-\s*/);
-             if (parts.length >= 2) {
-                 city = parts[0].trim();
-                 streetSearch = parts[1].trim();
-             } else {
-                 streetSearch = restOfStr;
-             }
+             if (parts.length >= 2) { city = parts[0].trim(); streetSearch = parts[1].trim(); } 
+             else { streetSearch = restOfStr; }
              streetSearch = `${matchedAlias} - ${streetSearch}`;
         } else {
-             // Fallback for no hyphens (e.g. "NEW LONDON 1821 N SHAWANO ST")
              let addressMatch = restOfStr.match(/\b\d+\b/);
              if (addressMatch) {
                  let addrIndex = addressMatch.index;
@@ -124,17 +122,12 @@ async function smartProcessLocation(locationStr) {
              }
         }
     } else {
-        // Normal parsing for non-aliased names
         if (rawInput.includes("-")) {
             const parts = rawInput.split(/\s*-\s*/);
             custName = parts[0].trim();
             originalSiteName = custName;
-            if (parts.length >= 3) {
-                city = parts[1].trim();
-                streetSearch = parts[2].trim();
-            } else if (parts.length === 2) {
-                streetSearch = parts[1].trim();
-            }
+            if (parts.length >= 3) { city = parts[1].trim(); streetSearch = parts[2].trim(); } 
+            else if (parts.length === 2) { streetSearch = parts[1].trim(); }
         } else {
             let addressMatch = rawInput.match(/\b\d+\s+[A-Z]+/i);
             if (addressMatch) {
@@ -203,47 +196,6 @@ async function smartProcessLocation(locationStr) {
         if(streetSearch) streetInput.style.backgroundColor = "#fff3cd";
     }
 
-    if (!foundLocally && (city || streetSearch)) {
-        try {
-            document.getElementById("invServiceLoc").value = "Asking Google Maps...";
-            let cleanGoogleStreet = streetSearch;
-            if (matchedAlias) {
-                 cleanGoogleStreet = streetSearch.replace(`${matchedAlias} - `, '');
-            }
-            
-            let query = `${cleanGoogleStreet} ${city} ${state}`.trim();
-            let googleAddress = await performGoogleSearch(query);
-
-            if (!googleAddress && matchedAlias) {
-                query = `${matchedAlias} ${cleanGoogleStreet} ${city} ${state}`.trim();
-                googleAddress = await performGoogleSearch(query);
-            }
-
-            if (googleAddress) {
-                let addrParts = googleAddress.split(',').map(p => p.trim());
-                if (addrParts[addrParts.length - 1] === "USA") addrParts.pop();
-                
-                if (addrParts.length >= 3) {
-                    const stateZip = addrParts[addrParts.length - 1].split(' ');
-                    const parsedCity = addrParts[addrParts.length - 2];
-                    const parsedStreet = addrParts.slice(0, addrParts.length - 2).join(', ');
-                    
-                    let finalStreetDisplay = parsedStreet.toUpperCase();
-                    if (matchedAlias) {
-                        finalStreetDisplay = `${matchedAlias} - ${finalStreetDisplay}`;
-                    }
-
-                    document.getElementById('invStreetInput').value = finalStreetDisplay;
-                    document.getElementById('invCityInput').value = parsedCity.toUpperCase();
-                    if(stateZip.length >= 1) document.getElementById('invStateInput').value = stateZip[0].toUpperCase();
-                    if(stateZip.length >= 2) document.getElementById('invZipInput').value = stateZip[1];
-                }
-            }
-        } catch (err) {
-            console.log("Google Maps search failed:", err);
-        }
-    }
-
     const finalStreet = document.getElementById('invStreetInput').value;
     const finalCity = document.getElementById('invCityInput').value;
     const finalState = document.getElementById('invStateInput').value;
@@ -267,38 +219,6 @@ async function smartProcessLocation(locationStr) {
     }
 }
 
-async function parsePastedNotes() {
-    const text = document.getElementById("invPasteArea").value;
-    if (!text) return;
-
-    // Smart lookahead prevents the extractor from needing double line-breaks
-    const nextHeader = "(?:\\n\\s*(?:Location|Date|Equipment|Notes|Work|Parts|Cost|Pictures)[a-zA-Z0-9 \\/\\(\\)]*?:|$)";
-    
-    const extract = (pattern) => {
-        const regex = new RegExp(`${pattern}:?\\s*(.*?)(?=${nextHeader})`, 'is');
-        const m = text.match(regex);
-        return m && m[1] ? m[1].trim() : "";
-    };
-
-    const locRaw = extract("Location");
-    if (locRaw) await smartProcessLocation(locRaw);
-
-    const equip = extract("Equipment on [Ss]ite") || extract("Equipment worked on");
-    if (equip) document.getElementById("invEquip").value = equip.replace(/\n/g, ", ");
-
-    const notes = extract("Notes\\s*[/\\\\]\\s*repairs") || extract("Findings\\s*[/\\\\]\\s*Diagnosis");
-    if (notes) document.getElementById("invNotes").value = notes;
-
-    const work = extract("Work done") || extract("Repairs made");
-    if (work) document.getElementById("invWork").value = work;
-
-    // Always pre-fill PM Parts Row for default ease of use
-    document.getElementById('invPartsContainer').innerHTML = `<div class="inv-parts-grid-layout part-header-row"><label>QTY</label><label>Part Description</label><label>Our Cost $</label><label style="color:#27ae60;">Retail $ (Auto)</label><label></label></div>`;
-    addInvoicePartRow("Preventative Maintenance parts"); 
-    
-    calcInvoice();
-}
-
 function calcInvoice() {
     let partsRetailTotal = 0;
     document.querySelectorAll('.inv-part-line').forEach(row => {
@@ -313,7 +233,6 @@ function calcInvoice() {
         
         const lineRetailTotal = retailUnit * qty;
         
-        // ✨ THE FIX: Display the Full Line Total (Unit * QTY)
         row.querySelector('.p-retail').value = lineRetailTotal.toFixed(2);
         
         if(row.querySelector('.p-desc').value.trim() !== "") {
@@ -339,12 +258,7 @@ function calcInvoice() {
 
 async function fetchNextInvoiceNumber() {
     let firestoreDb;
-    try {
-        firestoreDb = firebase.firestore();
-    } catch(e) {
-        document.getElementById("invNum").value = "INV-10001 (Local)";
-        return;
-    }
+    try { firestoreDb = firebase.firestore(); } catch(e) { document.getElementById("invNum").value = "INV-10001 (Local)"; return; }
 
     try {
         const docRef = firestoreDb.collection('metadata').doc('invoiceData');
@@ -392,8 +306,6 @@ function generateInvoiceHTML() {
     document.querySelectorAll('.inv-part-line').forEach(row => {
         const qty = parseInt(row.querySelector('.p-qty').value) || 1;
         const desc = row.querySelector('.p-desc').value.trim();
-        
-        // ✨ THE FIX: Grab the line total directly from the box; do not multiply by QTY again!
         const lineTotal = parseFloat(row.querySelector('.p-retail').value) || 0; 
         
         if(desc !== "") {
@@ -475,11 +387,8 @@ async function saveAndPrintInvoice() {
     document.querySelectorAll('.inv-part-line').forEach(row => {
         const qty = parseInt(row.querySelector('.p-qty').value) || 1;
         const desc = row.querySelector('.p-desc').value.trim();
-        
-        // ✨ THE FIX: Reverse engineer the unit price so the database record is accurate
         const lineTotal = parseFloat(row.querySelector('.p-retail').value) || 0;
         const retailUnit = qty > 0 ? (lineTotal / qty) : 0; 
-        
         if(desc !== "") partsData.push({ qty, desc, retailUnit });
     });
 
@@ -534,21 +443,13 @@ async function saveAndPrintInvoice() {
 
 function loadFirebaseInvoices() {
     let firestoreDb;
-    try {
-        firestoreDb = firebase.firestore();
-    } catch(e) {
-        return;
-    }
+    try { firestoreDb = firebase.firestore(); } catch(e) { return; }
     
     firestoreDb.collection('invoices').orderBy('timestamp', 'desc').limit(50).get().then(snapshot => {
         cloudInvoices = [];
-        snapshot.forEach(doc => {
-            cloudInvoices.push({ id: doc.id, ...doc.data() });
-        });
+        snapshot.forEach(doc => { cloudInvoices.push({ id: doc.id, ...doc.data() }); });
         renderInvoiceTable();
-    }).catch(e => {
-        console.log("Could not load invoices: ", e);
-    });
+    }).catch(e => { console.log("Could not load invoices: ", e); });
 }
 
 function renderInvoiceTable(filterText = "") {
