@@ -2126,6 +2126,21 @@ function addPartRow() {
     `;
     container.appendChild(row);
 }
+        function calcQuoteLiveMath() {
+    document.querySelectorAll('.part-entry-line').forEach(row => {
+        const qty = parseInt(row.querySelector('.p-qty').value) || 1;
+        const cost = parseFloat(row.querySelector('.p-cost').value) || 0;
+        
+        let retailUnit = 0;
+        if(cost > 0) {
+            const markupPercentage = getMarkupPercentage(cost); // Uses your existing ladder!
+            retailUnit = cost + (cost * markupPercentage);
+        }
+        
+        const lineRetailTotal = retailUnit * qty;
+        row.querySelector('.p-retail').value = lineRetailTotal.toFixed(2);
+    });
+    triggerQuoteAutoSave(); // Forces the database/PDF to update silently in the background
 
         function getMarkupPercentage(cost) {
             if (cost <= 5) return 4.00; if (cost <= 10) return 3.00; if (cost <= 15) return 2.00;     
