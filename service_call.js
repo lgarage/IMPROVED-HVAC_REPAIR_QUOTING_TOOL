@@ -790,14 +790,8 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 
     issueRecognition.onresult = (event) => {
         let transcript = "";
-        
-        // FIXED: Start the loop at 0 to capture the ENTIRE history of the recording session
-        // This ensures that even if you pause for 5 seconds and start speaking again,
-        // it grabs all the words from the moment you pressed the button.
         for (let i = 0; i < event.results.length; ++i) {
             transcript += event.results[i][0].transcript;
-            
-            // Add a space to finalized chunks so words don't mash together
             if (event.results[i].isFinal) {
                 transcript += " ";
             }
@@ -812,9 +806,19 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
         }
     };
 
+    // FIXED: If the browser tries to stop the mic because you paused, 
+    // but you are still holding the button, force it to restart instantly!
+    issueRecognition.onend = () => {
+        if (isIssueRecording) {
+            try { issueRecognition.start(); } catch(e) {}
+        }
+    };
+
     issueRecognition.onerror = (event) => {
-        console.error('Speech error', event.error);
-        resetIssueMicBtn();
+        if (event.error !== 'no-speech') {
+            console.error('Speech error', event.error);
+            resetIssueMicBtn();
+        }
     };
 }
 
@@ -841,7 +845,7 @@ function startIssueVoiceInput() {
 
 async function stopIssueVoiceInput() {
     if (!isIssueRecording) return;
-    isIssueRecording = false;
+    isIssueRecording = false; // This tells the onend event it's okay to finally stop
     
     window.removeEventListener('mouseup', stopIssueVoiceInput);
     try { issueRecognition.stop(); } catch(e) {}
@@ -851,8 +855,8 @@ async function stopIssueVoiceInput() {
     
     if (currentIssueVoiceText.trim() !== "") {
         if(micBtn) {
-            micBtn.innerText = "✨ AI Cleaning Notes...";
-            micBtn.style.backgroundColor = "#9b59b6"; // Purple for AI
+            micBtn.innerText = "✨ Processing...";
+            micBtn.style.backgroundColor = "#9b59b6"; 
         }
         
         await cleanIssueWithAI(currentIssueVoiceText);
@@ -871,53 +875,64 @@ function resetIssueMicBtn() {
 }
 
 async function cleanIssueWithAI(rawText) {
-    if (typeof firebaseConfig === 'undefined' || !firebaseConfig.apiKey) {
-        document.getElementById('scIssueInput').value = rawText.toUpperCase();
-        resetIssueMicBtn();
-        return;
-    }
+    let cleanText = "";
+    let aiSuccess = false;
 
-    const prompt = `
-    You are a professional HVAC Dispatcher. Rewrite the following spoken notes into a clean, concise, and highly professional service call description.
-    Rules:
-    - Fix any grammar or spelling mistakes.
-    - Remove filler words (uh, um, like, the customer said).
-    - Keep it to 1-3 sentences maximum.
-    - Output MUST BE ALL CAPS.
-    - Do NOT add any pleasantries or conversational text. Return ONLY the cleaned description.
-    
-    Raw Spoken Notes: "${rawText}"
-    `;
+    // Check if AI keys are available
+    if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) {
+        const prompt = `
+        You are a professional HVAC Dispatcher. Rewrite the following spoken notes into a clean, concise, and highly professional service call description.
+        Rules:
+        - Fix any grammar or spelling mistakes.
+        - Remove filler words (uh, um, like, the customer said).
+        - Keep it to 1-3 sentences maximum.
+        - Output MUST BE ALL CAPS.
+        - Ensure proper punctuation (periods at the end of sentences).
+        - Do NOT add any pleasantries or conversational text. Return ONLY the cleaned description.
+        
+        Raw Spoken Notes: "${rawText}"
+        `;
 
-    try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${firebaseConfig.apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.2 }
-            })
-        });
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${firebaseConfig.apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { temperature: 0.2 }
+                })
+            });
 
-        const data = await response.json();
-        if (data.candidates && data.candidates.length > 0) {
-            let cleanText = data.candidates[0].content.parts[0].text.trim().toUpperCase();
-            
-            let existingText = document.getElementById('scIssueInput').value;
-            if(existingText !== "") {
-                document.getElementById('scIssueInput').value = existingText + "\n" + cleanText;
-            } else {
-                document.getElementById('scIssueInput').value = cleanText;
+            const data = await response.json();
+            if (data.candidates && data.candidates.length > 0) {
+                cleanText = data.candidates[0].content.parts[0].text.trim().toUpperCase();
+                aiSuccess = true;
             }
-            
-            if(typeof showSaveCue === 'function') showSaveCue("✨ Notes Cleaned by AI");
-        } else {
-            document.getElementById('scIssueInput').value = rawText.toUpperCase();
+        } catch (error) {
+            console.error("AI Cleanup Failed:", error);
         }
-    } catch (error) {
-        console.error("AI Cleanup Failed:", error);
-        document.getElementById('scIssueInput').value = rawText.toUpperCase();
     }
-    
+
+    // Fallback if AI fails or no API key is provided
+    if (!aiSuccess) {
+        cleanText = rawText.trim().toUpperCase();
+        // Add basic punctuation if it's missing
+        if (!cleanText.endsWith('.') && !cleanText.endsWith('?') && !cleanText.endsWith('!')) {
+            cleanText += '.';
+        }
+    }
+
+    // FIXED: Safely APPEND text instead of overwriting
+    let existingText = document.getElementById('scIssueInput').value.trim();
+    if (existingText !== "") {
+        document.getElementById('scIssueInput').value = existingText + " " + cleanText;
+    } else {
+        document.getElementById('scIssueInput').value = cleanText;
+    }
+
+    if (aiSuccess && typeof showSaveCue === 'function') {
+        showSaveCue("✨ Notes Cleaned by AI");
+    }
+
     resetIssueMicBtn();
 }
