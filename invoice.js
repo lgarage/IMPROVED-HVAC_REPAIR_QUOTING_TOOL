@@ -392,8 +392,9 @@ function generateInvoiceHTML() {
     document.querySelectorAll('.inv-part-line').forEach(row => {
         const qty = parseInt(row.querySelector('.p-qty').value) || 1;
         const desc = row.querySelector('.p-desc').value.trim();
-        const retailUnit = parseFloat(row.querySelector('.p-retail').value) || 0;
-        const lineTotal = retailUnit * qty;
+        
+        // ✨ THE FIX: Grab the line total directly from the box; do not multiply by QTY again!
+        const lineTotal = parseFloat(row.querySelector('.p-retail').value) || 0; 
         
         if(desc !== "") {
             let descDisplay = qty > 1 ? `${qty}x ${desc}` : desc;
