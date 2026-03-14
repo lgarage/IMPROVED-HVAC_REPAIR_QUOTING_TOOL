@@ -466,3 +466,100 @@ function loadServiceCall(dbId) {
     document.getElementById('scEquipInput').value = data.equip;
     document.getElementById('scNotesInput').value = data.notes;
 }
+
+// ====================================================================
+// --- DISPATCHER VOICE SEARCH & GOOGLE PLACES API ---
+// ====================================================================
+
+let dispatcherRecognition;
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    dispatcherRecognition = new SpeechRecognition();
+    dispatcherRecognition.continuous = false; // Stop listening after they pause
+    dispatcherRecognition.interimResults = false;
+
+    dispatcherRecognition.onresult = async (event) => {
+        const transcript = event.results[0][0].transcript;
+        showSaveCue("🎤 Heard: " + transcript);
+        
+        const micBtn = document.getElementById('scMicBtn');
+        micBtn.innerText = "⏳ Searching Google...";
+        micBtn.style.backgroundColor = "#95a5a6";
+        
+        await processDispatcherVoiceSearch(transcript);
+        
+        micBtn.innerText = "🎤 Voice Search";
+        micBtn.style.backgroundColor = "#f39c12";
+    };
+
+    dispatcherRecognition.onerror = (event) => {
+        console.error('Speech error', event.error);
+        const micBtn = document.getElementById('scMicBtn');
+        micBtn.innerText = "🎤 Voice Search";
+        micBtn.style.backgroundColor = "#f39c12";
+    };
+}
+
+function startDispatcherVoiceSearch() {
+    if (!dispatcherRecognition) {
+        alert("Voice search not supported in this browser. Please use Chrome or Safari.");
+        return;
+    }
+    const micBtn = document.getElementById('scMicBtn');
+    micBtn.innerText = "🔴 Listening...";
+    micBtn.style.backgroundColor = "#e74c3c";
+    dispatcherRecognition.start();
+}
+
+async function processDispatcherVoiceSearch(query) {
+    if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+        alert("Google Maps API is still loading. Try again in a moment.");
+        return;
+    }
+    
+    // We use a dummy div to initialize the Google Places Service
+    const dummyDiv = document.createElement('div');
+    const service = new google.maps.places.PlacesService(dummyDiv);
+    
+    // Query Google Maps just like you would type it in the Google Maps search bar
+    service.textSearch({ query: query }, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+            const place = results[0];
+            const name = place.name.toUpperCase();
+            const addressStr = place.formatted_address.toUpperCase(); // e.g. "1640 W MASON ST, GREEN BAY, WI 54303, USA"
+            
+            // Clean up the Google Address format into individual fields
+            let addrParts = addressStr.split(',').map(p => p.trim());
+            if (addrParts[addrParts.length - 1] === "USA") addrParts.pop(); // Remove "USA"
+            
+            let city = ""; let state = ""; let zip = ""; let street = "";
+
+            if (addrParts.length >= 3) {
+                const stateZip = addrParts[addrParts.length - 1].split(' ');
+                city = addrParts[addrParts.length - 2];
+                street = addrParts.slice(0, addrParts.length - 2).join(', ');
+                
+                if(stateZip.length >= 1) state = stateZip[0];
+                if(stateZip.length >= 2) zip = stateZip[1];
+            } else {
+                street = addressStr; // Fallback if format is weird
+            }
+
+            // Populate the UI fields!
+            document.getElementById('scCustNameInput').value = name;
+            document.getElementById('scCustStreetInput').value = street;
+            document.getElementById('scCustCityInput').value = city;
+            document.getElementById('scCustStateInput').value = state;
+            document.getElementById('scCustZipInput').value = zip;
+
+            // Trigger your custom CRM rules to check if we already have this in the database
+            checkCustomerAutoNumber('service');
+            checkLocationAutoNumber('service');
+            updateLocationDatalist();
+
+            showSaveCue("✓ Found: " + name);
+        } else {
+            alert("Google Maps couldn't find a match for: " + query);
+        }
+    });
+}
