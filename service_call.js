@@ -790,14 +790,23 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 
     issueRecognition.onresult = (event) => {
         let transcript = "";
+        // FIXED: Properly handle the speech result array to prevent duplication
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-            transcript += event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                transcript += event.results[i][0].transcript + " ";
+            } else {
+                transcript += event.results[i][0].transcript;
+            }
         }
-        currentIssueVoiceText = transcript;
         
-        const micBtn = document.getElementById('scIssueMicBtn');
-        if (isIssueRecording && micBtn) {
-            micBtn.innerText = "🗣️ " + currentIssueVoiceText;
+        // Only update if there is actual text
+        if (transcript.trim() !== "") {
+            currentIssueVoiceText = transcript;
+            const micBtn = document.getElementById('scIssueMicBtn');
+            if (isIssueRecording && micBtn) {
+                // Keep the button text short so it doesn't overflow the UI
+                micBtn.innerText = "🗣️ Listening...";
+            }
         }
     };
 
@@ -874,6 +883,7 @@ async function cleanIssueWithAI(rawText) {
     - Fix any grammar or spelling mistakes.
     - Remove filler words (uh, um, like, the customer said).
     - Keep it to 1-3 sentences maximum.
+    - Output MUST BE ALL CAPS.
     - Do NOT add any pleasantries or conversational text. Return ONLY the cleaned description.
     
     Raw Spoken Notes: "${rawText}"
