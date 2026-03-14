@@ -352,7 +352,6 @@
                 <input type="hidden" id="scCurrentId" value="">
 
                 <div class="form-section">
-
                     <h4>1. Customer & Site Verification</h4>
                     <div class="form-row">
                         <div class="input-group">
@@ -1044,29 +1043,6 @@
         </div>
     </div>
 
-<div style="text-align:right;">
-                    <button class="gen-btn" style="padding:8px 15px;" onclick="saveCustomerFromDirectory()">Save Customer</button>
-                </div>
-            </div>
-            
-            <input type="text" id="customerSearch" placeholder="Search by name, address, or ID..." onkeyup="renderCustomerDirectory()" style="margin-bottom: 15px;">
-            
-            <div style="max-height: 500px; overflow-y: auto; border: 1px solid #eaeaea; border-radius: 4px;">
-                <table class="db-table" style="width: 100%;">
-                    <thead>
-                        <tr>
-                            <th style="width: 35%;">Customer Name</th>
-                            <th style="width: 20%;">Customer #</th>
-                            <th style="width: 25%;">Locations</th>
-                            <th style="width: 20%; text-align: right;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="customerDirectoryBody"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
     <div id="googleResultsModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
@@ -1083,12 +1059,6 @@
             </div>
         </div>
     </div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <script>
-        // --- GLOBAL VARIABLES ---
-        let autoSaveTimeout;
-    
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
@@ -1246,10 +1216,10 @@
         }
     </script>
     
-    <script src="customer_directory.js?v=17"></script>
-    <script src="service_call.js?v=1"></script>
-    <script src="quoting.js?v=1"></script>
-    <script src="invoice.js?v=15"></script>
+    <script src="customer_directory.js?v=18"></script>
+    <script src="service_call.js?v=20"></script>
+    <script src="quoting.js?v=2"></script>
+    <script src="invoice.js?v=16"></script>
 
 </body>
 </html>
