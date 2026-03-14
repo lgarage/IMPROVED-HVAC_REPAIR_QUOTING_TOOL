@@ -245,9 +245,9 @@ function saveServiceCall(isAutoSave = false) {
             alert("A Customer Name and Reported Issue are required to log a service call.");
             return false;
         }
-        syncCustomerToDirectory(data);
+        if(typeof syncCustomerToDirectory === 'function') syncCustomerToDirectory(data);
     } else if (data.id !== "") {
-        syncCustomerToDirectory(data); 
+        if(typeof syncCustomerToDirectory === 'function') syncCustomerToDirectory(data); 
     }
 
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
@@ -468,35 +468,36 @@ function loadServiceCall(dbId) {
 }
 
 // ====================================================================
-// --- DISPATCHER VOICE SEARCH & GOOGLE PLACES API ---
+// --- DISPATCHER VOICE SEARCH (PUSH-TO-TALK) & SMART CRM SEARCH ---
 // ====================================================================
 
 let dispatcherRecognition;
+let currentVoiceSearchText = "";
+let isDispatcherRecording = false;
+let currentSearchResults = []; 
+
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     dispatcherRecognition = new SpeechRecognition();
-    dispatcherRecognition.continuous = false; // Stop listening after they pause
-    dispatcherRecognition.interimResults = false;
+    dispatcherRecognition.continuous = true; 
+    dispatcherRecognition.interimResults = true; 
 
-    dispatcherRecognition.onresult = async (event) => {
-        const transcript = event.results[0][0].transcript;
-        showSaveCue("🎤 Heard: " + transcript);
+    dispatcherRecognition.onresult = (event) => {
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            transcript += event.results[i][0].transcript;
+        }
+        currentVoiceSearchText = transcript;
         
         const micBtn = document.getElementById('scMicBtn');
-        micBtn.innerText = "⏳ Searching Google...";
-        micBtn.style.backgroundColor = "#95a5a6";
-        
-        await processDispatcherVoiceSearch(transcript);
-        
-        micBtn.innerText = "🎤 Voice Search";
-        micBtn.style.backgroundColor = "#f39c12";
+        if (isDispatcherRecording) {
+            micBtn.innerText = "🗣️ " + currentVoiceSearchText;
+        }
     };
 
     dispatcherRecognition.onerror = (event) => {
         console.error('Speech error', event.error);
-        const micBtn = document.getElementById('scMicBtn');
-        micBtn.innerText = "🎤 Voice Search";
-        micBtn.style.backgroundColor = "#f39c12";
+        resetDispatcherMicBtn();
     };
 }
 
@@ -505,20 +506,95 @@ function startDispatcherVoiceSearch() {
         alert("Voice search not supported in this browser. Please use Chrome or Safari.");
         return;
     }
+    if (isDispatcherRecording) return;
+    
+    isDispatcherRecording = true;
+    currentVoiceSearchText = ""; 
+    
     const micBtn = document.getElementById('scMicBtn');
-    micBtn.innerText = "🔴 Listening...";
+    micBtn.innerText = "🔴 LISTENING... (Speak Now)";
     micBtn.style.backgroundColor = "#e74c3c";
-    dispatcherRecognition.start();
+    micBtn.style.transform = "scale(0.95)"; 
+    
+    try { dispatcherRecognition.start(); } catch(e) {}
 }
 
-// --- ALL PREVIOUS PUSH-TO-TALK CODE STAYS EXACTLY THE SAME ABOVE THIS ---
-// Replace everything from processDispatcherVoiceSearch(query) down to the bottom with this:
+async function stopDispatcherVoiceSearch() {
+    if (!isDispatcherRecording) return;
+    isDispatcherRecording = false;
+    
+    try { dispatcherRecognition.stop(); } catch(e) {}
+    
+    const micBtn = document.getElementById('scMicBtn');
+    micBtn.style.transform = "scale(1)"; 
+    
+    if (currentVoiceSearchText.trim() !== "") {
+        micBtn.innerText = "⏳ Searching CRM & Google...";
+        micBtn.style.backgroundColor = "#95a5a6";
+        if(typeof showSaveCue === 'function') showSaveCue("🎤 Heard: " + currentVoiceSearchText);
+        
+        await processDispatcherVoiceSearch(currentVoiceSearchText);
+    } else {
+        resetDispatcherMicBtn();
+    }
+}
 
-let currentGoogleResults = []; // Temporary memory for the popup window
+function resetDispatcherMicBtn() {
+    const micBtn = document.getElementById('scMicBtn');
+    if(micBtn) {
+        micBtn.innerText = "🎤 HOLD TO SPEAK";
+        micBtn.style.backgroundColor = "#f39c12";
+    }
+}
 
 async function processDispatcherVoiceSearch(query) {
+    const q = query.trim().toUpperCase();
+    let db = typeof getCustomerDB === 'function' ? getCustomerDB() : {};
+    let internalMatches = [];
+
+    // 1. SEARCH INTERNAL CRM FIRST
+    for (let custName in db) {
+        let cust = db[custName];
+        if (cust.locations) {
+            for (let locId in cust.locations) {
+                let loc = cust.locations[locId];
+                let contactName = (loc.contact || "").toUpperCase();
+                let streetAddr = (loc.street || "").toUpperCase();
+
+                if (custName.includes(q) || contactName.includes(q) || streetAddr.includes(q)) {
+                    internalMatches.push({
+                        source: 'internal',
+                        custName: custName,
+                        custId: cust.id,
+                        locId: locId,
+                        contact: loc.contact || "",
+                        phone: loc.phone || "",
+                        email: loc.email || "",
+                        street: loc.street || "",
+                        city: loc.city || "",
+                        state: loc.state || "",
+                        zip: loc.zip || ""
+                    });
+                }
+            }
+        }
+    }
+
+    // 2. PROCESS INTERNAL MATCHES
+    if (internalMatches.length === 1) {
+        applySearchResultToForm(internalMatches[0]);
+        return; 
+    } 
+    else if (internalMatches.length > 1) {
+        currentSearchResults = internalMatches;
+        showSearchResultsModal("Internal Database Matches", "We found multiple locations in your CRM for this search. Please select the correct one:");
+        return; 
+    }
+
+    // 3. NO INTERNAL MATCHES? FALLBACK TO GOOGLE MAPS
     if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
-        alert("Google Maps API is still loading. Try again in a moment.");
+        alert("No internal matches found, and Google Maps API is unavailable.");
+        resetDispatcherMicBtn();
         return;
     }
     
@@ -528,78 +604,109 @@ async function processDispatcherVoiceSearch(query) {
     service.textSearch({ query: query }, (results, status) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
             
-            // If Google is 100% sure and only returns 1 result, auto-fill it!
-            if (results.length === 1) {
-                applyGoogleLocationToForm(results[0]);
-            } 
-            // If Google finds multiple matches, pop open the window!
-            else {
-                currentGoogleResults = results; // Save to temporary memory
-                showGoogleResultsModal(results);
+            let formattedGoogleResults = results.map(place => {
+                const name = place.name.toUpperCase();
+                const addressStr = place.formatted_address.toUpperCase(); 
+                let addrParts = addressStr.split(',').map(p => p.trim());
+                if (addrParts[addrParts.length - 1] === "USA") addrParts.pop(); 
+                
+                let city = ""; let state = ""; let zip = ""; let street = "";
+                if (addrParts.length >= 3) {
+                    const stateZip = addrParts[addrParts.length - 1].split(' ');
+                    city = addrParts[addrParts.length - 2];
+                    street = addrParts.slice(0, addrParts.length - 2).join(', ');
+                    if(stateZip.length >= 1) state = stateZip[0];
+                    if(stateZip.length >= 2) zip = stateZip[1];
+                } else { street = addressStr; }
+
+                return {
+                    source: 'google', custName: name, street: street, city: city, state: state, zip: zip,
+                    custId: "", locId: "", contact: "", phone: "", email: "", rawAddress: addressStr
+                };
+            });
+
+            if (formattedGoogleResults.length === 1) {
+                applySearchResultToForm(formattedGoogleResults[0]);
+            } else {
+                currentSearchResults = formattedGoogleResults;
+                showSearchResultsModal("Google Maps Results", "This customer isn't in your CRM yet. Google found a few matches. Select one to add them to your system:");
             }
-            
         } else {
-            alert("Google Maps couldn't find a match for: " + query);
+            alert("No internal matches found, and Google Maps couldn't find a match for: " + query);
+            resetDispatcherMicBtn();
         }
     });
 }
 
-function showGoogleResultsModal(results) {
+function showSearchResultsModal(titleText, subtitleText) {
+    const modal = document.getElementById('googleResultsModal');
     const listContainer = document.getElementById('googleResultsList');
-    listContainer.innerHTML = ""; // Clear out old searches
     
-    results.forEach((place, index) => {
-        listContainer.innerHTML += `
-            <div style="padding: 15px; border-bottom: 1px solid #eaeaea; cursor: pointer; transition: background 0.2s;" 
-                 onmouseover="this.style.background='#f4f7f6'" 
-                 onmouseout="this.style.background='#fff'"
-                 onclick="selectGoogleLocation(${index})">
-                <strong style="color: #1e4b85; font-size: 15px;">${place.name}</strong><br>
-                <span style="color: #555; font-size: 13px;">${place.formatted_address}</span>
-            </div>
-        `;
-    });
-    
-    document.getElementById('googleResultsModal').style.display = 'block';
-    showSaveCue("⚠️ Multiple matches found");
-}
-
-function selectGoogleLocation(index) {
-    const selectedPlace = currentGoogleResults[index];
-    document.getElementById('googleResultsModal').style.display = 'none'; // Close the popup
-    applyGoogleLocationToForm(selectedPlace); // Fill the form
-}
-
-function applyGoogleLocationToForm(place) {
-    const name = place.name.toUpperCase();
-    const addressStr = place.formatted_address.toUpperCase(); 
-    
-    let addrParts = addressStr.split(',').map(p => p.trim());
-    if (addrParts[addrParts.length - 1] === "USA") addrParts.pop(); 
-    
-    let city = ""; let state = ""; let zip = ""; let street = "";
-
-    if (addrParts.length >= 3) {
-        const stateZip = addrParts[addrParts.length - 1].split(' ');
-        city = addrParts[addrParts.length - 2];
-        street = addrParts.slice(0, addrParts.length - 2).join(', ');
+    if(modal) {
+        modal.querySelector('h2').innerText = titleText;
+        modal.querySelector('p').innerText = subtitleText;
         
-        if(stateZip.length >= 1) state = stateZip[0];
-        if(stateZip.length >= 2) zip = stateZip[1];
+        listContainer.innerHTML = ""; 
+        
+        currentSearchResults.forEach((result, index) => {
+            let displayHtml = "";
+            
+            if (result.source === 'internal') {
+                displayHtml = `
+                    <div style="padding: 15px; border-bottom: 1px solid #eaeaea; cursor: pointer; transition: background 0.2s; border-left: 4px solid #2ecc71;" 
+                         onmouseover="this.style.background='#f4f7f6'" onmouseout="this.style.background='#fff'" onclick="selectSearchResult(${index})">
+                        <strong style="color: #1e4b85; font-size: 16px;">${result.custName}</strong>
+                        <span style="color:#e74c3c; font-size:12px; font-weight:bold; margin-left:10px;">👤 Contact: ${result.contact || "None"}</span><br>
+                        <span style="color: #555; font-size: 13px;">📍 ${result.street}, ${result.city}, ${result.state} ${result.zip}</span><br>
+                        <span style="color: #999; font-size: 11px;">Cust #: ${result.custId} | Loc #: ${result.locId}</span>
+                    </div>
+                `;
+            } else {
+                displayHtml = `
+                    <div style="padding: 15px; border-bottom: 1px solid #eaeaea; cursor: pointer; transition: background 0.2s; border-left: 4px solid #f39c12;" 
+                         onmouseover="this.style.background='#f4f7f6'" onmouseout="this.style.background='#fff'" onclick="selectSearchResult(${index})">
+                        <strong style="color: #1e4b85; font-size: 16px;">${result.custName}</strong> <span style="font-size:11px; color:#f39c12; font-weight:bold;">(New from Google)</span><br>
+                        <span style="color: #555; font-size: 13px;">📍 ${result.rawAddress}</span>
+                    </div>
+                `;
+            }
+            listContainer.innerHTML += displayHtml;
+        });
+        
+        modal.style.display = 'block';
+        if(typeof showSaveCue === 'function') showSaveCue("⚠️ Multiple matches found");
+    }
+}
+
+function selectSearchResult(index) {
+    const selectedResult = currentSearchResults[index];
+    const modal = document.getElementById('googleResultsModal');
+    if(modal) modal.style.display = 'none'; 
+    applySearchResultToForm(selectedResult); 
+}
+
+function applySearchResultToForm(data) {
+    document.getElementById('scCustNameInput').value = data.custName;
+    document.getElementById('scCustStreetInput').value = data.street;
+    document.getElementById('scCustCityInput').value = data.city;
+    document.getElementById('scCustStateInput').value = data.state;
+    document.getElementById('scCustZipInput').value = data.zip;
+    
+    if (data.source === 'internal') {
+        document.getElementById('scCustNumInput').value = data.custId;
+        document.getElementById('scLocNumInput').value = data.locId;
+        document.getElementById('scContactNameInput').value = data.contact;
+        document.getElementById('scContactPhoneInput').value = data.phone;
+        document.getElementById('scContactEmailInput').value = data.email;
     } else {
-        street = addressStr; 
+        document.getElementById('scContactNameInput').value = "";
+        document.getElementById('scContactPhoneInput').value = "";
+        document.getElementById('scContactEmailInput').value = "";
+        if(typeof checkCustomerAutoNumber === 'function') checkCustomerAutoNumber('service');
+        if(typeof checkLocationAutoNumber === 'function') checkLocationAutoNumber('service');
     }
 
-    document.getElementById('scCustNameInput').value = name;
-    document.getElementById('scCustStreetInput').value = street;
-    document.getElementById('scCustCityInput').value = city;
-    document.getElementById('scCustStateInput').value = state;
-    document.getElementById('scCustZipInput').value = zip;
-
-    // Trigger CRM rules to see if this customer already exists
-    checkCustomerAutoNumber('service');
-    checkLocationAutoNumber('service');
-    updateLocationDatalist();
-
-    showSaveCue("✓ Form Populated: " + name);
+    if(typeof updateLocationDatalist === 'function') updateLocationDatalist();
+    if(typeof showSaveCue === 'function') showSaveCue("✓ Form Populated: " + data.custName);
+    resetDispatcherMicBtn();
 }
