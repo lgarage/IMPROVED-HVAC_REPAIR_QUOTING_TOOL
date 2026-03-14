@@ -2072,53 +2072,60 @@
             localStorage.setItem('tp_quote_counter', counter + 1);
         }
 
-        function startNewQuote() {
-            if (document.getElementById('currentQuoteId').value !== "") {
-                saveQuoteToDatabase(true, false); 
-            } else if (document.getElementById('custNameInput').value.trim() !== "") {
-                if(!confirm("You have an unsaved quote in progress. Discard it and start over?")) return; 
-            }
-            
-            document.getElementById('currentQuoteId').value = "";
-            document.getElementById('custNameInput').value = "";
-            document.getElementById('custNumInput').value = "";
-            document.getElementById('contactNameInput').value = "";
-            document.getElementById('custStreetInput').value = "";
-            document.getElementById('custCityInput').value = "";
-            document.getElementById('custStateInput').value = "";
-            document.getElementById('custZipInput').value = "";
-            document.getElementById('locNumInput').value = "";
-            document.getElementById('quoteStatusInput').value = "Pending";
-            document.getElementById('jobWorkflowInput').value = "N/A";
-            document.getElementById('requoteNoteHistory').value = "";
-            document.getElementById('newRequoteNote').value = "";
-            document.getElementById('laborHoursInput').value = "1.0";
-            handleQuoteStatusChange(); 
-            
-            document.getElementById('partsContainer').innerHTML = `
-            <div class="parts-grid-layout part-header-row">
-                <label>QTY</label><label>Part Description</label><label>Part Number</label><label>Vendor</label><label>Lead Time (Days)</label><label>Our Cost $</label><label></label>
-            </div>`;
-            addPartRow(); setDates(); setNextQuoteNumber(); 
-            document.getElementById('resultsSection').style.display = 'none';
-            document.getElementById('mainFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        if (document.getElementById('currentQuoteId').value !== "") {
+        saveQuoteToDatabase(true, false); 
+    } else if (document.getElementById('custNameInput').value.trim() !== "") {
+        if(!confirm("You have an unsaved quote in progress. Discard it and start over?")) return; 
+    }
+    
+    document.getElementById('currentQuoteId').value = "";
+    document.getElementById('custNameInput').value = "";
+    document.getElementById('custNumInput').value = "";
+    document.getElementById('contactNameInput').value = "";
+    document.getElementById('custStreetInput').value = "";
+    document.getElementById('custCityInput').value = "";
+    document.getElementById('custStateInput').value = "";
+    document.getElementById('custZipInput').value = "";
+    document.getElementById('locNumInput').value = "";
+    document.getElementById('quoteStatusInput').value = "Pending";
+    document.getElementById('jobWorkflowInput').value = "N/A";
+    document.getElementById('requoteNoteHistory').value = "";
+    document.getElementById('newRequoteNote').value = "";
+    document.getElementById('laborHoursInput').value = "1.0";
+    handleQuoteStatusChange(); 
+    
+    document.getElementById('partsContainer').innerHTML = `
+    <div class="parts-grid-layout part-header-row">
+        <label>QTY</label>
+        <label>Part Description</label>
+        <label>Part Number</label>
+        <label>Vendor</label>
+        <label>Lead Time (Days)</label>
+        <label>Our Cost $</label>
+        <label style="color:#27ae60;">Retail $ (Auto)</label>
+        <label></label>
+    </div>`;
+    addPartRow(); setDates(); setNextQuoteNumber(); 
+    document.getElementById('resultsSection').style.display = 'none';
+    document.getElementById('mainFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
-        function addPartRow() {
-            const container = document.getElementById('partsContainer');
-            const row = document.createElement('div');
-            row.className = 'parts-grid-layout part-row part-entry-line';
-            row.innerHTML = `
-                <input type="number" placeholder="QTY" class="p-qty" value="1" min="1">
-                <input type="text" placeholder="e.g. FILTER, MOTOR" class="p-desc">
-                <input type="text" placeholder="Optional" class="p-num">
-                <input type="text" placeholder="Vendor" class="p-vendor text-uppercase">
-                <input type="text" placeholder="e.g. 3" class="p-lead">
-                <div class="cost-wrapper"><span>$</span><input type="number" placeholder="0.00" class="p-cost" step="0.01" min="0"></div>
-                <div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>
-            `;
-            container.appendChild(row);
-        }
+function addPartRow() {
+    const container = document.getElementById('partsContainer');
+    const row = document.createElement('div');
+    row.className = 'parts-grid-layout part-row part-entry-line';
+    row.innerHTML = `
+        <input type="number" placeholder="QTY" class="p-qty" value="1" min="1" oninput="calcQuoteLiveMath()">
+        <input type="text" placeholder="e.g. FILTER, MOTOR" class="p-desc">
+        <input type="text" placeholder="Optional" class="p-num">
+        <input type="text" placeholder="Vendor" class="p-vendor text-uppercase">
+        <input type="text" placeholder="e.g. 3" class="p-lead">
+        <div class="cost-wrapper"><span>$</span><input type="number" placeholder="0.00" class="p-cost" step="0.01" min="0" oninput="calcQuoteLiveMath()"></div>
+        <div class="cost-wrapper" style="color:#27ae60;"><span>$</span><input type="text" class="p-retail" value="0.00" readonly style="background:transparent; border:none; font-weight:bold; width:100%; outline:none;"></div>
+        <div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>
+    `;
+    container.appendChild(row);
+}
 
         function getMarkupPercentage(cost) {
             if (cost <= 5) return 4.00; if (cost <= 10) return 3.00; if (cost <= 15) return 2.00;     
