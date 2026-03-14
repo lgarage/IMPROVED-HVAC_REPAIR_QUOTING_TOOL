@@ -790,21 +790,23 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 
     issueRecognition.onresult = (event) => {
         let transcript = "";
-        // FIXED: Properly handle the speech result array to prevent duplication
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        
+        // FIXED: Start the loop at 0 to capture the ENTIRE history of the recording session
+        // This ensures that even if you pause for 5 seconds and start speaking again,
+        // it grabs all the words from the moment you pressed the button.
+        for (let i = 0; i < event.results.length; ++i) {
+            transcript += event.results[i][0].transcript;
+            
+            // Add a space to finalized chunks so words don't mash together
             if (event.results[i].isFinal) {
-                transcript += event.results[i][0].transcript + " ";
-            } else {
-                transcript += event.results[i][0].transcript;
+                transcript += " ";
             }
         }
         
-        // Only update if there is actual text
         if (transcript.trim() !== "") {
             currentIssueVoiceText = transcript;
             const micBtn = document.getElementById('scIssueMicBtn');
             if (isIssueRecording && micBtn) {
-                // Keep the button text short so it doesn't overflow the UI
                 micBtn.innerText = "🗣️ Listening...";
             }
         }
@@ -853,7 +855,6 @@ async function stopIssueVoiceInput() {
             micBtn.style.backgroundColor = "#9b59b6"; // Purple for AI
         }
         
-        // Send the raw transcript to Gemini for cleanup
         await cleanIssueWithAI(currentIssueVoiceText);
         
     } else {
@@ -871,7 +872,6 @@ function resetIssueMicBtn() {
 
 async function cleanIssueWithAI(rawText) {
     if (typeof firebaseConfig === 'undefined' || !firebaseConfig.apiKey) {
-        // Fallback if API key isn't loaded: just use the raw text
         document.getElementById('scIssueInput').value = rawText.toUpperCase();
         resetIssueMicBtn();
         return;
@@ -903,7 +903,6 @@ async function cleanIssueWithAI(rawText) {
         if (data.candidates && data.candidates.length > 0) {
             let cleanText = data.candidates[0].content.parts[0].text.trim().toUpperCase();
             
-            // Append it to whatever is already in the box (in case they add more later)
             let existingText = document.getElementById('scIssueInput').value;
             if(existingText !== "") {
                 document.getElementById('scIssueInput').value = existingText + "\n" + cleanText;
@@ -913,7 +912,6 @@ async function cleanIssueWithAI(rawText) {
             
             if(typeof showSaveCue === 'function') showSaveCue("✨ Notes Cleaned by AI");
         } else {
-            // Fallback
             document.getElementById('scIssueInput').value = rawText.toUpperCase();
         }
     } catch (error) {
