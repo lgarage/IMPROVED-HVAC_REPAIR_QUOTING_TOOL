@@ -232,6 +232,10 @@ function clearServiceForm() {
     
     document.getElementById('scDateInput').valueAsDate = new Date();
     setNextServiceNumber();
+    
+    // Reset the yellow warning background!
+    if(typeof toggleNewCustomerWarning === 'function') toggleNewCustomerWarning(false);
+    
     document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -268,12 +272,8 @@ function saveServiceCall(isAutoSave = false) {
         } else { return false; } 
     }
 
-    // Save locally
     localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
-    
-    // **PUSH TO FIREBASE CLOUD**
     syncSingleServiceCallToCloud(data.id, data); 
-    
     renderServiceBoard();
     if (isAutoSave) showSaveCue("✓ Auto-Saved");
     return true;
@@ -345,13 +345,8 @@ function closeTicketDetails() {
                     db[scIndex].status = 'Unassigned';
                 }
             }
-            
-            // Save locally
             localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
-            
-            // **PUSH TECH ASSIGNMENT TO FIREBASE CLOUD**
             syncSingleServiceCallToCloud(db[scIndex].id, db[scIndex]);
-            
             renderServiceBoard(); 
         }
     }
@@ -429,13 +424,8 @@ function deleteServiceCall(dbId) {
     if(confirm("Permanently delete this service ticket?")) {
         let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
         db = db.filter(s => s.id !== dbId);
-        
-        // Save local deletion
         localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
-        
-        // **PUSH DELETE TO FIREBASE CLOUD**
         syncSingleServiceCallToCloud(dbId, null);
-        
         renderServiceBoard();
     }
 }
@@ -468,6 +458,52 @@ function loadServiceCall(dbId) {
 }
 
 // ====================================================================
+// --- NEW: YELLOW WARNING FOR NEW GOOGLE CUSTOMERS ---
+// ====================================================================
+function toggleNewCustomerWarning(isNew) {
+    const inputIds = ['scCustNameInput', 'scCustStreetInput', 'scCustCityInput', 'scCustStateInput', 'scCustZipInput'];
+    
+    inputIds.forEach(id => {
+        let el = document.getElementById(id);
+        if (el) {
+            if (isNew) {
+                el.style.backgroundColor = '#fff9c4'; // Light yellow
+                el.style.border = '1px solid #f39c12'; // Orange border
+            } else {
+                el.style.backgroundColor = ''; // Reset
+                el.style.border = ''; // Reset
+            }
+        }
+    });
+
+    let warningEl = document.getElementById('newCustomerWarningNote');
+    
+    if (isNew) {
+        if (!warningEl) {
+            warningEl = document.createElement('div');
+            warningEl.id = 'newCustomerWarningNote';
+            warningEl.style.color = '#d35400';
+            warningEl.style.backgroundColor = '#fdf2e9';
+            warningEl.style.padding = '10px';
+            warningEl.style.borderRadius = '4px';
+            warningEl.style.fontSize = '12px';
+            warningEl.style.fontWeight = 'bold';
+            warningEl.style.marginBottom = '15px';
+            warningEl.innerHTML = '⚠️ <strong>New Location Detected:</strong> This address is not currently in your CRM. The data below was pulled from Google Maps. Saving this ticket will automatically add this location to your Customer Directory.';
+            
+            // Insert right after the header
+            const section = document.getElementById('scCustNameInput').closest('.form-section');
+            if (section) {
+                const h4 = section.querySelector('h4');
+                if (h4) h4.insertAdjacentElement('afterend', warningEl);
+            }
+        }
+    } else {
+        if (warningEl) warningEl.remove();
+    }
+}
+
+// ====================================================================
 // --- DISPATCHER VOICE SEARCH (PUSH-TO-TALK) & SMART CRM SEARCH ---
 // ====================================================================
 
@@ -490,7 +526,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
         currentVoiceSearchText = transcript;
         
         const micBtn = document.getElementById('scMicBtn');
-        if (isDispatcherRecording) {
+        if (isDispatcherRecording && micBtn) {
             micBtn.innerText = "🗣️ " + currentVoiceSearchText;
         }
     };
@@ -518,9 +554,7 @@ function startDispatcherVoiceSearch() {
         micBtn.style.transform = "scale(0.95)"; 
     }
     
-    // NEW: Tells the whole window to wait for you to let go of the mouse button
     window.addEventListener('mouseup', stopDispatcherVoiceSearch);
-    
     try { dispatcherRecognition.start(); } catch(e) {}
 }
 
@@ -528,9 +562,7 @@ async function stopDispatcherVoiceSearch() {
     if (!isDispatcherRecording) return;
     isDispatcherRecording = false;
     
-    // NEW: Turns off the window listener so it doesn't cause glitches later
     window.removeEventListener('mouseup', stopDispatcherVoiceSearch);
-    
     try { dispatcherRecognition.stop(); } catch(e) {}
     
     const micBtn = document.getElementById('scMicBtn');
@@ -708,12 +740,18 @@ function applySearchResultToForm(data) {
         document.getElementById('scContactNameInput').value = data.contact;
         document.getElementById('scContactPhoneInput').value = data.phone;
         document.getElementById('scContactEmailInput').value = data.email;
+        
+        // Turn OFF yellow warning for existing CRM customers
+        toggleNewCustomerWarning(false);
     } else {
         document.getElementById('scContactNameInput').value = "";
         document.getElementById('scContactPhoneInput').value = "";
         document.getElementById('scContactEmailInput').value = "";
         if(typeof checkCustomerAutoNumber === 'function') checkCustomerAutoNumber('service');
         if(typeof checkLocationAutoNumber === 'function') checkLocationAutoNumber('service');
+        
+        // Turn ON yellow warning for brand new Google Map customers
+        toggleNewCustomerWarning(true);
     }
 
     if(typeof updateLocationDatalist === 'function') updateLocationDatalist();
