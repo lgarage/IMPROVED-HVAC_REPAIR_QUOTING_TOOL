@@ -475,7 +475,11 @@ async function saveAndPrintInvoice() {
     document.querySelectorAll('.inv-part-line').forEach(row => {
         const qty = parseInt(row.querySelector('.p-qty').value) || 1;
         const desc = row.querySelector('.p-desc').value.trim();
-        const retailUnit = parseFloat(row.querySelector('.p-retail').value) || 0;
+        
+        // ✨ THE FIX: Reverse engineer the unit price so the database record is accurate
+        const lineTotal = parseFloat(row.querySelector('.p-retail').value) || 0;
+        const retailUnit = qty > 0 ? (lineTotal / qty) : 0; 
+        
         if(desc !== "") partsData.push({ qty, desc, retailUnit });
     });
 
