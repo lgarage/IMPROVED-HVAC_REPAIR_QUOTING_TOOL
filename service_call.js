@@ -512,9 +512,14 @@ function startDispatcherVoiceSearch() {
     currentVoiceSearchText = ""; 
     
     const micBtn = document.getElementById('scMicBtn');
-    micBtn.innerText = "🔴 LISTENING... (Speak Now)";
-    micBtn.style.backgroundColor = "#e74c3c";
-    micBtn.style.transform = "scale(0.95)"; 
+    if(micBtn) {
+        micBtn.innerText = "🔴 LISTENING... (Speak Now)";
+        micBtn.style.backgroundColor = "#e74c3c";
+        micBtn.style.transform = "scale(0.95)"; 
+    }
+    
+    // NEW: Tells the whole window to wait for you to let go of the mouse button
+    window.addEventListener('mouseup', stopDispatcherVoiceSearch);
     
     try { dispatcherRecognition.start(); } catch(e) {}
 }
@@ -523,14 +528,19 @@ async function stopDispatcherVoiceSearch() {
     if (!isDispatcherRecording) return;
     isDispatcherRecording = false;
     
+    // NEW: Turns off the window listener so it doesn't cause glitches later
+    window.removeEventListener('mouseup', stopDispatcherVoiceSearch);
+    
     try { dispatcherRecognition.stop(); } catch(e) {}
     
     const micBtn = document.getElementById('scMicBtn');
-    micBtn.style.transform = "scale(1)"; 
+    if(micBtn) micBtn.style.transform = "scale(1)"; 
     
     if (currentVoiceSearchText.trim() !== "") {
-        micBtn.innerText = "⏳ Searching CRM & Google...";
-        micBtn.style.backgroundColor = "#95a5a6";
+        if(micBtn) {
+            micBtn.innerText = "⏳ Searching CRM & Google...";
+            micBtn.style.backgroundColor = "#95a5a6";
+        }
         if(typeof showSaveCue === 'function') showSaveCue("🎤 Heard: " + currentVoiceSearchText);
         
         await processDispatcherVoiceSearch(currentVoiceSearchText);
