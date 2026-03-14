@@ -54,7 +54,6 @@ async function parsePastedNotes() {
     const text = document.getElementById("invPasteArea").value;
     if (!text) return;
 
-    // Smart lookahead prevents the extractor from needing double line-breaks
     const nextHeader = "(?:\\n\\s*(?:Location|Date|Equipment|Notes|Work|Parts|Cost|Pictures)[a-zA-Z0-9 \\/\\(\\)]*?:|$)";
     
     const extract = (pattern) => {
@@ -64,7 +63,6 @@ async function parsePastedNotes() {
     };
 
     const locRaw = extract("Location");
-    // We send this to the smart Process Location function from the old code
     if (locRaw) await smartProcessLocation(locRaw);
 
     const equip = extract("Equipment on [Ss]ite") || extract("Equipment worked on");
@@ -76,7 +74,6 @@ async function parsePastedNotes() {
     const work = extract("Work done") || extract("Repairs made");
     if (work) document.getElementById("invWork").value = work;
 
-    // Always pre-fill PM Parts Row for default ease of use
     document.getElementById('invPartsContainer').innerHTML = `<div class="inv-parts-grid-layout part-header-row"><label>QTY</label><label>Part Description</label><label>Our Cost $</label><label style="color:#27ae60;">Retail $ (Auto)</label><label></label></div>`;
     addInvoicePartRow("Preventative Maintenance parts"); 
     
@@ -544,4 +541,16 @@ function viewOldInvoice(docId) {
     document.getElementById('printInvoiceView').classList.add('screen-preview');
     document.getElementById('customerQuoteView').classList.remove('screen-preview');
     document.getElementById('printInvoiceView').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ✨ ADDED BACK IN: The Core Markup Engine
+function getInvoiceMarkup(cost) {
+    if (cost <= 5) return 4.00;
+    if (cost <= 10) return 3.00;
+    if (cost <= 15) return 2.00;
+    if (cost <= 100) return 1.50;
+    if (cost <= 500) return 1.00;
+    if (cost <= 1000) return 0.85;
+    if (cost <= 1500) return 0.75;
+    return 0.65;
 }
