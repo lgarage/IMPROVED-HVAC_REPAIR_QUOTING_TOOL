@@ -233,7 +233,6 @@ function clearServiceForm() {
     document.getElementById('scDateInput').valueAsDate = new Date();
     setNextServiceNumber();
     
-    // Reset the yellow warning background!
     if(typeof toggleNewCustomerWarning === 'function') toggleNewCustomerWarning(false);
     
     document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -461,17 +460,22 @@ function loadServiceCall(dbId) {
 // --- NEW: YELLOW WARNING FOR NEW GOOGLE CUSTOMERS ---
 // ====================================================================
 function toggleNewCustomerWarning(isNew) {
-    const inputIds = ['scCustNameInput', 'scCustStreetInput', 'scCustCityInput', 'scCustStateInput', 'scCustZipInput'];
+    const inputIds = ['scCustNameInput', 'scCustStreetInput', 'scCustCityInput', 'scCustStateInput', 'scCustZipInput', 'scCustNumInput', 'scLocNumInput'];
     
     inputIds.forEach(id => {
         let el = document.getElementById(id);
         if (el) {
             if (isNew) {
-                el.style.backgroundColor = '#fff9c4'; // Light yellow
-                el.style.border = '1px solid #f39c12'; // Orange border
+                el.style.backgroundColor = '#fff9c4'; 
+                el.style.border = '1px solid #f39c12'; 
             } else {
-                el.style.backgroundColor = ''; // Reset
-                el.style.border = ''; // Reset
+                if (id === 'scCustNumInput' || id === 'scLocNumInput') {
+                    el.style.backgroundColor = '#f2f4f6'; // Restore specific gray bg
+                    el.style.border = '1px solid #ccc';
+                } else {
+                    el.style.backgroundColor = ''; 
+                    el.style.border = ''; 
+                }
             }
         }
     });
@@ -491,7 +495,6 @@ function toggleNewCustomerWarning(isNew) {
             warningEl.style.marginBottom = '15px';
             warningEl.innerHTML = '⚠️ <strong>New Location Detected:</strong> This address is not currently in your CRM. The data below was pulled from Google Maps. Saving this ticket will automatically add this location to your Customer Directory.';
             
-            // Insert right after the header
             const section = document.getElementById('scCustNameInput').closest('.form-section');
             if (section) {
                 const h4 = section.querySelector('h4');
@@ -741,7 +744,6 @@ function applySearchResultToForm(data) {
         document.getElementById('scContactPhoneInput').value = data.phone;
         document.getElementById('scContactEmailInput').value = data.email;
         
-        // Turn OFF yellow warning for existing CRM customers
         toggleNewCustomerWarning(false);
     } else {
         document.getElementById('scContactNameInput').value = "";
@@ -750,7 +752,20 @@ function applySearchResultToForm(data) {
         if(typeof checkCustomerAutoNumber === 'function') checkCustomerAutoNumber('service');
         if(typeof checkLocationAutoNumber === 'function') checkLocationAutoNumber('service');
         
-        // Turn ON yellow warning for brand new Google Map customers
+        // Grab the projected next numbers so it looks clean instead of "AUTO-GENERATED"
+        let nextCust = parseInt(localStorage.getItem('tp_cust_counter') || '1000');
+        let nextLoc = parseInt(localStorage.getItem('tp_loc_counter') || '1000');
+        
+        let custInput = document.getElementById('scCustNumInput');
+        if(!custInput.value || custInput.value.includes("AUTO")) {
+            custInput.value = "CST-" + nextCust;
+        }
+        
+        let locInput = document.getElementById('scLocNumInput');
+        if(!locInput.value || locInput.value.includes("AUTO")) {
+            locInput.value = "LOC-" + nextLoc;
+        }
+        
         toggleNewCustomerWarning(true);
     }
 
