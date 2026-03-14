@@ -353,14 +353,17 @@
 
                 <div class="form-section">
                     <h4>1. Customer & Site Verification</h4>
-                    <div class="form-row">
+                  <div class="form-row">
                         <div class="input-group">
-                            <label>Customer Name</label>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                                <label style="margin-bottom:0;">Customer Name</label>
+                                <button type="button" id="scMicBtn" onclick="startDispatcherVoiceSearch()" style="background:#f39c12; color:#fff; border:none; border-radius:4px; padding:3px 10px; font-size:11px; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.1); transition: 0.2s;">🎤 Voice Search</button>
+                            </div>
                             <input type="text" id="scCustNameInput" placeholder="e.g. Planet Fitness" list="customerNamesList">
                         </div>
                         <div class="input-group">
-                            <label>Customer #</label>
-                            <input type="text" id="scCustNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
+                            <label style="margin-bottom:5px;">Customer #</label>
+                            <input type="text" id="scCustNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold; margin-top: auto;">
                         </div>
                     </div>
 
