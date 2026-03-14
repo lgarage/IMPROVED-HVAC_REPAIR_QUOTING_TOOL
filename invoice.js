@@ -313,7 +313,7 @@ function calcInvoice() {
         
         const lineRetailTotal = retailUnit * qty;
         
-        // ✨ THE FIX: We now display the lineRetailTotal (Unit * QTY) instead of just the retailUnit!
+        // ✨ THE FIX: Display the Full Line Total (Unit * QTY)
         row.querySelector('.p-retail').value = lineRetailTotal.toFixed(2);
         
         if(row.querySelector('.p-desc').value.trim() !== "") {
