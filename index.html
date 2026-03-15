@@ -51,58 +51,60 @@
         #customerSearch, #invoiceSearch { text-transform: uppercase; }
 
         /* --- Sidebar Stylings --- */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100vh;
-            width: 240px;
-            background-color: #1e4b85; 
-            color: #fff;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.15);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
+        .sidebar { transition: width 0.3s ease; position: fixed; top: 0; left: 0; height: 100vh; overflow-x: hidden; width: 240px; background-color: #1e4b85; color: #fff; box-shadow: 2px 0 10px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column;}
+        .sidebar.collapsed { width: 70px; }
+        
+        .sidebar-header {
+            background-color: #fff; padding: 15px; display: flex; align-items: center;
+            justify-content: space-between; border-bottom: 3px solid #c89b53;
+            box-sizing: border-box; width: 100%; transition: all 0.3s ease;
         }
-        .sidebar-logo {
-            padding: 20px;
-            text-align: center;
-            background-color: #fff;
-            border-bottom: 3px solid #c89b53; 
+        
+        .sidebar.collapsed .sidebar-header { flex-direction: column; padding: 15px 5px; gap: 15px; }
+
+        .full-logo { max-width: 140px; height: auto; }
+        .mini-logo { max-width: 45px; height: auto; display: none; }
+        
+        .sidebar.collapsed .full-logo { display: none; }
+        .sidebar.collapsed .mini-logo { display: block; margin: 0 auto;}
+
+        .sidebar-toggle-btn { 
+            background: transparent; border: none; color: #c89b53; font-size: 26px; 
+            cursor: pointer; padding: 0; line-height: 1;
         }
-        .sidebar-logo img { max-width: 160px; height: auto; }
+        
         .sidebar-menu { list-style: none; padding: 0; margin: 0; flex: 1; }
         .sidebar-menu li { border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .sidebar-menu a {
-            display: block; padding: 18px 20px; color: #ecf0f1; text-decoration: none;
-            font-size: 15px; font-weight: bold; transition: all 0.2s; cursor: pointer;
-        }
-        .sidebar-menu a:hover, .sidebar-menu a.active-tab {
-            background-color: #c89b53; color: #fff; padding-left: 25px; 
-        }
+        .sidebar-menu a { display: flex; align-items: center; gap: 12px; white-space: nowrap; overflow: hidden; padding: 18px 20px; color: #ecf0f1; text-decoration: none; font-size: 15px; font-weight: bold; transition: all 0.2s; cursor: pointer;}
+        .sidebar.collapsed .sidebar-menu a { padding: 18px 20px; justify-content: center; }
+        .sidebar.collapsed .menu-icon { margin: 0; }
+        .sidebar.collapsed .menu-text { display: none; }
+        .sidebar.collapsed .sidebar-footer { display: none; }
+        
+        .sidebar-menu a:hover, .sidebar-menu a.active-tab { background-color: #c89b53; color: #fff; padding-left: 25px; }
+        .sidebar.collapsed .sidebar-menu a:hover, .sidebar.collapsed .sidebar-menu a.active-tab { padding-left: 20px; }
+        .menu-icon { font-size: 20px; min-width: 25px; text-align: center; }
         .sidebar-footer { padding: 20px; font-size: 12px; color: rgba(255,255,255,0.5); text-align: center; }
 
+
         /* --- Main Content Area --- */
-
-      .main-content {
-
-            margin-left: 10px; padding: 30px; flex: 1; min-width: 0; height: 100vh; 
+        .main-content {
+            margin-left: 240px; padding: 10px; flex: 1; min-width: 0; height: 100vh; 
             overflow-y: auto; scroll-behavior: smooth; box-sizing: border-box;
             transition: margin-left 0.3s ease;
         }
 
         .main-content.expanded { 
-            margin-left: 5px; 
+            margin-left: 70px; 
         }
-      
-
+        
         /* --- Form Containers --- */
         .app-view { display: none; } 
         .app-view.active { display: block; }
         
         .form-container {
             background-color: #fff; padding: 25px; border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; margin: 0 0 30px 0; box-sizing: border-box;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box;
             transition: box-shadow 0.4s ease; 
         }
         
@@ -151,7 +153,7 @@
         #saveIndicator.show { opacity: 1; transform: translateY(0); }
 
         /* --- Database Area --- */
-      .database-section { width: 100%; margin: 0 0 30px 0; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); box-sizing: border-box;}
+      .database-section { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box;}
         .db-table { width: 100%; border-collapse: collapse; font-size: 14px; }
         .db-table th, .db-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eaeaea; vertical-align: middle; }
         .db-table th { background: #1e4b85; color: #fff; position: sticky; top: 0; z-index: 10;}
@@ -164,56 +166,35 @@
 
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-        /* --- COMMAND CENTER UI (Map Overlay) --- */
-        .dispatch-hero {
-            position: relative; width: 100%; height: 65vh; min-height: 550px;  
-            margin: 0 0 30px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            background: #e5e5e5;
+        /* --- RAZORSYNC DASHBOARD LAYOUT --- */
+        .dispatch-dashboard-layout {
+            display: flex; gap: 15px; height: calc(100vh - 20px); margin-bottom: 30px;
         }
         
-        .dispatch-map-full { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; border: none; }
-        
-        .dispatch-list-overlay {
-            position: absolute; top: 15px; left: 15px; width: 400px; height: calc(100% - 30px); z-index: 500;
-            background: rgba(255, 255, 255, 0.05); 
-            backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); 
-            border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; display: flex; flex-direction: column;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1); pointer-events: auto; 
-            resize: horizontal; overflow: hidden; min-width: 280px; max-width: 70%;
+        /* 1. Left Panel (Ticket List) */
+        .dispatch-left-panel {
+            width: 320px; min-width: 320px; background: #fff; border-radius: 8px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; 
+            border: 1px solid #eaeaea; overflow: hidden;
         }
-        .dispatch-list-overlay > * { pointer-events: auto; }
-        
-        .overlay-header {
-            background: rgba(30, 75, 133, 0.95); color: #fff; padding: 15px 20px; font-weight: bold; font-size: 16px;
-            display: flex; justify-content: space-between; align-items: center; border-radius: 8px; margin-bottom: 10px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
+        .panel-header {
+            background: #1e4b85; color: #fff; padding: 15px; font-weight: bold; font-size: 15px;
+            display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        
-        .overlay-content { flex: 1; overflow-y: auto; padding: 0 5px 0 0; }
-        .overlay-content::-webkit-scrollbar { width: 6px; }
-        .overlay-content::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 4px; }
-        
-        .glass-card {
-            background: #ffffff; border-radius: 8px; padding: 15px; margin-bottom: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-left: 6px solid #ccc; cursor: grab; transition: all 0.15s ease;
+        .panel-content {
+            flex: 1; overflow-y: auto; padding: 10px; background: #f4f6f7;
         }
-        .glass-card:active { cursor: grabbing; }
-        .glass-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.25); border-left-width: 8px; }
-        .glass-card.dragging { opacity: 0.5; box-shadow: 0 10px 25px rgba(0,0,0,0.3); transform: scale(1.02); z-index: 10; }
-        
-        .glass-card.priority-Emergency { border-left-color: #e74c3c; }
-        .glass-card.priority-Urgent { border-left-color: #f39c12; }
-        .glass-card.priority-Standard { border-left-color: #3498db; }
-        .glass-card.priority-Routine { border-left-color: #95a5a6; }
-        
-        .tc-title { font-weight: bold; color: #1e4b85; font-size: 15px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;}
-        .tc-loc { font-size: 12px; color: #555; margin-bottom: 8px; font-weight: bold;}
-        .tc-issue { font-size: 12px; color: #333; margin-bottom: 12px; background: #f4f6f8; padding: 8px; border-radius: 4px; border: 1px solid #eee; }
-        .tc-footer { display: flex; justify-content: space-between; align-items: center; }
+        .panel-content::-webkit-scrollbar { width: 6px; }
+        .panel-content::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 4px; }
 
-        /* --- GANTT CHART DISPATCH BOARD (BUILDOPS STYLE) --- */
-      .dispatch-schedule-full { 
-            width: 100%; margin: 0 0 30px 0; background: #fff; 
+        /* 2. Right Panel (Gantt & Map Container) */
+        .dispatch-right-panel {
+            flex: 1; display: flex; flex-direction: column; gap: 15px; min-width: 0;
+        }
+
+        /* 3. Gantt Chart (Top Right) */
+        .dispatch-schedule-full { 
+            flex: 1.5; min-height: 300px; background: #fff; 
             border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
             overflow: hidden; display: flex; flex-direction: column;
             border: 1px solid #c89b53; box-sizing: border-box;
@@ -222,82 +203,60 @@
             background: #1e4b85; color: #fff; padding: 12px 20px; 
             font-weight: bold; font-size: 15px; display: flex; justify-content: space-between;
         }
-        
-        .gantt-container { display: flex; flex-direction: column; width: 100%; overflow-x: auto; position: relative;}
-        
-        /* Time Header */
-        .gantt-time-header { 
-            display: flex; border-bottom: 1px solid #ccc; background: #f8f9fa; 
-            min-width: 1000px; position: sticky; top: 0; z-index: 20;
-        }
-        .gantt-tech-corner { 
-            width: 180px; min-width: 180px; border-right: 2px solid #ccc; 
-            padding: 10px; background: #f8f9fa; font-weight: bold; color: #555;
-            position: sticky; left: 0; z-index: 30;
-        }
+        .gantt-container { display: flex; flex-direction: column; width: 100%; overflow-x: auto; position: relative; flex: 1;}
+        .gantt-time-header { display: flex; border-bottom: 1px solid #ccc; background: #f8f9fa; min-width: 1000px; position: sticky; top: 0; z-index: 20; }
+        .gantt-tech-corner { width: 180px; min-width: 180px; border-right: 2px solid #ccc; padding: 10px; background: #f8f9fa; font-weight: bold; color: #555; position: sticky; left: 0; z-index: 30; }
         .gantt-hours { display: flex; flex: 1; }
-        .gantt-hour-slot { 
-            flex: 1; min-width: 100px; padding: 10px 5px; text-align: left; 
-            border-right: 1px solid #eaeaea; font-size: 11px; font-weight: bold; color: #7f8c8d;
-        }
-
-        /* Grid Body */
+        .gantt-hour-slot { flex: 1; min-width: 100px; padding: 10px 5px; text-align: left; border-right: 1px solid #eaeaea; font-size: 11px; font-weight: bold; color: #7f8c8d; }
         .gantt-body { min-width: 1000px; position: relative; background: #fff; }
         .gantt-row { display: flex; border-bottom: 1px solid #eaeaea; height: 65px; }
         .gantt-row:hover { background-color: #fdfefe; }
-        
-        /* Tech Column (Sticky on left) */
-        .gantt-tech-cell { 
-            width: 180px; min-width: 180px; border-right: 2px solid #ccc; 
-            background: #fff; position: sticky; left: 0; z-index: 10;
-            display: flex; align-items: center; padding: 0 15px; box-shadow: 2px 0 5px rgba(0,0,0,0.05);
-        }
+        .gantt-tech-cell { width: 180px; min-width: 180px; border-right: 2px solid #ccc; background: #fff; position: sticky; left: 0; z-index: 10; display: flex; align-items: center; padding: 0 15px; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
         .tech-avatar { width: 35px; height: 35px; border-radius: 50%; background: #c89b53; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; margin-right: 12px; font-size: 14px;}
         .tech-info { display: flex; flex-direction: column; }
         .tech-name { font-weight: bold; color: #333; font-size: 13px; }
         .tech-status { font-size: 11px; color: #27ae60; font-weight: bold; }
-
-        /* The actual timeline where blocks go */
-        .gantt-timeline { 
-            flex: 1; display: flex; position: relative; 
-            background-image: linear-gradient(to right, #f4f6f7 1px, transparent 1px);
-            background-size: calc(100% / 10) 100%; /* Assumes 10 hours shown */
-        }
-
-        /* BuildOps Style Job Blocks */
-        .gantt-job-block { 
-            position: absolute; top: 8px; height: 48px; border-radius: 4px; 
-            display: flex; flex-direction: column; justify-content: center; padding: 0 12px; 
-            font-size: 11px; color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
-            overflow: hidden; white-space: nowrap; cursor: grab; border-left: 5px solid rgba(0,0,0,0.3);
-            transition: box-shadow 0.1s; user-select: none;
-        }
+        .gantt-timeline { flex: 1; display: flex; position: relative; background-image: linear-gradient(to right, #f4f6f7 1px, transparent 1px); background-size: calc(100% / 10) 100%; }
+        
+        .gantt-job-block { position: absolute; top: 8px; height: 48px; border-radius: 4px; display: flex; flex-direction: column; justify-content: center; padding: 0 12px; font-size: 11px; color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.2); overflow: hidden; white-space: nowrap; cursor: grab; border-left: 5px solid rgba(0,0,0,0.3); transition: box-shadow 0.1s; user-select: none; }
         .gantt-job-block:hover { box-shadow: 0 6px 12px rgba(0,0,0,0.3); z-index: 5;}
         .gantt-job-block:active { cursor: grabbing; z-index: 10; opacity: 0.9;}
         .gantt-job-title { font-weight: bold; font-size: 12px; margin-bottom: 2px; pointer-events: none;}
         .gantt-job-sub { font-size: 10px; opacity: 0.9; pointer-events: none;}
-
-        /* Invisible edges for Resizing */
-        .resize-handle {
-            position: absolute; top: 0; bottom: 0; width: 12px;
-            cursor: ew-resize; z-index: 10; transition: background 0.2s;
-        }
+        .resize-handle { position: absolute; top: 0; bottom: 0; width: 12px; cursor: ew-resize; z-index: 10; transition: background 0.2s; }
         .resize-handle:hover { background: rgba(255,255,255,0.4); }
         .resize-left { left: 0; }
         .resize-right { right: 0; }
+        #currentTimeLine { position: absolute; top: 0; bottom: 0; width: 2px; background-color: #e74c3c; z-index: 15; border-left: 1px dashed #fff; pointer-events: none; }
+        .time-badge { position: absolute; top: -20px; left: -25px; background: #e74c3c; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
 
-        /* The Red Current Time Line */
-        #currentTimeLine {
-            position: absolute; top: 0; bottom: 0; width: 2px; background-color: #e74c3c;
-            z-index: 15; border-left: 1px dashed #fff; pointer-events: none;
+        /* 4. Map Container (Bottom Right) */
+        .dispatch-hero {
+            position: relative; flex: 1; min-height: 250px; border: 1px solid #eaeaea;
+            border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); background: #e5e5e5;
         }
-        .time-badge {
-            position: absolute; top: -20px; left: -25px; background: #e74c3c; color: #fff;
-            padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;
+        .dispatch-map-full { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; border: none; }
+
+        /* Modified Glass Cards */
+        .glass-card {
+            background: #ffffff; border-radius: 6px; padding: 12px; margin-bottom: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08); border-left: 5px solid #ccc; cursor: grab; transition: all 0.15s ease;
         }
+        .glass-card:active { cursor: grabbing; }
+        .glass-card:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); border-left-width: 8px; }
+        .glass-card.dragging { opacity: 0.5; box-shadow: 0 10px 25px rgba(0,0,0,0.3); transform: scale(1.02); z-index: 10; }
+        
+        .glass-card.priority-Emergency { border-left-color: #e74c3c; }
+        .glass-card.priority-Urgent { border-left-color: #f39c12; }
+        .glass-card.priority-Standard { border-left-color: #3498db; }
+        .glass-card.priority-Routine { border-left-color: #95a5a6; }
+        
+        .tc-title { font-weight: bold; color: #1e4b85; font-size: 14px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;}
+        .tc-loc { font-size: 12px; color: #555; margin-bottom: 8px; font-weight: bold;}
+        .tc-footer { display: flex; justify-content: space-between; align-items: center; }
 
         /* --- PDF Result Sections --- */
-      .results-section { display: none; width: 100%; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin: 0 0 30px 0; box-sizing: border-box; }
+      .results-section { display: none; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box; }
         #internalView { margin-bottom: 40px; padding: 20px; background-color: #fafbfc; border: 1px solid #eaeaea; border-radius: 6px; }
         .internal-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
         .internal-table th, .internal-table td { text-align: left; padding: 10px; border-bottom: 1px solid #eaeaea; }
@@ -362,34 +321,13 @@
         .view-toggle:hover { background: rgba(255,255,255,0.1); }
         .view-toggle.active { background: #fff; color: #1e4b85; }
         
-        /* --- Sidebar Collapsible --- */
-        .sidebar { transition: width 0.3s ease; position: relative; overflow-x: hidden; }
-        .sidebar.collapsed { width: 70px; }
-    .sidebar.collapsed .sidebar-logo { padding: 60px 10px 20px 10px; height: auto; border-bottom: none; }
-        .sidebar.collapsed .sidebar-logo img { display: block; max-width: 45px; margin: 0 auto; }
-        .sidebar.collapsed .sidebar-toggle-btn { right: auto; left: 50%; transform: translateX(-50%); top: 15px; }
-        .sidebar.collapsed .menu-text { display: none; }
-        .sidebar.collapsed .sidebar-footer { display: none; }
-        
-        .sidebar-menu a { display: flex; align-items: center; gap: 12px; white-space: nowrap; overflow: hidden;}
-        .menu-icon { font-size: 20px; min-width: 25px; text-align: center; }
-
-        .main-content { transition: margin-left 0.3s ease; }
-        .main-content.expanded { margin-left: 70px; }
-        
-        .sidebar-toggle-btn { 
-            background: transparent; border: none; color: #c89b53; font-size: 24px; 
-            cursor: pointer; position: absolute; top: 15px; right: 15px; z-index: 100;
-        }
-        .sidebar.collapsed .sidebar-toggle-btn { right: 23px; top: 25px;}
-        
         /* Print formatting */
         @media print {
             @page { margin: 0; }
             body { margin: 1cm; background: #fff; display: block; }
             .sidebar { display: none !important; }
             .main-content { margin-left: 0 !important; padding: 0 !important; display: block !important; overflow: visible;}
-            .form-container, .database-section, .dispatch-hero, .dispatch-schedule-full, .action-bar, #internalView, .add-part-btn, .print-btn, #saveIndicator, .modal-overlay, #invoiceBuilder { display: none !important; }
+            .form-container, .database-section, .dispatch-dashboard-layout, .action-bar, #internalView, .add-part-btn, .print-btn, #saveIndicator, .modal-overlay, #invoiceBuilder { display: none !important; }
             .results-section { box-shadow: none; border: none; padding: 0; margin: 0; display: block !important; max-width: 100%; }
             .document-print-view { border: none; padding: 0; max-width: 100%; box-shadow: none; margin: 0;}
             /* Important: Ensure only the correctly chosen document prints */
@@ -404,9 +342,10 @@
     <datalist id="locationStreetsList"></datalist>
 
     <div class="sidebar" id="appSidebar">
-        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Collapse/Expand Menu">☰</button>
-        <div class="sidebar-logo">
-            <img src="tphc_logo.png" alt="Twin Pillars Logo">
+        <div class="sidebar-header">
+            <img src="tphc_logo.png" alt="Twin Pillars Logo" class="full-logo">
+            <img src="tphc_logo.png" alt="Twin Pillars Icon" class="mini-logo">
+            <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Collapse/Expand Menu">☰</button>
         </div>
         <ul class="sidebar-menu">
             <li><a id="nav-service" onclick="switchTab('service')" class="active-tab"><span class="menu-icon">📋</span> <span class="menu-text">Service Call Intake</span></a></li>
@@ -423,66 +362,72 @@
         
         <div id="view-service" class="app-view active">
             
-            <div class="dispatch-hero">
-                <div id="dispatchMapContainer" class="dispatch-map-full" style="z-index: 1;"></div>
+            <div class="dispatch-dashboard-layout">
                 
-                <div style="position: absolute; bottom: 85px; right: 10px; z-index: 10; display: flex; flex-direction: column; gap: 8px;">
-                    <button class="gen-btn" style="background:#fff; color:#333; box-shadow: 0 2px 6px rgba(0,0,0,0.3); padding: 8px 12px; font-size:12px; border-radius: 4px; border: 1px solid #ccc;" onclick="setMapType('m')">Map</button>
-                    <button class="gen-btn" style="background:#fff; color:#333; box-shadow: 0 2px 6px rgba(0,0,0,0.3); padding: 8px 12px; font-size:12px; border-radius: 4px; border: 1px solid #ccc;" onclick="setMapType('k')">Satellite</button>
-                </div>
-
-                <div class="dispatch-list-overlay">
-                    <div class="overlay-header">
-                        <span>Active Service Requests <span class="badge" style="background:#fff; color:#1e4b85; margin-left:8px;" id="ticketCountBadge">0</span></span>
+                <div class="dispatch-left-panel">
+                    <div class="panel-header">
+                        <span>Service Requests <span class="badge" style="background:#fff; color:#1e4b85; margin-left:8px; padding: 2px 6px; border-radius: 12px;" id="ticketCountBadge">0</span></span>
                         <button class="gen-btn" style="background:#2ecc71; padding: 4px 10px; font-size:12px;" onclick="scrollToServiceForm()">+ New</button>
                     </div>
-                    <div id="serviceRequestList" class="overlay-content" style="padding-left: 5px; padding-right: 10px;">
+                    <div id="serviceRequestList" class="panel-content">
                         </div>
                 </div>
-            </div>
 
-            <div class="dispatch-schedule-full">
-                <div class="schedule-header-bar" style="align-items: center;">
-                    <div style="font-size: 16px;">Dispatch Board</div>
+                <div class="dispatch-right-panel">
                     
-                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px;">
-                        <button class="gen-btn" style="background: transparent; color: #fff; padding: 4px 8px;" onclick="changeBoardDate(-1)">◀ Prev</button>
-                        <input type="date" id="boardDateSelector" onchange="setBoardDate(this.value)" style="background: #fff; color: #333; border: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; width: 140px; cursor: pointer; text-transform: uppercase;">
-                        <button class="gen-btn" style="background: transparent; color: #fff; padding: 4px 8px;" onclick="changeBoardDate(1)">Next ▶</button>
-                        <button class="gen-btn" style="background: #f39c12; color: #fff; padding: 4px 10px; margin-left: 5px;" onclick="setBoardDate('today')">Today</button>
-                    </div>
+                    <div class="dispatch-schedule-full">
+                        <div class="schedule-header-bar" style="align-items: center;">
+                            <div style="font-size: 16px;">Dispatch Board</div>
+                            
+                            <div style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px;">
+                                <button class="gen-btn" style="background: transparent; color: #fff; padding: 4px 8px;" onclick="changeBoardDate(-1)">◀ Prev</button>
+                                <input type="date" id="boardDateSelector" onchange="setBoardDate(this.value)" style="background: #fff; color: #333; border: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; width: 140px; cursor: pointer; text-transform: uppercase;">
+                                <button class="gen-btn" style="background: transparent; color: #fff; padding: 4px 8px;" onclick="changeBoardDate(1)">Next ▶</button>
+                                <button class="gen-btn" style="background: #f39c12; color: #fff; padding: 4px 10px; margin-left: 5px;" onclick="setBoardDate('today')">Today</button>
+                            </div>
 
-                    <div style="display: flex; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;">
-                        <button class="view-toggle active" id="btnViewDay" onclick="switchBoardView('day')">Day</button>
-                        <button class="view-toggle" id="btnViewWeek" onclick="switchBoardView('week')">Week</button>
-                        <button class="view-toggle" id="btnViewMonth" onclick="switchBoardView('month')">Month</button>
-                    </div>
-                </div>
-                
-                <div id="boardDayOfWeek" style="background: #f4f6f7; text-align: center; padding: 6px; font-weight: bold; color: #1e4b85; border-bottom: 1px solid #ccc; font-size: 15px; letter-spacing: 1px;">
-                    Loading Day...
-                </div>
-                
-                <div class="gantt-container">
-                    <div class="gantt-time-header">
-                        <div class="gantt-tech-corner">Filter Techs By...</div>
-                        <div class="gantt-hours">
-                            <div class="gantt-hour-slot">7:00 AM</div>
-                            <div class="gantt-hour-slot">8:00 AM</div>
-                            <div class="gantt-hour-slot">9:00 AM</div>
-                            <div class="gantt-hour-slot">10:00 AM</div>
-                            <div class="gantt-hour-slot">11:00 AM</div>
-                            <div class="gantt-hour-slot">12:00 PM</div>
-                            <div class="gantt-hour-slot">1:00 PM</div>
-                            <div class="gantt-hour-slot">2:00 PM</div>
-                            <div class="gantt-hour-slot">3:00 PM</div>
-                            <div class="gantt-hour-slot">4:00 PM</div>
+                            <div style="display: flex; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;">
+                                <button class="view-toggle active" id="btnViewDay" onclick="switchBoardView('day')">Day</button>
+                                <button class="view-toggle" id="btnViewWeek" onclick="switchBoardView('week')">Week</button>
+                                <button class="view-toggle" id="btnViewMonth" onclick="switchBoardView('month')">Month</button>
+                            </div>
+                        </div>
+                        
+                        <div id="boardDayOfWeek" style="background: #f4f6f7; text-align: center; padding: 6px; font-weight: bold; color: #1e4b85; border-bottom: 1px solid #ccc; font-size: 15px; letter-spacing: 1px;">
+                            Loading Day...
+                        </div>
+                        
+                        <div class="gantt-container">
+                            <div class="gantt-time-header">
+                                <div class="gantt-tech-corner">Filter Techs By...</div>
+                                <div class="gantt-hours">
+                                    <div class="gantt-hour-slot">7:00 AM</div>
+                                    <div class="gantt-hour-slot">8:00 AM</div>
+                                    <div class="gantt-hour-slot">9:00 AM</div>
+                                    <div class="gantt-hour-slot">10:00 AM</div>
+                                    <div class="gantt-hour-slot">11:00 AM</div>
+                                    <div class="gantt-hour-slot">12:00 PM</div>
+                                    <div class="gantt-hour-slot">1:00 PM</div>
+                                    <div class="gantt-hour-slot">2:00 PM</div>
+                                    <div class="gantt-hour-slot">3:00 PM</div>
+                                    <div class="gantt-hour-slot">4:00 PM</div>
+                                </div>
+                            </div>
+
+                            <div class="gantt-body" id="scheduleTimeline">
+                                <div id="currentTimeLine" style="left: 45%;"><div class="time-badge">1:30 PM</div></div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="gantt-body" id="scheduleTimeline">
-                        <div id="currentTimeLine" style="left: 45%;"><div class="time-badge">1:30 PM</div></div>
+                    <div class="dispatch-hero">
+                        <div id="dispatchMapContainer" class="dispatch-map-full" style="z-index: 1;"></div>
+                        <div style="position: absolute; bottom: 10px; right: 10px; z-index: 10; display: flex; flex-direction: column; gap: 8px;">
+                            <button class="gen-btn" style="background:#fff; color:#333; box-shadow: 0 2px 6px rgba(0,0,0,0.3); padding: 8px 12px; font-size:12px; border-radius: 4px; border: 1px solid #ccc;" onclick="setMapType('m')">Map</button>
+                            <button class="gen-btn" style="background:#fff; color:#333; box-shadow: 0 2px 6px rgba(0,0,0,0.3); padding: 8px 12px; font-size:12px; border-radius: 4px; border: 1px solid #ccc;" onclick="setMapType('k')">Satellite</button>
+                        </div>
                     </div>
+
                 </div>
             </div>
 
