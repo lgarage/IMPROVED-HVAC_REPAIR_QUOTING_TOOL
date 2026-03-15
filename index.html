@@ -354,8 +354,9 @@
         /* --- Sidebar Collapsible --- */
         .sidebar { transition: width 0.3s ease; position: relative; overflow-x: hidden; }
         .sidebar.collapsed { width: 70px; }
-        .sidebar.collapsed .sidebar-logo img { display: none; }
-        .sidebar.collapsed .sidebar-logo { padding: 20px 0; height: 60px; }
+    .sidebar.collapsed .sidebar-logo { padding: 60px 10px 20px 10px; height: auto; border-bottom: none; }
+        .sidebar.collapsed .sidebar-logo img { display: block; max-width: 45px; margin: 0 auto; }
+        .sidebar.collapsed .sidebar-toggle-btn { right: auto; left: 50%; transform: translateX(-50%); top: 15px; }
         .sidebar.collapsed .menu-text { display: none; }
         .sidebar.collapsed .sidebar-footer { display: none; }
         
