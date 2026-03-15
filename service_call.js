@@ -2,7 +2,6 @@
 // --- MAP ENGINE & CLOUD DISPATCH BOARD LOGIC ---
 // ====================================================================
 
-// 1. Initial Cloud Sync (Pulls active tickets from Firebase on load)
 window.addEventListener('DOMContentLoaded', () => {
     setTimeout(loadServiceCallsFromCloud, 2000); 
 });
@@ -26,7 +25,6 @@ async function loadServiceCallsFromCloud() {
     }
 }
 
-// 2. Master Sync Function (Pushes local changes to Firebase silently)
 async function syncSingleServiceCallToCloud(dbId, data) {
     try {
         let firestoreDb = firebase.firestore();
@@ -139,37 +137,6 @@ function saveBoardOrder() {
     renderScheduleTimelineOnly(); 
 }
 
-function renderScheduleTimelineOnly() {
-    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
-    const timelineContainer = document.getElementById('scheduleTimeline');
-    timelineContainer.innerHTML = "";
-    let techCounter = 1; 
-
-    [...db].reverse().forEach((sc, index) => {
-        if (sc.status !== 'Canceled') {
-            let leftOffset = 10 + (index * 15) % 60; 
-            let width = 20 + (sc.issue.length % 20); 
-            let blockColor = sc.priority === 'Emergency' ? '#e74c3c' : (sc.priority === 'Urgent' ? '#f39c12' : '#3498db');
-            let statusLabel = sc.status === 'Unassigned' ? 'Unassigned Block' : sc.ticketNum;
-            if (sc.status === 'Unassigned') blockColor = '#bdc3c7'; 
-            let techNameDisplay = sc.assignedTech && sc.assignedTech !== 'Unassigned' ? sc.assignedTech.split(' ')[0] : 'Unassigned';
-
-            timelineContainer.innerHTML += `
-                <div class="tech-row">
-                    <div class="tech-name" title="${sc.assignedTech || 'Unassigned'}">${techNameDisplay}</div>
-                    <div class="time-blocks" style="width: 100%; position: relative; margin-left: 90px; height: 100%;">
-                        <div class="job-block" style="left: ${leftOffset}%; width: ${width}%; background: ${blockColor}; cursor: pointer;" onclick="openTicketDetails('${sc.id}')" title="${sc.customerName} - ${sc.issue}">
-                            ${statusLabel}
-                        </div>
-                    </div>
-                </div>
-            `;
-            techCounter++;
-            if(techCounter > 5) techCounter = 1; 
-        }
-    });
-}
-
 function triggerServiceAutoSave() {
     clearTimeout(autoSaveTimeout);
     autoSaveTimeout = setTimeout(() => { saveServiceCall(true); }, 250); 
@@ -190,6 +157,8 @@ function gatherServiceData() {
         id: document.getElementById('scCurrentId').value,
         ticketNum: document.getElementById('scTicketNumberInput').value,
         date: document.getElementById('scDateInput').value,
+        startTime: document.getElementById('scStartTimeInput').value, // SAVING TIME
+        duration: document.getElementById('scDurationInput').value,   // SAVING DURATION
         customerName: document.getElementById('scCustNameInput').value.trim().toUpperCase() || "UNKNOWN CUSTOMER",
         customerNum: document.getElementById('scCustNumInput').value || "N/A",
         contactName: document.getElementById('scContactNameInput').value.trim().toUpperCase(),
@@ -231,6 +200,8 @@ function clearServiceForm() {
     document.getElementById('scNotesInput').value = "";
     
     document.getElementById('scDateInput').valueAsDate = new Date();
+    document.getElementById('scStartTimeInput').value = "08:00"; // RESET TIME
+    document.getElementById('scDurationInput').value = "2.0";    // RESET DURATION
     setNextServiceNumber();
     
     if(typeof toggleNewCustomerWarning === 'function') toggleNewCustomerWarning(false);
@@ -353,25 +324,50 @@ function closeTicketDetails() {
     currentOpenDetailsId = null;
 }
 
+function loadServiceCall(dbId) {
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    const data = db.find(s => s.id === dbId);
+    if(!data) return;
+    
+    document.getElementById('scCurrentId').value = data.id;
+    document.getElementById('scTicketNumberInput').value = data.ticketNum;
+    document.getElementById('scDateInput').value = data.date;
+    document.getElementById('scStartTimeInput').value = data.startTime || "08:00"; // LOAD TIME
+    document.getElementById('scDurationInput').value = data.duration || "2.0";     // LOAD DURATION
+    document.getElementById('scCustNameInput').value = data.customerName;
+    document.getElementById('scCustNumInput').value = data.customerNum;
+    document.getElementById('scContactNameInput').value = data.contactName;
+    document.getElementById('scContactPhoneInput').value = data.contactPhone;
+    document.getElementById('scContactEmailInput').value = data.contactEmail;
+    document.getElementById('scCustStreetInput').value = data.locationAddress;
+    document.getElementById('scCustCityInput').value = data.custCity;
+    document.getElementById('scCustStateInput').value = data.custState;
+    document.getElementById('scCustZipInput').value = data.custZip;
+    document.getElementById('scLocNumInput').value = data.locationNum;
+    document.getElementById('scJobTypeInput').value = data.jobType;
+    document.getElementById('scPriorityInput').value = data.priority;
+    document.getElementById('scAssignedTechInput').value = data.assignedTech;
+    document.getElementById('scStatusInput').value = data.status;
+    document.getElementById('scIssueInput').value = data.issue;
+    document.getElementById('scEquipInput').value = data.equip;
+    document.getElementById('scNotesInput').value = data.notes;
+}
+
 function renderServiceBoard() {
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
     const listContainer = document.getElementById('serviceRequestList');
-    const timelineContainer = document.getElementById('scheduleTimeline');
     const counter = document.getElementById('ticketCountBadge');
     
     listContainer.innerHTML = "";
-    timelineContainer.innerHTML = "";
     counter.innerText = db.length;
 
     if (db.length === 0) {
         listContainer.innerHTML = `<div style="text-align:center; padding: 20px; color: #555; font-style: italic; background: rgba(255,255,255,0.7); border-radius: 6px;">No active service calls.</div>`;
-        timelineContainer.innerHTML = `<div style="text-align:center; padding: 20px; color: #999; font-style: italic;">Schedule clear.</div>`;
-        return;
     }
 
     markerLayer.clearLayers();
 
-    [...db].reverse().forEach((sc, index) => {
+    [...db].reverse().forEach((sc) => {
         if (sc.status !== 'Canceled' && sc.status !== 'Completed') {
             let fullAddr = `${sc.locationAddress}, ${sc.custCity}, ${sc.custState} ${sc.custZip}`;
             plotMarkerOnMap(fullAddr, sc);
@@ -419,45 +415,214 @@ function renderServiceBoard() {
     renderScheduleTimelineOnly();
 }
 
-function deleteServiceCall(dbId) {
-    if(confirm("Permanently delete this service ticket?")) {
-        let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
-        db = db.filter(s => s.id !== dbId);
-        localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
-        syncSingleServiceCallToCloud(dbId, null);
-        renderServiceBoard();
+
+// ====================================================================
+// --- GANTT CHART ENGINE (BUILDOPS STYLE WITH DRAG & RESIZE) ---
+// ====================================================================
+
+function renderScheduleTimelineOnly() {
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    const timelineContainer = document.getElementById('scheduleTimeline');
+    if (!timelineContainer) return;
+    
+    timelineContainer.innerHTML = "";
+
+    const technicians = [
+        { name: "Dave", id: "Dave (Tech 1)", status: "Active", color: "#2980b9" },
+        { name: "Sarah", id: "Sarah (Tech 2)", status: "Active", color: "#8e44ad" },
+        { name: "Mike", id: "Mike (Tech 3)", status: "Active", color: "#d35400" },
+        { name: "Tom", id: "Tom (Tech 4)", status: "Active", color: "#16a085" }
+    ];
+
+    const startHour = 7; 
+    const totalHours = 10;
+
+    technicians.forEach(tech => {
+        const techJobs = db.filter(sc => sc.assignedTech === tech.id && sc.status !== 'Canceled' && sc.status !== 'Completed');
+
+        let rowHtml = `
+            <div class="gantt-row">
+                <div class="gantt-tech-cell">
+                    <div class="tech-avatar" style="background:${tech.color};">${tech.name.charAt(0)}</div>
+                    <div class="tech-info">
+                        <div class="tech-name">${tech.name}</div>
+                        <div class="tech-status">${tech.status}</div>
+                    </div>
+                </div>
+                <div class="gantt-timeline">
+        `;
+
+        techJobs.forEach((sc) => {
+            let timeStr = sc.startTime || "08:00"; 
+            let durationHrs = parseFloat(sc.duration) || 2.0;
+
+            let timeParts = timeStr.split(':');
+            let jobStartDecimal = parseInt(timeParts[0]) + (parseInt(timeParts[1]) / 60);
+
+            let leftPercent = Math.max(0, ((jobStartDecimal - startHour) / totalHours) * 100);
+            let widthPercent = (durationHrs / totalHours) * 100;
+
+            let blockColor = '#3498db'; 
+            if (sc.priority === 'Emergency') blockColor = '#e74c3c';
+            if (sc.priority === 'Urgent') blockColor = '#f39c12';
+            if (sc.priority === 'Routine') blockColor = '#95a5a6';
+            
+            let shortName = sc.customerName.length > 15 ? sc.customerName.substring(0, 15) + "..." : sc.customerName;
+
+            rowHtml += `
+                <div class="gantt-job-block" style="left: ${leftPercent}%; width: ${widthPercent}%; background: ${blockColor};" 
+                     data-id="${sc.id}" onmousedown="startTimelineDrag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')">
+                    <div class="resize-handle resize-left" onmousedown="startTimelineResize(event, '${sc.id}', 'left')"></div>
+                    <div class="gantt-job-title">${shortName}</div>
+                    <div class="gantt-job-sub">${sc.ticketNum} | ${timeStr}</div>
+                    <div class="resize-handle resize-right" onmousedown="startTimelineResize(event, '${sc.id}', 'right')"></div>
+                </div>
+            `;
+        });
+
+        rowHtml += `</div></div>`;
+        timelineContainer.innerHTML += rowHtml;
+    });
+
+    updateCurrentTimeLine();
+}
+
+function updateCurrentTimeLine() {
+    const timelineContainer = document.getElementById('scheduleTimeline');
+    if (!timelineContainer) return;
+
+    const now = new Date();
+    const startHour = 7;
+    const totalHours = 10;
+
+    let currentHour = now.getHours() + (now.getMinutes() / 60);
+    let leftPercent = ((currentHour - startHour) / totalHours) * 100;
+
+    if (leftPercent >= 0 && leftPercent <= 100) {
+        let timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        timelineContainer.innerHTML += `
+            <div id="currentTimeLine" style="left: ${leftPercent}%;">
+                <div class="time-badge">${timeString}</div>
+            </div>
+        `;
     }
 }
 
-function loadServiceCall(dbId) {
-    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
-    const data = db.find(s => s.id === dbId);
-    if(!data) return;
-    
-    document.getElementById('scCurrentId').value = data.id;
-    document.getElementById('scTicketNumberInput').value = data.ticketNum;
-    document.getElementById('scDateInput').value = data.date;
-    document.getElementById('scCustNameInput').value = data.customerName;
-    document.getElementById('scCustNumInput').value = data.customerNum;
-    document.getElementById('scContactNameInput').value = data.contactName;
-    document.getElementById('scContactPhoneInput').value = data.contactPhone;
-    document.getElementById('scContactEmailInput').value = data.contactEmail;
-    document.getElementById('scCustStreetInput').value = data.locationAddress;
-    document.getElementById('scCustCityInput').value = data.custCity;
-    document.getElementById('scCustStateInput').value = data.custState;
-    document.getElementById('scCustZipInput').value = data.custZip;
-    document.getElementById('scLocNumInput').value = data.locationNum;
-    document.getElementById('scJobTypeInput').value = data.jobType;
-    document.getElementById('scPriorityInput').value = data.priority;
-    document.getElementById('scAssignedTechInput').value = data.assignedTech;
-    document.getElementById('scStatusInput').value = data.status;
-    document.getElementById('scIssueInput').value = data.issue;
-    document.getElementById('scEquipInput').value = data.equip;
-    document.getElementById('scNotesInput').value = data.notes;
+// DRAG AND RESIZE LOGIC
+let tlState = {
+    action: null, 
+    el: null,
+    id: null,
+    startX: 0,
+    startLeft: 0,
+    startWidth: 0,
+    containerWidth: 0
+};
+
+function startTimelineDrag(e, id) {
+    if(e.target.classList.contains('resize-handle')) return; 
+    e.preventDefault();
+    tlState.action = 'drag';
+    tlState.id = id;
+    tlState.el = e.currentTarget;
+    initTimelineAction(e);
 }
 
+function startTimelineResize(e, id, side) {
+    e.preventDefault();
+    e.stopPropagation(); 
+    tlState.action = side === 'left' ? 'resize-left' : 'resize-right';
+    tlState.id = id;
+    tlState.el = e.currentTarget.parentElement;
+    initTimelineAction(e);
+}
+
+function initTimelineAction(e) {
+    tlState.startX = e.clientX;
+    tlState.startLeft = parseFloat(tlState.el.style.left) || 0;
+    tlState.startWidth = parseFloat(tlState.el.style.width) || 0;
+    tlState.containerWidth = tlState.el.parentElement.getBoundingClientRect().width;
+    
+    window.addEventListener('mousemove', timelineMouseMove);
+    window.addEventListener('mouseup', timelineMouseUp);
+}
+
+function timelineMouseMove(e) {
+    if(!tlState.action) return;
+    let deltaX = e.clientX - tlState.startX;
+    let deltaPercent = (deltaX / tlState.containerWidth) * 100;
+
+    if (tlState.action === 'drag') {
+        let newLeft = tlState.startLeft + deltaPercent;
+        if (newLeft < 0) newLeft = 0; 
+        if (newLeft + tlState.startWidth > 100) newLeft = 100 - tlState.startWidth; 
+        tlState.el.style.left = newLeft + '%';
+        
+    } else if (tlState.action === 'resize-right') {
+        let newWidth = tlState.startWidth + deltaPercent;
+        if (newWidth < 2.5) newWidth = 2.5; 
+        if (tlState.startLeft + newWidth > 100) newWidth = 100 - tlState.startLeft;
+        tlState.el.style.width = newWidth + '%';
+        
+    } else if (tlState.action === 'resize-left') {
+        let newLeft = tlState.startLeft + deltaPercent;
+        let newWidth = tlState.startWidth - deltaPercent;
+        
+        if (newWidth < 2.5) { 
+            newLeft = tlState.startLeft + tlState.startWidth - 2.5;
+            newWidth = 2.5;
+        }
+        if (newLeft < 0) { 
+            newLeft = 0;
+            newWidth = tlState.startLeft + tlState.startWidth;
+        }
+        tlState.el.style.left = newLeft + '%';
+        tlState.el.style.width = newWidth + '%';
+    }
+}
+
+function timelineMouseUp(e) {
+    window.removeEventListener('mousemove', timelineMouseMove);
+    window.removeEventListener('mouseup', timelineMouseUp);
+    
+    if(!tlState.action) return;
+
+    let finalLeft = parseFloat(tlState.el.style.left);
+    let finalWidth = parseFloat(tlState.el.style.width);
+
+    const startHour = 7;
+    const totalHours = 10;
+    
+    let newStartDecimal = startHour + (finalLeft / 100 * totalHours);
+    let newDuration = (finalWidth / 100 * totalHours);
+
+    newStartDecimal = Math.round(newStartDecimal * 4) / 4;
+    newDuration = Math.round(newDuration * 4) / 4;
+
+    let h = Math.floor(newStartDecimal);
+    let m = Math.round((newStartDecimal - h) * 60);
+    let timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    let index = db.findIndex(sc => sc.id === tlState.id);
+    if(index !== -1) {
+        db[index].startTime = timeStr;
+        db[index].duration = newDuration.toString();
+        
+        localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+        if(typeof syncSingleServiceCallToCloud === 'function') {
+            syncSingleServiceCallToCloud(db[index].id, db[index]);
+        }
+    }
+
+    tlState.action = null;
+    renderScheduleTimelineOnly(); 
+    if(typeof showSaveCue === 'function') showSaveCue("✓ Schedule Updated");
+}
+
+
 // ====================================================================
-// --- NEW: YELLOW WARNING FOR NEW GOOGLE CUSTOMERS ---
+// --- NEW CUSTOMER WARNING ---
 // ====================================================================
 function toggleNewCustomerWarning(isNew) {
     const inputIds = ['scCustNameInput', 'scCustStreetInput', 'scCustCityInput', 'scCustStateInput', 'scCustZipInput', 'scCustNumInput', 'scLocNumInput'];
@@ -470,7 +635,7 @@ function toggleNewCustomerWarning(isNew) {
                 el.style.border = '1px solid #f39c12'; 
             } else {
                 if (id === 'scCustNumInput' || id === 'scLocNumInput') {
-                    el.style.backgroundColor = '#f2f4f6'; // Restore specific gray bg
+                    el.style.backgroundColor = '#f2f4f6';
                     el.style.border = '1px solid #ccc';
                 } else {
                     el.style.backgroundColor = ''; 
@@ -507,7 +672,7 @@ function toggleNewCustomerWarning(isNew) {
 }
 
 // ====================================================================
-// --- DISPATCHER VOICE SEARCH (PUSH-TO-TALK) & SMART CRM SEARCH ---
+// --- DISPATCHER VOICE SEARCH & AI NOTES ---
 // ====================================================================
 
 let dispatcherRecognition;
@@ -597,7 +762,6 @@ async function processDispatcherVoiceSearch(query) {
     let db = typeof getCustomerDB === 'function' ? getCustomerDB() : {};
     let internalMatches = [];
 
-    // 1. SEARCH INTERNAL CRM FIRST
     for (let custName in db) {
         let cust = db[custName];
         if (cust.locations) {
@@ -608,24 +772,15 @@ async function processDispatcherVoiceSearch(query) {
 
                 if (custName.includes(q) || contactName.includes(q) || streetAddr.includes(q)) {
                     internalMatches.push({
-                        source: 'internal',
-                        custName: custName,
-                        custId: cust.id,
-                        locId: locId,
-                        contact: loc.contact || "",
-                        phone: loc.phone || "",
-                        email: loc.email || "",
-                        street: loc.street || "",
-                        city: loc.city || "",
-                        state: loc.state || "",
-                        zip: loc.zip || ""
+                        source: 'internal', custName: custName, custId: cust.id, locId: locId,
+                        contact: loc.contact || "", phone: loc.phone || "", email: loc.email || "",
+                        street: loc.street || "", city: loc.city || "", state: loc.state || "", zip: loc.zip || ""
                     });
                 }
             }
         }
     }
 
-    // 2. PROCESS INTERNAL MATCHES
     if (internalMatches.length === 1) {
         applySearchResultToForm(internalMatches[0]);
         return; 
@@ -636,7 +791,6 @@ async function processDispatcherVoiceSearch(query) {
         return; 
     }
 
-    // 3. NO INTERNAL MATCHES? FALLBACK TO GOOGLE MAPS
     if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
         alert("No internal matches found, and Google Maps API is unavailable.");
         resetDispatcherMicBtn();
@@ -648,7 +802,6 @@ async function processDispatcherVoiceSearch(query) {
     
     service.textSearch({ query: query }, (results, status) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-            
             let formattedGoogleResults = results.map(place => {
                 const name = place.name.toUpperCase();
                 const addressStr = place.formatted_address.toUpperCase(); 
@@ -690,12 +843,10 @@ function showSearchResultsModal(titleText, subtitleText) {
     if(modal) {
         modal.querySelector('h2').innerText = titleText;
         modal.querySelector('p').innerText = subtitleText;
-        
         listContainer.innerHTML = ""; 
         
         currentSearchResults.forEach((result, index) => {
             let displayHtml = "";
-            
             if (result.source === 'internal') {
                 displayHtml = `
                     <div style="padding: 15px; border-bottom: 1px solid #eaeaea; cursor: pointer; transition: background 0.2s; border-left: 4px solid #2ecc71;" 
@@ -743,7 +894,6 @@ function applySearchResultToForm(data) {
         document.getElementById('scContactNameInput').value = data.contact;
         document.getElementById('scContactPhoneInput').value = data.phone;
         document.getElementById('scContactEmailInput').value = data.email;
-        
         toggleNewCustomerWarning(false);
     } else {
         document.getElementById('scContactNameInput').value = "";
@@ -752,19 +902,14 @@ function applySearchResultToForm(data) {
         if(typeof checkCustomerAutoNumber === 'function') checkCustomerAutoNumber('service');
         if(typeof checkLocationAutoNumber === 'function') checkLocationAutoNumber('service');
         
-        // Grab the projected next numbers so it looks clean instead of "AUTO-GENERATED"
         let nextCust = parseInt(localStorage.getItem('tp_cust_counter') || '1000');
         let nextLoc = parseInt(localStorage.getItem('tp_loc_counter') || '1000');
         
         let custInput = document.getElementById('scCustNumInput');
-        if(!custInput.value || custInput.value.includes("AUTO")) {
-            custInput.value = "CST-" + nextCust;
-        }
+        if(!custInput.value || custInput.value.includes("AUTO")) { custInput.value = "CST-" + nextCust; }
         
         let locInput = document.getElementById('scLocNumInput');
-        if(!locInput.value || locInput.value.includes("AUTO")) {
-            locInput.value = "LOC-" + nextLoc;
-        }
+        if(!locInput.value || locInput.value.includes("AUTO")) { locInput.value = "LOC-" + nextLoc; }
         
         toggleNewCustomerWarning(true);
     }
@@ -773,10 +918,6 @@ function applySearchResultToForm(data) {
     if(typeof showSaveCue === 'function') showSaveCue("✓ Form Populated: " + data.custName);
     resetDispatcherMicBtn();
 }
-
-// ====================================================================
-// --- DISPATCHER VOICE INPUT: ISSUE DESCRIPTION (AI ENHANCED) ---
-// ====================================================================
 
 let issueRecognition;
 let currentIssueVoiceText = "";
@@ -792,26 +933,18 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
         let transcript = "";
         for (let i = 0; i < event.results.length; ++i) {
             transcript += event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-                transcript += " ";
-            }
+            if (event.results[i].isFinal) transcript += " ";
         }
         
         if (transcript.trim() !== "") {
             currentIssueVoiceText = transcript;
             const micBtn = document.getElementById('scIssueMicBtn');
-            if (isIssueRecording && micBtn) {
-                micBtn.innerText = "🗣️ Listening...";
-            }
+            if (isIssueRecording && micBtn) { micBtn.innerText = "🗣️ Listening..."; }
         }
     };
 
-    // FIXED: If the browser tries to stop the mic because you paused, 
-    // but you are still holding the button, force it to restart instantly!
     issueRecognition.onend = () => {
-        if (isIssueRecording) {
-            try { issueRecognition.start(); } catch(e) {}
-        }
+        if (isIssueRecording) { try { issueRecognition.start(); } catch(e) {} }
     };
 
     issueRecognition.onerror = (event) => {
@@ -823,10 +956,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 }
 
 function startIssueVoiceInput() {
-    if (!issueRecognition) {
-        alert("Voice input not supported in this browser. Please use Chrome or Safari.");
-        return;
-    }
+    if (!issueRecognition) { alert("Voice input not supported."); return; }
     if (isIssueRecording) return;
     
     isIssueRecording = true;
@@ -845,7 +975,7 @@ function startIssueVoiceInput() {
 
 async function stopIssueVoiceInput() {
     if (!isIssueRecording) return;
-    isIssueRecording = false; // This tells the onend event it's okay to finally stop
+    isIssueRecording = false; 
     
     window.removeEventListener('mouseup', stopIssueVoiceInput);
     try { issueRecognition.stop(); } catch(e) {}
@@ -858,9 +988,7 @@ async function stopIssueVoiceInput() {
             micBtn.innerText = "✨ Processing...";
             micBtn.style.backgroundColor = "#9b59b6"; 
         }
-        
         await cleanIssueWithAI(currentIssueVoiceText);
-        
     } else {
         resetIssueMicBtn();
     }
@@ -878,18 +1006,10 @@ async function cleanIssueWithAI(rawText) {
     let cleanText = "";
     let aiSuccess = false;
 
-    // Check if AI keys are available
     if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) {
         const prompt = `
         You are a professional HVAC Dispatcher. Rewrite the following spoken notes into a clean, concise, and highly professional service call description.
-        Rules:
-        - Fix any grammar or spelling mistakes.
-        - Remove filler words (uh, um, like, the customer said).
-        - Keep it to 1-3 sentences maximum.
-        - Output MUST BE ALL CAPS.
-        - Ensure proper punctuation (periods at the end of sentences).
-        - Do NOT add any pleasantries or conversational text. Return ONLY the cleaned description.
-        
+        Rules: Fix grammar/spelling, remove filler words, keep 1-3 sentences max, output in ALL CAPS, add proper punctuation. Return ONLY the cleaned description.
         Raw Spoken Notes: "${rawText}"
         `;
 
@@ -897,10 +1017,7 @@ async function cleanIssueWithAI(rawText) {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${firebaseConfig.apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { temperature: 0.2 }
-                })
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2 } })
             });
 
             const data = await response.json();
@@ -908,31 +1025,18 @@ async function cleanIssueWithAI(rawText) {
                 cleanText = data.candidates[0].content.parts[0].text.trim().toUpperCase();
                 aiSuccess = true;
             }
-        } catch (error) {
-            console.error("AI Cleanup Failed:", error);
-        }
+        } catch (error) { console.error("AI Cleanup Failed:", error); }
     }
 
-    // Fallback if AI fails or no API key is provided
     if (!aiSuccess) {
         cleanText = rawText.trim().toUpperCase();
-        // Add basic punctuation if it's missing
-        if (!cleanText.endsWith('.') && !cleanText.endsWith('?') && !cleanText.endsWith('!')) {
-            cleanText += '.';
-        }
+        if (!cleanText.endsWith('.') && !cleanText.endsWith('?') && !cleanText.endsWith('!')) { cleanText += '.'; }
     }
 
-    // FIXED: Safely APPEND text instead of overwriting
     let existingText = document.getElementById('scIssueInput').value.trim();
-    if (existingText !== "") {
-        document.getElementById('scIssueInput').value = existingText + " " + cleanText;
-    } else {
-        document.getElementById('scIssueInput').value = cleanText;
-    }
+    if (existingText !== "") { document.getElementById('scIssueInput').value = existingText + " " + cleanText; } 
+    else { document.getElementById('scIssueInput').value = cleanText; }
 
-    if (aiSuccess && typeof showSaveCue === 'function') {
-        showSaveCue("✨ Notes Cleaned by AI");
-    }
-
+    if (aiSuccess && typeof showSaveCue === 'function') { showSaveCue("✨ Notes Cleaned by AI"); }
     resetIssueMicBtn();
 }
