@@ -30,7 +30,7 @@ function updateTicketPrefix() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    setTimeout(loadServiceCallsFromCloud, 2000); 
+    loadServiceCallsFromCloud(); 
 });
 
 async function loadServiceCallsFromCloud() {
