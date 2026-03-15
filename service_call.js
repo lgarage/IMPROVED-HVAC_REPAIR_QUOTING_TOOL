@@ -333,6 +333,22 @@ function openTicketDetails(dbId) {
         }, 200);
     };
 
+    document.getElementById('tdDeleteBtn').onclick = function() {
+        if(confirm("Are you sure you want to permanently delete this ticket?")) {
+            if(typeof deleteServiceCall === 'function') {
+                deleteServiceCall(dbId);
+            } else {
+                let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+                db = db.filter(s => s.id !== dbId);
+                localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+                if(typeof syncSingleServiceCallToCloud === 'function') syncSingleServiceCallToCloud(dbId, null);
+                renderServiceBoard();
+            }
+            closeTicketDetails();
+            if(typeof showSaveCue === 'function') showSaveCue("Ticket Deleted");
+        }
+    };
+
     document.getElementById('ticketDetailsModal').style.display = 'block';
 }
 
@@ -431,30 +447,25 @@ function renderServiceBoard() {
 
         let techNameDisplay = sc.assignedTech && sc.assignedTech !== 'Unassigned' ? sc.assignedTech.split(' ')[0] : '';
         let techBadgeHTML = techNameDisplay ? `<span style="color:#1e4b85; font-weight:bold; font-size:11px; margin-left:8px; display:inline-flex; align-items:center;">👨‍🔧 ${techNameDisplay}</span>` : '';
-        let trackingDisplay = sc.tracking ? `<div style="font-size:11px; color:#c0392b; font-weight:bold; margin-bottom:4px;">PO: ${sc.tracking}</div>` : '';
+        let trackingDisplay = sc.tracking ? `<div style="font-size:11px; color:#c0392b; font-weight:bold; margin-bottom:2px;">PO: ${sc.tracking}</div>` : '';
 
+        // DENSE RAZORSYNC CARD (No buttons, Double click to open details)
         listContainer.innerHTML += `
-            <div class="glass-card priority-${sc.priority}" draggable="true" data-id="${sc.id}" onclick="centerMapOnTicket('${sc.id}')">
-                <div style="display:flex; justify-content:space-between; align-items: flex-start;">
+            <div class="glass-card priority-${sc.priority}" draggable="true" data-id="${sc.id}" onclick="centerMapOnTicket('${sc.id}')" ondblclick="openTicketDetails('${sc.id}')" title="Double-click for details">
+                <div style="display:flex; justify-content:space-between; align-items: center;">
                     <div style="flex:1;">
-                        <div class="tc-title">
-                            <span style="font-size: 13px;">${titleDisplay}</span>
-                            <span style="color:#555; font-size:11px; margin-left:10px;">${sc.ticketNum}</span>
+                        <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom: 2px;">
+                            <strong style="color: #333; font-size: 13px; text-transform: uppercase;">${titleDisplay}</strong>
+                            <span style="color:#777; font-size:11px;">${sc.ticketNum}</span>
                         </div>
                         ${trackingDisplay}
-                        <div class="tc-loc" style="margin-bottom: 10px;">📍 ${locStr}</div>
-                        <div class="tc-footer">
-                            <div style="display:flex; align-items:center;">
-                                <span class="badge badge-${sc.status.replace(' ','')}">${sc.status}</span>
-                                ${techBadgeHTML}
-                            </div>
-                            <div style="display:flex; gap:5px;">
-                                <button class="gen-btn" style="background:#2ecc71; padding: 4px 8px; font-size:10px;" onclick="event.stopPropagation(); openTicketDetails('${sc.id}')">Details</button>
-                                <button class="gen-btn" style="background:#e74c3c; padding: 4px 8px; font-size:10px;" onclick="event.stopPropagation(); deleteServiceCall('${sc.id}')">Delete</button>
-                            </div>
+                        <div style="color: #666; font-size: 11px; margin-bottom: 6px; text-transform: uppercase;">📍 ${locStr}</div>
+                        <div style="display:flex; align-items:center;">
+                            <span style="font-size: 11px; font-weight: bold; color: ${sc.status === 'Unassigned' ? '#7f8c8d' : '#27ae60'}; text-transform: uppercase;">${sc.status}</span>
+                            ${techBadgeHTML}
                         </div>
                     </div>
-                    <div class="drag-handle" style="color:#ccc; cursor:grab; font-size:18px; padding-left:10px; user-select:none;" title="Drag to reorder">⋮⋮</div>
+                    <div class="drag-handle" style="color:#ddd; cursor:grab; font-size:18px; padding-left:10px; user-select:none;">⋮⋮</div>
                 </div>
             </div>
         `;
@@ -1069,7 +1080,7 @@ function applySearchResultToForm(data) {
         document.getElementById('scCustNumInput').value = data.custId;
         document.getElementById('scLocNumInput').value = data.locId;
         document.getElementById('scContactNameInput').value = data.contact;
-        document.getElementById('scContactPhoneInput').value = data.contact;
+        document.getElementById('scContactPhoneInput').value = data.phone;
         document.getElementById('scContactEmailInput').value = data.email;
         toggleNewCustomerWarning(false);
     } else {
