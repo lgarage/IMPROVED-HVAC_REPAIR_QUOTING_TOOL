@@ -220,12 +220,14 @@ function gatherServiceData() {
 }
 
 function clearServiceForm() {
-    // Reset the title back to New
+    // Reset the UI back to "New Ticket" mode
     document.getElementById('serviceFormTitle').innerText = "Log New Service Call";
     document.getElementById('serviceFormTitle').style.color = "#1e4b85";
+    document.getElementById('serviceFormBadge').style.display = "none";
+    document.getElementById('scClearBtn').style.display = "block"; // Bring the clear button back
 
     document.getElementById('scCurrentId').value = "";
-    document.getElementById('scTrackingInput').value = "";
+    document.getElementById('scTrackingInput').value = ""; 
     document.getElementById('scCustNameInput').value = "";
     document.getElementById('scCustNumInput').value = "";
     document.getElementById('scContactNameInput').value = "";
@@ -236,9 +238,7 @@ function clearServiceForm() {
     document.getElementById('scCustStateInput').value = "";
     document.getElementById('scCustZipInput').value = "";
     document.getElementById('scLocNumInput').value = "";
-    
-    // Fix: Reset to your updated dropdown option
-    document.getElementById('scJobTypeInput').value = "Diagnostic / Repair"; 
+    document.getElementById('scJobTypeInput').value = "Diagnostic / Repair";
     document.getElementById('scPriorityInput').value = "Standard";
     document.getElementById('scAssignedTechInput').value = "Unassigned";
     document.getElementById('scStatusInput').value = "Unassigned";
