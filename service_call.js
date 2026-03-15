@@ -1228,3 +1228,59 @@ async function cleanIssueWithAI(rawText) {
     if (aiSuccess && typeof showSaveCue === 'function') { showSaveCue("✨ Notes Cleaned by AI"); }
     resetIssueMicBtn();
 }
+
+// ====================================================================
+// --- CUSTOM BOARD VERTICAL RESIZER ---
+// ====================================================================
+
+let boardResizeState = { 
+    isResizing: false, 
+    startY: 0, 
+    startHeight: 0, 
+    el: null 
+};
+
+function initBoardResize(e) {
+    e.preventDefault();
+    boardResizeState.isResizing = true;
+    boardResizeState.startY = e.clientY;
+    // Target the main container (dispatch-schedule-full)
+    boardResizeState.el = e.currentTarget.parentElement; 
+    boardResizeState.startHeight = boardResizeState.el.getBoundingClientRect().height;
+    
+    window.addEventListener('mousemove', doBoardResize);
+    window.addEventListener('mouseup', stopBoardResize);
+    
+    // Force the cursor to stay up/down arrows while dragging anywhere on screen
+    document.body.style.cursor = 'ns-resize'; 
+}
+
+function doBoardResize(e) {
+    if (!boardResizeState.isResizing) return;
+    
+    // Calculate how far the mouse has moved
+    let deltaY = e.clientY - boardResizeState.startY;
+    let newHeight = boardResizeState.startHeight + deltaY;
+    
+    // Keep it from getting too squished
+    if (newHeight < 150) newHeight = 150; 
+    
+    // Release the flexbox lock so the manual pixel height takes over
+    boardResizeState.el.style.flex = 'none'; 
+    boardResizeState.el.style.height = newHeight + 'px';
+    
+    // Smoothly redraw the Leaflet map as the space above it shrinks/grows
+    if (dispatchMap) dispatchMap.invalidateSize(); 
+}
+
+function stopBoardResize(e) {
+    boardResizeState.isResizing = false;
+    window.removeEventListener('mousemove', doBoardResize);
+    window.removeEventListener('mouseup', stopBoardResize);
+    
+    // Restore normal cursor
+    document.body.style.cursor = 'default';
+    
+    // Final map redraw
+    if (dispatchMap) dispatchMap.invalidateSize(); 
+}
