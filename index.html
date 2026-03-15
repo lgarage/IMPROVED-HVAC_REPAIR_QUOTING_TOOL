@@ -86,10 +86,7 @@
         .menu-icon { font-size: 20px; min-width: 25px; text-align: center; }
         .sidebar-footer { padding: 20px; font-size: 12px; color: rgba(255,255,255,0.5); text-align: center; }
 
-
         /* --- Main Content Area --- */
-
- /* --- Main Content Area --- */
         .main-content {
             margin-left: 70px; padding: 15px; flex: 1; min-width: 0; height: 100vh; 
             overflow-y: auto; scroll-behavior: smooth; box-sizing: border-box;
@@ -99,7 +96,6 @@
         .main-content.expanded { 
             margin-left: 240px; 
         }
-        
 
         /* --- Form Containers --- */
         .app-view { display: none; } 
@@ -156,7 +152,7 @@
         #saveIndicator.show { opacity: 1; transform: translateY(0); }
 
         /* --- Database Area --- */
-      .database-section { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box;}
+        .database-section { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box;}
         .db-table { width: 100%; border-collapse: collapse; font-size: 14px; }
         .db-table th, .db-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eaeaea; vertical-align: middle; }
         .db-table th { background: #1e4b85; color: #fff; position: sticky; top: 0; z-index: 10;}
@@ -195,7 +191,7 @@
             flex: 1; display: flex; flex-direction: column; gap: 15px; min-width: 0;
         }
 
-     /* 3. Gantt Chart (Top Right) */
+        /* 3. Gantt Chart (Top Right) */
         .dispatch-schedule-full { 
             flex: 1.5; min-height: 250px; background: #fff; 
             border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
@@ -221,8 +217,8 @@
         }
         .gantt-container { 
             display: flex; flex-direction: column; width: 100%; 
-            overflow-x: auto; overflow-y: auto; /* <-- THIS ENABLES VERTICAL SCROLLING */
-            position: relative; flex: 1;
+            overflow-x: auto; overflow-y: auto; position: relative; flex: 1;
+            padding-bottom: 15px; /* EXTRA PADDING so horizontal scrollbar doesn't cover last tech */
         }
         .gantt-time-header { display: flex; border-bottom: 1px solid #ccc; background: #f8f9fa; min-width: 1000px; position: sticky; top: 0; z-index: 20; }
         .gantt-tech-corner { width: 180px; min-width: 180px; border-right: 2px solid #ccc; padding: 8px 10px; font-size: 12px; background: #f8f9fa; font-weight: bold; color: #555; position: sticky; left: 0; z-index: 30; }
@@ -271,13 +267,9 @@
         .glass-card.priority-Urgent { border-left-color: #f39c12; }
         .glass-card.priority-Standard { border-left-color: #3498db; }
         .glass-card.priority-Routine { border-left-color: #95a5a6; }
-        
-        .tc-title { font-weight: bold; color: #1e4b85; font-size: 14px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;}
-        .tc-loc { font-size: 12px; color: #555; margin-bottom: 8px; font-weight: bold;}
-        .tc-footer { display: flex; justify-content: space-between; align-items: center; }
 
         /* --- PDF Result Sections --- */
-      .results-section { display: none; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box; }
+        .results-section { display: none; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box; }
         #internalView { margin-bottom: 40px; padding: 20px; background-color: #fafbfc; border: 1px solid #eaeaea; border-radius: 6px; }
         .internal-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
         .internal-table th, .internal-table td { text-align: left; padding: 10px; border-bottom: 1px solid #eaeaea; }
