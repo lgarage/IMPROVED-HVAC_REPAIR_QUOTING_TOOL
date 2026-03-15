@@ -200,21 +200,80 @@
         .tc-issue { font-size: 12px; color: #333; margin-bottom: 12px; background: #f4f6f8; padding: 8px; border-radius: 4px; border: 1px solid #eee; }
         .tc-footer { display: flex; justify-content: space-between; align-items: center; }
 
-        .dispatch-schedule-full { max-width: 1400px; margin: 0 auto 30px auto; background: #fff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; }
-        .schedule-header { background: #2c3e50; color: #fff; padding: 12px 20px; font-weight: bold; font-size: 14px; }
-        .time-header { display: flex; justify-content: space-between; padding: 8px 15px; border-bottom: 1px solid #eaeaea; color: #777; font-size: 11px; font-weight: bold; background: #fafbfc; margin-left: 90px;}
-        .timeline-container { height: 180px; padding: 10px; overflow-y: auto; background: repeating-linear-gradient(90deg, transparent, transparent 19.9%, #f0f0f0 20%); background-size: 100% 100%; position: relative;}
-        .tech-row { display: flex; align-items: center; margin-bottom: 10px; position: relative; height: 35px; border-bottom: 1px dashed #eee;}
-        .tech-name { width: 80px; font-size: 11px; font-weight: bold; color: #555; background: #fff; padding: 4px; border-radius: 4px; border: 1px solid #ccc; z-index: 2; position: absolute; left: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-        .job-block { position: absolute; height: 26px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 10px; color: #fff; font-weight: bold; overflow: hidden; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 1;}
+        /* --- GANTT CHART DISPATCH BOARD (BUILDOPS STYLE) --- */
+        .dispatch-schedule-full { 
+            max-width: 1400px; margin: 0 auto 30px auto; background: #fff; 
+            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+            overflow: hidden; display: flex; flex-direction: column;
+            border: 1px solid #c89b53;
+        }
+        .schedule-header-bar { 
+            background: #1e4b85; color: #fff; padding: 12px 20px; 
+            font-weight: bold; font-size: 15px; display: flex; justify-content: space-between;
+        }
         
-        .badge { padding: 3px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; text-align: center;}
-        .badge-Routine { background: #95a5a6; color: #fff;}
-        .badge-Standard { background: #3498db; color: #fff;}
-        .badge-Urgent { background: #f39c12; color: #fff;}
-        .badge-Emergency { background: #e74c3c; color: #fff; animation: pulse 2s infinite;}
-        .badge-Unassigned { background: #bdc3c7; color: #333;}
-        .badge-Dispatched { background: #9b59b6; color: #fff;}
+        .gantt-container { display: flex; flex-direction: column; width: 100%; overflow-x: auto; position: relative;}
+        
+        /* Time Header */
+        .gantt-time-header { 
+            display: flex; border-bottom: 1px solid #ccc; background: #f8f9fa; 
+            min-width: 1000px; position: sticky; top: 0; z-index: 20;
+        }
+        .gantt-tech-corner { 
+            width: 180px; min-width: 180px; border-right: 2px solid #ccc; 
+            padding: 10px; background: #f8f9fa; font-weight: bold; color: #555;
+            position: sticky; left: 0; z-index: 30;
+        }
+        .gantt-hours { display: flex; flex: 1; }
+        .gantt-hour-slot { 
+            flex: 1; min-width: 100px; padding: 10px 5px; text-align: left; 
+            border-right: 1px solid #eaeaea; font-size: 11px; font-weight: bold; color: #7f8c8d;
+        }
+
+        /* Grid Body */
+        .gantt-body { min-width: 1000px; position: relative; background: #fff; }
+        .gantt-row { display: flex; border-bottom: 1px solid #eaeaea; height: 65px; }
+        .gantt-row:hover { background-color: #fdfefe; }
+        
+        /* Tech Column (Sticky on left) */
+        .gantt-tech-cell { 
+            width: 180px; min-width: 180px; border-right: 2px solid #ccc; 
+            background: #fff; position: sticky; left: 0; z-index: 10;
+            display: flex; align-items: center; padding: 0 15px; box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+        }
+        .tech-avatar { width: 35px; height: 35px; border-radius: 50%; background: #c89b53; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; margin-right: 12px; font-size: 14px;}
+        .tech-info { display: flex; flex-direction: column; }
+        .tech-name { font-weight: bold; color: #333; font-size: 13px; }
+        .tech-status { font-size: 11px; color: #27ae60; font-weight: bold; }
+
+        /* The actual timeline where blocks go */
+        .gantt-timeline { 
+            flex: 1; display: flex; position: relative; 
+            background-image: linear-gradient(to right, #f4f6f7 1px, transparent 1px);
+            background-size: calc(100% / 10) 100%; /* Assumes 10 hours shown */
+        }
+
+        /* BuildOps Style Job Blocks */
+        .gantt-job-block { 
+            position: absolute; top: 8px; height: 48px; border-radius: 4px; 
+            display: flex; flex-direction: column; justify-content: center; padding: 0 8px; 
+            font-size: 11px; color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+            overflow: hidden; white-space: nowrap; cursor: pointer; border-left: 5px solid rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+        .gantt-job-block:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.3); z-index: 5;}
+        .gantt-job-title { font-weight: bold; font-size: 12px; margin-bottom: 2px; }
+        .gantt-job-sub { font-size: 10px; opacity: 0.9; }
+
+        /* The Red Current Time Line */
+        #currentTimeLine {
+            position: absolute; top: 0; bottom: 0; width: 2px; background-color: #e74c3c;
+            z-index: 15; border-left: 1px dashed #fff; pointer-events: none;
+        }
+        .time-badge {
+            position: absolute; top: -20px; left: -25px; background: #e74c3c; color: #fff;
+            padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;
+        }
 
         /* --- PDF Result Sections --- */
         .results-section { display: none; margin-top: 30px; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 1400px; margin-left: auto; margin-right: auto;}
@@ -335,14 +394,33 @@
             </div>
 
             <div class="dispatch-schedule-full">
-                <div class="schedule-header">Live Tech Schedule</div>
-                <div class="time-header">
-                    <span>8 AM</span><span>10 AM</span><span>12 PM</span><span>2 PM</span><span>4 PM</span>
+                <div class="schedule-header-bar">
+                    <span>Dispatch Board (Today)</span>
+                    <span style="font-size: 12px; font-weight: normal; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 4px;">Date: <span id="boardDateDisplay">Loading...</span></span>
                 </div>
-                <div class="timeline-container" id="scheduleTimeline">
+                
+                <div class="gantt-container">
+                    <div class="gantt-time-header">
+                        <div class="gantt-tech-corner">Filter Techs By...</div>
+                        <div class="gantt-hours">
+                            <div class="gantt-hour-slot">7:00 AM</div>
+                            <div class="gantt-hour-slot">8:00 AM</div>
+                            <div class="gantt-hour-slot">9:00 AM</div>
+                            <div class="gantt-hour-slot">10:00 AM</div>
+                            <div class="gantt-hour-slot">11:00 AM</div>
+                            <div class="gantt-hour-slot">12:00 PM</div>
+                            <div class="gantt-hour-slot">1:00 PM</div>
+                            <div class="gantt-hour-slot">2:00 PM</div>
+                            <div class="gantt-hour-slot">3:00 PM</div>
+                            <div class="gantt-hour-slot">4:00 PM</div>
+                        </div>
                     </div>
-            </div>
 
+                    <div class="gantt-body" id="scheduleTimeline">
+                        <div id="currentTimeLine" style="left: 45%;"><div class="time-badge">1:30 PM</div></div>
+                    </div>
+                </div>
+            </div>
             <div class="form-container" id="serviceFormContainer">
                 <div class="tool-header">
                     <h2>Log New Service Call</h2>
@@ -1052,7 +1130,7 @@
         </div>
     </div>
 
-<div id="googleResultsModal" class="modal-overlay">
+    <div id="googleResultsModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
                 <h2 style="color: #1e4b85; margin: 0;">Multiple Locations Found</h2>
@@ -1068,7 +1146,6 @@
             </div>
         </div>
     </div>
-    ```
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -1228,7 +1305,7 @@
     </script>
     
     <script src="customer_directory.js?v=19"></script>
-    <script src="service_call.js?v=20"></script>
+    <script src="service_call.js?v=25"></script>
     <script src="quoting.js?v=2"></script>
     <script src="invoice.js?v=16"></script>
 
