@@ -351,6 +351,26 @@
         .view-toggle:hover { background: rgba(255,255,255,0.1); }
         .view-toggle.active { background: #fff; color: #1e4b85; }
         
+        /* --- Sidebar Collapsible --- */
+        .sidebar { transition: width 0.3s ease; position: relative; overflow-x: hidden; }
+        .sidebar.collapsed { width: 70px; }
+        .sidebar.collapsed .sidebar-logo img { display: none; }
+        .sidebar.collapsed .sidebar-logo { padding: 20px 0; height: 60px; }
+        .sidebar.collapsed .menu-text { display: none; }
+        .sidebar.collapsed .sidebar-footer { display: none; }
+        
+        .sidebar-menu a { display: flex; align-items: center; gap: 12px; white-space: nowrap; overflow: hidden;}
+        .menu-icon { font-size: 20px; min-width: 25px; text-align: center; }
+
+        .main-content { transition: margin-left 0.3s ease; }
+        .main-content.expanded { margin-left: 70px; }
+        
+        .sidebar-toggle-btn { 
+            background: transparent; border: none; color: #c89b53; font-size: 24px; 
+            cursor: pointer; position: absolute; top: 15px; right: 15px; z-index: 100;
+        }
+        .sidebar.collapsed .sidebar-toggle-btn { right: 23px; top: 25px;}
+        
         /* Print formatting */
         @media print {
             @page { margin: 0; }
@@ -371,18 +391,19 @@
     <datalist id="customerNamesList"></datalist>
     <datalist id="locationStreetsList"></datalist>
 
-    <div class="sidebar">
+    <div class="sidebar" id="appSidebar">
+        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Collapse/Expand Menu">☰</button>
         <div class="sidebar-logo">
             <img src="tphc_logo.png" alt="Twin Pillars Logo">
         </div>
         <ul class="sidebar-menu">
-            <li><a id="nav-service" onclick="switchTab('service')" class="active-tab">Service Call Intake</a></li>
-            <li><a id="nav-quoting" onclick="switchTab('quoting')">Quoting Tool</a></li>
-            <li><a id="nav-invoice" onclick="switchTab('invoice')">Invoicing Tool</a></li>
-            <li><a onclick="openCustomerDirectory()">Customer Directory</a></li>
+            <li><a id="nav-service" onclick="switchTab('service')" class="active-tab"><span class="menu-icon">📋</span> <span class="menu-text">Service Call Intake</span></a></li>
+            <li><a id="nav-quoting" onclick="switchTab('quoting')"><span class="menu-icon">💲</span> <span class="menu-text">Quoting Tool</span></a></li>
+            <li><a id="nav-invoice" onclick="switchTab('invoice')"><span class="menu-icon">🧾</span> <span class="menu-text">Invoicing Tool</span></a></li>
+            <li><a onclick="openCustomerDirectory()"><span class="menu-icon">🗂️</span> <span class="menu-text">Customer Directory</span></a></li>
         </ul>
         <div class="sidebar-footer">
-            Twin Pillars Heating & Cooling<br>Dispatcher Portal v4.0
+            <span class="menu-text">Twin Pillars Heating & Cooling<br>Dispatcher Portal v4.0</span>
         </div>
     </div>
 
@@ -531,6 +552,10 @@
                             <input type="text" id="scTicketNumberInput" style="background:#f2f4f6; font-weight:bold;">
                         </div>
                         <div class="input-group">
+                            <label>Customer PO / Tracking #</label>
+                            <input type="text" id="scTrackingInput" placeholder="e.g. 297780574">
+                        </div>
+                        <div class="input-group">
                             <label>Date Logged</label>
                             <input type="date" id="scDateInput">
                         </div>
@@ -550,12 +575,12 @@
                     <div class="form-row">
                         <div class="input-group">
                             <label>Job Type</label>
-                            <select id="scJobTypeInput">
-                                <option value="Diagnostic / Repair">Diagnostic / Repair</option>
+                            <select id="scJobTypeInput" onchange="updateTicketPrefix()">
+                                <option value="Service Call">Service Call</option>
+                                <option value="Quoted Repair">Quoted Repair</option>
+                                <option value="Install">Install</option>
                                 <option value="Preventative Maintenance">Preventative Maintenance</option>
-                                <option value="New Installation">New Installation</option>
                                 <option value="Warranty Call">Warranty Call</option>
-                                <option value="Other">Other</option>
                             </select>
                         </div>
                         <div class="input-group">
