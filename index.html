@@ -191,13 +191,26 @@
             flex: 1; display: flex; flex-direction: column; gap: 15px; min-width: 0;
         }
 
-        /* 3. Gantt Chart (Top Right) */
+     /* 3. Gantt Chart (Top Right) */
         .dispatch-schedule-full { 
-            flex: 1.5; min-height: 300px; background: #fff; 
+            flex: 1.5; min-height: 250px; background: #fff; 
             border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
             overflow: hidden; display: flex; flex-direction: column;
-            border: 1px solid #c89b53; box-sizing: border-box;
+            border: 1px solid #c89b53; box-sizing: border-box; 
+            position: relative; padding-bottom: 12px; /* Fits the drag bar */
         }
+        
+        /* The custom drag bar at the bottom */
+        .board-resizer {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 12px;
+            background-color: #f4f6f7; border-top: 1px solid #eaeaea;
+            cursor: ns-resize; display: flex; justify-content: center; align-items: center; z-index: 40;
+        }
+        .board-resizer:hover { background-color: #eef2f5; }
+        .board-resizer::after {
+            content: "•••"; color: #999; font-size: 14px; letter-spacing: 2px; line-height: 0;
+        }
+
         .schedule-header-bar { 
             background: #1e4b85; color: #fff; padding: 8px 15px; 
             font-weight: bold; font-size: 14px; display: flex; justify-content: space-between;
@@ -209,7 +222,7 @@
         .gantt-hour-slot { flex: 1; min-width: 100px; padding: 8px 5px; text-align: left; border-right: 1px solid #eaeaea; font-size: 10px; font-weight: bold; color: #7f8c8d; }
         
         .gantt-body { min-width: 1000px; position: relative; background: #fff; }
-        .gantt-row { display: flex; border-bottom: 1px solid #eaeaea; height: 45px; } /* SHRUNK ROW HEIGHT */
+        .gantt-row { display: flex; border-bottom: 1px solid #eaeaea; height: 45px; } 
         .gantt-row:hover { background-color: #fdfefe; }
         .gantt-tech-cell { width: 180px; min-width: 180px; border-right: 2px solid #ccc; background: #fff; position: sticky; left: 0; z-index: 10; display: flex; align-items: center; padding: 0 10px; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
         .tech-avatar { width: 28px; height: 28px; font-size: 12px; border-radius: 50%; background: #c89b53; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; margin-right: 10px; }
