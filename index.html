@@ -1248,7 +1248,7 @@
             document.getElementById('serviceFormContainer').addEventListener('focusout', triggerServiceAutoSave);
             document.getElementById('serviceFormContainer').addEventListener('change', triggerServiceAutoSave);
 
-            window.onclick = function(event) {
+        window.onclick = function(event) {
                 const custModal = document.getElementById('customerModal');
                 const detailModal = document.getElementById('ticketDetailsModal');
                 if (event.target == custModal) closeCustomerDirectory();
