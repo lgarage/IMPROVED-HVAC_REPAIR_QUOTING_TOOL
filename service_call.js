@@ -381,9 +381,20 @@ function loadServiceCall(dbId) {
     const data = db.find(s => s.id === dbId);
     if(!data) return;
     
+    // Change UI to "Edit Ticket" mode
+    document.getElementById('serviceFormTitle').innerText = "Edit Existing Service Ticket";
+    document.getElementById('serviceFormTitle').style.color = "#e74c3c";
+    
+    const badge = document.getElementById('serviceFormBadge');
+    badge.innerText = data.ticketNum;
+    badge.style.display = "inline-block";
+    
+    document.getElementById('scClearBtn').style.display = "none"; // Hide the clear button
+    
+    // Load the data into the form fields
     document.getElementById('scCurrentId').value = data.id;
     document.getElementById('scTicketNumberInput').value = data.ticketNum;
-    document.getElementById('scTrackingInput').value = data.tracking || ""; // NEW
+    document.getElementById('scTrackingInput').value = data.tracking || ""; 
     document.getElementById('scDateInput').value = data.date;
     document.getElementById('scStartTimeInput').value = data.startTime || "08:00";
     document.getElementById('scDurationInput').value = data.duration || "2.0"; 
