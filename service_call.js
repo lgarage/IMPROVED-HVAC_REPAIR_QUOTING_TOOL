@@ -30,6 +30,7 @@ function updateTicketPrefix() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+    // FIX: Removed the 2000ms delay so Firebase loads instantly!
     loadServiceCallsFromCloud(); 
 });
 
@@ -1080,7 +1081,7 @@ function applySearchResultToForm(data) {
         document.getElementById('scCustNumInput').value = data.custId;
         document.getElementById('scLocNumInput').value = data.locId;
         document.getElementById('scContactNameInput').value = data.contact;
-        document.getElementById('scContactPhoneInput').value = data.phone;
+        document.getElementById('scContactPhoneInput').value = data.contact;
         document.getElementById('scContactEmailInput').value = data.email;
         toggleNewCustomerWarning(false);
     } else {
@@ -1280,6 +1281,10 @@ function stopBoardResize(e) {
     
     // Restore normal cursor
     document.body.style.cursor = 'default';
+    
+    // FINAL FIX: SAVE NEW HEIGHT TO LOCAL MEMORY
+    let finalHeight = boardResizeState.el.style.height;
+    localStorage.setItem('tp_board_height', finalHeight);
     
     // Final map redraw
     if (dispatchMap) dispatchMap.invalidateSize(); 
