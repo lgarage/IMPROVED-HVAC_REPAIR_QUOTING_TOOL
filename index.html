@@ -219,7 +219,11 @@
             background: #1e4b85; color: #fff; padding: 8px 15px; 
             font-weight: bold; font-size: 14px; display: flex; justify-content: space-between;
         }
-        .gantt-container { display: flex; flex-direction: column; width: 100%; overflow-x: auto; position: relative; flex: 1;}
+        .gantt-container { 
+            display: flex; flex-direction: column; width: 100%; 
+            overflow-x: auto; overflow-y: auto; /* <-- THIS ENABLES VERTICAL SCROLLING */
+            position: relative; flex: 1;
+        }
         .gantt-time-header { display: flex; border-bottom: 1px solid #ccc; background: #f8f9fa; min-width: 1000px; position: sticky; top: 0; z-index: 20; }
         .gantt-tech-corner { width: 180px; min-width: 180px; border-right: 2px solid #ccc; padding: 8px 10px; font-size: 12px; background: #f8f9fa; font-weight: bold; color: #555; position: sticky; left: 0; z-index: 30; }
         .gantt-hours { display: flex; flex: 1; }
