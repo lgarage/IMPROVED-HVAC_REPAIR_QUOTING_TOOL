@@ -486,10 +486,11 @@
                 </div>
             </div>
 
-            <div class="form-container" id="serviceFormContainer">
-              <div class="tool-header">
-                    <h2 id="serviceFormTitle">Log New Service Call</h2>
-                    <button class="gen-btn" style="background-color: #7f8c8d; padding: 10px 15px;" onclick="clearServiceForm()">+ Clear Form</button>
+          <div class="form-container" id="serviceFormContainer">
+                <div class="tool-header" style="justify-content: flex-start; gap: 15px;">
+                    <h2 id="serviceFormTitle" style="margin: 0;">Log New Service Call</h2>
+                    <span id="serviceFormBadge" style="display: none; background: #e74c3c; color: #fff; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 14px;"></span>
+                    <button id="scClearBtn" class="gen-btn" style="background-color: #7f8c8d; padding: 10px 15px; margin-left: auto;" onclick="clearServiceForm()">+ Clear Form</button>
                 </div>
 
                 <input type="hidden" id="scCurrentId" value="">
