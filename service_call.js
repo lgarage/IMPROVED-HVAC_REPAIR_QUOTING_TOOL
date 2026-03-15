@@ -590,6 +590,14 @@ function timelineMouseUp(e) {
     let finalLeft = parseFloat(tlState.el.style.left);
     let finalWidth = parseFloat(tlState.el.style.width);
 
+    // --- THE FIX IS HERE ---
+    // If the block didn't actually move or change size, do NOT redraw the board.
+    // This allows your double-click to finish successfully!
+    if (finalLeft === tlState.startLeft && finalWidth === tlState.startWidth) {
+        tlState.action = null;
+        return; 
+    }
+
     const startHour = 7;
     const totalHours = 10;
     
