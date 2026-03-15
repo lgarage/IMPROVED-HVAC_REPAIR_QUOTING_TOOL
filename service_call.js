@@ -157,8 +157,8 @@ function gatherServiceData() {
         id: document.getElementById('scCurrentId').value,
         ticketNum: document.getElementById('scTicketNumberInput').value,
         date: document.getElementById('scDateInput').value,
-        startTime: document.getElementById('scStartTimeInput').value, // SAVING TIME
-        duration: document.getElementById('scDurationInput').value,   // SAVING DURATION
+        startTime: document.getElementById('scStartTimeInput').value,
+        duration: document.getElementById('scDurationInput').value,
         customerName: document.getElementById('scCustNameInput').value.trim().toUpperCase() || "UNKNOWN CUSTOMER",
         customerNum: document.getElementById('scCustNumInput').value || "N/A",
         contactName: document.getElementById('scContactNameInput').value.trim().toUpperCase(),
@@ -200,8 +200,8 @@ function clearServiceForm() {
     document.getElementById('scNotesInput').value = "";
     
     document.getElementById('scDateInput').valueAsDate = new Date();
-    document.getElementById('scStartTimeInput').value = "08:00"; // RESET TIME
-    document.getElementById('scDurationInput').value = "2.0";    // RESET DURATION
+    document.getElementById('scStartTimeInput').value = "08:00"; 
+    document.getElementById('scDurationInput').value = "2.0";    
     setNextServiceNumber();
     
     if(typeof toggleNewCustomerWarning === 'function') toggleNewCustomerWarning(false);
@@ -332,8 +332,8 @@ function loadServiceCall(dbId) {
     document.getElementById('scCurrentId').value = data.id;
     document.getElementById('scTicketNumberInput').value = data.ticketNum;
     document.getElementById('scDateInput').value = data.date;
-    document.getElementById('scStartTimeInput').value = data.startTime || "08:00"; // LOAD TIME
-    document.getElementById('scDurationInput').value = data.duration || "2.0";     // LOAD DURATION
+    document.getElementById('scStartTimeInput').value = data.startTime || "08:00";
+    document.getElementById('scDurationInput').value = data.duration || "2.0"; 
     document.getElementById('scCustNameInput').value = data.customerName;
     document.getElementById('scCustNumInput').value = data.customerNum;
     document.getElementById('scContactNameInput').value = data.contactName;
@@ -412,8 +412,13 @@ function renderServiceBoard() {
         `;
     });
     
-    renderScheduleTimelineOnly();
+    if(typeof initBoardDate === 'function' && !activeBoardDate) {
+        initBoardDate();
+    } else {
+        renderScheduleTimelineOnly();
+    }
 }
+
 // ====================================================================
 // --- DISPATCH BOARD DATE CONTROLS ---
 // ====================================================================
@@ -421,7 +426,7 @@ function renderServiceBoard() {
 let activeBoardDate = new Date().toISOString().split('T')[0];
 
 window.addEventListener('DOMContentLoaded', () => {
-    setTimeout(initBoardDate, 500); // Initialize date picker on load
+    setTimeout(initBoardDate, 500); 
 });
 
 function initBoardDate() {
@@ -438,8 +443,7 @@ function setBoardDate(val) {
     let dateInput = document.getElementById('boardDateSelector');
     if (dateInput) dateInput.value = activeBoardDate;
     
-    // Update the nice text banner (e.g., "Saturday, March 14, 2026")
-    const dateObj = new Date(activeBoardDate + 'T12:00:00'); // Add T12 to prevent timezone shifting
+    const dateObj = new Date(activeBoardDate + 'T12:00:00'); 
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     let banner = document.getElementById('boardDayOfWeek');
     if (banner) banner.innerText = dateObj.toLocaleDateString('en-US', options).toUpperCase();
@@ -458,7 +462,6 @@ function switchBoardView(view) {
         alert(view.charAt(0).toUpperCase() + view.slice(1) + " view is highly complex and currently in development. Sticking to Day view for now.");
         return;
     }
-    
     document.querySelectorAll('.view-toggle').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btnViewDay').classList.add('active');
 }
@@ -486,11 +489,11 @@ function renderScheduleTimelineOnly() {
 
     technicians.forEach(tech => {
       const techJobs = db.filter(sc => 
-    sc.assignedTech === tech.id && 
-    sc.status !== 'Canceled' && 
-    sc.status !== 'Completed' &&
-    sc.date === activeBoardDate // <--- THIS IS THE MAGIC LINE
-);
+        sc.assignedTech === tech.id && 
+        sc.status !== 'Canceled' && 
+        sc.status !== 'Completed' &&
+        sc.date === activeBoardDate // DATE FILTER
+      );
 
         let rowHtml = `
             <div class="gantt-row">
@@ -523,7 +526,7 @@ function renderScheduleTimelineOnly() {
 
             rowHtml += `
                 <div class="gantt-job-block" style="left: ${leftPercent}%; width: ${widthPercent}%; background: ${blockColor};" 
-                     data-id="${sc.id}" onmousedown="startTimelineDrag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')">
+                     data-id="${sc.id}" onmousedown="startTimelineDrag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')" title="Double-click to view details">
                     <div class="resize-handle resize-left" onmousedown="startTimelineResize(event, '${sc.id}', 'left')"></div>
                     <div class="gantt-job-title">${shortName}</div>
                     <div class="gantt-job-sub">${sc.ticketNum} | ${timeStr}</div>
@@ -544,6 +547,14 @@ function updateCurrentTimeLine() {
     if (!timelineContainer) return;
 
     const now = new Date();
+    
+    // ONLY show the red line if viewing TODAY
+    if (activeBoardDate !== now.toISOString().split('T')[0]) {
+        let line = document.getElementById('currentTimeLine');
+        if(line) line.style.display = 'none';
+        return;
+    }
+
     const startHour = 7;
     const totalHours = 10;
 
@@ -642,9 +653,6 @@ function timelineMouseUp(e) {
     let finalLeft = parseFloat(tlState.el.style.left);
     let finalWidth = parseFloat(tlState.el.style.width);
 
-    // --- THE FIX IS HERE ---
-    // If the block didn't actually move or change size, do NOT redraw the board.
-    // This allows your double-click to finish successfully!
     if (finalLeft === tlState.startLeft && finalWidth === tlState.startWidth) {
         tlState.action = null;
         return; 
@@ -679,7 +687,6 @@ function timelineMouseUp(e) {
     renderScheduleTimelineOnly(); 
     if(typeof showSaveCue === 'function') showSaveCue("✓ Schedule Updated");
 }
-
 
 // ====================================================================
 // --- NEW CUSTOMER WARNING ---
