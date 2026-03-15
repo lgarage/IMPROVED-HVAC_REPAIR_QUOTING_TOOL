@@ -346,7 +346,7 @@
         .submenu-table td { border-bottom: none; padding: 8px 12px; }
         .submenu-table tr:nth-child(even) { background-color: #f9f9f9; }
 
-/* Schedule View Toggles */
+        /* Schedule View Toggles */
         .view-toggle { background: transparent; color: #fff; border: none; padding: 6px 15px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
         .view-toggle:hover { background: rgba(255,255,255,0.1); }
         .view-toggle.active { background: #fff; color: #1e4b85; }
@@ -409,9 +409,25 @@
             </div>
 
             <div class="dispatch-schedule-full">
-                <div class="schedule-header-bar">
-                    <span>Dispatch Board (Today)</span>
-                    <span style="font-size: 12px; font-weight: normal; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 4px;">Date: <span id="boardDateDisplay">Loading...</span></span>
+                <div class="schedule-header-bar" style="align-items: center;">
+                    <div style="font-size: 16px;">Dispatch Board</div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px;">
+                        <button class="gen-btn" style="background: transparent; color: #fff; padding: 4px 8px;" onclick="changeBoardDate(-1)">◀ Prev</button>
+                        <input type="date" id="boardDateSelector" onchange="setBoardDate(this.value)" style="background: #fff; color: #333; border: none; padding: 4px 8px; border-radius: 4px; font-weight: bold; width: 140px; cursor: pointer; text-transform: uppercase;">
+                        <button class="gen-btn" style="background: transparent; color: #fff; padding: 4px 8px;" onclick="changeBoardDate(1)">Next ▶</button>
+                        <button class="gen-btn" style="background: #f39c12; color: #fff; padding: 4px 10px; margin-left: 5px;" onclick="setBoardDate('today')">Today</button>
+                    </div>
+
+                    <div style="display: flex; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;">
+                        <button class="view-toggle active" id="btnViewDay" onclick="switchBoardView('day')">Day</button>
+                        <button class="view-toggle" id="btnViewWeek" onclick="switchBoardView('week')">Week</button>
+                        <button class="view-toggle" id="btnViewMonth" onclick="switchBoardView('month')">Month</button>
+                    </div>
+                </div>
+                
+                <div id="boardDayOfWeek" style="background: #f4f6f7; text-align: center; padding: 6px; font-weight: bold; color: #1e4b85; border-bottom: 1px solid #ccc; font-size: 15px; letter-spacing: 1px;">
+                    Loading Day...
                 </div>
                 
                 <div class="gantt-container">
@@ -436,6 +452,7 @@
                     </div>
                 </div>
             </div>
+
             <div class="form-container" id="serviceFormContainer">
                 <div class="tool-header">
                     <h2>Log New Service Call</h2>
