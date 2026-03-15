@@ -91,9 +91,9 @@
         .app-view { display: none; } 
         .app-view.active { display: block; }
         
-       .form-container {
+        .form-container {
             background-color: #fff; padding: 25px; border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 1600px; margin: 0 auto 0 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; margin: 0 0 30px 0; box-sizing: border-box;
             transition: box-shadow 0.4s ease; 
         }
         
@@ -142,7 +142,7 @@
         #saveIndicator.show { opacity: 1; transform: translateY(0); }
 
         /* --- Database Area --- */
-      .database-section { max-width: 1600px; margin: 30px auto 0 0; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+      .database-section { width: 100%; margin: 0 0 30px 0; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); box-sizing: border-box;}
         .db-table { width: 100%; border-collapse: collapse; font-size: 14px; }
         .db-table th, .db-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eaeaea; vertical-align: middle; }
         .db-table th { background: #1e4b85; color: #fff; position: sticky; top: 0; z-index: 10;}
@@ -157,8 +157,8 @@
 
         /* --- COMMAND CENTER UI (Map Overlay) --- */
         .dispatch-hero {
-            position: relative; width: 100%; height: 65vh; min-height: 550px; max-width: 1600px; 
-            margin: 0 auto 20px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            position: relative; width: 100%; height: 65vh; min-height: 550px;  
+            margin: 0 0 30px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             background: #e5e5e5;
         }
         
@@ -204,10 +204,10 @@
 
         /* --- GANTT CHART DISPATCH BOARD (BUILDOPS STYLE) --- */
       .dispatch-schedule-full { 
-            max-width: 1600px; margin: 0 auto 30px 0; background: #fff; 
+            width: 100%; margin: 0 0 30px 0; background: #fff; 
             border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
             overflow: hidden; display: flex; flex-direction: column;
-            border: 1px solid #c89b53;
+            border: 1px solid #c89b53; box-sizing: border-box;
         }
         .schedule-header-bar { 
             background: #1e4b85; color: #fff; padding: 12px 20px; 
@@ -288,7 +288,7 @@
         }
 
         /* --- PDF Result Sections --- */
-      .results-section { display: none; margin-top: 30px; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 1600px; margin: 30px auto 0 0; }
+      .results-section { display: none; width: 100%; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin: 0 0 30px 0; box-sizing: border-box; }
         #internalView { margin-bottom: 40px; padding: 20px; background-color: #fafbfc; border: 1px solid #eaeaea; border-radius: 6px; }
         .internal-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
         .internal-table th, .internal-table td { text-align: left; padding: 10px; border-bottom: 1px solid #eaeaea; }
