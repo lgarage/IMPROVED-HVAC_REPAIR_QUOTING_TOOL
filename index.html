@@ -1248,11 +1248,28 @@
             document.getElementById('serviceFormContainer').addEventListener('focusout', triggerServiceAutoSave);
             document.getElementById('serviceFormContainer').addEventListener('change', triggerServiceAutoSave);
 
-        window.onclick = function(event) {
+      window.onclick = function(event) {
+                // 1. Handle closing modals
                 const custModal = document.getElementById('customerModal');
                 const detailModal = document.getElementById('ticketDetailsModal');
                 if (event.target == custModal) closeCustomerDirectory();
                 if (event.target == detailModal) closeTicketDetails();
+                
+                // 2. Handle auto-collapsing sidebar
+                const sidebar = document.getElementById('appSidebar');
+                const toggleBtn = document.querySelector('.sidebar-toggle-btn');
+                const mainContent = document.querySelector('.main-content');
+                
+                // If you click outside the sidebar AND outside the menu button...
+                if (!sidebar.contains(event.target) && !toggleBtn.contains(event.target)) {
+                    // ...and if the sidebar is currently open...
+                    if (!sidebar.classList.contains('collapsed')) {
+                        // ...SNAP IT SHUT!
+                        sidebar.classList.add('collapsed');
+                        mainContent.classList.add('expanded');
+                        setTimeout(() => { if(dispatchMap) dispatchMap.invalidateSize(); }, 300);
+                    }
+                }
             }
         };
 
