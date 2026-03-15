@@ -423,7 +423,6 @@ function renderServiceBoard() {
 
         let locStr = sc.locationAddress;
         if(sc.custCity) locStr += ` | ${sc.custCity}, ${sc.custState}`;
-        let issueStr = sc.issue.length > 60 ? sc.issue.substring(0, 60) + "..." : sc.issue;
         
         let titleDisplay = sc.customerName;
         if (sc.contactName && sc.contactName !== "") {
@@ -443,8 +442,7 @@ function renderServiceBoard() {
                             <span style="color:#555; font-size:12px; margin-left:10px;">${sc.ticketNum}</span>
                         </div>
                         ${trackingDisplay}
-                        <div class="tc-loc">📍 ${locStr}</div>
-                        <div class="tc-issue"><strong>Issue:</strong> ${issueStr}</div>
+                        <div class="tc-loc" style="margin-bottom: 12px;">📍 ${locStr}</div>
                         <div class="tc-footer">
                             <div style="display:flex; align-items:center;">
                                 <span class="badge badge-${sc.status.replace(' ','')}">${sc.status}</span>
