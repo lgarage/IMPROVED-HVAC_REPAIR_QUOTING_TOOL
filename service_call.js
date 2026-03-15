@@ -414,7 +414,54 @@ function renderServiceBoard() {
     
     renderScheduleTimelineOnly();
 }
+// ====================================================================
+// --- DISPATCH BOARD DATE CONTROLS ---
+// ====================================================================
 
+let activeBoardDate = new Date().toISOString().split('T')[0];
+
+window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(initBoardDate, 500); // Initialize date picker on load
+});
+
+function initBoardDate() {
+    setBoardDate('today');
+}
+
+function setBoardDate(val) {
+    if (val === 'today') {
+        activeBoardDate = new Date().toISOString().split('T')[0];
+    } else {
+        activeBoardDate = val;
+    }
+    
+    let dateInput = document.getElementById('boardDateSelector');
+    if (dateInput) dateInput.value = activeBoardDate;
+    
+    // Update the nice text banner (e.g., "Saturday, March 14, 2026")
+    const dateObj = new Date(activeBoardDate + 'T12:00:00'); // Add T12 to prevent timezone shifting
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    let banner = document.getElementById('boardDayOfWeek');
+    if (banner) banner.innerText = dateObj.toLocaleDateString('en-US', options).toUpperCase();
+    
+    renderScheduleTimelineOnly();
+}
+
+function changeBoardDate(daysToAdd) {
+    let d = new Date(activeBoardDate + 'T12:00:00');
+    d.setDate(d.getDate() + daysToAdd);
+    setBoardDate(d.toISOString().split('T')[0]);
+}
+
+function switchBoardView(view) {
+    if (view !== 'day') {
+        alert(view.charAt(0).toUpperCase() + view.slice(1) + " view is highly complex and currently in development. Sticking to Day view for now.");
+        return;
+    }
+    
+    document.querySelectorAll('.view-toggle').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('btnViewDay').classList.add('active');
+}
 
 // ====================================================================
 // --- GANTT CHART ENGINE (BUILDOPS STYLE WITH DRAG & RESIZE) ---
