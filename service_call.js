@@ -410,7 +410,7 @@ function renderServiceBoard() {
     counter.innerText = db.length;
 
     if (db.length === 0) {
-        listContainer.innerHTML = `<div style="text-align:center; padding: 20px; color: #555; font-style: italic; background: rgba(255,255,255,0.7); border-radius: 6px;">No active service calls.</div>`;
+        listContainer.innerHTML = `<div style="text-align:center; padding: 20px; color: #555; font-style: italic; border-radius: 6px;">No active service calls.</div>`;
     }
 
     markerLayer.clearLayers();
@@ -426,11 +426,11 @@ function renderServiceBoard() {
         
         let titleDisplay = sc.customerName;
         if (sc.contactName && sc.contactName !== "") {
-            titleDisplay += ` <span style="font-size:12px; color:#7f8c8d; font-weight:normal;">(${sc.contactName})</span>`;
+            titleDisplay += ` <span style="font-size:11px; color:#7f8c8d; font-weight:normal;">(${sc.contactName})</span>`;
         }
 
         let techNameDisplay = sc.assignedTech && sc.assignedTech !== 'Unassigned' ? sc.assignedTech.split(' ')[0] : '';
-        let techBadgeHTML = techNameDisplay ? `<span style="color:#1e4b85; font-weight:bold; font-size:12px; margin-left:8px; display:inline-flex; align-items:center;">👨‍🔧 ${techNameDisplay}</span>` : '';
+        let techBadgeHTML = techNameDisplay ? `<span style="color:#1e4b85; font-weight:bold; font-size:11px; margin-left:8px; display:inline-flex; align-items:center;">👨‍🔧 ${techNameDisplay}</span>` : '';
         let trackingDisplay = sc.tracking ? `<div style="font-size:11px; color:#c0392b; font-weight:bold; margin-bottom:4px;">PO: ${sc.tracking}</div>` : '';
 
         listContainer.innerHTML += `
@@ -438,23 +438,23 @@ function renderServiceBoard() {
                 <div style="display:flex; justify-content:space-between; align-items: flex-start;">
                     <div style="flex:1;">
                         <div class="tc-title">
-                            <span>${titleDisplay}</span>
-                            <span style="color:#555; font-size:12px; margin-left:10px;">${sc.ticketNum}</span>
+                            <span style="font-size: 13px;">${titleDisplay}</span>
+                            <span style="color:#555; font-size:11px; margin-left:10px;">${sc.ticketNum}</span>
                         </div>
                         ${trackingDisplay}
-                        <div class="tc-loc" style="margin-bottom: 12px;">📍 ${locStr}</div>
+                        <div class="tc-loc" style="margin-bottom: 10px;">📍 ${locStr}</div>
                         <div class="tc-footer">
                             <div style="display:flex; align-items:center;">
                                 <span class="badge badge-${sc.status.replace(' ','')}">${sc.status}</span>
                                 ${techBadgeHTML}
                             </div>
                             <div style="display:flex; gap:5px;">
-                                <button class="gen-btn" style="background:#2ecc71; padding: 4px 8px; font-size:11px;" onclick="event.stopPropagation(); openTicketDetails('${sc.id}')">Details</button>
-                                <button class="gen-btn" style="background:#e74c3c; padding: 4px 8px; font-size:11px;" onclick="event.stopPropagation(); deleteServiceCall('${sc.id}')">Delete</button>
+                                <button class="gen-btn" style="background:#2ecc71; padding: 4px 8px; font-size:10px;" onclick="event.stopPropagation(); openTicketDetails('${sc.id}')">Details</button>
+                                <button class="gen-btn" style="background:#e74c3c; padding: 4px 8px; font-size:10px;" onclick="event.stopPropagation(); deleteServiceCall('${sc.id}')">Delete</button>
                             </div>
                         </div>
                     </div>
-                    <div class="drag-handle" style="color:#aaa; cursor:grab; font-size:20px; padding-left:10px; user-select:none;" title="Drag to reorder">⋮⋮</div>
+                    <div class="drag-handle" style="color:#ccc; cursor:grab; font-size:18px; padding-left:10px; user-select:none;" title="Drag to reorder">⋮⋮</div>
                 </div>
             </div>
         `;
