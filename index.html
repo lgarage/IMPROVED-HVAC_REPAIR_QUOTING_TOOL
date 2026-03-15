@@ -83,10 +83,16 @@
         .sidebar-footer { padding: 20px; font-size: 12px; color: rgba(255,255,255,0.5); text-align: center; }
 
         /* --- Main Content Area --- */
-      .main-content {
-            margin-left: 10px; padding: 30px; flex: 1; min-width: 0; height: 100vh; 
+     .main-content {
+            margin-left: 240px; /* Must perfectly match the open sidebar width (240px) */
+            padding: 15px; /* <--- Shrink this to make the gap smaller! (was 30px) */
+            flex: 1; min-width: 0; height: 100vh; 
             overflow-y: auto; scroll-behavior: smooth; box-sizing: border-box;
             transition: margin-left 0.3s ease;
+        }
+
+        .main-content.expanded { 
+            margin-left: 70px; /* Must perfectly match the collapsed sidebar width (70px) */
         }
       
 
