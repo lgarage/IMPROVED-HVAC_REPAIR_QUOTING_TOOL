@@ -9,6 +9,14 @@ function toggleSidebar() {
     setTimeout(() => { if(dispatchMap) dispatchMap.invalidateSize(); }, 300); // Redraw map to fit new space
 }
 
+function getPrefixForJobType(type) {
+    if (type === "Quoted Repair") return "QR-";
+    if (type === "Install") return "IS-";
+    if (type === "Preventative Maintenance") return "PM-";
+    if (type === "Warranty Call") return "WC-";
+    return "SC-"; // Default
+}
+
 // --- DYNAMIC TICKET PREFIX LOGIC ---
 function updateTicketPrefix() {
     let type = document.getElementById('scJobTypeInput').value;
