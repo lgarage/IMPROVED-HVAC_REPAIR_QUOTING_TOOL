@@ -19,39 +19,14 @@ function getPrefixForJobType(type) {
 
 // --- DYNAMIC TICKET PREFIX LOGIC ---
 function updateTicketPrefix() {
-    let type = document.getElementById('scJobTypeInput').value;
-    let prefix = "SC-"; // Default
-    
-    if (type === "Service Call") prefix = "SC-";
-    if (type === "Quoted Repair") prefix = "QR-";
-    if (type === "Install") prefix = "IS-";
-    if (type === "Preventative Maintenance") prefix = "PM-";
-    if (type === "Warranty Call") prefix = "WC-";
-
-    if(document.getElementById('scCurrentId').value === "") {
-        // If NEW ticket, apply prefix to the current counter
-        let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
-        document.getElementById('scTicketNumberInput').value = prefix + counter;
-    } else {
-        // If EDITING existing ticket, just swap the prefix but keep the same number!
+    if(document.getElementById('scCurrentId').value !== "") {
+        let type = document.getElementById('scJobTypeInput').value;
+        let prefix = getPrefixForJobType(type);
         let currentTicket = document.getElementById('scTicketNumberInput').value;
+        
         let numberPart = currentTicket.split('-')[1];
         if(numberPart) document.getElementById('scTicketNumberInput').value = prefix + numberPart;
     }
-}
-
-function setNextServiceNumber() {
-    let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
-    let type = document.getElementById('scJobTypeInput').value;
-    let prefix = "SC-";
-    
-    if (type === "Service Call") prefix = "SC-";
-    if (type === "Quoted Repair") prefix = "QR-";
-    if (type === "Install") prefix = "IS-";
-    if (type === "Preventative Maintenance") prefix = "PM-";
-    if (type === "Warranty Call") prefix = "WC-";
-
-    document.getElementById('scTicketNumberInput').value = prefix + counter;
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -194,16 +169,11 @@ function triggerServiceAutoSave() {
     autoSaveTimeout = setTimeout(() => { saveServiceCall(true); }, 250); 
 }
 
-function incrementServiceNumber() {
-    let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
-    localStorage.setItem('tp_service_counter', counter + 1);
-}
-
 function gatherServiceData() {
     return {
         id: document.getElementById('scCurrentId').value,
         ticketNum: document.getElementById('scTicketNumberInput').value,
-        tracking: document.getElementById('scTrackingInput').value.trim(), // NEW
+        tracking: document.getElementById('scTrackingInput').value.trim(),
         date: document.getElementById('scDateInput').value,
         startTime: document.getElementById('scStartTimeInput').value,
         duration: document.getElementById('scDurationInput').value,
@@ -228,13 +198,14 @@ function gatherServiceData() {
 }
 
 function clearServiceForm() {
-    // Reset the UI back to "New Ticket" mode
+    // Reset UI to "New Ticket" Mode
     document.getElementById('serviceFormTitle').innerText = "Log New Service Call";
     document.getElementById('serviceFormTitle').style.color = "#1e4b85";
     document.getElementById('serviceFormBadge').style.display = "none";
-    document.getElementById('scClearBtn').style.display = "block"; // Bring the clear button back
+    document.getElementById('scClearBtn').style.display = "block";
 
     document.getElementById('scCurrentId').value = "";
+    document.getElementById('scTicketNumberInput').value = ""; 
     document.getElementById('scTrackingInput').value = ""; 
     document.getElementById('scCustNameInput').value = "";
     document.getElementById('scCustNumInput').value = "";
@@ -246,7 +217,7 @@ function clearServiceForm() {
     document.getElementById('scCustStateInput').value = "";
     document.getElementById('scCustZipInput').value = "";
     document.getElementById('scLocNumInput').value = "";
-    document.getElementById('scJobTypeInput').value = "Diagnostic / Repair";
+    document.getElementById('scJobTypeInput').value = "Service Call";
     document.getElementById('scPriorityInput').value = "Standard";
     document.getElementById('scAssignedTechInput').value = "Unassigned";
     document.getElementById('scStatusInput').value = "Unassigned";
@@ -257,10 +228,8 @@ function clearServiceForm() {
     document.getElementById('scDateInput').valueAsDate = new Date();
     document.getElementById('scStartTimeInput').value = "08:00"; 
     document.getElementById('scDurationInput').value = "2.0";    
-    setNextServiceNumber();
     
     if(typeof toggleNewCustomerWarning === 'function') toggleNewCustomerWarning(false);
-    
     document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -282,16 +251,24 @@ function saveServiceCall(isAutoSave = false) {
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
 
     if (data.id) {
+        // EDITING EXISTING
         const index = db.findIndex(sc => sc.id === data.id);
         if (index !== -1) {
             db[index] = data;
             if (!isAutoSave) { showSaveCue("✓ Ticket Updated!"); clearServiceForm(); }
         }
     } else {
+        // CREATING NEW
         if (!isAutoSave) { 
             data.id = 'SC-ID-' + Date.now(); 
+            
+            // GENERATE NUMBER
+            let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
+            let prefix = getPrefixForJobType(data.jobType);
+            data.ticketNum = prefix + counter;
+            localStorage.setItem('tp_service_counter', counter + 1); 
+            
             db.push(data);
-            incrementServiceNumber(); 
             showSaveCue(`✓ Ticket Logged! (${data.ticketNum})`);
             clearServiceForm();
         } else { return false; } 
@@ -389,7 +366,7 @@ function loadServiceCall(dbId) {
     const data = db.find(s => s.id === dbId);
     if(!data) return;
     
-    // Change UI to "Edit Ticket" mode
+    // Set UI to "Edit Ticket" Mode
     document.getElementById('serviceFormTitle').innerText = "Edit Existing Service Ticket";
     document.getElementById('serviceFormTitle').style.color = "#e74c3c";
     
@@ -397,9 +374,8 @@ function loadServiceCall(dbId) {
     badge.innerText = data.ticketNum;
     badge.style.display = "inline-block";
     
-    document.getElementById('scClearBtn').style.display = "none"; // Hide the clear button
-    
-    // Load the data into the form fields
+    document.getElementById('scClearBtn').style.display = "none";
+
     document.getElementById('scCurrentId').value = data.id;
     document.getElementById('scTicketNumberInput').value = data.ticketNum;
     document.getElementById('scTrackingInput').value = data.tracking || ""; 
@@ -578,7 +554,10 @@ function renderScheduleTimelineOnly() {
                         <div class="tech-status">${tech.status}</div>
                     </div>
                 </div>
-                <div class="gantt-timeline">
+                <div class="gantt-timeline" data-tech="${tech.id}" 
+                     ondragover="event.preventDefault(); this.style.background='rgba(52, 152, 219, 0.1)';" 
+                     ondragleave="this.style.background='';" 
+                     ondrop="handleTimelineDrop(event); this.style.background='';">
         `;
 
         techJobs.forEach((sc) => {
@@ -642,6 +621,65 @@ function updateCurrentTimeLine() {
                 <div class="time-badge">${timeString}</div>
             </div>
         `;
+    }
+}
+
+function handleTimelineDrop(e) {
+    e.preventDefault();
+    
+    // Find the card we are actively dragging
+    const draggedCard = document.querySelector('.glass-card.dragging');
+    if (!draggedCard) return; 
+
+    const ticketId = draggedCard.getAttribute('data-id');
+    const timeline = e.currentTarget;
+    const techId = timeline.getAttribute('data-tech');
+
+    // Calculate exactly what time we dropped the card on (7AM to 5PM)
+    const rect = timeline.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const percentX = offsetX / rect.width;
+
+    const startHour = 7;
+    const totalHours = 10;
+    let dropTimeDecimal = startHour + (percentX * totalHours);
+
+    // Snap to the nearest 15 minutes (0.25)
+    dropTimeDecimal = Math.round(dropTimeDecimal * 4) / 4;
+    
+    // Keep it within standard bounds
+    if(dropTimeDecimal < 7) dropTimeDecimal = 7;
+    if(dropTimeDecimal > 16.5) dropTimeDecimal = 16.5;
+
+    // Convert decimal (e.g. 8.5) back to Time String (08:30)
+    let h = Math.floor(dropTimeDecimal);
+    let m = Math.round((dropTimeDecimal - h) * 60);
+    let timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+
+    // Update the Database!
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    let index = db.findIndex(sc => sc.id === ticketId);
+    
+    if (index !== -1) {
+        db[index].assignedTech = techId;
+        db[index].startTime = timeStr;
+        
+        // Auto-change status if it was unassigned
+        if (db[index].status === 'Unassigned') {
+            db[index].status = 'Dispatched';
+        }
+        
+        // Save and re-render
+        localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+        if(typeof syncSingleServiceCallToCloud === 'function') {
+            syncSingleServiceCallToCloud(ticketId, db[index]);
+        }
+        
+        renderServiceBoard(); 
+        
+        // Grab the tech's first name for the success message
+        let shortTechName = techId.split(' ')[0];
+        if(typeof showSaveCue === 'function') showSaveCue(`✓ Dispatched to ${shortTechName} at ${timeStr}`);
     }
 }
 
@@ -1033,7 +1071,7 @@ function applySearchResultToForm(data) {
         document.getElementById('scCustNumInput').value = data.custId;
         document.getElementById('scLocNumInput').value = data.locId;
         document.getElementById('scContactNameInput').value = data.contact;
-        document.getElementById('scContactPhoneInput').value = data.phone;
+        document.getElementById('scContactPhoneInput').value = data.contact;
         document.getElementById('scContactEmailInput').value = data.email;
         toggleNewCustomerWarning(false);
     } else {
