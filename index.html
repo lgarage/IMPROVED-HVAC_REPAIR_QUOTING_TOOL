@@ -86,16 +86,20 @@
         .menu-icon { font-size: 20px; min-width: 25px; text-align: center; }
         .sidebar-footer { padding: 20px; font-size: 12px; color: rgba(255,255,255,0.5); text-align: center; }
 
+
         /* --- Main Content Area --- */
-        .main-content {
-            margin-left: 240px; padding: 15px; flex: 1; min-width: 0; height: 100vh; 
+
+      .main-content {
+
+            margin-left: 10px; padding: 30px; flex: 1; min-width: 0; height: 100vh; 
             overflow-y: auto; scroll-behavior: smooth; box-sizing: border-box;
             transition: margin-left 0.3s ease;
         }
 
         .main-content.expanded { 
-            margin-left: 70px; 
+            margin-left: 5px; 
         }
+        
 
         /* --- Form Containers --- */
         .app-view { display: none; } 
@@ -152,7 +156,7 @@
         #saveIndicator.show { opacity: 1; transform: translateY(0); }
 
         /* --- Database Area --- */
-        .database-section { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box;}
+      .database-section { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box;}
         .db-table { width: 100%; border-collapse: collapse; font-size: 14px; }
         .db-table th, .db-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eaeaea; vertical-align: middle; }
         .db-table th { background: #1e4b85; color: #fff; position: sticky; top: 0; z-index: 10;}
@@ -269,7 +273,7 @@
         .tc-footer { display: flex; justify-content: space-between; align-items: center; }
 
         /* --- PDF Result Sections --- */
-        .results-section { display: none; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box; }
+      .results-section { display: none; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box; }
         #internalView { margin-bottom: 40px; padding: 20px; background-color: #fafbfc; border: 1px solid #eaeaea; border-radius: 6px; }
         .internal-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
         .internal-table th, .internal-table td { text-align: left; padding: 10px; border-bottom: 1px solid #eaeaea; }
@@ -426,6 +430,8 @@
                                 <div id="currentTimeLine" style="left: 45%;"><div class="time-badge">1:30 PM</div></div>
                             </div>
                         </div>
+                        
+                        <div class="board-resizer" onmousedown="initBoardResize(event)" title="Drag to resize board"></div>
                     </div>
 
                     <div class="dispatch-hero">
