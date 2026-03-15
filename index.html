@@ -89,15 +89,16 @@
 
         /* --- Main Content Area --- */
         .main-content {
-            margin-left: 240px; padding: 10px; flex: 1; min-width: 0; height: 100vh; 
+            margin-left: 10px; padding: 30px; flex: 1; min-width: 0; height: 100vh; 
             overflow-y: auto; scroll-behavior: smooth; box-sizing: border-box;
             transition: margin-left 0.3s ease;
         }
 
         .main-content.expanded { 
-            margin-left: 70px; 
+            margin-left: 5px; 
         }
         
+
         /* --- Form Containers --- */
         .app-view { display: none; } 
         .app-view.active { display: block; }
@@ -153,7 +154,7 @@
         #saveIndicator.show { opacity: 1; transform: translateY(0); }
 
         /* --- Database Area --- */
-      .database-section { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box;}
+        .database-section { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box;}
         .db-table { width: 100%; border-collapse: collapse; font-size: 14px; }
         .db-table th, .db-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eaeaea; vertical-align: middle; }
         .db-table th { background: #1e4b85; color: #fff; position: sticky; top: 0; z-index: 10;}
@@ -173,12 +174,12 @@
         
         /* 1. Left Panel (Ticket List) */
         .dispatch-left-panel {
-            width: 320px; min-width: 320px; background: #fff; border-radius: 8px; 
+            width: 380px; min-width: 380px; background: #fff; border-radius: 8px; /* WIDENED PANEL */
             box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; 
             border: 1px solid #eaeaea; overflow: hidden;
         }
         .panel-header {
-            background: #1e4b85; color: #fff; padding: 15px; font-weight: bold; font-size: 15px;
+            background: #1e4b85; color: #fff; padding: 12px 15px; font-weight: bold; font-size: 14px;
             display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .panel-content {
@@ -200,35 +201,36 @@
             border: 1px solid #c89b53; box-sizing: border-box;
         }
         .schedule-header-bar { 
-            background: #1e4b85; color: #fff; padding: 12px 20px; 
-            font-weight: bold; font-size: 15px; display: flex; justify-content: space-between;
+            background: #1e4b85; color: #fff; padding: 8px 15px; 
+            font-weight: bold; font-size: 14px; display: flex; justify-content: space-between;
         }
         .gantt-container { display: flex; flex-direction: column; width: 100%; overflow-x: auto; position: relative; flex: 1;}
         .gantt-time-header { display: flex; border-bottom: 1px solid #ccc; background: #f8f9fa; min-width: 1000px; position: sticky; top: 0; z-index: 20; }
-        .gantt-tech-corner { width: 180px; min-width: 180px; border-right: 2px solid #ccc; padding: 10px; background: #f8f9fa; font-weight: bold; color: #555; position: sticky; left: 0; z-index: 30; }
+        .gantt-tech-corner { width: 180px; min-width: 180px; border-right: 2px solid #ccc; padding: 8px 10px; font-size: 12px; background: #f8f9fa; font-weight: bold; color: #555; position: sticky; left: 0; z-index: 30; }
         .gantt-hours { display: flex; flex: 1; }
-        .gantt-hour-slot { flex: 1; min-width: 100px; padding: 10px 5px; text-align: left; border-right: 1px solid #eaeaea; font-size: 11px; font-weight: bold; color: #7f8c8d; }
+        .gantt-hour-slot { flex: 1; min-width: 100px; padding: 8px 5px; text-align: left; border-right: 1px solid #eaeaea; font-size: 10px; font-weight: bold; color: #7f8c8d; }
+        
         .gantt-body { min-width: 1000px; position: relative; background: #fff; }
-        .gantt-row { display: flex; border-bottom: 1px solid #eaeaea; height: 65px; }
+        .gantt-row { display: flex; border-bottom: 1px solid #eaeaea; height: 45px; } /* SHRUNK ROW HEIGHT */
         .gantt-row:hover { background-color: #fdfefe; }
-        .gantt-tech-cell { width: 180px; min-width: 180px; border-right: 2px solid #ccc; background: #fff; position: sticky; left: 0; z-index: 10; display: flex; align-items: center; padding: 0 15px; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
-        .tech-avatar { width: 35px; height: 35px; border-radius: 50%; background: #c89b53; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; margin-right: 12px; font-size: 14px;}
+        .gantt-tech-cell { width: 180px; min-width: 180px; border-right: 2px solid #ccc; background: #fff; position: sticky; left: 0; z-index: 10; display: flex; align-items: center; padding: 0 10px; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
+        .tech-avatar { width: 28px; height: 28px; font-size: 12px; border-radius: 50%; background: #c89b53; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; margin-right: 10px; }
         .tech-info { display: flex; flex-direction: column; }
-        .tech-name { font-weight: bold; color: #333; font-size: 13px; }
-        .tech-status { font-size: 11px; color: #27ae60; font-weight: bold; }
+        .tech-name { font-weight: bold; color: #333; font-size: 12px; }
+        .tech-status { font-size: 10px; color: #27ae60; font-weight: bold; }
         .gantt-timeline { flex: 1; display: flex; position: relative; background-image: linear-gradient(to right, #f4f6f7 1px, transparent 1px); background-size: calc(100% / 10) 100%; }
         
-        .gantt-job-block { position: absolute; top: 8px; height: 48px; border-radius: 4px; display: flex; flex-direction: column; justify-content: center; padding: 0 12px; font-size: 11px; color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.2); overflow: hidden; white-space: nowrap; cursor: grab; border-left: 5px solid rgba(0,0,0,0.3); transition: box-shadow 0.1s; user-select: none; }
+        .gantt-job-block { position: absolute; top: 5px; height: 34px; border-radius: 4px; display: flex; flex-direction: column; justify-content: center; padding: 0 10px; font-size: 10px; color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.2); overflow: hidden; white-space: nowrap; cursor: grab; border-left: 5px solid rgba(0,0,0,0.3); transition: box-shadow 0.1s; user-select: none; }
         .gantt-job-block:hover { box-shadow: 0 6px 12px rgba(0,0,0,0.3); z-index: 5;}
         .gantt-job-block:active { cursor: grabbing; z-index: 10; opacity: 0.9;}
-        .gantt-job-title { font-weight: bold; font-size: 12px; margin-bottom: 2px; pointer-events: none;}
-        .gantt-job-sub { font-size: 10px; opacity: 0.9; pointer-events: none;}
-        .resize-handle { position: absolute; top: 0; bottom: 0; width: 12px; cursor: ew-resize; z-index: 10; transition: background 0.2s; }
+        .gantt-job-title { font-weight: bold; font-size: 11px; margin-bottom: 2px; pointer-events: none;}
+        .gantt-job-sub { font-size: 9px; opacity: 0.9; pointer-events: none;}
+        .resize-handle { position: absolute; top: 0; bottom: 0; width: 10px; cursor: ew-resize; z-index: 10; transition: background 0.2s; }
         .resize-handle:hover { background: rgba(255,255,255,0.4); }
         .resize-left { left: 0; }
         .resize-right { right: 0; }
         #currentTimeLine { position: absolute; top: 0; bottom: 0; width: 2px; background-color: #e74c3c; z-index: 15; border-left: 1px dashed #fff; pointer-events: none; }
-        .time-badge { position: absolute; top: -20px; left: -25px; background: #e74c3c; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .time-badge { position: absolute; top: -18px; left: -25px; background: #e74c3c; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; }
 
         /* 4. Map Container (Bottom Right) */
         .dispatch-hero {
@@ -237,26 +239,22 @@
         }
         .dispatch-map-full { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; border: none; }
 
-        /* Modified Glass Cards */
+        /* Modified Dense Glass Cards */
         .glass-card {
-            background: #ffffff; border-radius: 6px; padding: 12px; margin-bottom: 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.08); border-left: 5px solid #ccc; cursor: grab; transition: all 0.15s ease;
+            background: #ffffff; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08); border-left: 4px solid #ccc; cursor: pointer; transition: all 0.15s ease;
         }
         .glass-card:active { cursor: grabbing; }
-        .glass-card:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); border-left-width: 8px; }
+        .glass-card:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.12); border-left-width: 6px; }
         .glass-card.dragging { opacity: 0.5; box-shadow: 0 10px 25px rgba(0,0,0,0.3); transform: scale(1.02); z-index: 10; }
         
         .glass-card.priority-Emergency { border-left-color: #e74c3c; }
         .glass-card.priority-Urgent { border-left-color: #f39c12; }
         .glass-card.priority-Standard { border-left-color: #3498db; }
         .glass-card.priority-Routine { border-left-color: #95a5a6; }
-        
-        .tc-title { font-weight: bold; color: #1e4b85; font-size: 14px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;}
-        .tc-loc { font-size: 12px; color: #555; margin-bottom: 8px; font-weight: bold;}
-        .tc-footer { display: flex; justify-content: space-between; align-items: center; }
 
         /* --- PDF Result Sections --- */
-      .results-section { display: none; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box; }
+        .results-section { display: none; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100% !important; max-width: 100% !important; margin: 0 0 30px 0 !important; box-sizing: border-box; }
         #internalView { margin-bottom: 40px; padding: 20px; background-color: #fafbfc; border: 1px solid #eaeaea; border-radius: 6px; }
         .internal-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
         .internal-table th, .internal-table td { text-align: left; padding: 10px; border-bottom: 1px solid #eaeaea; }
@@ -316,11 +314,6 @@
         .submenu-table td { border-bottom: none; padding: 8px 12px; }
         .submenu-table tr:nth-child(even) { background-color: #f9f9f9; }
 
-        /* Schedule View Toggles */
-        .view-toggle { background: transparent; color: #fff; border: none; padding: 6px 15px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-        .view-toggle:hover { background: rgba(255,255,255,0.1); }
-        .view-toggle.active { background: #fff; color: #1e4b85; }
-        
         /* Print formatting */
         @media print {
             @page { margin: 0; }
@@ -482,7 +475,7 @@
                         </div>
                         <div class="input-group">
                             <label>Location #</label>
-                            <input type="text" id="scLocNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
+                            <input type="text" id="locNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
                         </div>
                     </div>
 
@@ -1102,6 +1095,7 @@
             </div>
             <div id="tdModalContent" style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;"></div>
             <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eaeaea; padding-top: 15px;">
+                <button class="gen-btn" style="background:#e74c3c; padding: 10px 20px; color:#fff; margin-right: auto;" id="tdDeleteBtn">Delete</button>
                 <button class="gen-btn" style="background:#7f8c8d; padding: 10px 20px;" onclick="closeTicketDetails()">Close</button>
                 <button class="gen-btn" style="background:#f39c12; padding: 10px 20px; color:#fff;" id="tdEditBtn">Edit Ticket Form</button>
             </div>
