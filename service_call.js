@@ -2,6 +2,50 @@
 // --- MAP ENGINE & CLOUD DISPATCH BOARD LOGIC ---
 // ====================================================================
 
+// --- SIDEBAR TOGGLE ---
+function toggleSidebar() {
+    document.getElementById('appSidebar').classList.toggle('collapsed');
+    document.querySelector('.main-content').classList.toggle('expanded');
+    setTimeout(() => { if(dispatchMap) dispatchMap.invalidateSize(); }, 300); // Redraw map to fit new space
+}
+
+// --- DYNAMIC TICKET PREFIX LOGIC ---
+function updateTicketPrefix() {
+    let type = document.getElementById('scJobTypeInput').value;
+    let prefix = "SC-"; // Default
+    
+    if (type === "Service Call") prefix = "SC-";
+    if (type === "Quoted Repair") prefix = "QR-";
+    if (type === "Install") prefix = "IS-";
+    if (type === "Preventative Maintenance") prefix = "PM-";
+    if (type === "Warranty Call") prefix = "WC-";
+
+    if(document.getElementById('scCurrentId').value === "") {
+        // If NEW ticket, apply prefix to the current counter
+        let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
+        document.getElementById('scTicketNumberInput').value = prefix + counter;
+    } else {
+        // If EDITING existing ticket, just swap the prefix but keep the same number!
+        let currentTicket = document.getElementById('scTicketNumberInput').value;
+        let numberPart = currentTicket.split('-')[1];
+        if(numberPart) document.getElementById('scTicketNumberInput').value = prefix + numberPart;
+    }
+}
+
+function setNextServiceNumber() {
+    let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
+    let type = document.getElementById('scJobTypeInput').value;
+    let prefix = "SC-";
+    
+    if (type === "Service Call") prefix = "SC-";
+    if (type === "Quoted Repair") prefix = "QR-";
+    if (type === "Install") prefix = "IS-";
+    if (type === "Preventative Maintenance") prefix = "PM-";
+    if (type === "Warranty Call") prefix = "WC-";
+
+    document.getElementById('scTicketNumberInput').value = prefix + counter;
+}
+
 window.addEventListener('DOMContentLoaded', () => {
     setTimeout(loadServiceCallsFromCloud, 2000); 
 });
@@ -142,11 +186,6 @@ function triggerServiceAutoSave() {
     autoSaveTimeout = setTimeout(() => { saveServiceCall(true); }, 250); 
 }
 
-function setNextServiceNumber() {
-    let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
-    document.getElementById('scTicketNumberInput').value = 'SRV-' + counter;
-}
-
 function incrementServiceNumber() {
     let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
     localStorage.setItem('tp_service_counter', counter + 1);
@@ -156,6 +195,7 @@ function gatherServiceData() {
     return {
         id: document.getElementById('scCurrentId').value,
         ticketNum: document.getElementById('scTicketNumberInput').value,
+        tracking: document.getElementById('scTrackingInput').value.trim(), // NEW
         date: document.getElementById('scDateInput').value,
         startTime: document.getElementById('scStartTimeInput').value,
         duration: document.getElementById('scDurationInput').value,
@@ -181,6 +221,7 @@ function gatherServiceData() {
 
 function clearServiceForm() {
     document.getElementById('scCurrentId').value = "";
+    document.getElementById('scTrackingInput').value = ""; // NEW
     document.getElementById('scCustNameInput').value = "";
     document.getElementById('scCustNumInput').value = "";
     document.getElementById('scContactNameInput').value = "";
@@ -191,7 +232,7 @@ function clearServiceForm() {
     document.getElementById('scCustStateInput').value = "";
     document.getElementById('scCustZipInput').value = "";
     document.getElementById('scLocNumInput').value = "";
-    document.getElementById('scJobTypeInput').value = "Diagnostic / Repair";
+    document.getElementById('scJobTypeInput').value = "Service Call";
     document.getElementById('scPriorityInput').value = "Standard";
     document.getElementById('scAssignedTechInput').value = "Unassigned";
     document.getElementById('scStatusInput').value = "Unassigned";
@@ -260,10 +301,15 @@ function openTicketDetails(dbId) {
     let contactStr = sc.contactName ? `<strong>${sc.contactName}</strong>` : `N/A`;
     if(sc.contactPhone) contactStr += ` | ${sc.contactPhone}`;
     if(sc.contactEmail) contactStr += ` | ${sc.contactEmail}`;
+    
+    let trackingStr = sc.tracking ? `<span style="color:#e74c3c; font-weight:bold; font-size:12px; margin-left:10px;">PO / Tracking: ${sc.tracking}</span>` : "";
 
     document.getElementById('tdModalContent').innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <span class="badge badge-${sc.status.replace(' ','')}">${sc.status}</span>
+            <div style="display:flex; align-items:center;">
+                <span class="badge badge-${sc.status.replace(' ','')}">${sc.status}</span>
+                ${trackingStr}
+            </div>
             <span class="badge badge-${sc.priority}">Priority: ${sc.priority}</span>
         </div>
         <div style="background: #fcfdfe; padding: 15px; border: 1px solid #eaeaea; border-radius: 4px; margin-bottom: 15px;">
@@ -331,6 +377,7 @@ function loadServiceCall(dbId) {
     
     document.getElementById('scCurrentId').value = data.id;
     document.getElementById('scTicketNumberInput').value = data.ticketNum;
+    document.getElementById('scTrackingInput').value = data.tracking || ""; // NEW
     document.getElementById('scDateInput').value = data.date;
     document.getElementById('scStartTimeInput').value = data.startTime || "08:00";
     document.getElementById('scDurationInput').value = data.duration || "2.0"; 
@@ -384,6 +431,7 @@ function renderServiceBoard() {
 
         let techNameDisplay = sc.assignedTech && sc.assignedTech !== 'Unassigned' ? sc.assignedTech.split(' ')[0] : '';
         let techBadgeHTML = techNameDisplay ? `<span style="color:#1e4b85; font-weight:bold; font-size:12px; margin-left:8px; display:inline-flex; align-items:center;">👨‍🔧 ${techNameDisplay}</span>` : '';
+        let trackingDisplay = sc.tracking ? `<div style="font-size:11px; color:#c0392b; font-weight:bold; margin-bottom:4px;">PO: ${sc.tracking}</div>` : '';
 
         listContainer.innerHTML += `
             <div class="glass-card priority-${sc.priority}" draggable="true" data-id="${sc.id}" onclick="centerMapOnTicket('${sc.id}')">
@@ -393,6 +441,7 @@ function renderServiceBoard() {
                             <span>${titleDisplay}</span>
                             <span style="color:#555; font-size:12px; margin-left:10px;">${sc.ticketNum}</span>
                         </div>
+                        ${trackingDisplay}
                         <div class="tc-loc">📍 ${locStr}</div>
                         <div class="tc-issue"><strong>Issue:</strong> ${issueStr}</div>
                         <div class="tc-footer">
