@@ -485,7 +485,12 @@ function renderScheduleTimelineOnly() {
     const totalHours = 10;
 
     technicians.forEach(tech => {
-        const techJobs = db.filter(sc => sc.assignedTech === tech.id && sc.status !== 'Canceled' && sc.status !== 'Completed');
+      const techJobs = db.filter(sc => 
+    sc.assignedTech === tech.id && 
+    sc.status !== 'Canceled' && 
+    sc.status !== 'Completed' &&
+    sc.date === activeBoardDate // <--- THIS IS THE MAGIC LINE
+);
 
         let rowHtml = `
             <div class="gantt-row">
