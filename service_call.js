@@ -462,7 +462,18 @@ function renderServiceBoard() {
                         ${trackingDisplay}
                         <div style="color: #666; font-size: 11px; margin-bottom: 6px; text-transform: uppercase;">📍 ${locStr}</div>
                         <div style="display:flex; align-items:center;">
-                            <span style="font-size: 11px; font-weight: bold; color: ${sc.status === 'Unassigned' ? '#7f8c8d' : '#27ae60'}; text-transform: uppercase;">${sc.status}</span>
+
+                            <select class="status-quick-select status-${sc.status.replace(/ /g, '')}" 
+                                    onchange="quickUpdateStatus(event, '${sc.id}', this.value)" 
+                                    onclick="event.stopPropagation()">
+                                <option value="Unassigned" ${sc.status === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
+                                <option value="Dispatched" ${sc.status === 'Dispatched' ? 'selected' : ''}>Dispatched</option>
+                                <option value="Needs Repair Quote" ${sc.status === 'Needs Repair Quote' ? 'selected' : ''}>Needs Quote</option>
+                                <option value="Parts on Order" ${sc.status === 'Parts on Order' ? 'selected' : ''}>Parts Ordered</option>
+                                <option value="Completed" ${sc.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                                <option value="Canceled" ${sc.status === 'Canceled' ? 'selected' : ''}>Canceled</option>
+                            </select>
+                            
                             ${techBadgeHTML}
                         </div>
                     </div>
