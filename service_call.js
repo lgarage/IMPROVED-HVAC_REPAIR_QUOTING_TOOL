@@ -1356,7 +1356,9 @@ function convertToQuote(ticketId) {
     document.getElementById('custCityInput').value = sc.custCity || "";
     document.getElementById('custStateInput').value = sc.custState || "";
     document.getElementById('custZipInput').value = sc.custZip || "";
-    document.getElementById('locNumInput').value = sc.locationNum || "";
+    
+    // THE FIX IS ON THIS LINE:
+    document.getElementById('quoteLocNumInput').value = sc.locationNum || "";
 
     // 4. Inject original issue into notes
     let notesArea = document.getElementById('requoteNoteHistory');
