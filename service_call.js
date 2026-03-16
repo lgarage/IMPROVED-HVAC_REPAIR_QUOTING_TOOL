@@ -133,13 +133,16 @@ function centerMapOnTicket(dbId) {
 function updateMapMarkers() {
     if (!markerLayer) return;
     
+    // Clear out the old pins so they don't duplicate
     markerLayer.clearLayers(); 
     
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
     
     db.forEach(sc => {
+        // Hide tickets that are completely done
         if (sc.status === 'Completed' || sc.status === 'Canceled') return;
         
+        // Assemble the full address and plot it
         let fullAddress = `${sc.locationAddress}, ${sc.custCity}, ${sc.custState} ${sc.custZip}`;
         plotMarkerOnMap(fullAddress, sc);
     });
@@ -297,6 +300,10 @@ function saveServiceCall(isAutoSave = false) {
     return true;
 }
 
+// ====================================================================
+// --- MODAL TICKET DETAILS WITH EDITABLE TIME/DATE ---
+// ====================================================================
+
 function openTicketDetails(dbId) {
     currentOpenDetailsId = dbId;
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
@@ -313,6 +320,7 @@ function openTicketDetails(dbId) {
     let trackingStr = sc.tracking ? `<span style="color:#e74c3c; font-weight:bold; font-size:12px; margin-left:10px;">PO / Tracking: ${sc.tracking}</span>` : "";
     let locNumStr = sc.locationNum ? `<span style="font-size: 12px; color: #7f8c8d;">Loc ID: ${sc.locationNum}</span><br>` : '';
 
+    // Inject Date and Time inputs directly into the modal
     document.getElementById('tdModalContent').innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <div style="display:flex; align-items:center;">
@@ -328,19 +336,44 @@ function openTicketDetails(dbId) {
         </div>
 
         <div style="background: #fcfdfe; padding: 15px; border: 1px solid #eaeaea; border-radius: 4px; margin-bottom: 15px;">
-            <p style="margin-top:0; margin-bottom: 5px;"><strong>Assign Technician:</strong></p>
-            <select id="tdTechSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;">
-                <option value="Unassigned" ${sc.assignedTech === 'Unassigned' || !sc.assignedTech ? 'selected' : ''}>Unassigned</option>
-                <option value="Dave (Tech 1)" ${sc.assignedTech === 'Dave (Tech 1)' ? 'selected' : ''}>Dave (Tech 1)</option>
-                <option value="Sarah (Tech 2)" ${sc.assignedTech === 'Sarah (Tech 2)' ? 'selected' : ''}>Sarah (Tech 2)</option>
-                <option value="Mike (Tech 3)" ${sc.assignedTech === 'Mike (Tech 3)' ? 'selected' : ''}>Mike (Tech 3)</option>
-                <option value="Tom (Tech 4)" ${sc.assignedTech === 'Tom (Tech 4)' ? 'selected' : ''}>Tom (Tech 4)</option>
-            </select>
-            <div style="font-size: 11px; color: #777; margin-top: 5px;">*Closing this window automatically saves the assignment.</div>
+            <div style="margin-bottom: 15px;">
+                <p style="margin-top:0; margin-bottom: 5px;"><strong>Assign Technician:</strong></p>
+                <select id="tdTechSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;">
+                    <option value="Unassigned" ${sc.assignedTech === 'Unassigned' || !sc.assignedTech ? 'selected' : ''}>Unassigned</option>
+                    <option value="Dave (Tech 1)" ${sc.assignedTech === 'Dave (Tech 1)' ? 'selected' : ''}>Dave (Tech 1)</option>
+                    <option value="Sarah (Tech 2)" ${sc.assignedTech === 'Sarah (Tech 2)' ? 'selected' : ''}>Sarah (Tech 2)</option>
+                    <option value="Mike (Tech 3)" ${sc.assignedTech === 'Mike (Tech 3)' ? 'selected' : ''}>Mike (Tech 3)</option>
+                    <option value="Tom (Tech 4)" ${sc.assignedTech === 'Tom (Tech 4)' ? 'selected' : ''}>Tom (Tech 4)</option>
+                </select>
+            </div>
+            
+            <div style="display:flex; gap:10px; margin-bottom:5px;">
+                <div style="flex:1;">
+                    <label style="font-size:11px; font-weight:bold; color:#777;">Scheduled Date</label>
+                    <input type="date" id="tdDate" value="${sc.date || ''}" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; font-family:inherit;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:11px; font-weight:bold; color:#777;">Start Time</label>
+                    <input type="time" id="tdStartTime" value="${sc.startTime || '08:00'}" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; font-family:inherit;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:11px; font-weight:bold; color:#777;">Duration (Hrs)</label>
+                    <input type="number" id="tdDuration" step="0.25" min="0.5" value="${sc.duration || '2.0'}" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; font-family:inherit;">
+                </div>
+            </div>
+            <div style="font-size: 11px; color: #777;">*Edits to scheduling auto-save when this window closes.</div>
         </div>
         
-        <p><strong>Location:</strong><br>${locNumStr}${sc.locationAddress}<br>${sc.custCity}, ${sc.custState} ${sc.custZip}</p>
-        <p><strong>Site Contact:</strong><br>${contactStr}</p>
+        <div style="display: flex; gap: 20px; margin-bottom: 15px;">
+            <div style="flex: 1;">
+                <p style="margin-top:0; margin-bottom:5px;"><strong>Customer ID:</strong> ${sc.customerNum || 'N/A'}</p>
+                <p style="margin-top:5px;"><strong>Site Contact:</strong><br>${contactStr}</p>
+            </div>
+            <div style="flex: 1;">
+                <p style="margin-top:0; margin-bottom:5px;"><strong>Location ID:</strong> ${sc.locationNum || 'N/A'}</p>
+                <p style="margin-top:5px;"><strong>Location Address:</strong><br>${locNumStr}${sc.locationAddress}<br>${sc.custCity}, ${sc.custState} ${sc.custZip}</p>
+            </div>
+        </div>
         
         <hr style="border:0; border-top:1px solid #eaeaea; margin: 15px 0;">
         <p><strong>Reported Issue:</strong><br><span style="background:#f4f7f6; padding:10px; display:block; border-radius:4px; margin-top:5px; white-space: pre-wrap;">${sc.issue}</span></p>
@@ -393,7 +426,13 @@ function closeTicketDetails() {
         let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
         let scIndex = db.findIndex(s => s.id === currentOpenDetailsId);
         if (scIndex !== -1) {
+            
+            // Capture updated data from modal
             const techSelect = document.getElementById('tdTechSelect');
+            const dateInput = document.getElementById('tdDate');
+            const timeInput = document.getElementById('tdStartTime');
+            const durInput = document.getElementById('tdDuration');
+
             if (techSelect) {
                 const selectedTech = techSelect.value;
                 db[scIndex].assignedTech = selectedTech;
@@ -404,6 +443,12 @@ function closeTicketDetails() {
                     db[scIndex].status = 'Unassigned';
                 }
             }
+            
+            // Save the new date/time fields
+            if(dateInput) db[scIndex].date = dateInput.value;
+            if(timeInput) db[scIndex].startTime = timeInput.value;
+            if(durInput) db[scIndex].duration = durInput.value;
+
             localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
             syncSingleServiceCallToCloud(db[scIndex].id, db[scIndex]);
             renderServiceBoard(); 
@@ -451,6 +496,29 @@ function loadServiceCall(dbId) {
     document.getElementById('scIssueInput').value = data.issue;
     document.getElementById('scEquipInput').value = data.equip;
     document.getElementById('scNotesInput').value = data.notes;
+}
+
+// --- HELPER FUNCTION: FORMAT TIME FOR BLOCKS ---
+function formatTimeRange(startStr, durationStr) {
+    if(!startStr) startStr = "08:00";
+    let d = parseFloat(durationStr) || 1.5;
+    let parts = startStr.split(':');
+    let h = parseInt(parts[0]);
+    let m = parseInt(parts[1]);
+
+    let startAmPm = h >= 12 ? 'PM' : 'AM';
+    let startH = h % 12 || 12;
+    let startM = m.toString().padStart(2, '0');
+
+    let totalMins = m + (d * 60);
+    let endH = h + Math.floor(totalMins / 60);
+    let endM = Math.round(totalMins % 60);
+
+    let endAmPm = endH >= 12 && endH < 24 ? 'PM' : 'AM';
+    let finalEndH = endH % 12 || 12;
+    let finalEndM = endM.toString().padStart(2, '0');
+
+    return `${startH}:${startM}${startAmPm} - ${finalEndH}:${finalEndM}${endAmPm}`;
 }
 
 function renderServiceBoard() {
@@ -610,6 +678,11 @@ function renderServiceBoard() {
         block.style.width = width + '%';
         block.style.backgroundColor = color;
         
+        // Formatted strings for UI
+        let displayTime = formatTimeRange(sc.startTime, sc.duration);
+        let contactDisplay = sc.contactName ? sc.contactName : "No Contact";
+        let zipDisplay = sc.custZip ? sc.custZip : "";
+
         // ADD DRAG AND RESIZE CAPABILITIES
         block.draggable = true;
         block.ondragstart = function(e) { drag(e, sc.id); };
@@ -618,21 +691,27 @@ function renderServiceBoard() {
         if (currentBoardView === 'day') {
             block.innerHTML = `
                 <div class="resize-handle resize-left" onmousedown="startTimelineResize(event, '${sc.id}', 'left')"></div>
-                <div class="gantt-job-title">${sc.customerName}</div>
-                <div class="gantt-job-sub">${sc.ticketNum} | ${sc.startTime}</div>
+                <div style="font-size: 11px; margin-bottom: 3px; display:flex; align-items:center; gap:5px; opacity:0.9;">
+                    <i class="far fa-clock"></i> <span>${displayTime}</span>
+                </div>
+                <div class="gantt-job-title" style="font-size: 14px; margin-bottom: 3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sc.customerName}</div>
+                <div class="gantt-job-sub" style="font-size: 11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.8;">
+                    ${contactDisplay} &bull; ${zipDisplay}
+                </div>
                 <div class="resize-handle resize-right" onmousedown="startTimelineResize(event, '${sc.id}', 'right')"></div>
             `;
         } else if (currentBoardView === 'week') {
-            block.style.padding = '0 4px';
+            block.style.padding = '4px';
             block.innerHTML = `
                 <div class="resize-handle resize-left" onmousedown="startTimelineResize(event, '${sc.id}', 'left')"></div>
-                <div class="gantt-job-title" style="font-size:9px; margin-bottom:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sc.customerName}</div>
+                <div style="font-size: 9px; opacity:0.9; margin-bottom:2px; white-space:nowrap; overflow:hidden;"><i class="far fa-clock"></i> ${displayTime}</div>
+                <div class="gantt-job-title" style="font-size:11px; margin-bottom:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sc.customerName}</div>
                 <div class="resize-handle resize-right" onmousedown="startTimelineResize(event, '${sc.id}', 'right')"></div>
             `;
         } else {
             block.style.padding = '0';
             block.innerHTML = '';
-            block.title = `${sc.customerName} (${sc.startTime})`; 
+            block.title = `${sc.customerName} (${displayTime})`; 
         }
 
         tContainer.appendChild(block);
@@ -792,7 +871,7 @@ function updateCurrentTimeLine() {
     }
 }
 
-// --- 1. Dragging Cards from Left Panel or Board ---
+// --- 1. Dragging Cards from Left Panel to Board (Now supports cross-day drop) ---
 function drag(ev, dbId) {
     ev.dataTransfer.setData("text/plain", dbId);
 }
@@ -819,11 +898,43 @@ function handleTimelineDrop(e) {
     const percentX = offsetX / rect.width;
 
     let dropTimeDecimal = 7;
-    
+    let newDateStr = null;
+
+    let dateInput = document.getElementById('boardDateSelector').value;
+    let safeDate = dateInput ? new Date(dateInput + "T12:00:00") : new Date();
+
+    // Mathematically convert the drop X-coordinate to Date AND Time
     if (currentBoardView === 'day') {
         dropTimeDecimal = 7 + (percentX * 10);
-    } else {
-        dropTimeDecimal = 8;
+        newDateStr = dateInput;
+    } else if (currentBoardView === 'week') {
+        let dayWidth = 1 / 7;
+        let targetDayIndex = Math.floor(percentX / dayWidth);
+        if(targetDayIndex < 0) targetDayIndex = 0;
+        if(targetDayIndex > 6) targetDayIndex = 6;
+        
+        let percentInsideDay = (percentX % dayWidth) / dayWidth;
+        dropTimeDecimal = 7 + (percentInsideDay * 10);
+        
+        let startOfWeek = new Date(safeDate);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        startOfWeek.setDate(startOfWeek.getDate() + targetDayIndex);
+        newDateStr = startOfWeek.toISOString().split('T')[0];
+    } else if (currentBoardView === 'month') {
+        let month = safeDate.getMonth();
+        let year = safeDate.getFullYear();
+        let daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        let dayWidth = 1 / daysInMonth;
+        let targetDayIndex = Math.floor(percentX / dayWidth);
+        if(targetDayIndex < 0) targetDayIndex = 0;
+        if(targetDayIndex >= daysInMonth) targetDayIndex = daysInMonth - 1;
+        
+        let percentInsideDay = (percentX % dayWidth) / dayWidth;
+        dropTimeDecimal = 7 + (percentInsideDay * 10);
+        
+        let newD = new Date(year, month, targetDayIndex + 1, 12, 0, 0);
+        newDateStr = newD.toISOString().split('T')[0];
     }
 
     dropTimeDecimal = Math.round(dropTimeDecimal * 4) / 4;
@@ -839,12 +950,8 @@ function handleTimelineDrop(e) {
     
     if (index !== -1) {
         db[index].assignedTech = techId;
-        
-        if (currentBoardView === 'day') {
-            db[index].startTime = timeStr;
-            let activeDateInput = document.getElementById('boardDateSelector').value;
-            if(activeDateInput) db[index].date = activeDateInput;
-        }
+        db[index].startTime = timeStr;
+        if(newDateStr) db[index].date = newDateStr;
         
         if (db[index].status === 'Unassigned') {
             db[index].status = 'Dispatched';
@@ -863,7 +970,7 @@ function drop(ev, techName) {
     allowDrop(ev); 
 }
 
-// --- 2. Moving & Resizing Blocks ALREADY on the Grid ---
+// --- 2. Moving Blocks ALREADY on the Grid (Now supports cross-day drag) ---
 let tlState = {
     action: null, 
     el: null,
@@ -955,39 +1062,51 @@ function timelineMouseUp(e) {
     if(index === -1) { tlState.action = null; return; }
 
     let sc = db[index];
-    let scDateObj = new Date(sc.date + "T12:00:00");
+    let dateInput = document.getElementById('boardDateSelector').value;
+    let safeDate = dateInput ? new Date(dateInput + "T12:00:00") : new Date();
 
     let startHour = 7;
     let newStartDecimal = 7;
     let newDuration = 1.5;
+    let newDateStr = sc.date;
 
-    // Reverse Calculate times based on the current view's scale
+    // Calculate Date and Time across week and month column drops
     if (currentBoardView === 'day') {
         newStartDecimal = startHour + (finalLeft / 100 * 10);
         newDuration = (finalWidth / 100 * 10);
     } else if (currentBoardView === 'week') {
-        let dayOfWeek = scDateObj.getDay();
         let dayWidth = 100 / 7;
-        let dayOffset = dayOfWeek * dayWidth;
+        let targetDayIndex = Math.floor(finalLeft / dayWidth);
+        if(targetDayIndex < 0) targetDayIndex = 0;
+        if(targetDayIndex > 6) targetDayIndex = 6;
         
-        let percentInsideDay = (finalLeft - dayOffset) / dayWidth;
+        let percentInsideDay = (finalLeft % dayWidth) / dayWidth;
         newStartDecimal = startHour + (percentInsideDay * 10);
         newDuration = (finalWidth / dayWidth) * 10;
+        
+        let startOfWeek = new Date(safeDate);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        startOfWeek.setDate(startOfWeek.getDate() + targetDayIndex);
+        newDateStr = startOfWeek.toISOString().split('T')[0];
         
     } else if (currentBoardView === 'month') {
-        let month = scDateObj.getMonth();
-        let year = scDateObj.getFullYear();
+        let month = safeDate.getMonth();
+        let year = safeDate.getFullYear();
         let daysInMonth = new Date(year, month + 1, 0).getDate();
-        let dayOfMonth = scDateObj.getDate();
-        let dayWidth = 100 / daysInMonth;
-        let dayOffset = (dayOfMonth - 1) * dayWidth;
         
-        let percentInsideDay = (finalLeft - dayOffset) / dayWidth;
+        let dayWidth = 100 / daysInMonth;
+        let targetDayIndex = Math.floor(finalLeft / dayWidth);
+        if(targetDayIndex < 0) targetDayIndex = 0;
+        if(targetDayIndex >= daysInMonth) targetDayIndex = daysInMonth - 1;
+        
+        let percentInsideDay = (finalLeft % dayWidth) / dayWidth;
         newStartDecimal = startHour + (percentInsideDay * 10);
         newDuration = (finalWidth / dayWidth) * 10;
+        
+        let newD = new Date(year, month, targetDayIndex + 1, 12, 0, 0);
+        newDateStr = newD.toISOString().split('T')[0];
     }
 
-    // Snap logic
     newStartDecimal = Math.round(newStartDecimal * 4) / 4;
     newDuration = Math.round(newDuration * 4) / 4;
 
@@ -999,6 +1118,7 @@ function timelineMouseUp(e) {
     let m = Math.round((newStartDecimal - h) * 60);
     let timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 
+    db[index].date = newDateStr;
     db[index].startTime = timeStr;
     db[index].duration = newDuration.toString();
         
