@@ -288,13 +288,16 @@ function openTicketDetails(dbId) {
     const sc = db.find(s => s.id === dbId);
     if (!sc) return;
 
-    document.getElementById('tdModalTitle').innerText = `Ticket ${sc.ticketNum} - ${sc.customerName}`;
+    // Added Customer ID next to the name in the title
+    let custNumStr = sc.customerNum ? ` <span style="font-size: 14px; color: #7f8c8d; font-weight: normal;">(${sc.customerNum})</span>` : '';
+    document.getElementById('tdModalTitle').innerHTML = `Ticket ${sc.ticketNum} - ${sc.customerName}${custNumStr}`;
     
     let contactStr = sc.contactName ? `<strong>${sc.contactName}</strong>` : `N/A`;
     if(sc.contactPhone) contactStr += ` | ${sc.contactPhone}`;
     if(sc.contactEmail) contactStr += ` | ${sc.contactEmail}`;
     
     let trackingStr = sc.tracking ? `<span style="color:#e74c3c; font-weight:bold; font-size:12px; margin-left:10px;">PO / Tracking: ${sc.tracking}</span>` : "";
+    let locNumStr = sc.locationNum ? `<span style="font-size: 12px; color: #7f8c8d;">Loc ID: ${sc.locationNum}</span><br>` : '';
 
     document.getElementById('tdModalContent').innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -322,16 +325,8 @@ function openTicketDetails(dbId) {
             <div style="font-size: 11px; color: #777; margin-top: 5px;">*Closing this window automatically saves the assignment.</div>
         </div>
         
-        <div style="display: flex; gap: 20px; margin-bottom: 15px;">
-            <div style="flex: 1;">
-                <p style="margin-top:0; margin-bottom:5px;"><strong>Customer ID:</strong> ${sc.customerNum || 'N/A'}</p>
-                <p style="margin-top:0;"><strong>Site Contact:</strong><br>${contactStr}</p>
-            </div>
-            <div style="flex: 1;">
-                <p style="margin-top:0; margin-bottom:5px;"><strong>Location ID:</strong> ${sc.locationNum || 'N/A'}</p>
-                <p style="margin-top:0;"><strong>Location Address:</strong><br>${sc.locationAddress}<br>${sc.custCity}, ${sc.custState} ${sc.custZip}</p>
-            </div>
-        </div>
+        <p><strong>Location:</strong><br>${locNumStr}${sc.locationAddress}<br>${sc.custCity}, ${sc.custState} ${sc.custZip}</p>
+        <p><strong>Site Contact:</strong><br>${contactStr}</p>
         
         <hr style="border:0; border-top:1px solid #eaeaea; margin: 15px 0;">
         <p><strong>Reported Issue:</strong><br><span style="background:#f4f7f6; padding:10px; display:block; border-radius:4px; margin-top:5px; white-space: pre-wrap;">${sc.issue}</span></p>
@@ -343,14 +338,16 @@ function openTicketDetails(dbId) {
         closeTicketDetails();
         loadServiceCall(dbId);
         
-        // Timeout ensures the modal has fully closed before measuring the screen scroll distance
+        // This targets the main scrolling container to force the scroll after the modal closes
         setTimeout(() => {
             const formEl = document.getElementById('serviceFormContainer');
             if (formEl) {
-                // Forceful manual scroll calculation that bypasses modal rendering issues
-                const scrollContainer = document.querySelector('.main-content');
-                if (scrollContainer) {
-                    scrollContainer.scrollTo({ top: formEl.offsetTop - 20, behavior: 'smooth' });
+                const mainContent = document.querySelector('.main-content');
+                if (mainContent) {
+                    mainContent.scrollTo({
+                        top: formEl.offsetTop - 20,
+                        behavior: 'smooth'
+                    });
                 } else {
                     formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
@@ -359,7 +356,7 @@ function openTicketDetails(dbId) {
                 formEl.style.boxShadow = "0 0 25px rgba(200, 155, 83, 0.8)";
                 setTimeout(() => { formEl.style.boxShadow = "0 4px 15px rgba(0,0,0,0.1)"; }, 1500);
             }
-        }, 300);
+        }, 150); // Short delay ensures the modal overlay is gone
     };
 
     document.getElementById('tdDeleteBtn').onclick = function() {
