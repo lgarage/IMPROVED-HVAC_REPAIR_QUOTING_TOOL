@@ -304,6 +304,12 @@ function openTicketDetails(dbId) {
             </div>
             <span class="badge badge-${sc.priority}">Priority: ${sc.priority}</span>
         </div>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <button class="gen-btn" style="background:#8e44ad; flex:1; padding:10px;" onclick="convertToQuote('${sc.id}')"><i class="fas fa-comment-dollar"></i> Create Quote</button>
+            <button class="gen-btn" style="background:#3498db; flex:1; padding:10px;" onclick="convertToInvoice('${sc.id}')"><i class="fas fa-file-invoice"></i> Generate Invoice</button>
+        </div>
+
         <div style="background: #fcfdfe; padding: 15px; border: 1px solid #eaeaea; border-radius: 4px; margin-bottom: 15px;">
             <p style="margin-top:0; margin-bottom: 5px;"><strong>Assign Technician:</strong></p>
             <select id="tdTechSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;">
