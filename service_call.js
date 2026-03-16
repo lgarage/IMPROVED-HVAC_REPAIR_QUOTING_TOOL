@@ -1330,3 +1330,71 @@ function quickUpdateStatus(event, ticketId, newStatus) {
         if(typeof showSaveCue === 'function') showSaveCue("✓ Status Updated");
     }
 }
+
+// ====================================================================
+// --- WORKFLOW DATA ROUTING (TICKET TO QUOTE/INVOICE) ---
+// ====================================================================
+
+function convertToQuote(ticketId) {
+    closeTicketDetails();
+
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    const sc = db.find(s => s.id === ticketId);
+    if (!sc) return;
+
+    // 1. Switch to Quoting Tab
+    switchTab('quoting');
+
+    // 2. Clear old quote data
+    if (typeof startNewQuote === 'function') startNewQuote();
+
+    // 3. Pre-fill customer data
+    document.getElementById('custNameInput').value = sc.customerName || "";
+    document.getElementById('custNumInput').value = sc.customerNum || "";
+    document.getElementById('contactNameInput').value = sc.contactName || "";
+    document.getElementById('custStreetInput').value = sc.locationAddress || "";
+    document.getElementById('custCityInput').value = sc.custCity || "";
+    document.getElementById('custStateInput').value = sc.custState || "";
+    document.getElementById('custZipInput').value = sc.custZip || "";
+    document.getElementById('locNumInput').value = sc.locationNum || "";
+
+    // 4. Inject original issue into notes
+    let notesArea = document.getElementById('requoteNoteHistory');
+    if (notesArea) {
+        document.getElementById('requoteNoteContainer').style.display = 'flex';
+        notesArea.value = `Originated from Service Ticket: ${sc.ticketNum}\nReported Issue: ${sc.issue}`;
+    }
+
+    if (typeof showSaveCue === 'function') showSaveCue("✓ Copied to Quoting Tool");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function convertToInvoice(ticketId) {
+    closeTicketDetails();
+
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    const sc = db.find(s => s.id === ticketId);
+    if (!sc) return;
+
+    // 1. Switch to Invoicing Tab
+    switchTab('invoice');
+
+    // 2. Clear old invoice data
+    if (typeof clearInvoiceForm === 'function') clearInvoiceForm();
+
+    // 3. Pre-fill customer data
+    document.getElementById('invCustNameInput').value = sc.customerName || "";
+    document.getElementById('invCustNumInput').value = sc.customerNum || "";
+    document.getElementById('invStreetInput').value = sc.locationAddress || "";
+    document.getElementById('invCityInput').value = sc.custCity || "";
+    document.getElementById('invStateInput').value = sc.custState || "";
+    document.getElementById('invZipInput').value = sc.custZip || "";
+    document.getElementById('invLocNumInput').value = sc.locationNum || "";
+
+    // 4. Inject equipment and original issue
+    document.getElementById('invEquip').value = sc.equip || "";
+    document.getElementById('invNotes').value = `Original Ticket: ${sc.ticketNum}\nReported Issue: ${sc.issue}`;
+
+    if (typeof showSaveCue === 'function') showSaveCue("✓ Copied to Invoicing Tool");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
