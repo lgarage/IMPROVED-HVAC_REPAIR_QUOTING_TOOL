@@ -495,13 +495,22 @@ function renderServiceBoard() {
     let badge = document.getElementById('ticketCountBadge');
     if(badge) badge.innerText = listCount;
 
-    // 2. RENDER GANTT ROWS
+    // 2. RENDER GANTT ROWS & DYNAMIC BACKGROUND GRID
     const techs = [
         { name: 'Dave', full: 'Dave (Tech 1)', color: '#2980b9' },
         { name: 'Sarah', full: 'Sarah (Tech 2)', color: '#8e44ad' },
         { name: 'Mike', full: 'Mike (Tech 3)', color: '#d35400' },
         { name: 'Tom', full: 'Tom (Tech 4)', color: '#16a085' }
     ];
+
+    let month = selectedDate.getMonth();
+    let year = selectedDate.getFullYear();
+    let daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    // DYNAMIC GRID LINES: 10 columns for Day, 5 for Week, 28-31 for Month
+    let bgSize = 'calc(100% / 10)'; 
+    if(currentBoardView === 'week') bgSize = 'calc(100% / 5)';
+    if(currentBoardView === 'month') bgSize = `calc(100% / ${daysInMonth})`;
 
     let html = '';
     techs.forEach(t => {
@@ -513,23 +522,19 @@ function renderServiceBoard() {
                     <div class="tech-status">Active</div>
                 </div>
             </div>
-            <div class="gantt-timeline" id="timeline-${t.name}"></div>
+            <div class="gantt-timeline" id="timeline-${t.name}" style="background-size: ${bgSize} 100%;"></div>
         </div>`;
     });
     timeline.innerHTML = html;
     timeline.innerHTML += `<div id="currentTimeLine" style="left: 45%; display:none;"><div class="time-badge"></div></div>`;
 
-    // 3. MATHEMATICAL SCALE FOR BLOCKS (PHASE 2 LOGIC)
+    // 3. BLOCK POSITIONING MATH
     let startOfWeek = new Date(selectedDate);
     let day = startOfWeek.getDay();
     let diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
     startOfWeek.setDate(diff);
     let endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 4);
-
-    let month = selectedDate.getMonth();
-    let year = selectedDate.getFullYear();
-    let daysInMonth = new Date(year, month + 1, 0).getDate();
 
     db.forEach(sc => {
         if (!sc.assignedTech || sc.assignedTech === 'Unassigned') return;
@@ -554,38 +559,28 @@ function renderServiceBoard() {
         let startHour = parseFloat(timeParts[0]) + (parseFloat(timeParts[1]) / 60);
         let duration = parseFloat(sc.duration) || 1.5;
 
-        let left = 0;
-        let width = 0;
+        let left = 0; let width = 0;
 
         if (currentBoardView === 'day') {
-            // Day logic: 7AM to 5PM = 10 hours. 1 hour = 10% width
             left = ((startHour - 7) / 10) * 100;
             width = (duration / 10) * 100;
-            
         } else if (currentBoardView === 'week') {
-            // Week logic: Mon-Fri (5 days). 1 day = 20% width.
             let dayOfWeek = scDate.getDay(); 
-            if (dayOfWeek === 0 || dayOfWeek === 6) return; // Skip weekends in 5-day view
-            let dayIndex = dayOfWeek - 1; // Mon = 0, Fri = 4
-            let dayWidth = 100 / 5; // 20%
-            
-            // Offset by the day, then add the fractional time within that day
+            if (dayOfWeek === 0 || dayOfWeek === 6) return; 
+            let dayIndex = dayOfWeek - 1; 
+            let dayWidth = 100 / 5; 
             left = (dayIndex * dayWidth) + (((startHour - 7) / 10) * dayWidth);
             width = (duration / 10) * dayWidth;
-            
         } else if (currentBoardView === 'month') {
-            // Month logic: 1 day = (100 / daysInMonth)%
             let dayOfMonth = scDate.getDate();
             let dayWidth = 100 / daysInMonth;
-            
             left = ((dayOfMonth - 1) * dayWidth) + (((startHour - 7) / 10) * dayWidth);
             width = (duration / 10) * dayWidth;
         }
 
-        // Cap boundaries so blocks don't stretch off the screen
         if (left < 0) left = 0;
         if (left > 99) left = 99;
-        if (width < 0.5) width = 0.5; // Ensure block is always visible even in month view
+        if (width < 0.5) width = 0.5; 
         if (left + width > 100) width = 100 - left;
 
         let color = '#3498db';
@@ -595,12 +590,26 @@ function renderServiceBoard() {
 
         let block = document.createElement('div');
         block.className = 'gantt-job-block';
+        
+        // OVERRIDE CSS: This forces the padding to be absorbed, so the block shrinks properly!
+        block.style.boxSizing = 'border-box';
         block.style.left = left + '%';
         block.style.width = width + '%';
         block.style.backgroundColor = color;
-        block.innerHTML = `<div class="gantt-job-title">${sc.customerName}</div><div class="gantt-job-sub">${sc.ticketNum} | ${sc.startTime}</div>`;
         
-        // Ensure double click still opens the modal!
+        // Dynamic Text density based on zoom scale
+        if (currentBoardView === 'day') {
+            block.innerHTML = `<div class="gantt-job-title">${sc.customerName}</div><div class="gantt-job-sub">${sc.ticketNum} | ${sc.startTime}</div>`;
+        } else if (currentBoardView === 'week') {
+            block.style.padding = '0 5px';
+            block.innerHTML = `<div class="gantt-job-title" style="font-size:9px; margin-bottom:0;">${sc.customerName.substring(0, 12)}</div>`;
+        } else {
+            // Month view blocks are too tiny for text, so they become colored heat-map slivers!
+            block.style.padding = '0';
+            block.innerHTML = '';
+            block.title = `${sc.customerName} (${sc.startTime})`; // Adds a hover tooltip instead
+        }
+        
         block.ondblclick = function(e) { e.stopPropagation(); openTicketDetails(sc.id); };
 
         tContainer.appendChild(block);
