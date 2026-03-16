@@ -877,33 +877,65 @@ function timelineMouseUp(e) {
         return; 
     }
 
-    const startHour = 7;
-    const totalHours = 10;
-    
-    let newStartDecimal = startHour + (finalLeft / 100 * totalHours);
-    let newDuration = (finalWidth / 100 * totalHours);
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    let index = db.findIndex(sc => sc.id === tlState.id);
+    if(index === -1) { tlState.action = null; return; }
 
+    let sc = db[index];
+    let scDateObj = new Date(sc.date + "T12:00:00");
+
+    let startHour = 7;
+    let newStartDecimal = 7;
+    let newDuration = 1.5;
+
+    // Calculate times based on the current view's scale
+    if (currentBoardView === 'day') {
+        newStartDecimal = startHour + (finalLeft / 100 * 10);
+        newDuration = (finalWidth / 100 * 10);
+    } else if (currentBoardView === 'week') {
+        let dayOfWeek = scDateObj.getDay();
+        let dayWidth = 100 / 7;
+        let dayOffset = dayOfWeek * dayWidth;
+        
+        let percentInsideDay = (finalLeft - dayOffset) / dayWidth;
+        newStartDecimal = startHour + (percentInsideDay * 10);
+        newDuration = (finalWidth / dayWidth) * 10;
+        
+    } else if (currentBoardView === 'month') {
+        let month = scDateObj.getMonth();
+        let year = scDateObj.getFullYear();
+        let daysInMonth = new Date(year, month + 1, 0).getDate();
+        let dayOfMonth = scDateObj.getDate();
+        let dayWidth = 100 / daysInMonth;
+        let dayOffset = (dayOfMonth - 1) * dayWidth;
+        
+        let percentInsideDay = (finalLeft - dayOffset) / dayWidth;
+        newStartDecimal = startHour + (percentInsideDay * 10);
+        newDuration = (finalWidth / dayWidth) * 10;
+    }
+
+    // Snap logic
     newStartDecimal = Math.round(newStartDecimal * 4) / 4;
     newDuration = Math.round(newDuration * 4) / 4;
+
+    if (newStartDecimal < 7) newStartDecimal = 7;
+    if (newStartDecimal > 16.5) newStartDecimal = 16.5;
+    if (newDuration < 0.5) newDuration = 0.5;
 
     let h = Math.floor(newStartDecimal);
     let m = Math.round((newStartDecimal - h) * 60);
     let timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 
-    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
-    let index = db.findIndex(sc => sc.id === tlState.id);
-    if(index !== -1) {
-        db[index].startTime = timeStr;
-        db[index].duration = newDuration.toString();
+    db[index].startTime = timeStr;
+    db[index].duration = newDuration.toString();
         
-        localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
-        if(typeof syncSingleServiceCallToCloud === 'function') {
-            syncSingleServiceCallToCloud(db[index].id, db[index]);
-        }
+    localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+    if(typeof syncSingleServiceCallToCloud === 'function') {
+        syncSingleServiceCallToCloud(db[index].id, db[index]);
     }
 
     tlState.action = null;
-    renderScheduleTimelineOnly(); 
+    renderServiceBoard(); 
     if(typeof showSaveCue === 'function') showSaveCue("✓ Schedule Updated");
 }
 
