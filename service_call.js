@@ -129,6 +129,25 @@ function centerMapOnTicket(dbId) {
     if (cache[fullAddress]) { dispatchMap.flyTo(cache[fullAddress], 16, { animate: true, duration: 1.5 }); }
 }
 
+// --- DYNAMIC MAP MARKER REFRESH ---
+function updateMapMarkers() {
+    if (!markerLayer) return;
+    
+    // Clear out the old pins so they don't duplicate
+    markerLayer.clearLayers(); 
+    
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    
+    db.forEach(sc => {
+        // Hide tickets that are completely done
+        if (sc.status === 'Completed' || sc.status === 'Canceled') return;
+        
+        // Assemble the full address and plot it
+        let fullAddress = `${sc.locationAddress}, ${sc.custCity}, ${sc.custState} ${sc.custZip}`;
+        plotMarkerOnMap(fullAddress, sc);
+    });
+}
+
 function initDragAndDrop() {
     const requestList = document.getElementById('serviceRequestList');
     requestList.addEventListener('dragstart', e => { if(e.target.classList.contains('glass-card')) e.target.classList.add('dragging'); });
