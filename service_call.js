@@ -453,7 +453,6 @@ function renderServiceBoard() {
     const listContainer = document.getElementById('serviceRequestList');
     const timeline = document.getElementById('scheduleTimeline');
     const dateInput = document.getElementById('boardDateSelector').value;
-    const selectedDate = dateInput ? new Date(dateInput + "T00:00:00") : new Date();
 
     // 1. RENDER LEFT PANEL (Service Requests)
     listContainer.innerHTML = '';
@@ -503,13 +502,13 @@ function renderServiceBoard() {
         { name: 'Tom', full: 'Tom (Tech 4)', color: '#16a085' }
     ];
 
-    let month = selectedDate.getMonth();
-    let year = selectedDate.getFullYear();
+    const safeDate = dateInput ? new Date(dateInput + "T12:00:00") : new Date();
+    let month = safeDate.getMonth();
+    let year = safeDate.getFullYear();
     let daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    // DYNAMIC GRID LINES: 10 columns for Day, 5 for Week, 28-31 for Month
     let bgSize = 'calc(100% / 10)'; 
-    if(currentBoardView === 'week') bgSize = 'calc(100% / 5)';
+    if(currentBoardView === 'week') bgSize = 'calc(100% / 7)';
     if(currentBoardView === 'month') bgSize = `calc(100% / ${daysInMonth})`;
 
     let html = '';
@@ -528,24 +527,34 @@ function renderServiceBoard() {
     timeline.innerHTML = html;
     timeline.innerHTML += `<div id="currentTimeLine" style="left: 45%; display:none;"><div class="time-badge"></div></div>`;
 
-    // 3. BLOCK POSITIONING MATH
-    let startOfWeek = new Date(selectedDate);
-    let day = startOfWeek.getDay();
-    let diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
-    startOfWeek.setDate(diff);
-    let endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 4);
+    // 3. BULLETPROOF STRING MATCHING LOGIC
+    let startOfWeek = new Date(safeDate);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Force Sunday
+    
+    // Generate an exact array of "YYYY-MM-DD" strings for the week
+    let weekStrings = [];
+    for(let i=0; i<7; i++) {
+        let d = new Date(startOfWeek);
+        d.setDate(d.getDate() + i);
+        let dy = d.getFullYear();
+        let dm = String(d.getMonth() + 1).padStart(2, '0');
+        let dd = String(d.getDate()).padStart(2, '0');
+        weekStrings.push(`${dy}-${dm}-${dd}`);
+    }
+    
+    let monthString = `${year}-${String(month + 1).padStart(2, '0')}`;
 
     db.forEach(sc => {
         if (!sc.assignedTech || sc.assignedTech === 'Unassigned') return;
         if (sc.status === 'Completed' || sc.status === 'Canceled') return;
+        if (!sc.date) return;
 
-        let scDate = new Date(sc.date + "T00:00:00");
         let isVisible = false;
 
+        // Compare exact strings instead of greater-than/less-than date math
         if (currentBoardView === 'day' && sc.date === dateInput) isVisible = true;
-        if (currentBoardView === 'week' && scDate >= startOfWeek && scDate <= endOfWeek) isVisible = true;
-        if (currentBoardView === 'month' && scDate.getMonth() === month && scDate.getFullYear() === year) isVisible = true;
+        if (currentBoardView === 'week' && weekStrings.includes(sc.date)) isVisible = true;
+        if (currentBoardView === 'month' && sc.date.startsWith(monthString)) isVisible = true;
 
         if (!isVisible) return;
 
@@ -560,19 +569,18 @@ function renderServiceBoard() {
         let duration = parseFloat(sc.duration) || 1.5;
 
         let left = 0; let width = 0;
+        let scDateObj = new Date(sc.date + "T12:00:00"); // Safe local time for column math
 
         if (currentBoardView === 'day') {
             left = ((startHour - 7) / 10) * 100;
             width = (duration / 10) * 100;
         } else if (currentBoardView === 'week') {
-            let dayOfWeek = scDate.getDay(); 
-            if (dayOfWeek === 0 || dayOfWeek === 6) return; 
-            let dayIndex = dayOfWeek - 1; 
-            let dayWidth = 100 / 5; 
-            left = (dayIndex * dayWidth) + (((startHour - 7) / 10) * dayWidth);
+            let dayOfWeek = scDateObj.getDay(); 
+            let dayWidth = 100 / 7; 
+            left = (dayOfWeek * dayWidth) + (((startHour - 7) / 10) * dayWidth);
             width = (duration / 10) * dayWidth;
         } else if (currentBoardView === 'month') {
-            let dayOfMonth = scDate.getDate();
+            let dayOfMonth = scDateObj.getDate();
             let dayWidth = 100 / daysInMonth;
             left = ((dayOfMonth - 1) * dayWidth) + (((startHour - 7) / 10) * dayWidth);
             width = (duration / 10) * dayWidth;
@@ -591,23 +599,20 @@ function renderServiceBoard() {
         let block = document.createElement('div');
         block.className = 'gantt-job-block';
         
-        // OVERRIDE CSS: This forces the padding to be absorbed, so the block shrinks properly!
         block.style.boxSizing = 'border-box';
         block.style.left = left + '%';
         block.style.width = width + '%';
         block.style.backgroundColor = color;
         
-        // Dynamic Text density based on zoom scale
         if (currentBoardView === 'day') {
             block.innerHTML = `<div class="gantt-job-title">${sc.customerName}</div><div class="gantt-job-sub">${sc.ticketNum} | ${sc.startTime}</div>`;
         } else if (currentBoardView === 'week') {
-            block.style.padding = '0 5px';
-            block.innerHTML = `<div class="gantt-job-title" style="font-size:9px; margin-bottom:0;">${sc.customerName.substring(0, 12)}</div>`;
+            block.style.padding = '0 4px';
+            block.innerHTML = `<div class="gantt-job-title" style="font-size:9px; margin-bottom:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sc.customerName}</div>`;
         } else {
-            // Month view blocks are too tiny for text, so they become colored heat-map slivers!
             block.style.padding = '0';
             block.innerHTML = '';
-            block.title = `${sc.customerName} (${sc.startTime})`; // Adds a hover tooltip instead
+            block.title = `${sc.customerName} (${sc.startTime})`; 
         }
         
         block.ondblclick = function(e) { e.stopPropagation(); openTicketDetails(sc.id); };
@@ -617,7 +622,6 @@ function renderServiceBoard() {
     
     if(typeof updateMapMarkers === 'function') updateMapMarkers();
 }
-
 // ====================================================================
 // --- DISPATCH BOARD DATE CONTROLS ---
 // ====================================================================
