@@ -451,73 +451,162 @@ function loadServiceCall(dbId) {
 function renderServiceBoard() {
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
     const listContainer = document.getElementById('serviceRequestList');
-    const counter = document.getElementById('ticketCountBadge');
+    const timeline = document.getElementById('scheduleTimeline');
+    const dateInput = document.getElementById('boardDateSelector').value;
+    const selectedDate = dateInput ? new Date(dateInput + "T00:00:00") : new Date();
+
+    // 1. RENDER LEFT PANEL (Service Requests)
+    listContainer.innerHTML = '';
+    let listCount = 0;
     
-    listContainer.innerHTML = "";
-    counter.innerText = db.length;
-
-    if (db.length === 0) {
-        listContainer.innerHTML = `<div style="text-align:center; padding: 20px; color: #555; font-style: italic; border-radius: 6px;">No active service calls.</div>`;
-    }
-
-    markerLayer.clearLayers();
-
-    [...db].reverse().forEach((sc) => {
-        if (sc.status !== 'Canceled' && sc.status !== 'Completed') {
-            let fullAddr = `${sc.locationAddress}, ${sc.custCity}, ${sc.custState} ${sc.custZip}`;
-            plotMarkerOnMap(fullAddr, sc);
-        }
-
-        let locStr = sc.locationAddress;
-        if(sc.custCity) locStr += ` | ${sc.custCity}, ${sc.custState}`;
+    db.forEach(sc => {
+        if (sc.status === 'Completed' || sc.status === 'Canceled') return;
+        listCount++;
         
-        let titleDisplay = sc.customerName;
-        if (sc.contactName && sc.contactName !== "") {
-            titleDisplay += ` <span style="font-size:11px; color:#7f8c8d; font-weight:normal;">(${sc.contactName})</span>`;
-        }
+        let colorClass = 'priority-Standard';
+        if (sc.priority === 'Emergency') colorClass = 'priority-Emergency';
+        if (sc.priority === 'Urgent') colorClass = 'priority-Urgent';
+        if (sc.priority === 'Routine') colorClass = 'priority-Routine';
 
-        let techNameDisplay = sc.assignedTech && sc.assignedTech !== 'Unassigned' ? sc.assignedTech.split(' ')[0] : '';
-        let techBadgeHTML = techNameDisplay ? `<span style="color:#1e4b85; font-weight:bold; font-size:11px; margin-left:8px; display:inline-flex; align-items:center;">👨‍🔧 ${techNameDisplay}</span>` : '';
-        let trackingDisplay = sc.tracking ? `<div style="font-size:11px; color:#c0392b; font-weight:bold; margin-bottom:2px;">PO: ${sc.tracking}</div>` : '';
+        let techAssignStr = sc.assignedTech === 'Unassigned' || !sc.assignedTech ? `<span style="color:#e74c3c; font-weight:bold;">Unassigned</span>` : `<span style="color:#27ae60;"><i class="fas fa-user"></i> ${sc.assignedTech.split(' ')[0]}</span>`;
 
-        // DENSE RAZORSYNC CARD (No buttons, Double click to open details)
-        listContainer.innerHTML += `
-            <div class="glass-card priority-${sc.priority}" draggable="true" data-id="${sc.id}" onclick="centerMapOnTicket('${sc.id}')" ondblclick="openTicketDetails('${sc.id}')" title="Double-click for details">
-                <div style="display:flex; justify-content:space-between; align-items: center;">
-                    <div style="flex:1;">
-                        <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom: 2px;">
-                            <strong style="color: #333; font-size: 13px; text-transform: uppercase;">${titleDisplay}</strong>
-                            <span style="color:#777; font-size:11px;">${sc.ticketNum}</span>
-                        </div>
-                        ${trackingDisplay}
-                        <div style="color: #666; font-size: 11px; margin-bottom: 6px; text-transform: uppercase;">📍 ${locStr}</div>
-                        <div style="display:flex; align-items:center;">
-
-                            <select class="status-quick-select status-${sc.status.replace(/ /g, '')}" 
-                                    onchange="quickUpdateStatus(event, '${sc.id}', this.value)" 
-                                    onclick="event.stopPropagation()">
-                                <option value="Unassigned" ${sc.status === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
-                                <option value="Dispatched" ${sc.status === 'Dispatched' ? 'selected' : ''}>Dispatched</option>
-                                <option value="Needs Repair Quote" ${sc.status === 'Needs Repair Quote' ? 'selected' : ''}>Needs Quote</option>
-                                <option value="Parts on Order" ${sc.status === 'Parts on Order' ? 'selected' : ''}>Parts Ordered</option>
-                                <option value="Completed" ${sc.status === 'Completed' ? 'selected' : ''}>Completed</option>
-                                <option value="Canceled" ${sc.status === 'Canceled' ? 'selected' : ''}>Canceled</option>
-                            </select>
-                            
-                            ${techBadgeHTML}
-                        </div>
-                    </div>
-                    <div class="drag-handle" style="color:#ddd; cursor:grab; font-size:18px; padding-left:10px; user-select:none;">⋮⋮</div>
+        let cardHTML = `
+            <div class="glass-card ${colorClass}" draggable="true" ondragstart="drag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')">
+                <div class="tc-title">
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">${sc.customerName}</span>
+                    <span style="font-size:10px; color:#aaa;">${sc.ticketNum}</span>
+                </div>
+                <div class="tc-loc"><i class="fas fa-map-marker-alt" style="color:#c89b53;"></i> ${sc.locationAddress} | ${sc.custCity}, ${sc.custState}</div>
+                <div class="tc-footer">
+                    <select class="status-quick-select status-${sc.status.replace(/ /g, '')}" onchange="updateTicketStatus('${sc.id}', this.value)">
+                        <option value="Unassigned" ${sc.status === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
+                        <option value="Dispatched" ${sc.status === 'Dispatched' ? 'selected' : ''}>Dispatched</option>
+                        <option value="Needs Repair Quote" ${sc.status === 'Needs Repair Quote' ? 'selected' : ''}>Needs Repair Quote</option>
+                        <option value="Parts on Order" ${sc.status === 'Parts on Order' ? 'selected' : ''}>Parts on Order</option>
+                        <option value="Completed" ${sc.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                    </select>
+                    <div style="font-size:11px;">${techAssignStr}</div>
                 </div>
             </div>
         `;
+        listContainer.innerHTML += cardHTML;
     });
     
-    if(typeof initBoardDate === 'function' && !activeBoardDate) {
-        initBoardDate();
-    } else {
-        renderScheduleTimelineOnly();
-    }
+    let badge = document.getElementById('ticketCountBadge');
+    if(badge) badge.innerText = listCount;
+
+    // 2. RENDER GANTT ROWS
+    const techs = [
+        { name: 'Dave', full: 'Dave (Tech 1)', color: '#2980b9' },
+        { name: 'Sarah', full: 'Sarah (Tech 2)', color: '#8e44ad' },
+        { name: 'Mike', full: 'Mike (Tech 3)', color: '#d35400' },
+        { name: 'Tom', full: 'Tom (Tech 4)', color: '#16a085' }
+    ];
+
+    let html = '';
+    techs.forEach(t => {
+        html += `<div class="gantt-row" id="row-${t.name}" ondrop="drop(event, '${t.full}')" ondragover="allowDrop(event)">
+            <div class="gantt-tech-cell">
+                <div class="tech-avatar" style="background:${t.color};">${t.name.charAt(0)}</div>
+                <div class="tech-info">
+                    <div class="tech-name">${t.name}</div>
+                    <div class="tech-status">Active</div>
+                </div>
+            </div>
+            <div class="gantt-timeline" id="timeline-${t.name}"></div>
+        </div>`;
+    });
+    timeline.innerHTML = html;
+    timeline.innerHTML += `<div id="currentTimeLine" style="left: 45%; display:none;"><div class="time-badge"></div></div>`;
+
+    // 3. MATHEMATICAL SCALE FOR BLOCKS (PHASE 2 LOGIC)
+    let startOfWeek = new Date(selectedDate);
+    let day = startOfWeek.getDay();
+    let diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+    startOfWeek.setDate(diff);
+    let endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 4);
+
+    let month = selectedDate.getMonth();
+    let year = selectedDate.getFullYear();
+    let daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    db.forEach(sc => {
+        if (!sc.assignedTech || sc.assignedTech === 'Unassigned') return;
+        if (sc.status === 'Completed' || sc.status === 'Canceled') return;
+
+        let scDate = new Date(sc.date + "T00:00:00");
+        let isVisible = false;
+
+        if (currentBoardView === 'day' && sc.date === dateInput) isVisible = true;
+        if (currentBoardView === 'week' && scDate >= startOfWeek && scDate <= endOfWeek) isVisible = true;
+        if (currentBoardView === 'month' && scDate.getMonth() === month && scDate.getFullYear() === year) isVisible = true;
+
+        if (!isVisible) return;
+
+        let techObj = techs.find(t => t.full === sc.assignedTech);
+        if (!techObj) return;
+
+        let tContainer = document.getElementById('timeline-' + techObj.name);
+        if (!tContainer) return;
+
+        let timeParts = sc.startTime ? sc.startTime.split(':') : ['08', '00'];
+        let startHour = parseFloat(timeParts[0]) + (parseFloat(timeParts[1]) / 60);
+        let duration = parseFloat(sc.duration) || 1.5;
+
+        let left = 0;
+        let width = 0;
+
+        if (currentBoardView === 'day') {
+            // Day logic: 7AM to 5PM = 10 hours. 1 hour = 10% width
+            left = ((startHour - 7) / 10) * 100;
+            width = (duration / 10) * 100;
+            
+        } else if (currentBoardView === 'week') {
+            // Week logic: Mon-Fri (5 days). 1 day = 20% width.
+            let dayOfWeek = scDate.getDay(); 
+            if (dayOfWeek === 0 || dayOfWeek === 6) return; // Skip weekends in 5-day view
+            let dayIndex = dayOfWeek - 1; // Mon = 0, Fri = 4
+            let dayWidth = 100 / 5; // 20%
+            
+            // Offset by the day, then add the fractional time within that day
+            left = (dayIndex * dayWidth) + (((startHour - 7) / 10) * dayWidth);
+            width = (duration / 10) * dayWidth;
+            
+        } else if (currentBoardView === 'month') {
+            // Month logic: 1 day = (100 / daysInMonth)%
+            let dayOfMonth = scDate.getDate();
+            let dayWidth = 100 / daysInMonth;
+            
+            left = ((dayOfMonth - 1) * dayWidth) + (((startHour - 7) / 10) * dayWidth);
+            width = (duration / 10) * dayWidth;
+        }
+
+        // Cap boundaries so blocks don't stretch off the screen
+        if (left < 0) left = 0;
+        if (left > 99) left = 99;
+        if (width < 0.5) width = 0.5; // Ensure block is always visible even in month view
+        if (left + width > 100) width = 100 - left;
+
+        let color = '#3498db';
+        if(sc.priority === 'Emergency') color = '#e74c3c';
+        if(sc.priority === 'Urgent') color = '#f39c12';
+        if(sc.priority === 'Routine') color = '#95a5a6';
+
+        let block = document.createElement('div');
+        block.className = 'gantt-job-block';
+        block.style.left = left + '%';
+        block.style.width = width + '%';
+        block.style.backgroundColor = color;
+        block.innerHTML = `<div class="gantt-job-title">${sc.customerName}</div><div class="gantt-job-sub">${sc.ticketNum} | ${sc.startTime}</div>`;
+        
+        // Ensure double click still opens the modal!
+        block.ondblclick = function(e) { e.stopPropagation(); openTicketDetails(sc.id); };
+
+        tContainer.appendChild(block);
+    });
+    
+    if(typeof updateMapMarkers === 'function') updateMapMarkers();
 }
 
 // ====================================================================
