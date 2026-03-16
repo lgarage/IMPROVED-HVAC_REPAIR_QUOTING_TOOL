@@ -1589,9 +1589,9 @@ function renderGanttHeaders() {
     const headerContainer = document.getElementById('ganttTimeHeaders');
     if(!headerContainer) return;
     
-    // Get the currently selected date (or default to today)
+    // Use Noon (T12:00:00) to permanently avoid midnight DST shifts
     const dateInput = document.getElementById('boardDateSelector').value;
-    const selectedDate = dateInput ? new Date(dateInput + "T00:00:00") : new Date();
+    const selectedDate = dateInput ? new Date(dateInput + "T12:00:00") : new Date();
     
     let html = '';
     
@@ -1601,18 +1601,16 @@ function renderGanttHeaders() {
         hours.forEach(h => html += `<div class="gantt-hour-slot">${h}</div>`);
         
     } else if (currentBoardView === 'week') {
-        // Calculate the Sunday of the selected week
         let startOfWeek = new Date(selectedDate);
         let day = startOfWeek.getDay();
-        let diff = startOfWeek.getDate() - day; // 0 = Sunday
-        startOfWeek.setDate(diff);
+        startOfWeek.setDate(startOfWeek.getDate() - day); // Force Sunday
         
         let endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6); // Show Sun-Sat (7 days)
+        endOfWeek.setDate(startOfWeek.getDate() + 6); // Span 7 days
         
         document.getElementById('boardDayOfWeek').innerText = `Week of ${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`;
         
-        for(let i=0; i<7; i++) { // Loop 7 times for Sun-Sat
+        for(let i=0; i<7; i++) { 
             let d = new Date(startOfWeek);
             d.setDate(d.getDate() + i);
             html += `<div class="gantt-hour-slot" style="text-align:center; min-width: 100px; border-right: 2px solid #ccc; font-size:12px;">${d.toLocaleDateString('en-US', {weekday:'short'})}<br><span style="font-size:16px; color:#333;">${d.getDate()}</span></div>`;
