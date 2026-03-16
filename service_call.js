@@ -1601,21 +1601,21 @@ function renderGanttHeaders() {
         hours.forEach(h => html += `<div class="gantt-hour-slot">${h}</div>`);
         
     } else if (currentBoardView === 'week') {
-        // Calculate the Monday of the selected week
+        // Calculate the Sunday of the selected week
         let startOfWeek = new Date(selectedDate);
         let day = startOfWeek.getDay();
-        let diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); 
+        let diff = startOfWeek.getDate() - day; // 0 = Sunday
         startOfWeek.setDate(diff);
         
         let endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 4); // Show Mon-Fri (Add 6 for Mon-Sun)
+        endOfWeek.setDate(startOfWeek.getDate() + 6); // Show Sun-Sat (7 days)
         
         document.getElementById('boardDayOfWeek').innerText = `Week of ${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`;
         
-        for(let i=0; i<5; i++) { // Show 5 days (Mon-Fri)
+        for(let i=0; i<7; i++) { // Loop 7 times for Sun-Sat
             let d = new Date(startOfWeek);
             d.setDate(d.getDate() + i);
-            html += `<div class="gantt-hour-slot" style="text-align:center; min-width: 140px; border-right: 2px solid #ccc; font-size:12px;">${d.toLocaleDateString('en-US', {weekday:'short'})}<br><span style="font-size:16px; color:#333;">${d.getDate()}</span></div>`;
+            html += `<div class="gantt-hour-slot" style="text-align:center; min-width: 100px; border-right: 2px solid #ccc; font-size:12px;">${d.toLocaleDateString('en-US', {weekday:'short'})}<br><span style="font-size:16px; color:#333;">${d.getDate()}</span></div>`;
         }
         
     } else if (currentBoardView === 'month') {
