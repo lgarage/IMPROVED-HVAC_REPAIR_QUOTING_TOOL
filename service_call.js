@@ -1383,18 +1383,47 @@ function convertToInvoice(ticketId) {
     if (typeof clearInvoiceForm === 'function') clearInvoiceForm();
 
     // 3. Pre-fill customer data
-    document.getElementById('invCustNameInput').value = sc.customerName || "";
+    const custName = sc.customerName || "";
+    const street = sc.locationAddress || "";
+    const city = sc.custCity || "";
+    const state = sc.custState || "WI";
+    const zip = sc.custZip || "";
+
+    document.getElementById('invCustNameInput').value = custName;
     document.getElementById('invCustNumInput').value = sc.customerNum || "";
-    document.getElementById('invStreetInput').value = sc.locationAddress || "";
-    document.getElementById('invCityInput').value = sc.custCity || "";
-    document.getElementById('invStateInput').value = sc.custState || "";
-    document.getElementById('invZipInput').value = sc.custZip || "";
+    document.getElementById('invStreetInput').value = street;
+    document.getElementById('invCityInput').value = city;
+    document.getElementById('invStateInput').value = state;
+    document.getElementById('invZipInput').value = zip;
     document.getElementById('invLocNumInput').value = sc.locationNum || "";
 
     // 4. Inject equipment and original issue
     document.getElementById('invEquip').value = sc.equip || "";
     document.getElementById('invNotes').value = `Original Ticket: ${sc.ticketNum}\nReported Issue: ${sc.issue}`;
 
+    // 5. CRITICAL FIX: Build the formatted text blocks for the printed PDF
+    let formattedLoc = street;
+    let csz = [];
+    if(city) csz.push(city);
+    let sz = [];
+    if(state) sz.push(state);
+    if(zip) sz.push(zip);
+    if(sz.length > 0) csz.push(sz.join(" "));
+    if(csz.length > 0) formattedLoc += "\n" + csz.join(", ");
+
+    let billToEl = document.getElementById('invBillTo');
+    let serviceLocEl = document.getElementById('invServiceLoc');
+    if (billToEl) billToEl.value = custName + "\n" + formattedLoc;
+    if (serviceLocEl) serviceLocEl.value = formattedLoc;
+
+    // 6. Fetch the official official Invoice Number from the cloud
+    if (typeof fetchNextInvoiceNumber === 'function') fetchNextInvoiceNumber();
+
     if (typeof showSaveCue === 'function') showSaveCue("✓ Copied to Invoicing Tool");
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // 7. Scroll past the yellow box so you instantly see your populated data
+    setTimeout(() => {
+        const formContainer = document.getElementById('invCustNameInput');
+        if(formContainer) formContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
 }
