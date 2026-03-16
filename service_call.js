@@ -133,16 +133,13 @@ function centerMapOnTicket(dbId) {
 function updateMapMarkers() {
     if (!markerLayer) return;
     
-    // Clear out the old pins so they don't duplicate
     markerLayer.clearLayers(); 
     
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
     
     db.forEach(sc => {
-        // Hide tickets that are completely done
         if (sc.status === 'Completed' || sc.status === 'Canceled') return;
         
-        // Assemble the full address and plot it
         let fullAddress = `${sc.locationAddress}, ${sc.custCity}, ${sc.custState} ${sc.custZip}`;
         plotMarkerOnMap(fullAddress, sc);
     });
@@ -217,6 +214,7 @@ function gatherServiceData() {
 }
 
 function clearServiceForm() {
+    // Reset UI to "New Ticket" Mode
     document.getElementById('serviceFormTitle').innerText = "Log New Service Call";
     document.getElementById('serviceFormTitle').style.color = "#1e4b85";
     document.getElementById('serviceFormBadge').style.display = "none";
@@ -269,15 +267,18 @@ function saveServiceCall(isAutoSave = false) {
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
 
     if (data.id) {
+        // EDITING EXISTING
         const index = db.findIndex(sc => sc.id === data.id);
         if (index !== -1) {
             db[index] = data;
             if (!isAutoSave) { showSaveCue("✓ Ticket Updated!"); clearServiceForm(); }
         }
     } else {
+        // CREATING NEW
         if (!isAutoSave) { 
             data.id = 'SC-ID-' + Date.now(); 
             
+            // GENERATE NUMBER
             let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
             let prefix = getPrefixForJobType(data.jobType);
             data.ticketNum = prefix + counter;
@@ -302,13 +303,15 @@ function openTicketDetails(dbId) {
     const sc = db.find(s => s.id === dbId);
     if (!sc) return;
 
-    document.getElementById('tdModalTitle').innerText = `Ticket ${sc.ticketNum} - ${sc.customerName}`;
+    let custNumStr = sc.customerNum ? ` <span style="font-size: 14px; color: #7f8c8d; font-weight: normal;">(${sc.customerNum})</span>` : '';
+    document.getElementById('tdModalTitle').innerHTML = `Ticket ${sc.ticketNum} - ${sc.customerName}${custNumStr}`;
     
-    let contactStr = sc.contactName ? `${sc.contactName}` : `N/A`;
+    let contactStr = sc.contactName ? `<strong>${sc.contactName}</strong>` : `N/A`;
     if(sc.contactPhone) contactStr += `<br>${sc.contactPhone}`;
     if(sc.contactEmail) contactStr += `<br>${sc.contactEmail}`;
     
     let trackingStr = sc.tracking ? `<span style="color:#e74c3c; font-weight:bold; font-size:12px; margin-left:10px;">PO / Tracking: ${sc.tracking}</span>` : "";
+    let locNumStr = sc.locationNum ? `<span style="font-size: 12px; color: #7f8c8d;">Loc ID: ${sc.locationNum}</span><br>` : '';
 
     document.getElementById('tdModalContent').innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -336,16 +339,8 @@ function openTicketDetails(dbId) {
             <div style="font-size: 11px; color: #777; margin-top: 5px;">*Closing this window automatically saves the assignment.</div>
         </div>
         
-        <div style="display: flex; gap: 20px; margin-bottom: 15px;">
-            <div style="flex: 1;">
-                <p style="margin-top:0; margin-bottom:5px;"><strong>Customer ID:</strong> ${sc.customerNum || 'N/A'}</p>
-                <p style="margin-top:5px;"><strong>Site Contact:</strong><br>${contactStr}</p>
-            </div>
-            <div style="flex: 1;">
-                <p style="margin-top:0; margin-bottom:5px;"><strong>Location ID:</strong> ${sc.locationNum || 'N/A'}</p>
-                <p style="margin-top:5px;"><strong>Location Address:</strong><br>${sc.locationAddress}<br>${sc.custCity}, ${sc.custState} ${sc.custZip}</p>
-            </div>
-        </div>
+        <p><strong>Location:</strong><br>${locNumStr}${sc.locationAddress}<br>${sc.custCity}, ${sc.custState} ${sc.custZip}</p>
+        <p><strong>Site Contact:</strong><br>${contactStr}</p>
         
         <hr style="border:0; border-top:1px solid #eaeaea; margin: 15px 0;">
         <p><strong>Reported Issue:</strong><br><span style="background:#f4f7f6; padding:10px; display:block; border-radius:4px; margin-top:5px; white-space: pre-wrap;">${sc.issue}</span></p>
@@ -423,6 +418,7 @@ function loadServiceCall(dbId) {
     const data = db.find(s => s.id === dbId);
     if(!data) return;
     
+    // Set UI to "Edit Ticket" Mode
     document.getElementById('serviceFormTitle').innerText = "Edit Existing Service Ticket";
     document.getElementById('serviceFormTitle').style.color = "#e74c3c";
     
@@ -486,7 +482,7 @@ function renderServiceBoard() {
                 </div>
                 <div class="tc-loc"><i class="fas fa-map-marker-alt" style="color:#c89b53;"></i> ${sc.locationAddress} | ${sc.custCity}, ${sc.custState}</div>
                 <div class="tc-footer">
-                    <select class="status-quick-select status-${sc.status.replace(/ /g, '')}" onchange="updateTicketStatus('${sc.id}', this.value)">
+                    <select class="status-quick-select status-${sc.status.replace(/ /g, '')}" onchange="quickUpdateStatus(event, '${sc.id}', this.value)">
                         <option value="Unassigned" ${sc.status === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
                         <option value="Dispatched" ${sc.status === 'Dispatched' ? 'selected' : ''}>Dispatched</option>
                         <option value="Needs Repair Quote" ${sc.status === 'Needs Repair Quote' ? 'selected' : ''}>Needs Repair Quote</option>
