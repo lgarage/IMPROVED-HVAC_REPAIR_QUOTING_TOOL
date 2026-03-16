@@ -1289,3 +1289,27 @@ function stopBoardResize(e) {
     // Final map redraw
     if (dispatchMap) dispatchMap.invalidateSize(); 
 }
+
+// ====================================================================
+// --- QUICK STATUS UPDATER ---
+// ====================================================================
+function quickUpdateStatus(event, ticketId, newStatus) {
+    event.stopPropagation(); // Stops the map from panning when you click the dropdown
+    
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    let index = db.findIndex(sc => sc.id === ticketId);
+    
+    if (index !== -1) {
+        db[index].status = newStatus;
+        localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+        
+        // Sync to cloud
+        if(typeof syncSingleServiceCallToCloud === 'function') {
+            syncSingleServiceCallToCloud(ticketId, db[index]);
+        }
+        
+        // Re-render board to update colors
+        renderServiceBoard();
+        if(typeof showSaveCue === 'function') showSaveCue("✓ Status Updated");
+    }
+}
