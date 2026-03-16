@@ -30,7 +30,6 @@ function updateTicketPrefix() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    // FIX: Removed the 2000ms delay so Firebase loads instantly!
     loadServiceCallsFromCloud(); 
 });
 
@@ -162,7 +161,7 @@ function saveBoardOrder() {
     let newDb = [];
     visualIds.reverse().forEach(id => { let item = db.find(sc => sc.id === id); if(item) newDb.push(item); });
     localStorage.setItem('twinPillarsServiceDB', JSON.stringify(newDb));
-    renderScheduleTimelineOnly(); 
+    renderServiceBoard(); 
 }
 
 function triggerServiceAutoSave() {
@@ -199,7 +198,6 @@ function gatherServiceData() {
 }
 
 function clearServiceForm() {
-    // Reset UI to "New Ticket" Mode
     document.getElementById('serviceFormTitle').innerText = "Log New Service Call";
     document.getElementById('serviceFormTitle').style.color = "#1e4b85";
     document.getElementById('serviceFormBadge').style.display = "none";
@@ -228,7 +226,7 @@ function clearServiceForm() {
     
     document.getElementById('scDateInput').valueAsDate = new Date();
     document.getElementById('scStartTimeInput').value = "08:00"; 
-    document.getElementById('scDurationInput').value = "2.0";    
+    document.getElementById('scDurationInput').value = "2.0";   
     
     if(typeof toggleNewCustomerWarning === 'function') toggleNewCustomerWarning(false);
     document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -252,18 +250,15 @@ function saveServiceCall(isAutoSave = false) {
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
 
     if (data.id) {
-        // EDITING EXISTING
         const index = db.findIndex(sc => sc.id === data.id);
         if (index !== -1) {
             db[index] = data;
             if (!isAutoSave) { showSaveCue("✓ Ticket Updated!"); clearServiceForm(); }
         }
     } else {
-        // CREATING NEW
         if (!isAutoSave) { 
             data.id = 'SC-ID-' + Date.now(); 
             
-            // GENERATE NUMBER
             let counter = parseInt(localStorage.getItem('tp_service_counter') || '1000');
             let prefix = getPrefixForJobType(data.jobType);
             data.ticketNum = prefix + counter;
@@ -339,24 +334,20 @@ function openTicketDetails(dbId) {
         <p><strong>Dispatch Notes:</strong> ${sc.notes || 'N/A'}</p>
     `;
 
- document.getElementById('tdEditBtn').onclick = function() {
-        // 1. Close the modal and load the data
+    document.getElementById('tdEditBtn').onclick = function() {
         closeTicketDetails();
         loadServiceCall(dbId);
         
-        // 2. Wait 300ms for the modal animation to completely finish and the DOM to settle
         setTimeout(() => {
             const formEl = document.getElementById('serviceFormContainer');
             const scrollBox = document.querySelector('.main-content');
             
             if (formEl && scrollBox) {
-                // 3. Command the specific scrolling container to move down to the form
                 scrollBox.scrollTo({
-                    top: formEl.offsetTop - 20, // 20px padding at the top
+                    top: formEl.offsetTop - 20,
                     behavior: 'smooth'
                 });
                 
-                // 4. Flash the gold border so you know it worked
                 formEl.style.transition = "box-shadow 0.4s ease";
                 formEl.style.boxShadow = "0 0 25px rgba(200, 155, 83, 0.8)";
                 setTimeout(() => { formEl.style.boxShadow = "0 4px 15px rgba(0,0,0,0.1)"; }, 1500);
@@ -413,7 +404,6 @@ function loadServiceCall(dbId) {
     const data = db.find(s => s.id === dbId);
     if(!data) return;
     
-    // Set UI to "Edit Ticket" Mode
     document.getElementById('serviceFormTitle').innerText = "Edit Existing Service Ticket";
     document.getElementById('serviceFormTitle').style.color = "#e74c3c";
     
@@ -454,7 +444,7 @@ function renderServiceBoard() {
     const timeline = document.getElementById('scheduleTimeline');
     const dateInput = document.getElementById('boardDateSelector').value;
 
-    // 1. RENDER LEFT PANEL (Service Requests)
+    // 1. RENDER LEFT PANEL
     listContainer.innerHTML = '';
     let listCount = 0;
     
@@ -494,7 +484,7 @@ function renderServiceBoard() {
     let badge = document.getElementById('ticketCountBadge');
     if(badge) badge.innerText = listCount;
 
-    // 2. RENDER GANTT ROWS & DYNAMIC BACKGROUND GRID
+    // 2. RENDER GANTT ROWS
     const techs = [
         { name: 'Dave', full: 'Dave (Tech 1)', color: '#2980b9' },
         { name: 'Sarah', full: 'Sarah (Tech 2)', color: '#8e44ad' },
@@ -521,7 +511,10 @@ function renderServiceBoard() {
                     <div class="tech-status">Active</div>
                 </div>
             </div>
-            <div class="gantt-timeline" id="timeline-${t.name}" style="background-size: ${bgSize} 100%;"></div>
+            <div class="gantt-timeline" id="timeline-${t.name}" data-tech="${t.full}" style="background-size: ${bgSize} 100%;"
+                 ondragover="event.preventDefault(); this.style.background='rgba(52, 152, 219, 0.1)';" 
+                 ondragleave="this.style.background='';" 
+                 ondrop="handleTimelineDrop(event); this.style.background='';"></div>
         </div>`;
     });
     timeline.innerHTML = html;
@@ -531,7 +524,6 @@ function renderServiceBoard() {
     let startOfWeek = new Date(safeDate);
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Force Sunday
     
-    // Generate an exact array of "YYYY-MM-DD" strings for the week
     let weekStrings = [];
     for(let i=0; i<7; i++) {
         let d = new Date(startOfWeek);
@@ -551,7 +543,6 @@ function renderServiceBoard() {
 
         let isVisible = false;
 
-        // Compare exact strings instead of greater-than/less-than date math
         if (currentBoardView === 'day' && sc.date === dateInput) isVisible = true;
         if (currentBoardView === 'week' && weekStrings.includes(sc.date)) isVisible = true;
         if (currentBoardView === 'month' && sc.date.startsWith(monthString)) isVisible = true;
@@ -604,24 +595,38 @@ function renderServiceBoard() {
         block.style.width = width + '%';
         block.style.backgroundColor = color;
         
+        // ADD DRAG AND RESIZE CAPABILITIES
+        block.draggable = true;
+        block.ondragstart = function(e) { drag(e, sc.id); };
+        block.ondblclick = function(e) { e.stopPropagation(); openTicketDetails(sc.id); };
+        
         if (currentBoardView === 'day') {
-            block.innerHTML = `<div class="gantt-job-title">${sc.customerName}</div><div class="gantt-job-sub">${sc.ticketNum} | ${sc.startTime}</div>`;
+            block.innerHTML = `
+                <div class="resize-handle resize-left" onmousedown="startTimelineResize(event, '${sc.id}', 'left')"></div>
+                <div class="gantt-job-title">${sc.customerName}</div>
+                <div class="gantt-job-sub">${sc.ticketNum} | ${sc.startTime}</div>
+                <div class="resize-handle resize-right" onmousedown="startTimelineResize(event, '${sc.id}', 'right')"></div>
+            `;
         } else if (currentBoardView === 'week') {
             block.style.padding = '0 4px';
-            block.innerHTML = `<div class="gantt-job-title" style="font-size:9px; margin-bottom:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sc.customerName}</div>`;
+            block.innerHTML = `
+                <div class="resize-handle resize-left" onmousedown="startTimelineResize(event, '${sc.id}', 'left')"></div>
+                <div class="gantt-job-title" style="font-size:9px; margin-bottom:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sc.customerName}</div>
+                <div class="resize-handle resize-right" onmousedown="startTimelineResize(event, '${sc.id}', 'right')"></div>
+            `;
         } else {
             block.style.padding = '0';
             block.innerHTML = '';
             block.title = `${sc.customerName} (${sc.startTime})`; 
         }
-        
-        block.ondblclick = function(e) { e.stopPropagation(); openTicketDetails(sc.id); };
 
         tContainer.appendChild(block);
     });
     
     if(typeof updateMapMarkers === 'function') updateMapMarkers();
+    updateCurrentTimeLine();
 }
+
 // ====================================================================
 // --- DISPATCH BOARD DATE CONTROLS ---
 // ====================================================================
@@ -651,129 +656,106 @@ function setBoardDate(val) {
     let banner = document.getElementById('boardDayOfWeek');
     if (banner) banner.innerText = dateObj.toLocaleDateString('en-US', options).toUpperCase();
     
-    renderScheduleTimelineOnly();
+    renderGanttHeaders();
+    if(typeof renderServiceBoard === 'function') renderServiceBoard();
 }
 
 function changeBoardDate(direction) {
     let dateInput = document.getElementById('boardDateSelector');
-    let d = dateInput.value ? new Date(dateInput.value + "T00:00:00") : new Date();
+    let d = dateInput.value ? new Date(dateInput.value + "T12:00:00") : new Date();
 
-    // Check which view is active, and scale the jump mathematically
     if (currentBoardView === 'day') {
         d.setDate(d.getDate() + direction);
     } else if (currentBoardView === 'week') {
-        d.setDate(d.getDate() + (direction * 7)); // Jump 1 week
+        d.setDate(d.getDate() + (direction * 7));
     } else if (currentBoardView === 'month') {
-        d.setMonth(d.getMonth() + direction); // Jump 1 month
+        d.setMonth(d.getMonth() + direction);
     }
 
-    // Format the new date back into the input box
     let year = d.getFullYear();
     let month = String(d.getMonth() + 1).padStart(2, '0');
     let day = String(d.getDate()).padStart(2, '0');
     dateInput.value = `${year}-${month}-${day}`;
 
-    // Reload the board
     renderGanttHeaders();
     if(typeof renderServiceBoard === 'function') renderServiceBoard();
 }
 
+let currentBoardView = 'day';
+
 function switchBoardView(view) {
-    if (view !== 'day') {
-        alert(view.charAt(0).toUpperCase() + view.slice(1) + " view is highly complex and currently in development. Sticking to Day view for now.");
-        return;
-    }
+    currentBoardView = view;
+    
     document.querySelectorAll('.view-toggle').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btnViewDay').classList.add('active');
+    if(view === 'day') document.getElementById('btnViewDay').classList.add('active');
+    if(view === 'week') document.getElementById('btnViewWeek').classList.add('active');
+    if(view === 'month') document.getElementById('btnViewMonth').classList.add('active');
+    
+    renderGanttHeaders();
+    if (typeof renderServiceBoard === 'function') renderServiceBoard(); 
 }
 
-// ====================================================================
-// --- GANTT CHART ENGINE (BUILDOPS STYLE WITH DRAG & RESIZE) ---
-// ====================================================================
+function renderGanttHeaders() {
+    const headerContainer = document.getElementById('ganttTimeHeaders');
+    if(!headerContainer) return;
+    
+    const dateInput = document.getElementById('boardDateSelector').value;
+    const selectedDate = dateInput ? new Date(dateInput + "T12:00:00") : new Date();
+    
+    let html = '';
+    
+    if (currentBoardView === 'day') {
+        document.getElementById('boardDayOfWeek').innerText = selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        const hours = ['7:00 AM', '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'];
+        hours.forEach(h => html += `<div class="gantt-hour-slot">${h}</div>`);
+        
+    } else if (currentBoardView === 'week') {
+        let startOfWeek = new Date(selectedDate);
+        let day = startOfWeek.getDay();
+        startOfWeek.setDate(startOfWeek.getDate() - day); 
+        
+        let endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6); 
+        
+        document.getElementById('boardDayOfWeek').innerText = `Week of ${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`;
+        
+        for(let i=0; i<7; i++) { 
+            let d = new Date(startOfWeek);
+            d.setDate(d.getDate() + i);
+            html += `<div class="gantt-hour-slot" style="text-align:center; min-width: 100px; border-right: 2px solid #ccc; font-size:12px;">${d.toLocaleDateString('en-US', {weekday:'short'})}<br><span style="font-size:16px; color:#333;">${d.getDate()}</span></div>`;
+        }
+        
+    } else if (currentBoardView === 'month') {
+        let month = selectedDate.getMonth();
+        let year = selectedDate.getFullYear();
+        let daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        document.getElementById('boardDayOfWeek').innerText = selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        for(let i=1; i<=daysInMonth; i++) {
+            html += `<div class="gantt-hour-slot" style="text-align:center; min-width: 40px; font-size: 11px; padding: 8px 0; border-right: 1px solid #ccc;">${i}</div>`;
+        }
+    }
+    
+    headerContainer.innerHTML = html;
+}
 
 function renderScheduleTimelineOnly() {
-    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
-    const timelineContainer = document.getElementById('scheduleTimeline');
-    if (!timelineContainer) return;
-    
-    timelineContainer.innerHTML = "";
-
-    const technicians = [
-        { name: "Dave", id: "Dave (Tech 1)", status: "Active", color: "#2980b9" },
-        { name: "Sarah", id: "Sarah (Tech 2)", status: "Active", color: "#8e44ad" },
-        { name: "Mike", id: "Mike (Tech 3)", status: "Active", color: "#d35400" },
-        { name: "Tom", id: "Tom (Tech 4)", status: "Active", color: "#16a085" }
-    ];
-
-    const startHour = 7; 
-    const totalHours = 10;
-
-    technicians.forEach(tech => {
-      const techJobs = db.filter(sc => 
-        sc.assignedTech === tech.id && 
-        sc.status !== 'Canceled' && 
-        sc.status !== 'Completed' &&
-        sc.date === activeBoardDate // DATE FILTER
-      );
-
-        let rowHtml = `
-            <div class="gantt-row">
-                <div class="gantt-tech-cell">
-                    <div class="tech-avatar" style="background:${tech.color};">${tech.name.charAt(0)}</div>
-                    <div class="tech-info">
-                        <div class="tech-name">${tech.name}</div>
-                        <div class="tech-status">${tech.status}</div>
-                    </div>
-                </div>
-                <div class="gantt-timeline" data-tech="${tech.id}" 
-                     ondragover="event.preventDefault(); this.style.background='rgba(52, 152, 219, 0.1)';" 
-                     ondragleave="this.style.background='';" 
-                     ondrop="handleTimelineDrop(event); this.style.background='';">
-        `;
-
-        techJobs.forEach((sc) => {
-            let timeStr = sc.startTime || "08:00"; 
-            let durationHrs = parseFloat(sc.duration) || 2.0;
-
-            let timeParts = timeStr.split(':');
-            let jobStartDecimal = parseInt(timeParts[0]) + (parseInt(timeParts[1]) / 60);
-
-            let leftPercent = Math.max(0, ((jobStartDecimal - startHour) / totalHours) * 100);
-            let widthPercent = (durationHrs / totalHours) * 100;
-
-            let blockColor = '#3498db'; 
-            if (sc.priority === 'Emergency') blockColor = '#e74c3c';
-            if (sc.priority === 'Urgent') blockColor = '#f39c12';
-            if (sc.priority === 'Routine') blockColor = '#95a5a6';
-            
-            let shortName = sc.customerName.length > 15 ? sc.customerName.substring(0, 15) + "..." : sc.customerName;
-
-            rowHtml += `
-                <div class="gantt-job-block" style="left: ${leftPercent}%; width: ${widthPercent}%; background: ${blockColor};" 
-                     data-id="${sc.id}" onmousedown="startTimelineDrag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')" title="Double-click to view details">
-                    <div class="resize-handle resize-left" onmousedown="startTimelineResize(event, '${sc.id}', 'left')"></div>
-                    <div class="gantt-job-title">${shortName}</div>
-                    <div class="gantt-job-sub">${sc.ticketNum} | ${timeStr}</div>
-                    <div class="resize-handle resize-right" onmousedown="startTimelineResize(event, '${sc.id}', 'right')"></div>
-                </div>
-            `;
-        });
-
-        rowHtml += `</div></div>`;
-        timelineContainer.innerHTML += rowHtml;
-    });
-
-    updateCurrentTimeLine();
+    renderServiceBoard();
 }
+
+// ====================================================================
+// --- GANTT CHART DRAG, DROP, AND RESIZE ENGINE ---
+// ====================================================================
 
 function updateCurrentTimeLine() {
     const timelineContainer = document.getElementById('scheduleTimeline');
     if (!timelineContainer) return;
 
     const now = new Date();
+    const dateInput = document.getElementById('boardDateSelector').value;
     
-    // ONLY show the red line if viewing TODAY
-    if (activeBoardDate !== now.toISOString().split('T')[0]) {
+    if (currentBoardView !== 'day' || dateInput !== now.toISOString().split('T')[0]) {
         let line = document.getElementById('currentTimeLine');
         if(line) line.style.display = 'none';
         return;
@@ -788,18 +770,94 @@ function updateCurrentTimeLine() {
     if (leftPercent >= 0 && leftPercent <= 100) {
         let timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         timelineContainer.innerHTML += `
-            <div id="currentTimeLine" style="left: ${leftPercent}%;">
+            <div id="currentTimeLine" style="left: ${leftPercent}%; display:block;">
                 <div class="time-badge">${timeString}</div>
             </div>
         `;
     }
 }
 
-function renderScheduleTimelineOnly() {
-    // Instead of duplicating the drawing logic, just call the master function
-    // which already knows how to handle Day, Week, and Month math perfectly.
-    renderServiceBoard();
+// --- 1. Dragging Cards from Left Panel or Board ---
+function drag(ev, dbId) {
+    ev.dataTransfer.setData("text/plain", dbId);
 }
+
+function allowDrop(ev) {
+    ev.preventDefault();
+}
+
+function handleTimelineDrop(e) {
+    e.preventDefault();
+    
+    let ticketId = e.dataTransfer.getData("text/plain");
+    if(!ticketId) {
+        const draggedCard = document.querySelector('.glass-card.dragging');
+        if (draggedCard) ticketId = draggedCard.getAttribute('data-id');
+    }
+    if (!ticketId) return;
+
+    const timeline = e.currentTarget;
+    const techId = timeline.getAttribute('data-tech');
+
+    const rect = timeline.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const percentX = offsetX / rect.width;
+
+    let dropTimeDecimal = 7;
+    
+    if (currentBoardView === 'day') {
+        dropTimeDecimal = 7 + (percentX * 10);
+    } else {
+        dropTimeDecimal = 8;
+    }
+
+    dropTimeDecimal = Math.round(dropTimeDecimal * 4) / 4;
+    if(dropTimeDecimal < 7) dropTimeDecimal = 7;
+    if(dropTimeDecimal > 16.5) dropTimeDecimal = 16.5;
+
+    let h = Math.floor(dropTimeDecimal);
+    let m = Math.round((dropTimeDecimal - h) * 60);
+    let timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    let index = db.findIndex(sc => sc.id === ticketId);
+    
+    if (index !== -1) {
+        db[index].assignedTech = techId;
+        
+        if (currentBoardView === 'day') {
+            db[index].startTime = timeStr;
+            let activeDateInput = document.getElementById('boardDateSelector').value;
+            if(activeDateInput) db[index].date = activeDateInput;
+        }
+        
+        if (db[index].status === 'Unassigned') {
+            db[index].status = 'Dispatched';
+        }
+        
+        localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+        if(typeof syncSingleServiceCallToCloud === 'function') syncSingleServiceCallToCloud(ticketId, db[index]);
+        
+        renderServiceBoard(); 
+        let shortTechName = techId.split(' ')[0];
+        if(typeof showSaveCue === 'function') showSaveCue(`✓ Dispatched to ${shortTechName}`);
+    }
+}
+
+function drop(ev, techName) {
+    allowDrop(ev); 
+}
+
+// --- 2. Moving & Resizing Blocks ALREADY on the Grid ---
+let tlState = {
+    action: null, 
+    el: null,
+    id: null,
+    startX: 0,
+    startLeft: 0,
+    startWidth: 0,
+    containerWidth: 0
+};
 
 function startTimelineDrag(e, id) {
     if(e.target.classList.contains('resize-handle')) return; 
@@ -888,7 +946,7 @@ function timelineMouseUp(e) {
     let newStartDecimal = 7;
     let newDuration = 1.5;
 
-    // Calculate times based on the current view's scale
+    // Reverse Calculate times based on the current view's scale
     if (currentBoardView === 'day') {
         newStartDecimal = startHour + (finalLeft / 100 * 10);
         newDuration = (finalWidth / 100 * 10);
@@ -930,9 +988,7 @@ function timelineMouseUp(e) {
     db[index].duration = newDuration.toString();
         
     localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
-    if(typeof syncSingleServiceCallToCloud === 'function') {
-        syncSingleServiceCallToCloud(db[index].id, db[index]);
-    }
+    if(typeof syncSingleServiceCallToCloud === 'function') syncSingleServiceCallToCloud(db[index].id, db[index]);
 
     tlState.action = null;
     renderServiceBoard(); 
@@ -1374,32 +1430,26 @@ function initBoardResize(e) {
     e.preventDefault();
     boardResizeState.isResizing = true;
     boardResizeState.startY = e.clientY;
-    // Target the main container (dispatch-schedule-full)
     boardResizeState.el = e.currentTarget.parentElement; 
     boardResizeState.startHeight = boardResizeState.el.getBoundingClientRect().height;
     
     window.addEventListener('mousemove', doBoardResize);
     window.addEventListener('mouseup', stopBoardResize);
     
-    // Force the cursor to stay up/down arrows while dragging anywhere on screen
     document.body.style.cursor = 'ns-resize'; 
 }
 
 function doBoardResize(e) {
     if (!boardResizeState.isResizing) return;
     
-    // Calculate how far the mouse has moved
     let deltaY = e.clientY - boardResizeState.startY;
     let newHeight = boardResizeState.startHeight + deltaY;
     
-    // Keep it from getting too squished
     if (newHeight < 150) newHeight = 150; 
     
-    // Release the flexbox lock so the manual pixel height takes over
     boardResizeState.el.style.flex = 'none'; 
     boardResizeState.el.style.height = newHeight + 'px';
     
-    // Smoothly redraw the Leaflet map as the space above it shrinks/grows
     if (dispatchMap) dispatchMap.invalidateSize(); 
 }
 
@@ -1408,14 +1458,11 @@ function stopBoardResize(e) {
     window.removeEventListener('mousemove', doBoardResize);
     window.removeEventListener('mouseup', stopBoardResize);
     
-    // Restore normal cursor
     document.body.style.cursor = 'default';
     
-    // FINAL FIX: SAVE NEW HEIGHT TO LOCAL MEMORY
     let finalHeight = boardResizeState.el.style.height;
     localStorage.setItem('tp_board_height', finalHeight);
     
-    // Final map redraw
     if (dispatchMap) dispatchMap.invalidateSize(); 
 }
 
@@ -1423,7 +1470,7 @@ function stopBoardResize(e) {
 // --- QUICK STATUS UPDATER ---
 // ====================================================================
 function quickUpdateStatus(event, ticketId, newStatus) {
-    event.stopPropagation(); // Stops the map from panning when you click the dropdown
+    event.stopPropagation(); 
     
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
     let index = db.findIndex(sc => sc.id === ticketId);
@@ -1432,12 +1479,10 @@ function quickUpdateStatus(event, ticketId, newStatus) {
         db[index].status = newStatus;
         localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
         
-        // Sync to cloud
         if(typeof syncSingleServiceCallToCloud === 'function') {
             syncSingleServiceCallToCloud(ticketId, db[index]);
         }
         
-        // Re-render board to update colors
         renderServiceBoard();
         if(typeof showSaveCue === 'function') showSaveCue("✓ Status Updated");
     }
@@ -1454,13 +1499,10 @@ function convertToQuote(ticketId) {
     const sc = db.find(s => s.id === ticketId);
     if (!sc) return;
 
-    // 1. Switch to Quoting Tab
     switchTab('quoting');
 
-    // 2. Clear old quote data
     if (typeof startNewQuote === 'function') startNewQuote();
 
-    // 3. Pre-fill customer data
     document.getElementById('custNameInput').value = sc.customerName || "";
     document.getElementById('custNumInput').value = sc.customerNum || "";
     document.getElementById('contactNameInput').value = sc.contactName || "";
@@ -1469,10 +1511,8 @@ function convertToQuote(ticketId) {
     document.getElementById('custStateInput').value = sc.custState || "";
     document.getElementById('custZipInput').value = sc.custZip || "";
     
-    // THE FIX IS ON THIS LINE:
     document.getElementById('quoteLocNumInput').value = sc.locationNum || "";
 
-    // 4. Inject original issue into notes
     let notesArea = document.getElementById('requoteNoteHistory');
     if (notesArea) {
         document.getElementById('requoteNoteContainer').style.display = 'flex';
@@ -1490,13 +1530,10 @@ function convertToInvoice(ticketId) {
     const sc = db.find(s => s.id === ticketId);
     if (!sc) return;
 
-    // 1. Switch to Invoicing Tab
     switchTab('invoice');
 
-    // 2. Clear old invoice data
     if (typeof clearInvoiceForm === 'function') clearInvoiceForm();
 
-    // 3. Pre-fill customer data
     const custName = sc.customerName || "";
     const street = sc.locationAddress || "";
     const city = sc.custCity || "";
@@ -1511,11 +1548,9 @@ function convertToInvoice(ticketId) {
     document.getElementById('invZipInput').value = zip;
     document.getElementById('invLocNumInput').value = sc.locationNum || "";
 
-    // 4. Inject equipment and original issue
     document.getElementById('invEquip').value = sc.equip || "";
     document.getElementById('invNotes').value = `Original Ticket: ${sc.ticketNum}\nReported Issue: ${sc.issue}`;
 
-    // 5. CRITICAL FIX: Build the formatted text blocks for the printed PDF
     let formattedLoc = street;
     let csz = [];
     if(city) csz.push(city);
@@ -1530,75 +1565,12 @@ function convertToInvoice(ticketId) {
     if (billToEl) billToEl.value = custName + "\n" + formattedLoc;
     if (serviceLocEl) serviceLocEl.value = formattedLoc;
 
-    // 6. Fetch the official official Invoice Number from the cloud
     if (typeof fetchNextInvoiceNumber === 'function') fetchNextInvoiceNumber();
 
     if (typeof showSaveCue === 'function') showSaveCue("✓ Copied to Invoicing Tool");
     
-    // 7. Scroll past the yellow box so you instantly see your populated data
     setTimeout(() => {
         const formContainer = document.getElementById('invCustNameInput');
         if(formContainer) formContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 150);
-}
-
-let currentBoardView = 'day'; // Tracks if we are in day, week, or month mode
-
-function switchBoardView(view) {
-    currentBoardView = view;
-    
-    // Update the button styles
-    document.querySelectorAll('.view-toggle').forEach(btn => btn.classList.remove('active'));
-    if(view === 'day') document.getElementById('btnViewDay').classList.add('active');
-    if(view === 'week') document.getElementById('btnViewWeek').classList.add('active');
-    if(view === 'month') document.getElementById('btnViewMonth').classList.add('active');
-    
-    renderGanttHeaders();
-    if (typeof renderServiceBoard === 'function') renderServiceBoard(); 
-}
-
-function renderGanttHeaders() {
-    const headerContainer = document.getElementById('ganttTimeHeaders');
-    if(!headerContainer) return;
-    
-    // Use Noon (T12:00:00) to permanently avoid midnight DST shifts
-    const dateInput = document.getElementById('boardDateSelector').value;
-    const selectedDate = dateInput ? new Date(dateInput + "T12:00:00") : new Date();
-    
-    let html = '';
-    
-    if (currentBoardView === 'day') {
-        document.getElementById('boardDayOfWeek').innerText = selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-        const hours = ['7:00 AM', '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'];
-        hours.forEach(h => html += `<div class="gantt-hour-slot">${h}</div>`);
-        
-    } else if (currentBoardView === 'week') {
-        let startOfWeek = new Date(selectedDate);
-        let day = startOfWeek.getDay();
-        startOfWeek.setDate(startOfWeek.getDate() - day); // Force Sunday
-        
-        let endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6); // Span 7 days
-        
-        document.getElementById('boardDayOfWeek').innerText = `Week of ${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`;
-        
-        for(let i=0; i<7; i++) { 
-            let d = new Date(startOfWeek);
-            d.setDate(d.getDate() + i);
-            html += `<div class="gantt-hour-slot" style="text-align:center; min-width: 100px; border-right: 2px solid #ccc; font-size:12px;">${d.toLocaleDateString('en-US', {weekday:'short'})}<br><span style="font-size:16px; color:#333;">${d.getDate()}</span></div>`;
-        }
-        
-    } else if (currentBoardView === 'month') {
-        let month = selectedDate.getMonth();
-        let year = selectedDate.getFullYear();
-        let daysInMonth = new Date(year, month + 1, 0).getDate();
-        
-        document.getElementById('boardDayOfWeek').innerText = selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        
-        for(let i=1; i<=daysInMonth; i++) {
-            html += `<div class="gantt-hour-slot" style="text-align:center; min-width: 40px; font-size: 11px; padding: 8px 0; border-right: 1px solid #ccc;">${i}</div>`;
-        }
-    }
-    
-    headerContainer.innerHTML = html;
 }
