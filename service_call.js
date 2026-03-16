@@ -321,10 +321,20 @@ function openTicketDetails(dbId) {
             </select>
             <div style="font-size: 11px; color: #777; margin-top: 5px;">*Closing this window automatically saves the assignment.</div>
         </div>
-        <p><strong>Location:</strong><br>${sc.locationAddress}<br>${sc.custCity}, ${sc.custState} ${sc.custZip}</p>
-        <p><strong>Site Contact:</strong><br>${contactStr}</p>
+        
+        <div style="display: flex; gap: 20px; margin-bottom: 15px;">
+            <div style="flex: 1;">
+                <p style="margin-top:0; margin-bottom:5px;"><strong>Customer ID:</strong> ${sc.customerNum || 'N/A'}</p>
+                <p style="margin-top:0;"><strong>Site Contact:</strong><br>${contactStr}</p>
+            </div>
+            <div style="flex: 1;">
+                <p style="margin-top:0; margin-bottom:5px;"><strong>Location ID:</strong> ${sc.locationNum || 'N/A'}</p>
+                <p style="margin-top:0;"><strong>Location Address:</strong><br>${sc.locationAddress}<br>${sc.custCity}, ${sc.custState} ${sc.custZip}</p>
+            </div>
+        </div>
+        
         <hr style="border:0; border-top:1px solid #eaeaea; margin: 15px 0;">
-        <p><strong>Reported Issue:</strong><br><span style="background:#f4f7f6; padding:10px; display:block; border-radius:4px; margin-top:5px;">${sc.issue}</span></p>
+        <p><strong>Reported Issue:</strong><br><span style="background:#f4f7f6; padding:10px; display:block; border-radius:4px; margin-top:5px; white-space: pre-wrap;">${sc.issue}</span></p>
         <p><strong>Equipment:</strong> ${sc.equip || 'N/A'}</p>
         <p><strong>Dispatch Notes:</strong> ${sc.notes || 'N/A'}</p>
     `;
@@ -332,12 +342,24 @@ function openTicketDetails(dbId) {
     document.getElementById('tdEditBtn').onclick = function() {
         closeTicketDetails();
         loadServiceCall(dbId);
+        
+        // Timeout ensures the modal has fully closed before measuring the screen scroll distance
         setTimeout(() => {
             const formEl = document.getElementById('serviceFormContainer');
-            formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            formEl.style.boxShadow = "0 0 25px rgba(200, 155, 83, 0.8)";
-            setTimeout(() => { formEl.style.boxShadow = "0 4px 15px rgba(0,0,0,0.1)"; }, 1200);
-        }, 200);
+            if (formEl) {
+                // Forceful manual scroll calculation that bypasses modal rendering issues
+                const scrollContainer = document.querySelector('.main-content');
+                if (scrollContainer) {
+                    scrollContainer.scrollTo({ top: formEl.offsetTop - 20, behavior: 'smooth' });
+                } else {
+                    formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                
+                formEl.style.transition = "box-shadow 0.4s ease";
+                formEl.style.boxShadow = "0 0 25px rgba(200, 155, 83, 0.8)";
+                setTimeout(() => { formEl.style.boxShadow = "0 4px 15px rgba(0,0,0,0.1)"; }, 1500);
+            }
+        }, 300);
     };
 
     document.getElementById('tdDeleteBtn').onclick = function() {
