@@ -339,21 +339,29 @@ function openTicketDetails(dbId) {
         <p><strong>Dispatch Notes:</strong> ${sc.notes || 'N/A'}</p>
     `;
 
-    document.getElementById('tdEditBtn').onclick = function() {
+ document.getElementById('tdEditBtn').onclick = function() {
+        // 1. Close the modal and load the data
         closeTicketDetails();
         loadServiceCall(dbId);
         
-        // robust scroll to fix the issue where it doesn't jump down
+        // 2. Wait 300ms for the modal animation to completely finish and the DOM to settle
         setTimeout(() => {
             const formEl = document.getElementById('serviceFormContainer');
-            if (formEl) {
-                formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const scrollBox = document.querySelector('.main-content');
+            
+            if (formEl && scrollBox) {
+                // 3. Command the specific scrolling container to move down to the form
+                scrollBox.scrollTo({
+                    top: formEl.offsetTop - 20, // 20px padding at the top
+                    behavior: 'smooth'
+                });
                 
+                // 4. Flash the gold border so you know it worked
                 formEl.style.transition = "box-shadow 0.4s ease";
                 formEl.style.boxShadow = "0 0 25px rgba(200, 155, 83, 0.8)";
                 setTimeout(() => { formEl.style.boxShadow = "0 4px 15px rgba(0,0,0,0.1)"; }, 1500);
             }
-        }, 150);
+        }, 300);
     };
 
     document.getElementById('tdDeleteBtn').onclick = function() {
