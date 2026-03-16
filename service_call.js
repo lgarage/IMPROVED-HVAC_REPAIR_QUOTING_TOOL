@@ -795,75 +795,11 @@ function updateCurrentTimeLine() {
     }
 }
 
-function handleTimelineDrop(e) {
-    e.preventDefault();
-    
-    // Find the card we are actively dragging
-    const draggedCard = document.querySelector('.glass-card.dragging');
-    if (!draggedCard) return; 
-
-    const ticketId = draggedCard.getAttribute('data-id');
-    const timeline = e.currentTarget;
-    const techId = timeline.getAttribute('data-tech');
-
-    // Calculate exactly what time we dropped the card on (7AM to 5PM)
-    const rect = timeline.getBoundingClientRect();
-    const offsetX = e.clientX - rect.left;
-    const percentX = offsetX / rect.width;
-
-    const startHour = 7;
-    const totalHours = 10;
-    let dropTimeDecimal = startHour + (percentX * totalHours);
-
-    // Snap to the nearest 15 minutes (0.25)
-    dropTimeDecimal = Math.round(dropTimeDecimal * 4) / 4;
-    
-    // Keep it within standard bounds
-    if(dropTimeDecimal < 7) dropTimeDecimal = 7;
-    if(dropTimeDecimal > 16.5) dropTimeDecimal = 16.5;
-
-    // Convert decimal (e.g. 8.5) back to Time String (08:30)
-    let h = Math.floor(dropTimeDecimal);
-    let m = Math.round((dropTimeDecimal - h) * 60);
-    let timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-
-    // Update the Database!
-    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
-    let index = db.findIndex(sc => sc.id === ticketId);
-    
-    if (index !== -1) {
-        db[index].assignedTech = techId;
-        db[index].startTime = timeStr;
-        
-        // Auto-change status if it was unassigned
-        if (db[index].status === 'Unassigned') {
-            db[index].status = 'Dispatched';
-        }
-        
-        // Save and re-render
-        localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
-        if(typeof syncSingleServiceCallToCloud === 'function') {
-            syncSingleServiceCallToCloud(ticketId, db[index]);
-        }
-        
-        renderServiceBoard(); 
-        
-        // Grab the tech's first name for the success message
-        let shortTechName = techId.split(' ')[0];
-        if(typeof showSaveCue === 'function') showSaveCue(`✓ Dispatched to ${shortTechName} at ${timeStr}`);
-    }
+function renderScheduleTimelineOnly() {
+    // Instead of duplicating the drawing logic, just call the master function
+    // which already knows how to handle Day, Week, and Month math perfectly.
+    renderServiceBoard();
 }
-
-// DRAG AND RESIZE LOGIC
-let tlState = {
-    action: null, 
-    el: null,
-    id: null,
-    startX: 0,
-    startLeft: 0,
-    startWidth: 0,
-    containerWidth: 0
-};
 
 function startTimelineDrag(e, id) {
     if(e.target.classList.contains('resize-handle')) return; 
