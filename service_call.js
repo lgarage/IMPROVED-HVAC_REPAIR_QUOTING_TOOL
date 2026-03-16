@@ -641,10 +641,28 @@ function setBoardDate(val) {
     renderScheduleTimelineOnly();
 }
 
-function changeBoardDate(daysToAdd) {
-    let d = new Date(activeBoardDate + 'T12:00:00');
-    d.setDate(d.getDate() + daysToAdd);
-    setBoardDate(d.toISOString().split('T')[0]);
+function changeBoardDate(direction) {
+    let dateInput = document.getElementById('boardDateSelector');
+    let d = dateInput.value ? new Date(dateInput.value + "T00:00:00") : new Date();
+
+    // Check which view is active, and scale the jump mathematically
+    if (currentBoardView === 'day') {
+        d.setDate(d.getDate() + direction);
+    } else if (currentBoardView === 'week') {
+        d.setDate(d.getDate() + (direction * 7)); // Jump 1 week
+    } else if (currentBoardView === 'month') {
+        d.setMonth(d.getMonth() + direction); // Jump 1 month
+    }
+
+    // Format the new date back into the input box
+    let year = d.getFullYear();
+    let month = String(d.getMonth() + 1).padStart(2, '0');
+    let day = String(d.getDate()).padStart(2, '0');
+    dateInput.value = `${year}-${month}-${day}`;
+
+    // Reload the board
+    renderGanttHeaders();
+    if(typeof renderServiceBoard === 'function') renderServiceBoard();
 }
 
 function switchBoardView(view) {
