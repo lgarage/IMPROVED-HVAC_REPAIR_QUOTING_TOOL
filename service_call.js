@@ -1453,3 +1453,66 @@ function convertToInvoice(ticketId) {
         if(formContainer) formContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 150);
 }
+
+let currentBoardView = 'day'; // Tracks if we are in day, week, or month mode
+
+function switchBoardView(view) {
+    currentBoardView = view;
+    
+    // Update the button styles
+    document.querySelectorAll('.view-toggle').forEach(btn => btn.classList.remove('active'));
+    if(view === 'day') document.getElementById('btnViewDay').classList.add('active');
+    if(view === 'week') document.getElementById('btnViewWeek').classList.add('active');
+    if(view === 'month') document.getElementById('btnViewMonth').classList.add('active');
+    
+    renderGanttHeaders();
+    if (typeof renderServiceBoard === 'function') renderServiceBoard(); 
+}
+
+function renderGanttHeaders() {
+    const headerContainer = document.getElementById('ganttTimeHeaders');
+    if(!headerContainer) return;
+    
+    // Get the currently selected date (or default to today)
+    const dateInput = document.getElementById('boardDateSelector').value;
+    const selectedDate = dateInput ? new Date(dateInput + "T00:00:00") : new Date();
+    
+    let html = '';
+    
+    if (currentBoardView === 'day') {
+        document.getElementById('boardDayOfWeek').innerText = selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        const hours = ['7:00 AM', '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'];
+        hours.forEach(h => html += `<div class="gantt-hour-slot">${h}</div>`);
+        
+    } else if (currentBoardView === 'week') {
+        // Calculate the Monday of the selected week
+        let startOfWeek = new Date(selectedDate);
+        let day = startOfWeek.getDay();
+        let diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); 
+        startOfWeek.setDate(diff);
+        
+        let endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 4); // Show Mon-Fri (Add 6 for Mon-Sun)
+        
+        document.getElementById('boardDayOfWeek').innerText = `Week of ${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`;
+        
+        for(let i=0; i<5; i++) { // Show 5 days (Mon-Fri)
+            let d = new Date(startOfWeek);
+            d.setDate(d.getDate() + i);
+            html += `<div class="gantt-hour-slot" style="text-align:center; min-width: 140px; border-right: 2px solid #ccc; font-size:12px;">${d.toLocaleDateString('en-US', {weekday:'short'})}<br><span style="font-size:16px; color:#333;">${d.getDate()}</span></div>`;
+        }
+        
+    } else if (currentBoardView === 'month') {
+        let month = selectedDate.getMonth();
+        let year = selectedDate.getFullYear();
+        let daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        document.getElementById('boardDayOfWeek').innerText = selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        for(let i=1; i<=daysInMonth; i++) {
+            html += `<div class="gantt-hour-slot" style="text-align:center; min-width: 40px; font-size: 11px; padding: 8px 0; border-right: 1px solid #ccc;">${i}</div>`;
+        }
+    }
+    
+    headerContainer.innerHTML = html;
+}
