@@ -1143,16 +1143,16 @@
     
     <div id="saveIndicator">✓ Auto-Saved</div>
 
-    <div id="ticketDetailsModal" class="modal-overlay">
+ <div id="ticketDetailsModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
                 <h2 id="tdModalTitle">Ticket Details</h2>
                 <span class="close-modal" onclick="closeTicketDetails()">×</span>
             </div>
-            <div id="tdModalContent" style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;"></div>
+            <div id="tdModalContent" style="font-size: 14px; line-height: 1.6; margin-bottom: 20px; max-height: 55vh; overflow-y: auto; padding-right: 10px;"></div>
             <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eaeaea; padding-top: 15px;">
                 <button class="gen-btn" style="background:#e74c3c; padding: 10px 20px; color:#fff; margin-right: auto;" id="tdDeleteBtn">Delete</button>
-                <button class="gen-btn" style="background:#7f8c8d; padding: 10px 20px;" onclick="closeTicketDetails()">Close</button>
+                <button class="gen-btn" style="background:#7f8c8d; padding: 10px 20px;" onclick="closeTicketDetails()">Cancel</button>
                 <button class="gen-btn" style="background:#f39c12; padding: 10px 20px; color:#fff;" id="tdEditBtn">Edit Ticket Form</button>
             </div>
         </div>
