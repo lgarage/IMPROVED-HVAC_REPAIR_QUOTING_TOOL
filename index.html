@@ -1190,10 +1190,21 @@
                 </div>
             </div>
 
-            <div id="newCustDirForm" style="display:none; background:#f7f9fb; border:1px solid #c89b53; padding:15px; border-radius:6px; margin-bottom:15px;">
+           <div id="newCustDirForm" style="display:none; background:#f7f9fb; border:1px solid #c89b53; padding:15px; border-radius:6px; margin-bottom:15px;">
                 <h4 style="margin-top:0; margin-bottom:10px; color:#1e4b85;">Add Customer to Directory</h4>
+                
+                <div style="background:#eaf2f8; padding:10px; border-radius:4px; border:1px solid #b9d5ec; margin-bottom:15px;">
+                    <label style="font-size:12px; color:#1e4b85; margin-bottom: 5px; display:block; font-weight:bold;">Parent Company (Optional)</label>
+                    <div style="display:flex; gap:10px;">
+                        <select id="dirParentSelect" style="flex:1; border: 1px solid #ccc; padding: 10px; border-radius: 4px; font-family: inherit; text-transform: uppercase;">
+                            <option value="">-- No Parent / Select Existing --</option>
+                        </select>
+                        <input type="text" id="dirParentNew" placeholder="OR Type New Parent Name..." style="flex:1; border: 1px solid #ccc; padding: 10px; border-radius: 4px; box-sizing: border-box; text-transform: uppercase;">
+                    </div>
+                </div>
+
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
-                    <input type="text" id="dirNewName" placeholder="Customer Name" style="flex:2;">
+                    <input type="text" id="dirNewName" placeholder="Customer / Sub-Company Name (e.g. Take 5)" style="flex:2;">
                     <input type="text" id="dirNewContact" placeholder="Site Contact Name (Optional)" style="flex:1;">
                 </div>
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
