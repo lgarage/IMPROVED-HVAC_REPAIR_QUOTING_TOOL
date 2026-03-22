@@ -115,10 +115,69 @@ function repairAndSyncCustomerDB() {
 function toggleNewCustomerForm() {
     const form = document.getElementById('newCustDirForm');
     form.style.display = form.style.display === 'none' ? 'block' : 'none';
-    if (form.style.display === 'block') document.getElementById('dirNewName').focus();
+    if (form.style.display === 'block') {
+        document.getElementById('dirNewName').focus();
+        loadParentCompanyDropdown(); // Load the dropdown options
+    }
+}
+
+// Loads existing Parent Companies into the physical dropdown
+async function loadParentCompanyDropdown() {
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+    try {
+        const snapshot = await firebase.firestore().collection("ParentCompanies").orderBy("Name").get();
+        const select = document.getElementById('dirParentSelect');
+        
+        select.innerHTML = '<option value="">-- No Parent / Select Existing --</option>';
+        
+        snapshot.forEach(doc => {
+            const opt = document.createElement('option');
+            opt.value = doc.data().Name; // Use the name as the value
+            opt.textContent = doc.data().Name;
+            select.appendChild(opt);
+        });
+    } catch (e) { console.error("Error loading parents:", e); }
+}
+
+// Background worker to link Firebase databases silently
+async function handleFirebaseHierarchy(parentName, subCompany, city, street) {
+    if (!parentName || !subCompany || !street || typeof firebase === 'undefined') return;
+    
+    try {
+        const db = firebase.firestore();
+        let parentId = null;
+        
+        // 1. Check if this parent company already exists
+        const parentQuery = await db.collection("ParentCompanies").where("Name", "==", parentName).get();
+        
+        if (!parentQuery.empty) {
+            parentId = parentQuery.docs[0].id; // Use existing
+        } else {
+            // 2. Doesn't exist, create it!
+            parentId = 'PARENT_' + Date.now();
+            await db.collection("ParentCompanies").doc(parentId).set({ Name: parentName });
+        }
+
+        // 3. Map this specific location to the parent
+        const locId = 'MAP_' + Date.now() + Math.floor(Math.random()*1000);
+        await db.collection("MappedLocations").doc(locId).set({
+            Parent_ID: parentId,
+            Sub_Company: subCompany,
+            City: city,
+            Street: street
+        });
+        
+    } catch (e) {
+        console.error("Error linking parent hierarchy:", e);
+    }
 }
 
 function saveCustomerFromDirectory() {
+    // 1. Grab Parent Company from either the dropdown OR the new text box
+    const selectedParent = document.getElementById('dirParentSelect').value;
+    const newParent = document.getElementById('dirParentNew').value.trim().toUpperCase();
+    const parentCompany = newParent || selectedParent; // Prioritizes the text box if both are filled
+    
     const name = document.getElementById('dirNewName').value.trim().toUpperCase();
     const contact = document.getElementById('dirNewContact').value.trim().toUpperCase();
     const phone = document.getElementById('dirNewPhone').value.trim();
@@ -130,6 +189,7 @@ function saveCustomerFromDirectory() {
 
     if (!name || name.length < 3) { alert("Valid Customer Name is required."); return; }
 
+    // 2. Normal Twin Pillars Local/Cloud Save Logic
     let db = getCustomerDB();
     if (!db[name]) db[name] = { id: `CST-${Math.floor(1000+Math.random()*9000)}`, locations: {} };
     
@@ -140,6 +200,14 @@ function saveCustomerFromDirectory() {
 
     syncSingleCustomerToCloud(name, db[name]);
     
+    // 3. NEW: If they typed or selected a Parent Company, silently map it in Firebase
+    if (parentCompany && street) {
+        handleFirebaseHierarchy(parentCompany, name, city, street);
+    }
+    
+    // Clear fields
+    document.getElementById('dirParentSelect').value = '';
+    document.getElementById('dirParentNew').value = '';
     document.getElementById('dirNewName').value = ''; document.getElementById('dirNewContact').value = '';
     document.getElementById('dirNewPhone').value = ''; document.getElementById('dirNewEmail').value = '';
     document.getElementById('dirNewStreet').value = ''; document.getElementById('dirNewCity').value = '';
