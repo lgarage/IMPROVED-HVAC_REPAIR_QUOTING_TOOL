@@ -54,7 +54,8 @@ async function parsePastedNotes() {
     const text = document.getElementById("invPasteArea").value;
     if (!text) return;
 
-    const nextHeader = "(?:\\n\\s*(?:Location|Date|Equipment|Notes|Work|Parts|Cost|Pictures)[a-zA-Z0-9 \\/\\(\\)]*?:|$)";
+    // This regex looks ahead for ANY of the possible headers from PM, Service, or Quote tickets
+    const nextHeader = "(?:\\n\\s*(?:Location|Date|Equipment|Notes|Work|Parts|Cost|Pictures|Reason|Findings|Repairs|Original|System|Further|Labor)[a-zA-Z0-9 \\/&]*?:|$)";
     
     const extract = (pattern) => {
         const regex = new RegExp(`${pattern}:?\\s*(.*?)(?=${nextHeader})`, 'is');
@@ -62,22 +63,80 @@ async function parsePastedNotes() {
         return m && m[1] ? m[1].trim() : "";
     };
 
+    // 1. Extract Location
     const locRaw = extract("Location");
-    if (locRaw) await smartProcessLocation(locRaw);
+    if (locRaw && typeof smartProcessLocation === 'function') await smartProcessLocation(locRaw);
 
-    const equip = extract("Equipment on [Ss]ite") || extract("Equipment worked on");
+    // 2. Extract Equipment (Handles PM, Service, AND Quote headers)
+    const equip = extract("Equipment on Site") || extract("Equipment worked on") || extract("Equipment Repaired");
     if (equip) document.getElementById("invEquip").value = equip.replace(/\n/g, ", ");
 
-    const notes = extract("Notes\\s*[/\\\\]\\s*repairs") || extract("Findings\\s*[/\\\\]\\s*Diagnosis");
-    if (notes) document.getElementById("invNotes").value = notes;
-
-    const work = extract("Work done") || extract("Repairs made");
-    if (work) document.getElementById("invWork").value = work;
-
-    document.getElementById('invPartsContainer').innerHTML = `<div class="inv-parts-grid-layout part-header-row"><label>QTY</label><label>Part Description</label><label>Our Cost $</label><label style="color:#27ae60;">Retail $ (Auto)</label><label></label></div>`;
-    addInvoicePartRow("Preventative Maintenance parts"); 
+    // 3. Extract Notes / Issues
+    const pmNotes = extract("Notes \\/ Repairs");
+    const svcReason = extract("Reason for call");
+    const svcDiag = extract("Findings \\/ Diagnosis");
+    const quoteIssue = extract("Original Issue Resolved");
     
-    calcInvoice();
+    let combinedNotes = [];
+    if (pmNotes) combinedNotes.push(pmNotes);
+    if (svcReason) combinedNotes.push("Reason for call: " + svcReason);
+    if (svcDiag) combinedNotes.push("Diagnosis: " + svcDiag);
+    if (quoteIssue) combinedNotes.push("Original Issue: " + quoteIssue);
+    
+    if (combinedNotes.length > 0) {
+        document.getElementById("invNotes").value = combinedNotes.join("\n\n");
+    }
+
+    // 4. Extract Work Done / Repairs
+    const pmWork = extract("Work done");
+    const svcRepairs = extract("Repairs made");
+    const quoteRepairs = extract("Repairs Completed");
+    const quoteTesting = extract("System Testing & Verification");
+    
+    let combinedWork = [];
+    if (pmWork) combinedWork.push(pmWork);
+    if (svcRepairs) combinedWork.push(svcRepairs);
+    if (quoteRepairs) combinedWork.push(quoteRepairs);
+    if (quoteTesting) combinedWork.push("Testing: " + quoteTesting);
+    
+    if (combinedWork.length > 0) {
+        document.getElementById("invWork").value = combinedWork.join("\n\n");
+    }
+
+    // 5. Extract Parts (Handles PM and Service. Leaves blank for Quotes)
+    const partsRaw = extract("Parts used");
+    
+    const container = document.getElementById('invPartsContainer');
+    if (container) {
+        container.innerHTML = `
+            <div class="inv-parts-grid-layout part-header-row">
+                <label>QTY</label><label>Part Description</label><label>Our Cost $</label><label style="color:#27ae60;">Retail $ (Auto)</label><label></label>
+            </div>`;
+            
+        if (partsRaw && partsRaw.toUpperCase() !== "NONE") {
+            // Split the parts vertical list
+            const partsList = partsRaw.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+            
+            partsList.forEach(partStr => {
+                let qty = 1;
+                let desc = partStr;
+                
+                // Look for the "QTY - DESC" pattern outputted by the Tech App
+                const match = partStr.match(/^(\d+)\s*-\s*(.+)$/);
+                if (match) {
+                    qty = parseInt(match[1], 10);
+                    desc = match[2];
+                }
+                
+                if(typeof addInvoicePartRow === 'function') addInvoicePartRow(desc, qty);
+            });
+        } else if (text.includes("PM\n\nLocation")) {
+            // Only default to "Preventative Maintenance parts" if it's explicitly a PM ticket without a parts list
+            if(typeof addInvoicePartRow === 'function') addInvoicePartRow("Preventative Maintenance parts", 1);
+        }
+    }
+    
+    if(typeof calcInvoice === 'function') calcInvoice();
 }
 
 async function smartProcessLocation(locationStr) {
