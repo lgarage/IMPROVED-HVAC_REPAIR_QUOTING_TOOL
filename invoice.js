@@ -35,12 +35,12 @@ function clearInvoiceForm() {
     document.getElementById('invoiceBuilder').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function addInvoicePartRow(desc = "") {
+function addInvoicePartRow(desc = "", qty = 1) {
     const container = document.getElementById('invPartsContainer');
     const row = document.createElement('div');
     row.className = 'inv-parts-grid-layout part-row inv-part-line';
     row.innerHTML = `
-        <input type="number" class="p-qty" value="1" min="1" oninput="calcInvoice()">
+        <input type="number" class="p-qty" value="${qty}" min="1" oninput="calcInvoice()">
         <input type="text" class="p-desc" value="${desc}" placeholder="Part Description">
         <div class="cost-wrapper"><span>$</span><input type="number" class="p-cost" placeholder="0.00" step="0.01" min="0" oninput="calcInvoice()"></div>
         <div class="cost-wrapper" style="color:#27ae60;"><span>$</span><input type="text" class="p-retail" value="0.00" readonly style="background:transparent; border:none; font-weight:bold; width:100%; outline:none;"></div>
@@ -49,12 +49,12 @@ function addInvoicePartRow(desc = "") {
     container.appendChild(row);
 }
 
-// --- SMART PASTED NOTES PARSER ---
+// --- SMART PASTED NOTES PARSER (OMNIVOROUS) ---
 async function parsePastedNotes() {
     const text = document.getElementById("invPasteArea").value;
     if (!text) return;
 
-    // This regex looks ahead for ANY of the possible headers from PM, Service, or Quote tickets
+    // Look ahead for ANY possible header from a PM, Service Call, or Quote ticket
     const nextHeader = "(?:\\n\\s*(?:Location|Date|Equipment|Notes|Work|Parts|Cost|Pictures|Reason|Findings|Repairs|Original|System|Further|Labor)[a-zA-Z0-9 \\/&]*?:|$)";
     
     const extract = (pattern) => {
@@ -63,80 +63,70 @@ async function parsePastedNotes() {
         return m && m[1] ? m[1].trim() : "";
     };
 
-    // 1. Extract Location
+    // 1. Extract and Process Location via Google Maps
     const locRaw = extract("Location");
-    if (locRaw && typeof smartProcessLocation === 'function') await smartProcessLocation(locRaw);
+    if (locRaw) await smartProcessLocation(locRaw);
 
-    // 2. Extract Equipment (Handles PM, Service, AND Quote headers)
-    const equip = extract("Equipment on Site") || extract("Equipment worked on") || extract("Equipment Repaired");
+    // 2. Extract Equipment
+    const equip = extract("Equipment on [Ss]ite") || extract("Equipment worked on") || extract("Equipment Repaired");
     if (equip) document.getElementById("invEquip").value = equip.replace(/\n/g, ", ");
 
-    // 3. Extract Notes / Issues
-    const pmNotes = extract("Notes \\/ Repairs");
-    const svcReason = extract("Reason for call");
-    const svcDiag = extract("Findings \\/ Diagnosis");
-    const quoteIssue = extract("Original Issue Resolved");
-    
+    // 3. Extract & Combine Notes (Handles all 3 ticket types)
     let combinedNotes = [];
-    if (pmNotes) combinedNotes.push(pmNotes);
+    const pmNotes = extract("Notes\\s*[/\\\\]\\s*repairs");
+    const svcReason = extract("Reason for call");
+    const svcDiag = extract("Findings\\s*[/\\\\]\\s*Diagnosis");
+    const quoteIssue = extract("Original Issue Resolved");
+
+    if (quoteIssue) combinedNotes.push("Original Issue: " + quoteIssue);
     if (svcReason) combinedNotes.push("Reason for call: " + svcReason);
     if (svcDiag) combinedNotes.push("Diagnosis: " + svcDiag);
-    if (quoteIssue) combinedNotes.push("Original Issue: " + quoteIssue);
+    if (pmNotes) combinedNotes.push(pmNotes);
     
-    if (combinedNotes.length > 0) {
-        document.getElementById("invNotes").value = combinedNotes.join("\n\n");
-    }
+    if (combinedNotes.length > 0) document.getElementById("invNotes").value = combinedNotes.join("\n\n");
 
-    // 4. Extract Work Done / Repairs
+    // 4. Extract & Combine Work Done (Handles all 3 ticket types)
+    let combinedWork = [];
     const pmWork = extract("Work done");
     const svcRepairs = extract("Repairs made");
     const quoteRepairs = extract("Repairs Completed");
     const quoteTesting = extract("System Testing & Verification");
-    
-    let combinedWork = [];
-    if (pmWork) combinedWork.push(pmWork);
-    if (svcRepairs) combinedWork.push(svcRepairs);
-    if (quoteRepairs) combinedWork.push(quoteRepairs);
-    if (quoteTesting) combinedWork.push("Testing: " + quoteTesting);
-    
-    if (combinedWork.length > 0) {
-        document.getElementById("invWork").value = combinedWork.join("\n\n");
-    }
 
-    // 5. Extract Parts (Handles PM and Service. Leaves blank for Quotes)
+    if (quoteRepairs) combinedWork.push("Repairs: " + quoteRepairs);
+    if (quoteTesting) combinedWork.push("System Testing: " + quoteTesting);
+    if (svcRepairs) combinedWork.push(svcRepairs);
+    if (pmWork) combinedWork.push(pmWork);
+
+    if (combinedWork.length > 0) document.getElementById("invWork").value = combinedWork.join("\n\n");
+
+    // 5. Extract Parts & Build Invoice Lines
     const partsRaw = extract("Parts used");
     
     const container = document.getElementById('invPartsContainer');
-    if (container) {
-        container.innerHTML = `
-            <div class="inv-parts-grid-layout part-header-row">
-                <label>QTY</label><label>Part Description</label><label>Our Cost $</label><label style="color:#27ae60;">Retail $ (Auto)</label><label></label>
-            </div>`;
-            
-        if (partsRaw && partsRaw.toUpperCase() !== "NONE") {
-            // Split the parts vertical list
-            const partsList = partsRaw.split(/\n|,/).map(s => s.trim()).filter(Boolean);
-            
-            partsList.forEach(partStr => {
-                let qty = 1;
-                let desc = partStr;
-                
-                // Look for the "QTY - DESC" pattern outputted by the Tech App
-                const match = partStr.match(/^(\d+)\s*-\s*(.+)$/);
-                if (match) {
-                    qty = parseInt(match[1], 10);
-                    desc = match[2];
-                }
-                
-                if(typeof addInvoicePartRow === 'function') addInvoicePartRow(desc, qty);
-            });
-        } else if (text.includes("PM\n\nLocation")) {
-            // Only default to "Preventative Maintenance parts" if it's explicitly a PM ticket without a parts list
-            if(typeof addInvoicePartRow === 'function') addInvoicePartRow("Preventative Maintenance parts", 1);
-        }
+    container.innerHTML = `
+        <div class="inv-parts-grid-layout part-header-row">
+            <label>QTY</label><label>Part Description</label><label>Our Cost $</label><label style="color:#27ae60;">Retail $ (Auto)</label><label></label>
+        </div>`;
+        
+    if (partsRaw && partsRaw.toUpperCase() !== "NONE" && partsRaw.toUpperCase() !== "UNKNOWN") {
+        const partsList = partsRaw.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+        
+        partsList.forEach(partStr => {
+            let qty = 1;
+            let desc = partStr;
+            const match = partStr.match(/^(\d+)\s*-\s*(.+)$/);
+            if (match) {
+                qty = parseInt(match[1], 10);
+                desc = match[2];
+            }
+            addInvoicePartRow(desc, qty);
+        });
+    } else if (text.includes("PM\n\nLocation")) {
+        // Fallback only if it is explicitly a PM ticket without parts
+        addInvoicePartRow("Preventative Maintenance parts", 1);
     }
     
-    if(typeof calcInvoice === 'function') calcInvoice();
+    calcInvoice();
 }
 
 async function smartProcessLocation(locationStr) {
@@ -145,8 +135,9 @@ async function smartProcessLocation(locationStr) {
     let city = "";
     let streetSearch = "";
     let state = "WI"; 
-    let originalSiteName = rawInput;
+    let zip = "";
 
+    // 1. Check for specific DBA billing overrides
     const dbaAliases = {
         "TAKE 5": { company: "AMERICAN PLATINUM DOOR & GATE", billToAddress: "AMERICAN PLATINUM DOOR & GATE\n29001 SOLON RD UNIT Q\nSOLON, OH 44139" },
         "TAKE FIVE": { company: "AMERICAN PLATINUM DOOR & GATE", billToAddress: "AMERICAN PLATINUM DOOR & GATE\n29001 SOLON RD UNIT Q\nSOLON, OH 44139" }
@@ -156,41 +147,74 @@ async function smartProcessLocation(locationStr) {
     let customBillTo = null;
 
     if (matchedAlias) {
-        originalSiteName = matchedAlias;
         custName = dbaAliases[matchedAlias].company;
         customBillTo = dbaAliases[matchedAlias].billToAddress;
-        let restOfStr = rawInput.replace(new RegExp(matchedAlias, "i"), "").replace(/^-+|-+$/g, '').trim();
+    } else {
+        if (rawInput.includes("-")) custName = rawInput.split('-')[0].trim();
+        else custName = rawInput;
+    }
 
+    // 2. GOOGLE MAPS PLACES API SEARCH
+    let googleAddressFound = false;
+    
+    // We only call Google if the API is loaded and ready
+    if (window.google && google.maps && google.maps.places) {
+        try {
+            if (window.googleMapsPromise) await window.googleMapsPromise;
+            
+            // Clean up the query (e.g. "Take 5 Milwaukee Brown Deer Rd")
+            const searchQuery = rawInput.replace(/-/g, ' ');
+            const dummyNode = document.createElement('div');
+            const service = new google.maps.places.PlacesService(dummyNode);
+            const request = { query: searchQuery, fields: ['formatted_address'] };
+            
+            const googleResult = await new Promise((resolve) => {
+                service.findPlaceFromQuery(request, (results, status) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                        resolve(results[0].formatted_address);
+                    } else { 
+                        resolve(null); 
+                    }
+                });
+            });
+
+            if (googleResult) {
+                // Google returns formats like: "7550 W Brown Deer Rd, Milwaukee, WI 53223, USA"
+                const parts = googleResult.split(',').map(p => p.trim());
+                if (parts.length >= 3) {
+                    streetSearch = parts[0].toUpperCase();
+                    city = parts[1].toUpperCase();
+                    const stateZip = parts[2].split(' ');
+                    state = stateZip[0] ? stateZip[0].toUpperCase() : "WI";
+                    zip = stateZip[1] ? stateZip[1] : "";
+                    googleAddressFound = true;
+                }
+            }
+        } catch (err) {
+            console.error("Google Places API error:", err);
+        }
+    }
+
+    // 3. Fallback to basic string splitting if Google fails or is blocked
+    if (!googleAddressFound) {
+        let restOfStr = rawInput;
+        if (matchedAlias) restOfStr = rawInput.replace(new RegExp(matchedAlias, "i"), "").replace(/^-+|-+$/g, '').trim();
+        
         if (restOfStr.includes("-")) {
              let parts = restOfStr.split(/\s*-\s*/);
              if (parts.length >= 2) { city = parts[0].trim(); streetSearch = parts[1].trim(); } 
              else { streetSearch = restOfStr; }
-             streetSearch = `${matchedAlias} - ${streetSearch}`;
+             if (matchedAlias) streetSearch = `${matchedAlias} - ${streetSearch}`;
         } else {
              let addressMatch = restOfStr.match(/\b\d+\b/);
              if (addressMatch) {
                  let addrIndex = addressMatch.index;
                  city = restOfStr.substring(0, addrIndex).trim();
                  let foundStreet = restOfStr.substring(addrIndex).trim();
-                 streetSearch = `${matchedAlias} - ${foundStreet}`;
+                 streetSearch = matchedAlias ? `${matchedAlias} - ${foundStreet}` : foundStreet;
              } else {
-                 streetSearch = `${matchedAlias} - ${restOfStr}`;
+                 streetSearch = matchedAlias ? `${matchedAlias} - ${restOfStr}` : restOfStr;
              }
-        }
-    } else {
-        if (rawInput.includes("-")) {
-            const parts = rawInput.split(/\s*-\s*/);
-            custName = parts[0].trim();
-            originalSiteName = custName;
-            if (parts.length >= 3) { city = parts[1].trim(); streetSearch = parts[2].trim(); } 
-            else if (parts.length === 2) { streetSearch = parts[1].trim(); }
-        } else {
-            let addressMatch = rawInput.match(/\b\d+\s+[A-Z]+/i);
-            if (addressMatch) {
-                originalSiteName = rawInput.substring(0, addressMatch.index).trim();
-                custName = originalSiteName;
-                streetSearch = rawInput.substring(addressMatch.index).trim();
-            }
         }
     }
 
@@ -201,12 +225,14 @@ async function smartProcessLocation(locationStr) {
     document.getElementById('invCityInput').value = city;
     document.getElementById('invStreetInput').value = streetSearch;
     document.getElementById('invStateInput').value = state;
+    document.getElementById('invZipInput').value = zip;
 
     custNameInput.style.backgroundColor = "";
     streetInput.style.backgroundColor = "";
     if(document.getElementById('invCustWarning')) document.getElementById('invCustWarning').remove();
     if(document.getElementById('invLocWarning')) document.getElementById('invLocWarning').remove();
 
+    // 4. Check against our local CRM cache
     let dbLocal = getCustomerDB(); 
     let custData = dbLocal[custName];
     let foundLocally = false;
@@ -252,6 +278,7 @@ async function smartProcessLocation(locationStr) {
         if(streetSearch) streetInput.style.backgroundColor = "#fff3cd";
     }
 
+    // 5. Finalize formatted addresses for PDF output
     const finalStreet = document.getElementById('invStreetInput').value;
     const finalCity = document.getElementById('invCityInput').value;
     const finalState = document.getElementById('invStateInput').value;
