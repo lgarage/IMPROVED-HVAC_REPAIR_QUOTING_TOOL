@@ -479,3 +479,100 @@ function attachTabAutocomplete(inputId, datalistId, context, type, nextFocusId) 
         if(context === 'service') triggerServiceAutoSave();
     });
 }
+
+// ==========================================
+// PARENT COMPANY & LOCATION MAPPING LOGIC
+// ==========================================
+
+function toggleHierarchyForm() {
+    const form = document.getElementById('clientHierarchyForms');
+    // Hide the other form so the modal doesn't get too tall
+    document.getElementById('newCustDirForm').style.display = 'none'; 
+    
+    if (form.style.display === 'none' || form.style.display === '') {
+        form.style.display = 'block';
+        loadParentCompanies(); 
+    } else {
+        form.style.display = 'none';
+    }
+}
+
+async function saveParentCompanyToFirebase() {
+    const nameInput = document.getElementById('parentCompName');
+    const name = nameInput.value.trim().toUpperCase();
+    
+    if (!name) return alert("Please enter a Parent Company name.");
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return alert("Firebase is not connected.");
+
+    try {
+        const db = firebase.firestore();
+        const custId = 'PARENT_' + Date.now(); 
+
+        // SAVING TO THE NEW ISOLATED COLLECTION
+        await db.collection("ParentCompanies").doc(custId).set({
+            Name: name
+        });
+
+        alert("Parent Company saved! You can now select it in the dropdown below.");
+        nameInput.value = '';
+        loadParentCompanies(); 
+    } catch (error) {
+        console.error("Error saving parent:", error);
+        alert("Failed to save to Firebase.");
+    }
+}
+
+async function loadParentCompanies() {
+    const select = document.getElementById('parentCompSelect');
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return; 
+    
+    try {
+        const db = firebase.firestore();
+        const snapshot = await db.collection("ParentCompanies").orderBy("Name").get();
+        
+        select.innerHTML = '<option value="">Select Parent Company...</option>';
+        
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const option = document.createElement('option');
+            option.value = doc.id; 
+            option.textContent = data.Name;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error("Error loading parents:", error);
+    }
+}
+
+async function mapLocationToParent() {
+    const parentId = document.getElementById('parentCompSelect').value;
+    const subCompany = document.getElementById('subCompName').value.trim().toUpperCase();
+    const city = document.getElementById('mapCity').value.trim().toUpperCase();
+    const street = document.getElementById('mapStreet').value.trim().toUpperCase();
+
+    if (!parentId || !subCompany || !city || !street) {
+        return alert("Please fill out all location fields and select a Parent Company.");
+    }
+
+    try {
+        const db = firebase.firestore();
+        const locId = 'MAP_' + Date.now();
+
+        // SAVING TO THE NEW ISOLATED COLLECTION
+        await db.collection("MappedLocations").doc(locId).set({
+            Parent_ID: parentId,
+            Sub_Company: subCompany,
+            City: city,
+            Street: street
+        });
+
+        alert("Success! This location is now mapped. The tech app will automatically link them.");
+        
+        document.getElementById('subCompName').value = '';
+        document.getElementById('mapCity').value = '';
+        document.getElementById('mapStreet').value = '';
+    } catch (error) {
+        console.error("Error mapping location:", error);
+        alert("Failed to save location mapping to Firebase.");
+    }
+}
