@@ -938,7 +938,7 @@
                     <textarea id="invPasteArea" placeholder="Paste report here..." style="min-height: 120px; background: #fffde7; border-color: #c89b53;" onblur="parsePastedNotes()"></textarea>
                 </div>
 
-                <div class="form-section">
+          <div class="form-section">
                     <h4 style="margin-top:0; color:#1e4b85;">2. Client & Site Verification</h4>
                     
                     <div class="form-row">
@@ -966,6 +966,7 @@
                             <input type="text" id="invLocNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
                         </div>
                     </div>
+
                     <div class="form-row">
                         <div class="input-group" style="flex: 2;">
                             <label>City</label>
@@ -981,7 +982,15 @@
                         </div>
                     </div>
 
-                  <div class="form-row" style="margin-top: 20px;">
+                    <div style="text-align: right; margin-top: 10px; margin-bottom: 20px;">
+                        <button type="button" class="gen-btn" 
+                            style="background: #f39c12; padding: 10px 20px; font-size: 13px; width: auto; color: #fff;" 
+                            onclick="openCustomerDirectory()">
+                            <i class="fas fa-edit"></i> Edit Site Info / Link Parent Company
+                        </button>
+                    </div>
+
+                    <div class="form-row" style="margin-top: 20px;">
                         <div class="input-group" style="flex: 1;">
                             <label>Equipment on Site</label>
                             <textarea id="invEquip" style="min-height: 60px; font-size:13px;"></textarea>
