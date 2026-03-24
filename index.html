@@ -916,7 +916,7 @@
             </div>
         </div>
 
-        <div id="view-settings" class="app-view">
+       <div id="view-settings" class="app-view">
             <div class="form-container">
                 <div class="tool-header">
                     <h2>System Settings</h2>
@@ -935,14 +935,15 @@
                         </div>
                 </div>
 
-              <div class="form-section">
-    <h4>Master Inventory Templates</h4>
-    <p style="font-size: 13px; color: #666;">These are your base loadouts. When you assign an Apprentice or J-Man template to a truck, it pulls from these master lists.</p>
-    <div style="display:flex; gap:15px;">
-        <button class="gen-btn" style="background:#f39c12; padding:10px 20px;" onclick="openMasterTemplateEditor('jman')">Edit J-Man Master List</button>
-        <button class="gen-btn" style="background:#8e44ad; padding:10px 20px;" onclick="openMasterTemplateEditor('apprentice')">Edit Apprentice Master List</button>
-    </div>
-</div>
+                <div class="form-section">
+                    <h4>Master Inventory Templates</h4>
+                    <p style="font-size: 13px; color: #666;">Create and manage base loadouts. Assign these to trucks to quickly stock them.</p>
+                    
+                    <div id="masterTemplatesContainer" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 15px;">
+                        </div>
+                    
+                    <button class="gen-btn" style="background:#2ecc71; padding:8px 15px; font-size:12px;" onclick="createNewTemplate()">+ Create New Template</button>
+                </div>
             </div>
         </div>
 
@@ -983,11 +984,13 @@
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
                 <div id="invActionButtons">
-                    <button class="gen-btn btn-sm" style="background:#f39c12;" onclick="loadMasterTemplate('jman')">Load J-Man Template</button>
-                    <button class="gen-btn btn-sm" style="background:#8e44ad;" onclick="loadMasterTemplate('apprentice')">Load Apprentice Template</button>
+                    <span id="dynamicTemplateLoaders"></span>
                     <button class="gen-btn btn-sm" style="background:#e74c3c;" onclick="clearTruckInventory()">Clear All</button>
                 </div>
-                <button class="gen-btn btn-sm" style="background:#27ae60; padding: 8px 15px;" onclick="addBlankToolRow()">+ Add Custom Tool</button>
+                <div>
+                    <button class="gen-btn btn-sm" style="background:#3498db; padding: 8px 15px; margin-right: 10px;" onclick="bulkImportTools()">📋 Bulk Paste List</button>
+                    <button class="gen-btn btn-sm" style="background:#27ae60; padding: 8px 15px;" onclick="addBlankToolRow()">+ Add Custom Tool</button>
+                </div>
             </div>
 
             <div style="flex: 1; overflow-y: auto; border: 1px solid #eaeaea; border-radius: 4px;">
