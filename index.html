@@ -966,7 +966,7 @@
         </div>
     </div>
 
-    <div id="truckInventoryModal" class="modal-overlay" style="z-index: 10010;">
+   <div id="truckInventoryModal" class="modal-overlay" style="z-index: 10010;">
         <div class="modal-content" style="max-width: 1000px; height: 85vh; display: flex; flex-direction: column;">
             <div class="modal-header" style="flex-shrink: 0;">
                 <div>
@@ -985,11 +985,11 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
                 <div id="invActionButtons">
                     <span id="dynamicTemplateLoaders"></span>
-                    <button class="gen-btn btn-sm" style="background:#e74c3c;" onclick="clearTruckInventory()">Clear All</button>
+                    <button id="btnClearInvBtn" class="gen-btn btn-sm" style="background:#e74c3c;" onclick="clearTruckInventory()">Clear All</button>
                 </div>
                 <div>
                     <button class="gen-btn btn-sm" style="background:#3498db; padding: 8px 15px; margin-right: 10px;" onclick="bulkImportTools()">📋 Bulk Paste List</button>
-                   <button id="btnAddCustomItem" class="gen-btn btn-sm" style="background:#27ae60; padding: 8px 15px;" onclick="addBlankToolRow()">+ Add Custom Tool</button>
+                    <button id="btnAddCustomItem" class="gen-btn btn-sm" style="background:#27ae60; padding: 8px 15px;" onclick="addBlankToolRow()">+ Add Custom Tool</button>
                 </div>
             </div>
 
@@ -1010,8 +1010,9 @@
                 </table>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; margin-top: 15px; flex-shrink: 0;">
-                <button class="gen-btn" style="background:#1e4b85; padding: 12px 25px;" onclick="saveAndCloseTruckInventory()">Save Loadout & Close</button>
+            <div style="display: flex; justify-content: space-between; margin-top: 15px; flex-shrink: 0;">
+                <button id="btnDeleteTemplate" class="gen-btn" style="background:#e74c3c; padding: 12px 25px; display:none;" onclick="deleteCurrentTemplate()">Delete Template</button>
+                <button class="gen-btn" style="background:#1e4b85; padding: 12px 25px; margin-left: auto;" onclick="saveAndCloseTruckInventory()">Save Loadout & Close</button>
             </div>
         </div>
     </div>
