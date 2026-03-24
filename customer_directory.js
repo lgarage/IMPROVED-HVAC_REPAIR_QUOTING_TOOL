@@ -552,27 +552,30 @@ function attachTabAutocomplete(inputId, datalistId, context, type, nextFocusId) 
 // PARENT COMPANY & LOCATION MAPPING LOGIC
 // ==========================================
 
-
-
-
-
 async function loadParentCompanies() {
-    const select = document.getElementById('parentCompSelect');
-    if (typeof firebase === 'undefined' || !firebase.apps.length) return; 
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return;
     
     try {
         const db = firebase.firestore();
+        // Assuming your parent companies are stored in a specific collection or marked with isParent
+        // Adjust this query if your database structure is different
         const snapshot = await db.collection("ParentCompanies").orderBy("Name").get();
         
-        select.innerHTML = '<option value="">Select Parent Company...</option>';
+        let options = '<option value="">-- No Parent / Select Existing --</option>';
         
         snapshot.forEach(doc => {
             const data = doc.data();
-            const option = document.createElement('option');
-            option.value = doc.id; 
-            option.textContent = data.Name;
-            select.appendChild(option);
+            options += `<option value="${doc.id}">${data.Name}</option>`;
         });
+        
+        // Populate Add Customer Modal Dropdown
+        const addSelect = document.getElementById('dirParentSelect');
+        if (addSelect) addSelect.innerHTML = options;
+
+        // Populate Link Modal Dropdown
+        const linkSelect = document.getElementById('linkParentSelect');
+        if (linkSelect) linkSelect.innerHTML = options.replace('-- No Parent / Select Existing --', '-- Select Existing Parent --');
+
     } catch (error) {
         console.error("Error loading parents:", error);
     }
