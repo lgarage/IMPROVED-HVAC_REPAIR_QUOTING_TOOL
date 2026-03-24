@@ -578,35 +578,4 @@ async function loadParentCompanies() {
     }
 }
 
-async function mapLocationToParent() {
-    const parentId = document.getElementById('parentCompSelect').value;
-    const subCompany = document.getElementById('subCompName').value.trim().toUpperCase();
-    const city = document.getElementById('mapCity').value.trim().toUpperCase();
-    const street = document.getElementById('mapStreet').value.trim().toUpperCase();
 
-    if (!parentId || !subCompany || !city || !street) {
-        return alert("Please fill out all location fields and select a Parent Company.");
-    }
-
-    try {
-        const db = firebase.firestore();
-        const locId = 'MAP_' + Date.now();
-
-        // SAVING TO THE NEW ISOLATED COLLECTION
-        await db.collection("MappedLocations").doc(locId).set({
-            Parent_ID: parentId,
-            Sub_Company: subCompany,
-            City: city,
-            Street: street
-        });
-
-        alert("Success! This location is now mapped. The tech app will automatically link them.");
-        
-        document.getElementById('subCompName').value = '';
-        document.getElementById('mapCity').value = '';
-        document.getElementById('mapStreet').value = '';
-    } catch (error) {
-        console.error("Error mapping location:", error);
-        alert("Failed to save location mapping to Firebase.");
-    }
-}
