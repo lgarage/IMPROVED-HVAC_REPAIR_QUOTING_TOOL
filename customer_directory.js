@@ -552,18 +552,7 @@ function attachTabAutocomplete(inputId, datalistId, context, type, nextFocusId) 
 // PARENT COMPANY & LOCATION MAPPING LOGIC
 // ==========================================
 
-function toggleHierarchyForm() {
-    const form = document.getElementById('clientHierarchyForms');
-    // Hide the other form so the modal doesn't get too tall
-    document.getElementById('newCustDirForm').style.display = 'none'; 
-    
-    if (form.style.display === 'none' || form.style.display === '') {
-        form.style.display = 'block';
-        loadParentCompanies(); 
-    } else {
-        form.style.display = 'none';
-    }
-}
+
 
 async function saveParentCompanyToFirebase() {
     const nameInput = document.getElementById('parentCompName');
