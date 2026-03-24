@@ -96,7 +96,7 @@ const seedDataJman = [
     { name: "Folding Hex Key Set", category: "Hand Tool", vendor: "TruTech", bundle: true },
     { name: "Pen Style Deburring Tool", category: "Hand Tool", vendor: "TruTech", bundle: true },
     { name: "Reversible Magnetic Nut Driver", category: "Hand Tool", vendor: "TruTech", bundle: true },
-    ...seedDataApprentice // J-Man gets everything the Apprentice gets too
+    ...seedDataApprentice
 ];
 
 function processSeedData(arr) {
@@ -118,7 +118,7 @@ const masterApprenticeTemplate = processSeedData(seedDataApprentice);
 // ====================================================================
 let appTechList = [];
 let currentEditingTechInv = "";
-let editingTemplateType = null; // Tells the modal if we are editing a Tech OR a Master Template
+let editingTemplateType = null; 
 let currentInvTab = "tools";
 const defaultTechs = ["Dave (Tech 1)", "Sarah (Tech 2)", "Mike (Tech 3)", "Tom (Tech 4)"];
 
@@ -131,7 +131,7 @@ function loadAppTechs() {
         localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
     }
     
-    // Convert templates to the object format if they aren't already
+    // Seed initial templates if missing
     if(!localStorage.getItem('tp_master_templates')) {
         localStorage.setItem('tp_master_templates', JSON.stringify({
             jman: { tools: masterJmanTemplate, consumables: [] },
@@ -140,6 +140,7 @@ function loadAppTechs() {
     }
 
     renderTechSettings();
+    renderMasterTemplates(); // NEW: Render dynamic templates
     populateTechDropdowns();
 }
 
@@ -253,32 +254,93 @@ function populateTechDropdowns() {
 }
 
 // ====================================================================
+// --- DYNAMIC TEMPLATE MANAGEMENT ---
+// ====================================================================
+
+function renderMasterTemplates() {
+    let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
+    let container = document.getElementById('masterTemplatesContainer');
+    if(!container) return;
+    
+    container.innerHTML = '';
+    for(let key in masterDB) {
+        let displayName = key.replace(/_/g, ' ').toUpperCase();
+        container.innerHTML += `
+            <div style="background:#fff; border:1px solid #e1e8ed; padding:12px 15px; border-radius:6px; display:flex; align-items:center; gap:15px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <strong style="color:#1e4b85; min-width: 150px;">${displayName}</strong>
+                <button class="gen-btn btn-sm" style="background:#f39c12; padding:6px 15px;" onclick="openMasterTemplateEditor('${key}')">Edit List</button>
+                <button class="gen-btn btn-sm" style="background:#e74c3c; padding:6px 12px;" onclick="deleteTemplate('${key}')">X</button>
+            </div>
+        `;
+    }
+    renderTemplateLoaders(); // Updates the buttons inside the Truck Modal
+}
+
+function createNewTemplate() {
+    let name = prompt("Enter a name for the new template (e.g., 'Install Crew', 'Maintenance'):");
+    if(!name || name.trim() === '') return;
+    
+    let key = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'); // Makes it a safe ID
+    
+    let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
+    if(masterDB[key]) { 
+        alert("A template with a similar name already exists!"); 
+        return; 
+    }
+    
+    masterDB[key] = { tools: [], consumables: [] };
+    localStorage.setItem('tp_master_templates', JSON.stringify(masterDB));
+    renderMasterTemplates();
+    if(typeof showSaveCue === 'function') showSaveCue("✓ Template Created");
+}
+
+function deleteTemplate(key) {
+    if(!confirm(`Are you sure you want to permanently delete the '${key.replace(/_/g, ' ').toUpperCase()}' template?`)) return;
+    
+    let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
+    delete masterDB[key];
+    localStorage.setItem('tp_master_templates', JSON.stringify(masterDB));
+    renderMasterTemplates();
+    if(typeof showSaveCue === 'function') showSaveCue("✓ Template Deleted");
+}
+
+function renderTemplateLoaders() {
+    let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
+    let container = document.getElementById('dynamicTemplateLoaders');
+    if(!container) return;
+    
+    container.innerHTML = '';
+    const colors = ['#f39c12', '#8e44ad', '#3498db', '#16a085'];
+    let colorIndex = 0;
+    
+    for(let key in masterDB) {
+        let displayName = key.replace(/_/g, ' ').toUpperCase();
+        let color = colors[colorIndex % colors.length];
+        container.innerHTML += `<button class="gen-btn btn-sm" style="background:${color}; margin-right:8px; padding:8px 15px;" onclick="loadMasterTemplate('${key}')">Load ${displayName}</button>`;
+        colorIndex++;
+    }
+}
+
+// ====================================================================
 // --- VMI / INVENTORY MODAL LOGIC (HANDLES TECHS & TEMPLATES) ---
 // ====================================================================
 
-// OPEN MODAL FOR A SPECIFIC TECH
 function openTruckInventory(techName) {
-    editingTemplateType = null; // We are editing a real person
+    editingTemplateType = null; 
     currentEditingTechInv = techName;
     document.getElementById('invModalTitle').innerText = `${techName}'s Truck`;
-    
-    // Show the "Load Template" buttons because we are editing a tech
     document.getElementById('invActionButtons').style.display = 'block'; 
-    
     switchInvTab('tools'); 
     document.getElementById('truckInventoryModal').style.display = 'block';
     renderTruckInventory();
 }
 
-// OPEN MODAL FOR A MASTER TEMPLATE
 function openMasterTemplateEditor(type) {
-    editingTemplateType = type; // We are editing the template ('jman' or 'apprentice')
+    editingTemplateType = type; 
     currentEditingTechInv = "";
     
-    let titleText = type === 'jman' ? "Master J-Man Template" : "Master Apprentice Template";
+    let titleText = "Master " + type.replace(/_/g, ' ').toUpperCase() + " Template";
     document.getElementById('invModalTitle').innerText = titleText;
-    
-    // Hide the "Load Template" buttons (because we are already IN the template)
     document.getElementById('invActionButtons').style.display = 'none';
     
     switchInvTab('tools'); 
@@ -307,13 +369,11 @@ function switchInvTab(tabName) {
     renderTruckInventory();
 }
 
-// HELPER: Get the right database depending on what we are editing
 function getActiveInvData() {
     let storageKey = editingTemplateType ? 'tp_master_templates' : 'tp_truck_inventories';
     let targetKey = editingTemplateType ? editingTemplateType : currentEditingTechInv;
     let db = JSON.parse(localStorage.getItem(storageKey) || '{}');
     
-    // Format checker (converts old arrays into new Object structure)
     if (!db[targetKey] || Array.isArray(db[targetKey])) {
         let oldTools = Array.isArray(db[targetKey]) ? db[targetKey] : [];
         db[targetKey] = { tools: oldTools, consumables: [] };
@@ -350,6 +410,42 @@ function renderTruckInventory() {
     });
 }
 
+// --- NEW: BULK PASTE IMPORT ---
+function bulkImportTools() {
+    let input = prompt("Paste your list of tools/consumables here.\nYou can paste an entire column from Excel, separated by lines or commas.");
+    if(!input || input.trim() === "") return;
+    
+    // Split by newlines or commas, remove empty spaces
+    let items = input.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+    
+    if(items.length === 0) return;
+    
+    let activeData = getActiveInvData();
+    
+    items.forEach(itemName => {
+        let newItem = { 
+            name: itemName, 
+            category: "Imported", 
+            vendor: "", 
+            bundle: false, 
+            url: `https://www.google.com/search?q=${encodeURIComponent(itemName)}` 
+        };
+        
+        if (currentInvTab === 'tools') { activeData.invData.tools.push(newItem); } 
+        else { activeData.invData.consumables.push(newItem); }
+    });
+    
+    localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
+    renderTruckInventory();
+    
+    if(typeof showSaveCue === 'function') showSaveCue(`✓ Imported ${items.length} items`);
+    
+    setTimeout(() => {
+        const tableContainer = document.querySelector('.inventory-table').parentElement;
+        tableContainer.scrollTop = tableContainer.scrollHeight;
+    }, 100);
+}
+
 function addBlankToolRow() {
     let activeData = getActiveInvData();
     let newItem = { name: "", category: "", vendor: "", bundle: false, url: "" };
@@ -375,10 +471,13 @@ function removeToolFromTruck(index) {
 }
 
 function loadMasterTemplate(type) {
-    if(!confirm(`Are you sure you want to load the ${type.toUpperCase()} template? This will add to any tools currently on this list.`)) return;
+    let displayName = type.replace(/_/g, ' ').toUpperCase();
+    if(!confirm(`Are you sure you want to load the ${displayName} template? This will add to any tools currently on this list.`)) return;
 
     let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
     let templateToLoad = masterDB[type];
+    
+    if (!templateToLoad) return;
     
     let toolsToLoad = Array.isArray(templateToLoad) ? templateToLoad : (templateToLoad.tools || []);
     let consToLoad = Array.isArray(templateToLoad) ? [] : (templateToLoad.consumables || []);
@@ -397,7 +496,7 @@ function loadMasterTemplate(type) {
 
 function clearTruckInventory() {
     let targetLabel = editingTemplateType ? "the master template" : `${currentEditingTechInv}'s truck`;
-    if(!confirm(`Are you sure you want to delete ALL tools from ${targetLabel}?`)) return;
+    if(!confirm(`Are you sure you want to delete ALL items from this ${currentInvTab} list for ${targetLabel}?`)) return;
     
     let activeData = getActiveInvData();
     
