@@ -603,4 +603,69 @@ async function loadParentCompanies() {
     }
 }
 
+let currentLinkCustName = null;
+let currentLinkLocId = null;
+
+function openLinkModal(custName, locId, street) {
+    currentLinkCustName = custName;
+    currentLinkLocId = locId;
+    
+    document.getElementById('linkLocStreetDisplay').innerText = street;
+    document.getElementById('linkParentNew').value = '';
+    
+    loadParentCompanies().then(() => {
+        document.getElementById('linkParentModal').style.display = 'block';
+    });
+}
+
+async function confirmLinkParent() {
+    const selectedParentId = document.getElementById('linkParentSelect').value;
+    const newParentName = document.getElementById('linkParentNew').value.trim().toUpperCase();
+
+    if (!selectedParentId && !newParentName) {
+        alert("Please select an existing parent or enter a new one.");
+        return;
+    }
+
+    try {
+        let finalParentId = null;
+        let dbRef = firebase.firestore();
+
+        if (newParentName) {
+            const parentRef = await dbRef.collection("ParentCompanies").add({ Name: newParentName });
+            finalParentId = parentRef.id;
+        } else {
+            finalParentId = selectedParentId;
+        }
+
+        // Update Local DB
+        let localDb = getCustomerDB();
+        if(localDb[currentLinkCustName] && localDb[currentLinkCustName].locations[currentLinkLocId]) {
+            localDb[currentLinkCustName].locations[currentLinkLocId].parentId = finalParentId;
+            
+            const locData = localDb[currentLinkCustName].locations[currentLinkLocId];
+            
+            // Save to the MappedLocations collection as requested by your old logic
+            const mapId = 'MAP_' + Date.now();
+            await dbRef.collection("MappedLocations").doc(mapId).set({
+                Parent_ID: finalParentId,
+                Sub_Company: currentLinkCustName,
+                City: locData.city || "",
+                Street: locData.street || ""
+            });
+
+            // Sync updated customer data to cloud
+            await syncSingleCustomerToCloud(currentLinkCustName, localDb[currentLinkCustName]);
+        }
+
+        document.getElementById('linkParentModal').style.display = 'none';
+        alert("Location successfully linked to Parent Company!");
+        renderCustomerDirectory();
+
+    } catch (error) {
+        console.error("Error linking parent:", error);
+        alert("Failed to link parent company.");
+    }
+}
+
 
