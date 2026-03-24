@@ -554,30 +554,7 @@ function attachTabAutocomplete(inputId, datalistId, context, type, nextFocusId) 
 
 
 
-async function saveParentCompanyToFirebase() {
-    const nameInput = document.getElementById('parentCompName');
-    const name = nameInput.value.trim().toUpperCase();
-    
-    if (!name) return alert("Please enter a Parent Company name.");
-    if (typeof firebase === 'undefined' || !firebase.apps.length) return alert("Firebase is not connected.");
 
-    try {
-        const db = firebase.firestore();
-        const custId = 'PARENT_' + Date.now(); 
-
-        // SAVING TO THE NEW ISOLATED COLLECTION
-        await db.collection("ParentCompanies").doc(custId).set({
-            Name: name
-        });
-
-        alert("Parent Company saved! You can now select it in the dropdown below.");
-        nameInput.value = '';
-        loadParentCompanies(); 
-    } catch (error) {
-        console.error("Error saving parent:", error);
-        alert("Failed to save to Firebase.");
-    }
-}
 
 async function loadParentCompanies() {
     const select = document.getElementById('parentCompSelect');
