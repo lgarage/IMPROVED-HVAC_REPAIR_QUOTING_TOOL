@@ -99,7 +99,6 @@ const seedDataJman = [
     ...seedDataApprentice
 ];
 
-// --- NEW DEFAULT SEED FOR CONSUMABLES ---
 const seedDataConsumables = [
     { name: "Wire Nuts (Assorted)", category: "Electrical", cost: 0.15, qty: 0, minLevel: 100, vendor: "Home Depot" },
     { name: "3M Super 33+ Electrical Tape", category: "Electrical", cost: 4.50, qty: 0, minLevel: 10, vendor: "Home Depot" },
@@ -140,7 +139,6 @@ function loadAppTechs() {
         localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
     }
     
-    // Seed templates. Checks if they exist to prevent overwriting your custom edits!
     let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
     let needsUpdate = false;
 
@@ -152,7 +150,6 @@ function loadAppTechs() {
         };
         needsUpdate = true;
     } else {
-        // If they already have templates, check if they are missing the new Consumable one
         if (!masterDB['jman_consumables']) {
             masterDB['jman_consumables'] = { tools: [], consumables: seedDataConsumables };
             needsUpdate = true;
@@ -292,11 +289,11 @@ function renderMasterTemplates() {
     container.innerHTML = '';
     for(let key in masterDB) {
         let displayName = key.replace(/_/g, ' ').toUpperCase();
+        // Removed the red X button from here
         container.innerHTML += `
             <div style="background:#fff; border:1px solid #e1e8ed; padding:12px 15px; border-radius:6px; display:flex; align-items:center; gap:15px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                 <strong style="color:#1e4b85; min-width: 170px;">${displayName}</strong>
                 <button class="gen-btn btn-sm" style="background:#f39c12; padding:6px 15px;" onclick="openMasterTemplateEditor('${key}')">Edit List</button>
-                <button class="gen-btn btn-sm" style="background:#e74c3c; padding:6px 12px;" onclick="deleteTemplate('${key}')">X</button>
             </div>
         `;
     }
@@ -321,20 +318,17 @@ function createNewTemplate() {
     if(typeof showSaveCue === 'function') showSaveCue("✓ Template Created");
 }
 
-function deleteTemplate(key) {
-    let displayName = key.replace(/_/g, ' ').toUpperCase();
+function deleteCurrentTemplate() {
+    if (!editingTemplateType) return;
+    let displayName = editingTemplateType.replace(/_/g, ' ').toUpperCase();
     
-    // NEW SAFETY LOCK: Forces user to type DELETE
-    let confirmation = prompt(`WARNING: You are about to permanently delete the '${displayName}' template.\n\nTo confirm, type DELETE in the box below:`);
-    
-    if (confirmation === "DELETE") {
+    if (confirm(`Are you sure? This will permanently delete the ${displayName} template.`)) {
         let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
-        delete masterDB[key];
+        delete masterDB[editingTemplateType];
         localStorage.setItem('tp_master_templates', JSON.stringify(masterDB));
         renderMasterTemplates();
+        closeTruckInventory();
         if(typeof showSaveCue === 'function') showSaveCue("✓ Template Deleted");
-    } else if (confirmation !== null) {
-        alert("Deletion canceled. You did not type DELETE exactly.");
     }
 }
 
@@ -364,6 +358,10 @@ function openTruckInventory(techName) {
     currentEditingTechInv = techName;
     document.getElementById('invModalTitle').innerText = `${techName}'s Truck`;
     
+    // Manage UI buttons for Truck Mode
+    document.getElementById('btnDeleteTemplate').style.display = 'none';
+    document.getElementById('btnClearInvBtn').style.display = 'inline-block';
+    
     switchInvTab('tools'); 
     document.getElementById('truckInventoryModal').style.display = 'block';
     renderTruckInventory();
@@ -376,7 +374,10 @@ function openMasterTemplateEditor(type) {
     let titleText = "Master " + type.replace(/_/g, ' ').toUpperCase() + " Template";
     document.getElementById('invModalTitle').innerText = titleText;
     
-    // If it's the consumables template, default to that tab
+    // Manage UI buttons for Master Template Mode
+    document.getElementById('btnDeleteTemplate').style.display = 'inline-block';
+    document.getElementById('btnClearInvBtn').style.display = 'none';
+    
     if (type.includes('consumables')) {
         switchInvTab('consumables');
     } else {
@@ -593,7 +594,7 @@ function loadMasterTemplate(type) {
 
 function clearTruckInventory() {
     let targetLabel = editingTemplateType ? "the master template" : `${currentEditingTechInv}'s truck`;
-    if(!confirm(`Are you sure you want to delete ALL items from this ${currentInvTab} list for ${targetLabel}?`)) return;
+    if(!confirm(`Are you sure? This will permanently delete ALL items from the ${currentInvTab} list for ${targetLabel}.`)) return;
     
     let activeData = getActiveInvData();
     
@@ -665,7 +666,6 @@ function saveAndCloseTruckInventory(silent = false) {
             `);
         }
 
-        // INJECTING THE MODAL WITH THE 4 NEW EXPORT BUTTONS
         const modalHTML = `
             <div id="vmiReportModal" class="modal-overlay" style="z-index: 10020;">
                 <div class="modal-content" style="max-width: 900px; height: 80vh; display: flex; flex-direction: column;">
@@ -830,7 +830,6 @@ function openVMIReport() {
     document.getElementById('vmiReportModal').style.display = 'block';
 }
 
-// --- NEW TEXT GENERATOR FOR EMAILS / CLIPBOARD ---
 function generateVMIEmailText() {
     let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
     let lowItems = [];
@@ -882,7 +881,6 @@ function emailVMIReport(clientType) {
     let emailData = generateVMIEmailText();
     if (!emailData) { alert("No parts need to be ordered!"); return; }
 
-    // Safely encode for URLs so line breaks format correctly in the email
     let subject = encodeURIComponent(emailData.subject);
     let body = encodeURIComponent(emailData.body);
 
