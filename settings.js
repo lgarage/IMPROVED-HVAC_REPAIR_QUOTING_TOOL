@@ -329,7 +329,7 @@ function openTruckInventory(techName) {
     editingTemplateType = null; 
     currentEditingTechInv = techName;
     document.getElementById('invModalTitle').innerText = `${techName}'s Truck`;
-    document.getElementById('invActionButtons').style.display = 'block'; 
+    
     switchInvTab('tools'); 
     document.getElementById('truckInventoryModal').style.display = 'block';
     renderTruckInventory();
@@ -341,7 +341,6 @@ function openMasterTemplateEditor(type) {
     
     let titleText = "Master " + type.replace(/_/g, ' ').toUpperCase() + " Template";
     document.getElementById('invModalTitle').innerText = titleText;
-    document.getElementById('invActionButtons').style.display = 'none';
     
     switchInvTab('tools'); 
     document.getElementById('truckInventoryModal').style.display = 'block';
@@ -359,12 +358,16 @@ function switchInvTab(tabName) {
     document.getElementById('btnTabTools').classList.remove('active');
     document.getElementById('btnTabConsumables').classList.remove('active');
     
+    const btnAdd = document.getElementById('btnAddCustomItem');
+    
     if(tabName === 'tools') {
         document.getElementById('btnTabTools').classList.add('active');
         if (!editingTemplateType) document.getElementById('invActionButtons').style.display = 'block';
+        if (btnAdd) btnAdd.innerText = "+ Add Custom Tool";
     } else {
         document.getElementById('btnTabConsumables').classList.add('active');
         document.getElementById('invActionButtons').style.display = 'none';
+        if (btnAdd) btnAdd.innerText = "+ Add Custom Part";
     }
     renderTruckInventory();
 }
@@ -384,55 +387,106 @@ function getActiveInvData() {
 }
 
 function renderTruckInventory() {
+    const thead = document.querySelector('.inventory-table thead');
     const tbody = document.getElementById('inventoryTableBody');
     tbody.innerHTML = '';
+
+    // DYNAMICALLY SWAP THE TABLE HEADERS BASED ON TAB
+    if (currentInvTab === 'tools') {
+        thead.innerHTML = `
+            <tr>
+                <th width="30%">Tool Name</th>
+                <th width="20%">Category</th>
+                <th width="20%">Vendor</th>
+                <th width="10%">Bundle?</th>
+                <th width="15%">Link</th>
+                <th width="5%"></th>
+            </tr>
+        `;
+    } else {
+        thead.innerHTML = `
+            <tr>
+                <th width="30%">Part Name</th>
+                <th width="15%">Category</th>
+                <th width="10%">Current QTY</th>
+                <th width="10%">Min Level</th>
+                <th width="15%">Vendor</th>
+                <th width="15%">Status</th>
+                <th width="5%"></th>
+            </tr>
+        `;
+    }
 
     let activeData = getActiveInvData();
     const currentList = currentInvTab === 'tools' ? activeData.invData.tools : activeData.invData.consumables;
 
     if (currentList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #7f8c8d; padding: 30px;">This ${currentInvTab} list is currently empty.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #7f8c8d; padding: 30px;">This ${currentInvTab} list is currently empty.</td></tr>`;
         return;
     }
 
     currentList.forEach((item, idx) => {
-        let bundleCheck = item.bundle ? "checked" : "";
-        tbody.innerHTML += `
-            <tr>
-                <td><input type="text" class="inventory-input p-name" value="${item.name}"></td>
-                <td><input type="text" class="inventory-input p-cat" value="${item.category || ''}"></td>
-                <td><input type="text" class="inventory-input p-ven" value="${item.vendor || ''}"></td>
-                <td style="text-align: center;"><input type="checkbox" class="p-bun" ${bundleCheck}></td>
-                <td><a href="${item.url || '#'}" target="_blank" class="inv-link">Shop Link</a><input type="hidden" class="p-url" value="${item.url || ''}"></td>
-                <td><button class="gen-btn btn-sm" style="background:#e74c3c;" onclick="removeToolFromTruck(${idx})">X</button></td>
-            </tr>
-        `;
+        if (currentInvTab === 'tools') {
+            let bundleCheck = item.bundle ? "checked" : "";
+            tbody.innerHTML += `
+                <tr>
+                    <td><input type="text" class="inventory-input p-name" value="${item.name}"></td>
+                    <td><input type="text" class="inventory-input p-cat" value="${item.category || ''}"></td>
+                    <td><input type="text" class="inventory-input p-ven" value="${item.vendor || ''}"></td>
+                    <td style="text-align: center;"><input type="checkbox" class="p-bun" ${bundleCheck}></td>
+                    <td><a href="${item.url || '#'}" target="_blank" class="inv-link">Shop Link</a><input type="hidden" class="p-url" value="${item.url || ''}"></td>
+                    <td><button class="gen-btn btn-sm" style="background:#e74c3c;" onclick="removeToolFromTruck(${idx})">X</button></td>
+                </tr>
+            `;
+        } else {
+            // VMI CONSUMABLES LOGIC
+            let qty = parseInt(item.qty) || 0;
+            let min = parseInt(item.minLevel) || 0;
+            let isLow = qty <= min;
+            
+            let statusHtml = isLow ? `<span style="color:#e74c3c; font-weight:bold; font-size:11px;">⚠️ LOW STOCK</span>` : `<span style="color:#27ae60; font-weight:bold; font-size:11px;">✓ OK</span>`;
+            let rowBg = isLow ? "background-color: #fdedec;" : "";
+
+            tbody.innerHTML += `
+                <tr style="${rowBg}">
+                    <td><input type="text" class="inventory-input p-name" value="${item.name}"></td>
+                    <td><input type="text" class="inventory-input p-cat" value="${item.category || ''}"></td>
+                    <td><input type="number" class="inventory-input p-qty" value="${qty}" style="width:100%;" min="0" onchange="liveRecalculateStock()"></td>
+                    <td><input type="number" class="inventory-input p-min" value="${min}" style="width:100%;" min="0" onchange="liveRecalculateStock()"></td>
+                    <td><input type="text" class="inventory-input p-ven" value="${item.vendor || ''}"></td>
+                    <td style="text-align: center; vertical-align: middle;">${statusHtml}</td>
+                    <td><button class="gen-btn btn-sm" style="background:#e74c3c;" onclick="removeToolFromTruck(${idx})">X</button></td>
+                </tr>
+            `;
+        }
     });
 }
 
-// --- NEW: BULK PASTE IMPORT ---
+// Triggers a visual refresh without saving if someone clicks the up/down arrows on QTY
+function liveRecalculateStock() {
+    saveAndCloseTruckInventory(true); // Save silently
+    renderTruckInventory(); // Redraw with red backgrounds if they dropped below Min Level
+}
+
 function bulkImportTools() {
-    let input = prompt("Paste your list of tools/consumables here.\nYou can paste an entire column from Excel, separated by lines or commas.");
+    let input = prompt("Paste your list of items here.\nYou can paste an entire column from Excel, separated by lines or commas.");
     if(!input || input.trim() === "") return;
     
-    // Split by newlines or commas, remove empty spaces
     let items = input.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
-    
     if(items.length === 0) return;
     
     let activeData = getActiveInvData();
     
     items.forEach(itemName => {
-        let newItem = { 
-            name: itemName, 
-            category: "Imported", 
-            vendor: "", 
-            bundle: false, 
-            url: `https://www.google.com/search?q=${encodeURIComponent(itemName)}` 
-        };
-        
-        if (currentInvTab === 'tools') { activeData.invData.tools.push(newItem); } 
-        else { activeData.invData.consumables.push(newItem); }
+        if (currentInvTab === 'tools') {
+            activeData.invData.tools.push({ 
+                name: itemName, category: "Imported", vendor: "", bundle: false, url: `https://www.google.com/search?q=${encodeURIComponent(itemName)}` 
+            });
+        } else {
+            activeData.invData.consumables.push({ 
+                name: itemName, category: "Imported", qty: 0, minLevel: 5, vendor: "" 
+            });
+        }
     });
     
     localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
@@ -448,10 +502,12 @@ function bulkImportTools() {
 
 function addBlankToolRow() {
     let activeData = getActiveInvData();
-    let newItem = { name: "", category: "", vendor: "", bundle: false, url: "" };
     
-    if (currentInvTab === 'tools') { activeData.invData.tools.push(newItem); } 
-    else { activeData.invData.consumables.push(newItem); }
+    if (currentInvTab === 'tools') { 
+        activeData.invData.tools.push({ name: "", category: "", vendor: "", bundle: false, url: "" }); 
+    } else { 
+        activeData.invData.consumables.push({ name: "", category: "", qty: 0, minLevel: 5, vendor: "" }); 
+    }
     
     localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
     renderTruckInventory();
@@ -507,7 +563,7 @@ function clearTruckInventory() {
     renderTruckInventory();
 }
 
-function saveAndCloseTruckInventory() {
+function saveAndCloseTruckInventory(silent = false) {
     const rows = document.querySelectorAll('#inventoryTableBody tr');
     let updatedList = [];
     
@@ -515,13 +571,23 @@ function saveAndCloseTruckInventory() {
         rows.forEach(row => {
             let nameEl = row.querySelector('.p-name');
             if (nameEl) {
-                updatedList.push({
-                    name: nameEl.value,
-                    category: row.querySelector('.p-cat').value,
-                    vendor: row.querySelector('.p-ven').value,
-                    bundle: row.querySelector('.p-bun').checked,
-                    url: row.querySelector('.p-url').value
-                });
+                if (currentInvTab === 'tools') {
+                    updatedList.push({
+                        name: nameEl.value,
+                        category: row.querySelector('.p-cat').value,
+                        vendor: row.querySelector('.p-ven').value,
+                        bundle: row.querySelector('.p-bun').checked,
+                        url: row.querySelector('.p-url').value
+                    });
+                } else {
+                    updatedList.push({
+                        name: nameEl.value,
+                        category: row.querySelector('.p-cat').value,
+                        qty: parseInt(row.querySelector('.p-qty').value) || 0,
+                        minLevel: parseInt(row.querySelector('.p-min').value) || 0,
+                        vendor: row.querySelector('.p-ven').value
+                    });
+                }
             }
         });
     }
@@ -532,7 +598,13 @@ function saveAndCloseTruckInventory() {
     else { activeData.invData.consumables = updatedList; }
     
     localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
-    closeTruckInventory();
+    
+    if (!silent) {
+        closeTruckInventory();
+        let msg = editingTemplateType ? "✓ Master Template Saved" : "✓ Loadout Saved";
+        if(typeof showSaveCue === 'function') showSaveCue(msg);
+    }
+}
     
     let msg = editingTemplateType ? "✓ Master Template Saved" : "✓ Loadout Saved";
     if(typeof showSaveCue === 'function') showSaveCue(msg);
