@@ -728,6 +728,7 @@ function openVMIReport() {
     let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
     let lowItems = [];
     
+    // 1. Gather all low stock items and tag them with the tech's name
     for (let tech in invDB) {
         let cons = invDB[tech].consumables || [];
         cons.forEach(item => {
@@ -739,55 +740,77 @@ function openVMIReport() {
         });
     }
 
+    // 2. Group by VENDOR first, then by TECHNICIAN (Bin)
     let groupedByVendor = {};
     let grandTotal = 0;
 
     lowItems.forEach(item => {
         let v = (item.vendor && item.vendor.trim() !== '') ? item.vendor.toUpperCase() : 'UNSPECIFIED VENDOR';
-        if(!groupedByVendor[v]) groupedByVendor[v] = [];
-        groupedByVendor[v].push(item);
+        if(!groupedByVendor[v]) groupedByVendor[v] = {};
+        
+        // Create a sub-group for the Tech's Bin
+        if(!groupedByVendor[v][item.tech]) groupedByVendor[v][item.tech] = [];
+        
+        groupedByVendor[v][item.tech].push(item);
     });
 
     let html = '';
 
+    // 3. Build the UI
     for (let vendor in groupedByVendor) {
         let vendorTotal = 0;
-        let rowsHtml = '';
+        let vendorHtml = '';
         
-        groupedByVendor[vendor].forEach(item => {
-            let q = parseInt(item.qty) || 0;
-            let m = parseInt(item.minLevel) || 0;
-            let c = parseFloat(item.cost) || 0;
+        // Loop through each Tech's Bin for this specific vendor
+        for (let techName in groupedByVendor[vendor]) {
+            let techRows = '';
             
-            let orderQty = (m - q) > 0 ? (m - q) : 1; 
-            let lineTotal = orderQty * c;
-            
-            vendorTotal += lineTotal;
-            grandTotal += lineTotal;
+            groupedByVendor[vendor][techName].forEach(item => {
+                let q = parseInt(item.qty) || 0;
+                let m = parseInt(item.minLevel) || 0;
+                let c = parseFloat(item.cost) || 0;
+                
+                // Assume we order exactly enough to hit the Minimum level
+                let orderQty = (m - q) > 0 ? (m - q) : 1; 
+                let lineTotal = orderQty * c;
+                
+                vendorTotal += lineTotal;
+                grandTotal += lineTotal;
 
-            rowsHtml += `
+                techRows += `
+                    <tr>
+                        <td style="font-weight:bold;">${item.name}</td>
+                        <td>${item.category || 'N/A'}</td>
+                        <td><span style="color:#e74c3c; font-weight:bold;">${q}</span> / ${m}</td>
+                        <td style="font-weight:bold; color:#27ae60; font-size: 14px;">${orderQty}</td>
+                        <td>$${c.toFixed(2)}</td>
+                        <td>$${lineTotal.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            
+            // Inject the bold "TECH BIN" sub-header before their parts
+            vendorHtml += `
                 <tr>
-                    <td style="font-weight:bold;">${item.name}</td>
-                    <td>${item.tech}</td>
-                    <td><span style="color:#e74c3c; font-weight:bold;">${q}</span> / ${m}</td>
-                    <td style="font-weight:bold; color:#27ae60;">${orderQty}</td>
-                    <td>$${c.toFixed(2)}</td>
-                    <td>$${lineTotal.toFixed(2)}</td>
+                    <td colspan="6" style="background:#eaf2f8; color:#1e4b85; font-weight:bold; font-size:14px; padding:8px 10px; border-top: 2px solid #bdc3c7;">
+                        📦 TECH BIN: ${techName.toUpperCase()}
+                    </td>
                 </tr>
+                ${techRows}
             `;
-        });
+        }
 
         html += `
             <div class="vmi-vendor-block">
                 <div class="vmi-vendor-header">
-                    <span>${vendor}</span>
+                    <span>🏢 VENDOR: ${vendor}</span>
                     <span>Est. PO Total: $${vendorTotal.toFixed(2)}</span>
                 </div>
                 <table class="vmi-table">
                     <thead>
                         <tr>
                             <th width="35%">Part Name</th>
-                            <th width="15%">Truck Needed For</th>
+                            <th width="15%">Category</th>
                             <th width="15%">Stock / Min</th>
                             <th width="10%">Order QTY</th>
                             <th width="10%">Unit Cost</th>
@@ -795,15 +818,18 @@ function openVMIReport() {
                         </tr>
                     </thead>
                     <tbody>
-                        ${rowsHtml}
+                        ${vendorHtml}
                     </tbody>
                 </table>
             </div>
         `;
     }
 
-    if (html === '') { html = '<p style="text-align:center; padding: 20px;">All trucks are currently fully stocked.</p>'; }
-    else { html += `<div style="text-align:right; font-size:20px; font-weight:bold; padding:20px;">GRAND TOTAL ESTIMATE: <span style="color:#27ae60;">$${grandTotal.toFixed(2)}</span></div>`; }
+    if (html === '') { 
+        html = '<p style="text-align:center; padding: 20px;">All trucks are currently fully stocked.</p>'; 
+    } else { 
+        html += `<div style="text-align:right; font-size:20px; font-weight:bold; padding:20px; border-top: 2px solid #ccc;">GRAND TOTAL ESTIMATE: <span style="color:#27ae60;">$${grandTotal.toFixed(2)}</span></div>`; 
+    }
 
     document.getElementById('vmiReportContent').innerHTML = html;
     document.getElementById('vmiReportModal').style.display = 'block';
