@@ -1092,7 +1092,10 @@
                 container.innerHTML += `
                     <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e1e8ed; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                         <span style="font-weight:bold; color:#2c3e50; font-size:15px;">👤 ${tech}</span>
-                        <button class="gen-btn" style="background:#e74c3c; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="removeTechnician(${index})">Remove</button>
+                        <div style="display:flex; gap:8px;">
+                            <button class="gen-btn" style="background:#3498db; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="editTechnician(${index})">Edit</button>
+                            <button class="gen-btn" style="background:#e74c3c; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="removeTechnician(${index})">Remove</button>
+                        </div>
                     </div>
                 `;
             });
@@ -1112,6 +1115,34 @@
             renderTechSettings();
             populateTechDropdowns();
             showSaveCue("✓ Technician Added");
+        }
+
+        function editTechnician(index) {
+            const currentName = appTechList[index];
+            const newName = prompt("Edit Technician Name:", currentName);
+
+            // If user clicks cancel or leaves it blank, just abort
+            if (newName === null || newName.trim() === '') return;
+
+            const cleanName = newName.trim();
+
+            // If they just clicked OK without making changes, do nothing
+            if (cleanName === currentName) return;
+
+            // Prevent duplicate names
+            if (appTechList.includes(cleanName)) {
+                alert("This technician name is already in use!");
+                return;
+            }
+
+            // Lock in the change
+            appTechList[index] = cleanName;
+            localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
+            
+            // Instantly visually refresh the UI
+            renderTechSettings();
+            populateTechDropdowns();
+            showSaveCue("✓ Technician Updated");
         }
 
         function removeTechnician(index) {
@@ -1142,7 +1173,6 @@
                 scTechSelect.value = currentVal;
             }
             
-            // If renderGanttHeaders exists in service_call.js, trigger it to update the board
             if (typeof renderGanttHeaders === 'function') {
                 try { renderGanttHeaders(); renderServiceBoard(); } catch(e) {}
             }
@@ -1200,7 +1230,7 @@
 
         // --- GLOBAL APP INITIALIZATION ---
         window.onload = function() {
-            if(typeof loadAppTechs === 'function') loadAppTechs(); // Initial load of techs!
+            if(typeof loadAppTechs === 'function') loadAppTechs(); 
 
             if(typeof injectDummyData === 'function') injectDummyData();
             if(typeof repairAndSyncCustomerDB === 'function') repairAndSyncCustomerDB(); 
