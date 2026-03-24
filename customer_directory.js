@@ -172,12 +172,7 @@ async function handleFirebaseHierarchy(parentName, subCompany, city, street) {
     }
 }
 
-function saveCustomerFromDirectory() {
-    // 1. Grab Parent Company from either the dropdown OR the new text box
-    const selectedParent = document.getElementById('dirParentSelect').value;
-    const newParent = document.getElementById('dirParentNew').value.trim().toUpperCase();
-    const parentCompany = newParent || selectedParent; // Prioritizes the text box if both are filled
-    
+async function saveCustomerFromDirectory() {
     const name = document.getElementById('dirNewName').value.trim().toUpperCase();
     const contact = document.getElementById('dirNewContact').value.trim().toUpperCase();
     const phone = document.getElementById('dirNewPhone').value.trim();
@@ -185,36 +180,63 @@ function saveCustomerFromDirectory() {
     const street = document.getElementById('dirNewStreet').value.trim().toUpperCase();
     const city = document.getElementById('dirNewCity').value.trim().toUpperCase();
     const state = document.getElementById('dirNewState').value.trim().toUpperCase();
-    const zip = document.getElementById('dirNewZip').value.trim().toUpperCase();
+    const zip = document.getElementById('dirNewZip').value.trim();
+
+    const selectedParentId = document.getElementById('dirParentSelect').value;
+    const newParentName = document.getElementById('dirParentNew').value.trim().toUpperCase();
 
     if (!name || name.length < 3) { alert("Valid Customer Name is required."); return; }
 
-    // 2. Normal Twin Pillars Local/Cloud Save Logic
-    let db = getCustomerDB();
-    if (!db[name]) db[name] = { id: `CST-${Math.floor(1000+Math.random()*9000)}`, locations: {} };
-    
-    if (street && street.length > 3) {
-        let locId = `LOC-${Math.floor(1000+Math.random()*9000)}`;
-        db[name].locations[locId] = { street, city, state, zip, contact, phone, email };
-    }
+    try {
+        let finalParentId = null;
 
-    syncSingleCustomerToCloud(name, db[name]);
-    
-    // 3. NEW: If they typed or selected a Parent Company, silently map it in Firebase
-    if (parentCompany && street) {
-        handleFirebaseHierarchy(parentCompany, name, city, street);
+        // 1. Handle Parent Company logic first
+        if (newParentName) {
+            // Create new parent in the ParentCompanies collection
+            const parentRef = await firebase.firestore().collection("ParentCompanies").add({ Name: newParentName });
+            finalParentId = parentRef.id;
+        } else if (selectedParentId) {
+            finalParentId = selectedParentId;
+        }
+
+        // 2. Normal Twin Pillars Local/Cloud Save Logic
+        let db = getCustomerDB();
+        let custId = `CST-${Math.floor(1000+Math.random()*9000)}`;
+        if (!db[name]) db[name] = { id: custId, locations: {} };
+        
+        if (street && street.length > 3) {
+            let locId = `LOC-${Math.floor(1000+Math.random()*9000)}`;
+            db[name].locations[locId] = { street, city, state, zip, contact, phone, email, parentId: finalParentId };
+            
+            // If there's a parent, also write to the MappedLocations collection (based on your old logic)
+            if (finalParentId) {
+                const mapId = 'MAP_' + Date.now();
+                await firebase.firestore().collection("MappedLocations").doc(mapId).set({
+                    Parent_ID: finalParentId,
+                    Sub_Company: name,
+                    City: city,
+                    Street: street
+                });
+            }
+        }
+
+        await syncSingleCustomerToCloud(name, db[name]);
+        
+        // Clear fields & close
+        document.getElementById('dirParentSelect').value = '';
+        document.getElementById('dirParentNew').value = '';
+        document.getElementById('dirNewName').value = ''; document.getElementById('dirNewContact').value = '';
+        document.getElementById('dirNewPhone').value = ''; document.getElementById('dirNewEmail').value = '';
+        document.getElementById('dirNewStreet').value = ''; document.getElementById('dirNewCity').value = '';
+        document.getElementById('dirNewState').value = ''; document.getElementById('dirNewZip').value = '';
+        
+        toggleNewCustomerForm();
+        renderCustomerDirectory();
+
+    } catch (error) {
+        console.error("Error saving customer hierarchy:", error);
+        alert("Failed to save customer.");
     }
-    
-    // Clear fields
-    document.getElementById('dirParentSelect').value = '';
-    document.getElementById('dirParentNew').value = '';
-    document.getElementById('dirNewName').value = ''; document.getElementById('dirNewContact').value = '';
-    document.getElementById('dirNewPhone').value = ''; document.getElementById('dirNewEmail').value = '';
-    document.getElementById('dirNewStreet').value = ''; document.getElementById('dirNewCity').value = '';
-    document.getElementById('dirNewState').value = ''; document.getElementById('dirNewZip').value = '';
-    
-    toggleNewCustomerForm();
-    renderCustomerDirectory();
 }
 
 function syncCustomerToDirectory(data) {
