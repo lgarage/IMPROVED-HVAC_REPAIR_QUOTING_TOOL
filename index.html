@@ -25,7 +25,7 @@
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 0; box-sizing: border-box; display: flex; }
         h1, h2, h3, h4 { margin-top: 0; color: #1e4b85; }
         button { cursor: pointer; border-radius: 4px; font-weight: bold; font-family: inherit; }
-        input[type="text"]:not(#newRequoteNote):not(#customerSearch):not(#invoiceSearch):not(#scIssueInput):not(#scNotesInput):not(#invPasteArea), 
+        input[type="text"]:not(#newRequoteNote):not(#customerSearch):not(#invoiceSearch):not(#scIssueInput):not(#scNotesInput):not(#invPasteArea):not(#newTechNameInput), 
         textarea:not(#requoteNoteHistory):not(#scIssueInput):not(#scNotesInput):not(#invPasteArea) { text-transform: uppercase; }
         #customerSearch, #invoiceSearch { text-transform: uppercase; }
         .sidebar { transition: width 0.3s ease; position: fixed; top: 0; left: 0; height: 100vh; overflow-x: hidden; width: 240px; background-color: #1e4b85; color: #fff; box-shadow: 2px 0 10px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column;}
@@ -221,8 +221,9 @@
             <li><a id="nav-quoting" onclick="switchTab('quoting')"><span class="menu-icon"><i class="fas fa-comment-dollar"></i></span> <span class="menu-text">Quoting Tool</span></a></li>
             <li><a id="nav-invoice" onclick="switchTab('invoice')"><span class="menu-icon"><i class="fas fa-file-invoice"></i></span> <span class="menu-text">Invoicing Tool</span></a></li>
             <li><a onclick="openCustomerDirectory()"><span class="menu-icon"><i class="fas fa-address-book"></i></span> <span class="menu-text">Customer Directory</span></a></li>
+            
             <li style="margin-top: auto;">
-                <a onclick="alert('Settings panel coming soon!')">
+                <a id="nav-settings" onclick="switchTab('settings')">
                     <span class="menu-icon"><i class="fas fa-cog"></i></span> 
                     <span class="menu-text">Settings</span>
                 </a>
@@ -416,10 +417,6 @@
                             <label>Assigned Technician</label>
                             <select id="scAssignedTechInput">
                                 <option value="Unassigned">Unassigned</option>
-                                <option value="Dave (Tech 1)">Dave (Tech 1)</option>
-                                <option value="Sarah (Tech 2)">Sarah (Tech 2)</option>
-                                <option value="Mike (Tech 3)">Mike (Tech 3)</option>
-                                <option value="Tom (Tech 4)">Tom (Tech 4)</option>
                             </select>
                         </div>
                         <div class="input-group">
@@ -912,6 +909,27 @@
             </div>
         </div>
 
+        <div id="view-settings" class="app-view">
+            <div class="form-container">
+                <div class="tool-header">
+                    <h2>System Settings</h2>
+                </div>
+                
+                <div class="form-section">
+                    <h4>Manage Technicians</h4>
+                    <p style="font-size: 13px; color: #666;">Add, edit, or remove technicians from your active roster. This will automatically update your Dispatch Board and Service Call assignment dropdowns.</p>
+                    
+                    <div style="display:flex; gap:10px; margin-bottom: 20px;">
+                        <input type="text" id="newTechNameInput" placeholder="e.g. John (Tech 5)" style="flex:1; max-width: 400px;">
+                        <button class="gen-btn" style="background:#27ae60; padding:10px 20px; font-size:14px;" onclick="addNewTechnician()">+ Add Technician</button>
+                    </div>
+                    
+                    <div id="techListContainer" style="display: flex; flex-direction: column; gap: 8px; max-width: 600px;">
+                        </div>
+                </div>
+            </div>
+        </div>
+
     </div> 
     
     <div id="saveIndicator">✓ Auto-Saved</div>
@@ -1044,6 +1062,92 @@
         let satLayer;
         let currentMapType = 'm';
 
+        // --- SETTINGS & TECHNICIAN LOGIC ---
+        let appTechList = [];
+        const defaultTechs = ["Dave (Tech 1)", "Sarah (Tech 2)", "Mike (Tech 3)", "Tom (Tech 4)"];
+
+        function loadAppTechs() {
+            const saved = localStorage.getItem('tp_tech_list');
+            if (saved) {
+                appTechList = JSON.parse(saved);
+            } else {
+                appTechList = [...defaultTechs];
+                localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
+            }
+            renderTechSettings();
+            populateTechDropdowns();
+        }
+
+        function renderTechSettings() {
+            const container = document.getElementById('techListContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            if (appTechList.length === 0) {
+                container.innerHTML = '<div style="padding: 15px; background: #fdfefe; border: 1px solid #eaeaea; border-radius: 4px; color: #7f8c8d; font-style: italic;">No technicians currently added.</div>';
+                return;
+            }
+
+            appTechList.forEach((tech, index) => {
+                container.innerHTML += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e1e8ed; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                        <span style="font-weight:bold; color:#2c3e50; font-size:15px;">👤 ${tech}</span>
+                        <button class="gen-btn" style="background:#e74c3c; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="removeTechnician(${index})">Remove</button>
+                    </div>
+                `;
+            });
+        }
+
+        function addNewTechnician() {
+            const input = document.getElementById('newTechNameInput');
+            const name = input.value.trim();
+            if (name === '') return;
+            if (appTechList.includes(name)) {
+                alert("This technician is already on the roster!");
+                return;
+            }
+            appTechList.push(name);
+            localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
+            input.value = '';
+            renderTechSettings();
+            populateTechDropdowns();
+            showSaveCue("✓ Technician Added");
+        }
+
+        function removeTechnician(index) {
+            if (confirm(`Are you sure you want to remove ${appTechList[index]} from the roster?`)) {
+                appTechList.splice(index, 1);
+                localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
+                renderTechSettings();
+                populateTechDropdowns();
+                showSaveCue("✓ Technician Removed");
+            }
+        }
+
+        function populateTechDropdowns() {
+            const scTechSelect = document.getElementById('scAssignedTechInput');
+            if (!scTechSelect) return;
+            
+            const currentVal = scTechSelect.value;
+            scTechSelect.innerHTML = '<option value="Unassigned">Unassigned</option>';
+            
+            appTechList.forEach(tech => {
+                const opt = document.createElement('option');
+                opt.value = tech;
+                opt.textContent = tech;
+                scTechSelect.appendChild(opt);
+            });
+
+            if (appTechList.includes(currentVal) || currentVal === 'Unassigned') {
+                scTechSelect.value = currentVal;
+            }
+            
+            // If renderGanttHeaders exists in service_call.js, trigger it to update the board
+            if (typeof renderGanttHeaders === 'function') {
+                try { renderGanttHeaders(); renderServiceBoard(); } catch(e) {}
+            }
+        }
+
         // --- AUTO-LOOKUP FIREBASE PARENT COMPANY ---
         async function checkServiceParentCompany() {
             const custInput = document.getElementById('scCustNameInput');
@@ -1096,7 +1200,8 @@
 
         // --- GLOBAL APP INITIALIZATION ---
         window.onload = function() {
-            // SAFETY WRAPPERS ADDED TO PREVENT STARTUP CRASHES
+            if(typeof loadAppTechs === 'function') loadAppTechs(); // Initial load of techs!
+
             if(typeof injectDummyData === 'function') injectDummyData();
             if(typeof repairAndSyncCustomerDB === 'function') repairAndSyncCustomerDB(); 
             
@@ -1195,10 +1300,12 @@
             document.getElementById('view-service').classList.remove('active');
             document.getElementById('view-quoting').classList.remove('active');
             document.getElementById('view-invoice').classList.remove('active');
+            document.getElementById('view-settings').classList.remove('active');
             
             document.getElementById('nav-service').classList.remove('active-tab');
             document.getElementById('nav-quoting').classList.remove('active-tab');
             document.getElementById('nav-invoice').classList.remove('active-tab');
+            document.getElementById('nav-settings').classList.remove('active-tab');
             
             document.getElementById('view-' + tabName).classList.add('active');
             document.getElementById('nav-' + tabName).classList.add('active-tab');
