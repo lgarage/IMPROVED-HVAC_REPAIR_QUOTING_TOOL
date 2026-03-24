@@ -499,17 +499,32 @@
                     </div>
 
                     <div class="form-row">
+                        <div class="input-group">
+                            <label>Site Contact Name</label>
+                            <input type="text" id="scContactNameInput" placeholder="e.g. John Doe">
+                        </div>
+                        <div class="input-group">
+                            <label>Contact Phone Number</label>
+                            <input type="text" id="scContactPhoneInput" placeholder="(555) 555-5555" maxlength="14">
+                        </div>
+                        <div class="input-group">
+                            <label>Contact Email Address</label>
+                            <input type="email" id="scContactEmailInput" placeholder="johndoe@email.com">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
                         <div class="input-group" style="flex: 2;">
                             <label>Location Street Address</label>
                             <input type="text" id="scCustStreetInput" placeholder="1234 Customer St" list="locationStreetsList">
                         </div>
                         <div class="input-group">
                             <label>Location #</label>
-                            <input type="text" id="scLocNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
+                            <input type="text" id="locNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
                         </div>
                     </div>
 
-                    <div class="form-row">
+                 <div class="form-row">
                         <div class="input-group" style="flex: 2;">
                             <label>City</label>
                             <input type="text" id="scCustCityInput" placeholder="e.g. Green Bay">
@@ -523,15 +538,6 @@
                             <input type="text" id="scCustZipInput" placeholder="e.g. 54304">
                         </div>
                     </div>
-
-            <div style="text-align: right; margin-top: 10px;">
-                        <button type="button" class="gen-btn" 
-                            style="background: #f39c12; padding: 10px 20px; font-size: 13px; width: auto; color: #fff;" 
-                            onclick="openCustomerDirectory()">
-                            <i class="fas fa-edit"></i> Edit Site Info / Link Parent Company
-                        </button>
-                    </div>
-
                     <div style="text-align: right; margin-top: 10px;">
                         <button type="button" class="gen-btn" 
                             style="background: #f39c12; padding: 10px 20px; font-size: 13px; width: auto; color: #fff;" 
@@ -539,6 +545,7 @@
                             <i class="fas fa-edit"></i> Edit Site Info / Link Parent Company
                         </button>
                     </div>
+                </div>
 
                 <div class="form-section">
                     <h4>2. Call Triage & Dispatch Details</h4>
@@ -705,15 +712,6 @@
                             <input type="text" id="custZipInput" placeholder="e.g. 54304">
                         </div>
                     </div>
-
-                   <div style="text-align: right; margin-top: 10px;">
-                        <button type="button" class="gen-btn" 
-                            style="background: #f39c12; padding: 10px 20px; font-size: 13px; width: auto; color: #fff;" 
-                            onclick="openCustomerDirectory()">
-                            <i class="fas fa-edit"></i> Edit Site Info / Link Parent Company
-                        </button>
-                    </div>
-                   
                     <div style="text-align: right; margin-top: 10px;">
                         <button type="button" class="gen-btn" 
                             style="background: #f39c12; padding: 10px 20px; font-size: 13px; width: auto; color: #fff;" 
@@ -999,14 +997,6 @@
                         </div>
                     </div>
 
-              <div style="text-align: right; margin-top: 10px; margin-bottom: 20px;">
-                        <button type="button" class="gen-btn" 
-                            style="background: #f39c12; padding: 10px 20px; font-size: 13px; width: auto; color: #fff;" 
-                            onclick="openCustomerDirectory()">
-                            <i class="fas fa-edit"></i> Edit Site Info / Link Parent Company
-                        </button>
-                    </div>
-
                     <div style="text-align: right; margin-top: 10px; margin-bottom: 20px;">
                         <button type="button" class="gen-btn" 
                             style="background: #f39c12; padding: 10px 20px; font-size: 13px; width: auto; color: #fff;" 
@@ -1208,8 +1198,8 @@
                 </div>
 
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
-                    <input type="text" id="dirNewName" placeholder="Customer Name (e.g. Planet Fitness)" style="flex:2;">
-                    <input type="text" id="dirNewContact" placeholder="Site Contact Name" style="flex:1;">
+                    <input type="text" id="dirNewName" placeholder="Customer / Sub-Company Name (e.g. Take 5)" style="flex:2;">
+                    <input type="text" id="dirNewContact" placeholder="Site Contact Name (Optional)" style="flex:1;">
                 </div>
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
                     <input type="text" id="dirNewPhone" placeholder="Phone" style="flex:1;" maxlength="14">
@@ -1244,7 +1234,7 @@
         </div>
     </div>
 
-    <div id="linkParentModal" class="modal-overlay" style="z-index: 10005;">
+<div id="linkParentModal" class="modal-overlay" style="z-index: 10005;">
         <div class="modal-content" style="max-width: 450px; margin-top: 10%;">
             <h3 style="margin-top:0; color:#1e4b85;">Link Location to Parent</h3>
             <p style="font-size:13px; color:#555; margin-bottom: 5px;"><strong>Location:</strong> <span id="linkLocStreetDisplay"></span></p>
@@ -1254,7 +1244,7 @@
                 <select id="linkParentSelect" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; margin-bottom:15px; font-family:inherit; text-transform:uppercase;"></select>
                 
                 <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:8px;">OR Create New Parent</label>
-                <input type="text" id="linkParentNew" placeholder="e.g. AMERICAN PLATINUM" style="width:100%; border: 1px solid #ccc; padding: 10px; border-radius: 4px; box-sizing: border-box; text-transform: uppercase;">
+                <input type="text" id="linkParentNew" placeholder="e.g. AMERICAN PLATINUM DOOR & GATE" style="width:100%; border: 1px solid #ccc; padding: 10px; border-radius: 4px; box-sizing: border-box; text-transform: uppercase;">
             </div>
 
             <div style="display:flex; justify-content:flex-end; gap:10px;">
@@ -1277,26 +1267,6 @@
             
             <div style="display: flex; justify-content: flex-end;">
                 <button class="gen-btn" style="background:#7f8c8d; padding: 10px 20px;" onclick="document.getElementById('googleResultsModal').style.display='none'; resetDispatcherMicBtn();">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-<div id="linkParentModal" class="modal-overlay" style="z-index: 10005;">
-        <div class="modal-content" style="max-width: 450px; margin-top: 10%;">
-            <h3 style="margin-top:0; color:#1e4b85;">Link Location to Parent</h3>
-            <p style="font-size:13px; color:#555; margin-bottom: 5px;"><strong>Location:</strong> <span id="linkLocStreetDisplay"></span></p>
-            
-            <div style="background:#eaf2f8; padding:15px; border-radius:6px; border:1px solid #b9d5ec; margin-bottom:20px;">
-                <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:8px;">Select Parent Company</label>
-                <select id="linkParentSelect" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; margin-bottom:15px; font-family:inherit; text-transform:uppercase;"></select>
-                
-                <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:8px;">OR Create New Parent</label>
-                <input type="text" id="linkParentNew" placeholder="e.g. AMERICAN PLATINUM DOOR & GATE" style="width:100%; border: 1px solid #ccc; padding: 10px; border-radius: 4px; box-sizing: border-box; text-transform: uppercase;">
-            </div>
-
-            <div style="display:flex; justify-content:flex-end; gap:10px;">
-                <button class="gen-btn" style="background:#7f8c8d; padding:8px 15px;" onclick="document.getElementById('linkParentModal').style.display='none'">Cancel</button>
-                <button class="gen-btn" style="background:#8e44ad; padding:8px 15px;" onclick="confirmLinkParent()">🔗 Link This Address</button>
             </div>
         </div>
     </div>
@@ -1485,10 +1455,10 @@
         }
     </script>
     
-    <script src="customer_directory.js?v=19"></script>
-    <script src="service_call.js?v=25"></script>
-    <script src="quoting.js?v=2"></script>
-    <script src="invoice.js?v=16"></script>
+    <script src="customer_directory.js?v=21"></script>
+    <script src="service_call.js?v=26"></script>
+    <script src="quoting.js?v=5"></script>
+    <script src="invoice.js?v=18"></script>
 
 </body>
 </html>
