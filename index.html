@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dispatcher Portal | Twin Pillars</title>
+    <link rel="icon" type="image/png" href="tphc_logo.png">
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
@@ -1042,7 +1044,7 @@
         let satLayer;
         let currentMapType = 'm';
 
-        // --- NEW: AUTO-LOOKUP FIREBASE PARENT COMPANY ---
+        // --- AUTO-LOOKUP FIREBASE PARENT COMPANY ---
         async function checkServiceParentCompany() {
             const custInput = document.getElementById('scCustNameInput');
             const streetInput = document.getElementById('scCustStreetInput');
@@ -1079,12 +1081,11 @@
 
                     if (parentDoc.exists) {
                         parentInput.value = parentDoc.data().Name;
-                        parentInput.style.color = "#1e4b85"; // Highlight blue if found!
+                        parentInput.style.color = "#1e4b85"; 
                         return;
                     }
                 }
                 
-                // If not found
                 parentInput.value = "None / Independent";
                 parentInput.style.color = "#7f8c8d";
             } catch (error) {
@@ -1095,22 +1096,25 @@
 
         // --- GLOBAL APP INITIALIZATION ---
         window.onload = function() {
-            injectDummyData();
-            repairAndSyncCustomerDB(); 
+            // SAFETY WRAPPERS ADDED TO PREVENT STARTUP CRASHES
+            if(typeof injectDummyData === 'function') injectDummyData();
+            if(typeof repairAndSyncCustomerDB === 'function') repairAndSyncCustomerDB(); 
             
-            initMap(); 
+            if(typeof initMap === 'function') initMap(); 
             
-            document.getElementById('scDateInput').valueAsDate = new Date();
-            setNextServiceNumber();
-            renderGanttHeaders();
-            renderServiceBoard();
-            initDragAndDrop(); 
+            const dateInput = document.getElementById('scDateInput');
+            if(dateInput) dateInput.valueAsDate = new Date();
             
-            setDates();
-            addPartRow();
-            setNextQuoteNumber();
-            renderQuoteHistory();
-            updateCustomerDatalist();
+            if(typeof setNextServiceNumber === 'function') setNextServiceNumber();
+            if(typeof renderGanttHeaders === 'function') renderGanttHeaders();
+            if(typeof renderServiceBoard === 'function') renderServiceBoard();
+            if(typeof initDragAndDrop === 'function') initDragAndDrop(); 
+            
+            if(typeof setDates === 'function') setDates();
+            if(typeof addPartRow === 'function') addPartRow();
+            if(typeof setNextQuoteNumber === 'function') setNextQuoteNumber();
+            if(typeof renderQuoteHistory === 'function') renderQuoteHistory();
+            if(typeof updateCustomerDatalist === 'function') updateCustomerDatalist();
 
             // Load FireBase Invoices
             if(typeof loadFirebaseInvoices === "function") {
@@ -1128,44 +1132,54 @@
             }
 
             // FIXED INTERCEPTORS FOR ALL THREE TABS
-            attachTabAutocomplete('custNameInput', 'customerNamesList', 'quoting', 'customer', 'contactNameInput');
-            attachTabAutocomplete('custStreetInput', 'locationStreetsList', 'quoting', 'location', 'quoteDateInput');
-            
-            attachTabAutocomplete('scCustNameInput', 'customerNamesList', 'service', 'customer', 'scContactNameInput');
-            attachTabAutocomplete('scCustStreetInput', 'locationStreetsList', 'service', 'location', 'scDateInput');
+            if(typeof attachTabAutocomplete === 'function') {
+                attachTabAutocomplete('custNameInput', 'customerNamesList', 'quoting', 'customer', 'contactNameInput');
+                attachTabAutocomplete('custStreetInput', 'locationStreetsList', 'quoting', 'location', 'quoteDateInput');
+                
+                attachTabAutocomplete('scCustNameInput', 'customerNamesList', 'service', 'customer', 'scContactNameInput');
+                attachTabAutocomplete('scCustStreetInput', 'locationStreetsList', 'service', 'location', 'scDateInput');
 
-            attachTabAutocomplete('invCustNameInput', 'customerNamesList', 'invoice', 'customer', 'invStreetInput');
-            attachTabAutocomplete('invStreetInput', 'locationStreetsList', 'invoice', 'location', 'invEquip');
+                attachTabAutocomplete('invCustNameInput', 'customerNamesList', 'invoice', 'customer', 'invStreetInput');
+                attachTabAutocomplete('invStreetInput', 'locationStreetsList', 'invoice', 'location', 'invEquip');
+            }
 
             const phoneInputs = ['scContactPhoneInput', 'dirNewPhone'];
             phoneInputs.forEach(id => {
-                document.getElementById(id).addEventListener('input', function (e) {
-                    var x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
-                    e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
-                });
+                const el = document.getElementById(id);
+                if(el) {
+                    el.addEventListener('input', function (e) {
+                        var x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
+                        e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+                    });
+                }
             });
 
-            document.getElementById('mainFormContainer').addEventListener('focusout', triggerQuoteAutoSave);
-            document.getElementById('mainFormContainer').addEventListener('change', triggerQuoteAutoSave);
-            document.getElementById('serviceFormContainer').addEventListener('focusout', triggerServiceAutoSave);
-            document.getElementById('serviceFormContainer').addEventListener('change', triggerServiceAutoSave);
+            const mainForm = document.getElementById('mainFormContainer');
+            if(mainForm) {
+                mainForm.addEventListener('focusout', triggerQuoteAutoSave);
+                mainForm.addEventListener('change', triggerQuoteAutoSave);
+            }
+            
+            const svcForm = document.getElementById('serviceFormContainer');
+            if(svcForm && typeof triggerServiceAutoSave === 'function') {
+                svcForm.addEventListener('focusout', triggerServiceAutoSave);
+                svcForm.addEventListener('change', triggerServiceAutoSave);
+            }
         };
 
         // --- GLOBAL CLICK EVENT FOR MODALS & SIDEBAR ---
-        // This is a much stronger listener that ensures clicking outside the sidebar shuts it.
         document.addEventListener('click', function(event) {
-            // Modals
             const custModal = document.getElementById('customerModal');
             const detailModal = document.getElementById('ticketDetailsModal');
-            if (event.target == custModal) closeCustomerDirectory();
-            if (event.target == detailModal) closeTicketDetails();
+            if (event.target == custModal && typeof closeCustomerDirectory === 'function') closeCustomerDirectory();
+            if (event.target == detailModal && typeof closeTicketDetails === 'function') closeTicketDetails();
 
             // Auto-collapse sidebar
             const sidebar = document.getElementById('appSidebar');
             const toggleBtn = document.querySelector('.sidebar-toggle-btn');
             const mainContent = document.querySelector('.main-content');
             
-            if (sidebar && !sidebar.classList.contains('collapsed')) {
+            if (sidebar && toggleBtn && mainContent && !sidebar.classList.contains('collapsed')) {
                 if (!sidebar.contains(event.target) && !toggleBtn.contains(event.target)) {
                     sidebar.classList.add('collapsed');
                     mainContent.classList.add('expanded');
@@ -1189,13 +1203,14 @@
             document.getElementById('view-' + tabName).classList.add('active');
             document.getElementById('nav-' + tabName).classList.add('active-tab');
             
-            updateLocationDatalist();
+            if(typeof updateLocationDatalist === 'function') updateLocationDatalist();
             
             if(tabName === 'service') {
-                setTimeout(() => { dispatchMap.invalidateSize(); }, 100);
+                setTimeout(() => { if(dispatchMap) dispatchMap.invalidateSize(); }, 100);
             }
             if(tabName === 'invoice') {
-                if(document.getElementById('invPartsContainer').children.length <= 1) { 
+                const invParts = document.getElementById('invPartsContainer');
+                if(invParts && invParts.children.length <= 1) { 
                     if(typeof addInvoicePartRow === "function") {
                         addInvoicePartRow("Preventative Maintenance parts"); 
                     }
