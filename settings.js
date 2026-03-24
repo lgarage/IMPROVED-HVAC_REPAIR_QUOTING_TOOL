@@ -652,8 +652,10 @@ function saveAndCloseTruckInventory(silent = false) {
 // --- GLOBAL VMI ALERTS & REPORTING ---
 // ====================================================================
 
+// Injects the alert button and the Report Modal into the app automatically
 (function injectVMIUI() {
     document.addEventListener("DOMContentLoaded", function() {
+        // 1. Inject the Alert Button into the main top header
         const header = document.querySelector('.app-header');
         if(header) {
             header.insertAdjacentHTML('beforeend', `
@@ -665,6 +667,7 @@ function saveAndCloseTruckInventory(silent = false) {
             `);
         }
 
+        // 2. Inject the Report Modal into the body
         const modalHTML = `
             <div id="vmiReportModal" class="modal-overlay" style="z-index: 10020;">
                 <div class="modal-content" style="max-width: 900px; height: 80vh; display: flex; flex-direction: column;">
@@ -674,12 +677,13 @@ function saveAndCloseTruckInventory(silent = false) {
                             <p style="margin: 5px 0 0 0; font-size: 13px; color: #7f8c8d;">Parts below minimum threshold across all active trucks.</p>
                         </div>
                         <div style="display:flex; gap: 10px; align-items:center;">
+                            <button class="gen-btn" style="background:#27ae60; padding: 8px 15px;" onclick="emailVMIReport()">📧 Auto-Draft Email</button>
                             <button class="gen-btn" style="background:#1e4b85; padding: 8px 15px;" onclick="printVMIReport()">🖨️ Print / Save PDF</button>
                             <span class="close-modal" onclick="document.getElementById('vmiReportModal').style.display='none'">×</span>
                         </div>
                     </div>
                     <div id="vmiReportContent" style="flex: 1; overflow-y: auto; padding: 10px 5px;">
-                    </div>
+                        </div>
                 </div>
             </div>
             
@@ -700,6 +704,7 @@ function saveAndCloseTruckInventory(silent = false) {
     });
 })();
 
+// Checks all trucks and displays the red button if needed
 function checkGlobalVMI() {
     let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
     let lowCount = 0;
@@ -724,11 +729,11 @@ function checkGlobalVMI() {
     }
 }
 
+// Generates the clean, grouped HTML report
 function openVMIReport() {
     let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
     let lowItems = [];
     
-    // 1. Gather all low stock items and tag them with the tech's name
     for (let tech in invDB) {
         let cons = invDB[tech].consumables || [];
         cons.forEach(item => {
@@ -740,28 +745,22 @@ function openVMIReport() {
         });
     }
 
-    // 2. Group by VENDOR first, then by TECHNICIAN (Bin)
     let groupedByVendor = {};
     let grandTotal = 0;
 
     lowItems.forEach(item => {
         let v = (item.vendor && item.vendor.trim() !== '') ? item.vendor.toUpperCase() : 'UNSPECIFIED VENDOR';
         if(!groupedByVendor[v]) groupedByVendor[v] = {};
-        
-        // Create a sub-group for the Tech's Bin
         if(!groupedByVendor[v][item.tech]) groupedByVendor[v][item.tech] = [];
-        
         groupedByVendor[v][item.tech].push(item);
     });
 
     let html = '';
 
-    // 3. Build the UI
     for (let vendor in groupedByVendor) {
         let vendorTotal = 0;
         let vendorHtml = '';
         
-        // Loop through each Tech's Bin for this specific vendor
         for (let techName in groupedByVendor[vendor]) {
             let techRows = '';
             
@@ -770,7 +769,6 @@ function openVMIReport() {
                 let m = parseInt(item.minLevel) || 0;
                 let c = parseFloat(item.cost) || 0;
                 
-                // Assume we order exactly enough to hit the Minimum level
                 let orderQty = (m - q) > 0 ? (m - q) : 1; 
                 let lineTotal = orderQty * c;
                 
@@ -789,7 +787,6 @@ function openVMIReport() {
                 `;
             });
             
-            // Inject the bold "TECH BIN" sub-header before their parts
             vendorHtml += `
                 <tr>
                     <td colspan="6" style="background:#eaf2f8; color:#1e4b85; font-weight:bold; font-size:14px; padding:8px 10px; border-top: 2px solid #bdc3c7;">
@@ -833,6 +830,67 @@ function openVMIReport() {
 
     document.getElementById('vmiReportContent').innerHTML = html;
     document.getElementById('vmiReportModal').style.display = 'block';
+}
+
+// Generates a Plain-Text version of the report and opens default email client
+function emailVMIReport() {
+    let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
+    let lowItems = [];
+    
+    for (let tech in invDB) {
+        let cons = invDB[tech].consumables || [];
+        cons.forEach(item => {
+            let q = parseInt(item.qty) || 0;
+            let m = parseInt(item.minLevel) || 0;
+            if (q <= m) {
+                lowItems.push({ tech: tech, ...item });
+            }
+        });
+    }
+
+    if (lowItems.length === 0) {
+        alert("No parts need to be ordered!");
+        return;
+    }
+
+    let groupedByVendor = {};
+    lowItems.forEach(item => {
+        let v = (item.vendor && item.vendor.trim() !== '') ? item.vendor.toUpperCase() : 'UNSPECIFIED VENDOR';
+        if(!groupedByVendor[v]) groupedByVendor[v] = {};
+        if(!groupedByVendor[v][item.tech]) groupedByVendor[v][item.tech] = [];
+        groupedByVendor[v][item.tech].push(item);
+    });
+
+    let todayStr = new Date().toLocaleDateString();
+    let emailBody = `Twin Pillars Heating & Cooling - Parts Restock Order\nDate: ${todayStr}\n\nPlease pull the following parts and organize them into the respective Technician Bins:\n\n`;
+
+    for (let vendor in groupedByVendor) {
+        emailBody += `=========================================\n`;
+        emailBody += `VENDOR: ${vendor}\n`;
+        emailBody += `=========================================\n\n`;
+        
+        for (let techName in groupedByVendor[vendor]) {
+            emailBody += `--- 📦 TECH BIN: ${techName.toUpperCase()} ---\n`;
+            
+            groupedByVendor[vendor][techName].forEach(item => {
+                let q = parseInt(item.qty) || 0;
+                let m = parseInt(item.minLevel) || 0;
+                let orderQty = (m - q) > 0 ? (m - q) : 1; 
+                
+                emailBody += `${orderQty}x - ${item.name}\n`;
+            });
+            emailBody += `\n`;
+        }
+    }
+    
+    emailBody += `\nThank you,\nTwin Pillars Dispatch`;
+
+    // Construct the mailto link
+    let subject = encodeURIComponent("Twin Pillars Parts Restock Order - " + todayStr);
+    let body = encodeURIComponent(emailBody);
+    
+    // Open default email client
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
 }
 
 function printVMIReport() {
