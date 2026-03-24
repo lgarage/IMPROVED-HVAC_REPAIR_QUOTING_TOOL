@@ -289,7 +289,6 @@ function renderMasterTemplates() {
     container.innerHTML = '';
     for(let key in masterDB) {
         let displayName = key.replace(/_/g, ' ').toUpperCase();
-        // Removed the red X button from here
         container.innerHTML += `
             <div style="background:#fff; border:1px solid #e1e8ed; padding:12px 15px; border-radius:6px; display:flex; align-items:center; gap:15px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                 <strong style="color:#1e4b85; min-width: 170px;">${displayName}</strong>
@@ -322,13 +321,17 @@ function deleteCurrentTemplate() {
     if (!editingTemplateType) return;
     let displayName = editingTemplateType.replace(/_/g, ' ').toUpperCase();
     
-    if (confirm(`Are you sure? This will permanently delete the ${displayName} template.`)) {
+    let confirmation = prompt(`WARNING: You are about to permanently delete the '${displayName}' template.\n\nTo confirm, type DELETE in the box below:`);
+    
+    if (confirmation === "DELETE") {
         let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
         delete masterDB[editingTemplateType];
         localStorage.setItem('tp_master_templates', JSON.stringify(masterDB));
         renderMasterTemplates();
         closeTruckInventory();
         if(typeof showSaveCue === 'function') showSaveCue("✓ Template Deleted");
+    } else if (confirmation !== null) {
+        alert("Deletion canceled. You did not type DELETE exactly.");
     }
 }
 
@@ -358,7 +361,6 @@ function openTruckInventory(techName) {
     currentEditingTechInv = techName;
     document.getElementById('invModalTitle').innerText = `${techName}'s Truck`;
     
-    // Manage UI buttons for Truck Mode
     document.getElementById('btnDeleteTemplate').style.display = 'none';
     document.getElementById('btnClearInvBtn').style.display = 'inline-block';
     
@@ -374,7 +376,6 @@ function openMasterTemplateEditor(type) {
     let titleText = "Master " + type.replace(/_/g, ' ').toUpperCase() + " Template";
     document.getElementById('invModalTitle').innerText = titleText;
     
-    // Manage UI buttons for Master Template Mode
     document.getElementById('btnDeleteTemplate').style.display = 'inline-block';
     document.getElementById('btnClearInvBtn').style.display = 'none';
     
@@ -510,32 +511,75 @@ function liveRecalculateStock() {
     renderTruckInventory(); 
 }
 
+// --- NEW SPREADSHEET PARSER (HANDLES MULTIPLE COLUMNS) ---
 function bulkImportTools() {
-    let input = prompt("Paste your list of items here.\nYou can paste an entire column from Excel, separated by lines or commas.");
-    if(!input || input.trim() === "") return;
-    
-    let items = input.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
-    if(items.length === 0) return;
-    
-    let activeData = getActiveInvData();
-    
-    items.forEach(itemName => {
+    // 1. Show the Custom Import Window
+    let inst = document.getElementById('bulkImportInstructions');
+    if (inst) {
         if (currentInvTab === 'tools') {
-            activeData.invData.tools.push({ 
-                name: itemName, category: "Imported", vendor: "", bundle: false, url: `https://www.google.com/search?q=${encodeURIComponent(itemName)}` 
-            });
+            inst.innerHTML = "Copy columns from Excel/Google Sheets and paste below.<br><strong style='color:#e74c3c;'>Expected Order:</strong> Tool Name | Category | Vendor";
         } else {
-            activeData.invData.consumables.push({ 
-                name: itemName, category: "Imported", cost: 0, qty: 0, minLevel: 5, vendor: "" 
+            inst.innerHTML = "Copy columns from Excel/Google Sheets and paste below.<br><strong style='color:#e74c3c;'>Expected Order:</strong> Part Name | Category | Unit Cost | Current QTY | Min Level | Vendor";
+        }
+    }
+    
+    const textarea = document.getElementById('bulkImportTextarea');
+    if(textarea) textarea.value = "";
+    
+    document.getElementById('bulkImportModal').style.display = 'block';
+}
+
+function processBulkImport() {
+    let text = document.getElementById('bulkImportTextarea').value.trim();
+    if (!text) {
+        document.getElementById('bulkImportModal').style.display = 'none';
+        return;
+    }
+    
+    let rows = text.split('\n');
+    let activeData = getActiveInvData();
+    let addedCount = 0;
+
+    rows.forEach((row, index) => {
+        // Excel separates columns with Tab characters
+        let cols = row.split('\t').map(c => c.trim());
+        if (cols.length === 0 || cols[0] === "") return;
+
+        // Skip the row if it looks like a column header
+        if (index === 0 && (cols[0].toLowerCase().includes('name') || cols[0].toLowerCase().includes('tool') || cols[0].toLowerCase().includes('part'))) {
+            return;
+        }
+
+        if (currentInvTab === 'tools') {
+            activeData.invData.tools.push({
+                name: cols[0] || "Unknown Tool",
+                category: cols[1] || "Imported",
+                vendor: cols[2] || "",
+                bundle: false,
+                url: `https://www.google.com/search?q=${encodeURIComponent((cols[2]||"") + " " + cols[0])}`
             });
+            addedCount++;
+        } else {
+            // Strip out dollar signs or letters so math works
+            let costStr = (cols[2] || "0").replace(/[^0-9.]/g, '');
+            activeData.invData.consumables.push({
+                name: cols[0] || "Unknown Part",
+                category: cols[1] || "Imported",
+                cost: parseFloat(costStr) || 0,
+                qty: parseInt(cols[3]) || 0,
+                minLevel: parseInt(cols[4]) || 0,
+                vendor: cols[5] || ""
+            });
+            addedCount++;
         }
     });
-    
+
     localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
     renderTruckInventory();
     
-    if(typeof showSaveCue === 'function') showSaveCue(`✓ Imported ${items.length} items`);
-    
+    document.getElementById('bulkImportModal').style.display = 'none';
+    if(typeof showSaveCue === 'function') showSaveCue(`✓ Imported ${addedCount} items`);
+
     setTimeout(() => {
         const tableContainer = document.querySelector('.inventory-table').parentElement;
         tableContainer.scrollTop = tableContainer.scrollHeight;
@@ -650,10 +694,10 @@ function saveAndCloseTruckInventory(silent = false) {
 }
 
 // ====================================================================
-// --- GLOBAL VMI ALERTS & REPORTING ---
+// --- GLOBAL VMI ALERTS, REPORTING, & MODALS INJECTOR ---
 // ====================================================================
 
-(function injectVMIUI() {
+(function injectSettingsModals() {
     document.addEventListener("DOMContentLoaded", function() {
         const header = document.querySelector('.app-header');
         if(header) {
@@ -666,7 +710,7 @@ function saveAndCloseTruckInventory(silent = false) {
             `);
         }
 
-        const modalHTML = `
+        const modalsHTML = `
             <div id="vmiReportModal" class="modal-overlay" style="z-index: 10020;">
                 <div class="modal-content" style="max-width: 900px; height: 80vh; display: flex; flex-direction: column;">
                     <div class="modal-header" style="flex-shrink: 0;">
@@ -687,6 +731,23 @@ function saveAndCloseTruckInventory(silent = false) {
                 </div>
             </div>
             
+            <div id="bulkImportModal" class="modal-overlay" style="z-index: 10030;">
+                <div class="modal-content" style="max-width: 700px;">
+                    <div class="modal-header">
+                        <h2 style="color: #1e4b85; margin: 0;">📋 Bulk Paste from Excel</h2>
+                        <span class="close-modal" onclick="document.getElementById('bulkImportModal').style.display='none'">×</span>
+                    </div>
+                    <p style="font-size: 13px; color: #555; margin-top: 5px;" id="bulkImportInstructions">
+                        Copy multiple columns directly from Excel/Google Sheets and paste them below.
+                    </p>
+                    <textarea id="bulkImportTextarea" style="width: 100%; height: 250px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; white-space: pre;"></textarea>
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
+                        <button class="gen-btn" style="background:#7f8c8d; padding: 8px 15px;" onclick="document.getElementById('bulkImportModal').style.display='none'">Cancel</button>
+                        <button class="gen-btn" style="background:#27ae60; padding: 8px 15px;" onclick="processBulkImport()">Import Data</button>
+                    </div>
+                </div>
+            </div>
+            
             <style>
                 @keyframes pulse {
                     0% { transform: scale(1); }
@@ -700,7 +761,7 @@ function saveAndCloseTruckInventory(silent = false) {
                 .vmi-table th { background: #f4f6f7; color: #555; }
             </style>
         `;
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        document.body.insertAdjacentHTML('beforeend', modalsHTML);
     });
 })();
 
