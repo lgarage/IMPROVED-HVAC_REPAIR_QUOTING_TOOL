@@ -1195,7 +1195,7 @@
             </div>
 
             <div id="newCustDirForm" style="display:none; background:#f7f9fb; border:1px solid #c89b53; padding:15px; border-radius:6px; margin-bottom:15px;">
-                <h4 style="margin-top:0; margin-bottom:10px; color:#1e4b85;">Add Customer / Sub-Company to Directory</h4>
+                <h4 style="margin-top:0; margin-bottom:10px; color:#1e4b85;">Add Customer & Link Parent</h4>
                 
                 <div style="background:#eaf2f8; padding:10px; border-radius:4px; border:1px solid #b9d5ec; margin-bottom:15px;">
                     <label style="font-size:12px; color:#1e4b85; font-weight:bold; display:block; margin-bottom:5px;">Parent Company (Optional)</label>
@@ -1209,7 +1209,7 @@
 
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
                     <input type="text" id="dirNewName" placeholder="Customer Name (e.g. Planet Fitness)" style="flex:2;">
-                    <input type="text" id="dirNewContact" placeholder="Site Contact Name (Optional)" style="flex:1;">
+                    <input type="text" id="dirNewContact" placeholder="Site Contact Name" style="flex:1;">
                 </div>
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
                     <input type="text" id="dirNewPhone" placeholder="Phone" style="flex:1;" maxlength="14">
@@ -1235,11 +1235,31 @@
                             <th style="width: 35%;">Customer Name</th>
                             <th style="width: 20%;">Customer #</th>
                             <th style="width: 25%;">Locations</th>
-                            <th style="width: 20%; text-align: right;">Action</th>
+                            <th style="text-align: right;">Action</th>
                         </tr>
                     </thead>
                     <tbody id="customerDirectoryBody"></tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="linkParentModal" class="modal-overlay" style="z-index: 10005;">
+        <div class="modal-content" style="max-width: 450px; margin-top: 10%;">
+            <h3 style="margin-top:0; color:#1e4b85;">Link Location to Parent</h3>
+            <p style="font-size:13px; color:#555; margin-bottom: 5px;"><strong>Location:</strong> <span id="linkLocStreetDisplay"></span></p>
+            
+            <div style="background:#eaf2f8; padding:15px; border-radius:6px; border:1px solid #b9d5ec; margin-bottom:20px;">
+                <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:8px;">Select Parent Company</label>
+                <select id="linkParentSelect" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; margin-bottom:15px; font-family:inherit; text-transform:uppercase;"></select>
+                
+                <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:8px;">OR Create New Parent</label>
+                <input type="text" id="linkParentNew" placeholder="e.g. AMERICAN PLATINUM" style="width:100%; border: 1px solid #ccc; padding: 10px; border-radius: 4px; box-sizing: border-box; text-transform: uppercase;">
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="gen-btn" style="background:#7f8c8d; padding:8px 15px;" onclick="document.getElementById('linkParentModal').style.display='none'">Cancel</button>
+                <button class="gen-btn" style="background:#8e44ad; padding:8px 15px;" onclick="confirmLinkParent()">🔗 Link This Address</button>
             </div>
         </div>
     </div>
