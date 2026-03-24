@@ -652,10 +652,8 @@ function saveAndCloseTruckInventory(silent = false) {
 // --- GLOBAL VMI ALERTS & REPORTING ---
 // ====================================================================
 
-// Injects the alert button and the Report Modal into the app automatically
 (function injectVMIUI() {
     document.addEventListener("DOMContentLoaded", function() {
-        // 1. Inject the Alert Button into the main top header
         const header = document.querySelector('.app-header');
         if(header) {
             header.insertAdjacentHTML('beforeend', `
@@ -667,7 +665,7 @@ function saveAndCloseTruckInventory(silent = false) {
             `);
         }
 
-        // 2. Inject the Report Modal into the body
+        // INJECTING THE MODAL WITH THE 4 NEW EXPORT BUTTONS
         const modalHTML = `
             <div id="vmiReportModal" class="modal-overlay" style="z-index: 10020;">
                 <div class="modal-content" style="max-width: 900px; height: 80vh; display: flex; flex-direction: column;">
@@ -676,14 +674,16 @@ function saveAndCloseTruckInventory(silent = false) {
                             <h2 style="color: #e74c3c; margin: 0;">Vendor Replenishment Report</h2>
                             <p style="margin: 5px 0 0 0; font-size: 13px; color: #7f8c8d;">Parts below minimum threshold across all active trucks.</p>
                         </div>
-                        <div style="display:flex; gap: 10px; align-items:center;">
-                            <button class="gen-btn" style="background:#27ae60; padding: 8px 15px;" onclick="emailVMIReport()">📧 Auto-Draft Email</button>
-                            <button class="gen-btn" style="background:#1e4b85; padding: 8px 15px;" onclick="printVMIReport()">🖨️ Print / Save PDF</button>
-                            <span class="close-modal" onclick="document.getElementById('vmiReportModal').style.display='none'">×</span>
+                        <div style="display:flex; gap: 8px; align-items:center;">
+                            <button class="gen-btn" style="background:#f39c12; padding: 6px 12px; font-size: 12px;" onclick="copyVMIReportToClipboard()">📋 Copy Text</button>
+                            <button class="gen-btn" style="background:#ea4335; padding: 6px 12px; font-size: 12px;" onclick="emailVMIReport('gmail')">✉️ Gmail</button>
+                            <button class="gen-btn" style="background:#27ae60; padding: 6px 12px; font-size: 12px;" onclick="emailVMIReport('desktop')">📧 Outlook</button>
+                            <button class="gen-btn" style="background:#1e4b85; padding: 6px 12px; font-size: 12px;" onclick="printVMIReport()">🖨️ Print/PDF</button>
+                            <span class="close-modal" style="margin-left: 10px;" onclick="document.getElementById('vmiReportModal').style.display='none'">×</span>
                         </div>
                     </div>
                     <div id="vmiReportContent" style="flex: 1; overflow-y: auto; padding: 10px 5px;">
-                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -704,7 +704,6 @@ function saveAndCloseTruckInventory(silent = false) {
     });
 })();
 
-// Checks all trucks and displays the red button if needed
 function checkGlobalVMI() {
     let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
     let lowCount = 0;
@@ -729,7 +728,6 @@ function checkGlobalVMI() {
     }
 }
 
-// Generates the clean, grouped HTML report
 function openVMIReport() {
     let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
     let lowItems = [];
@@ -832,8 +830,8 @@ function openVMIReport() {
     document.getElementById('vmiReportModal').style.display = 'block';
 }
 
-// Generates a Plain-Text version of the report and opens default email client
-function emailVMIReport() {
+// --- NEW TEXT GENERATOR FOR EMAILS / CLIPBOARD ---
+function generateVMIEmailText() {
     let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
     let lowItems = [];
     
@@ -842,16 +840,11 @@ function emailVMIReport() {
         cons.forEach(item => {
             let q = parseInt(item.qty) || 0;
             let m = parseInt(item.minLevel) || 0;
-            if (q <= m) {
-                lowItems.push({ tech: tech, ...item });
-            }
+            if (q <= m) lowItems.push({ tech: tech, ...item });
         });
     }
 
-    if (lowItems.length === 0) {
-        alert("No parts need to be ordered!");
-        return;
-    }
+    if (lowItems.length === 0) return null;
 
     let groupedByVendor = {};
     lowItems.forEach(item => {
@@ -871,26 +864,44 @@ function emailVMIReport() {
         
         for (let techName in groupedByVendor[vendor]) {
             emailBody += `--- 📦 TECH BIN: ${techName.toUpperCase()} ---\n`;
-            
             groupedByVendor[vendor][techName].forEach(item => {
                 let q = parseInt(item.qty) || 0;
                 let m = parseInt(item.minLevel) || 0;
                 let orderQty = (m - q) > 0 ? (m - q) : 1; 
-                
                 emailBody += `${orderQty}x - ${item.name}\n`;
             });
             emailBody += `\n`;
         }
     }
+    emailBody += `Thank you,\nTwin Pillars Dispatch`;
     
-    emailBody += `\nThank you,\nTwin Pillars Dispatch`;
+    return { subject: `Twin Pillars Parts Restock Order - ${todayStr}`, body: emailBody };
+}
 
-    // Construct the mailto link
-    let subject = encodeURIComponent("Twin Pillars Parts Restock Order - " + todayStr);
-    let body = encodeURIComponent(emailBody);
+function emailVMIReport(clientType) {
+    let emailData = generateVMIEmailText();
+    if (!emailData) { alert("No parts need to be ordered!"); return; }
+
+    // Safely encode for URLs so line breaks format correctly in the email
+    let subject = encodeURIComponent(emailData.subject);
+    let body = encodeURIComponent(emailData.body);
+
+    if (clientType === 'gmail') {
+        window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`, '_blank');
+    } else {
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    }
+}
+
+function copyVMIReportToClipboard() {
+    let emailData = generateVMIEmailText();
+    if (!emailData) { alert("No parts need to be ordered!"); return; }
     
-    // Open default email client
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    navigator.clipboard.writeText(emailData.subject + "\n\n" + emailData.body).then(() => {
+        if(typeof showSaveCue === 'function') showSaveCue("📋 Copied to Clipboard!");
+    }).catch(err => {
+        alert("Failed to copy text: " + err);
+    });
 }
 
 function printVMIReport() {
