@@ -293,17 +293,22 @@
 
                 <div class="form-section">
                     <h4>1. Customer & Site Verification</h4>
+                    
                     <div class="form-row">
-                        <div class="input-group">
+                        <div class="input-group" style="flex: 2;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                                 <label style="margin-bottom:0; font-size: 14px;">Customer Name</label>
                                 <button type="button" id="scMicBtn" onmousedown="startDispatcherVoiceSearch()" style="background:#f39c12; color:#fff; border:none; border-radius:8px; padding:12px 25px; font-size:15px; font-weight:bold; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.15); transition: transform 0.1s, background 0.1s; user-select: none;">
                                     🎤 HOLD TO SPEAK
                                 </button>
                             </div>
-                            <input type="text" id="scCustNameInput" placeholder="e.g. Planet Fitness" list="customerNamesList">
+                            <input type="text" id="scCustNameInput" placeholder="e.g. Planet Fitness" list="customerNamesList" onblur="checkServiceParentCompany()">
                         </div>
-                        <div class="input-group">
+                        <div class="input-group" style="flex: 1;">
+                            <label style="margin-bottom:5px;">Parent Company</label>
+                            <input type="text" id="scParentCompanyInput" placeholder="Auto-fetches..." readonly style="background:#f2f4f6; color:#7f8c8d; font-weight:bold; margin-top: auto;">
+                        </div>
+                        <div class="input-group" style="flex: 1;">
                             <label style="margin-bottom:5px;">Customer #</label>
                             <input type="text" id="scCustNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold; margin-top: auto;">
                         </div>
@@ -327,7 +332,7 @@
                     <div class="form-row">
                         <div class="input-group" style="flex: 2;">
                             <label>Location Street Address</label>
-                            <input type="text" id="scCustStreetInput" placeholder="1234 Customer St" list="locationStreetsList">
+                            <input type="text" id="scCustStreetInput" placeholder="1234 Customer St" list="locationStreetsList" onblur="checkServiceParentCompany()">
                         </div>
                         <div class="input-group">
                             <label>Location #</label>
@@ -1036,6 +1041,57 @@
         let streetLayer;
         let satLayer;
         let currentMapType = 'm';
+
+        // --- NEW: AUTO-LOOKUP FIREBASE PARENT COMPANY ---
+        async function checkServiceParentCompany() {
+            const custInput = document.getElementById('scCustNameInput');
+            const streetInput = document.getElementById('scCustStreetInput');
+            const parentInput = document.getElementById('scParentCompanyInput');
+
+            if (!custInput || !streetInput || !parentInput) return;
+
+            const customerName = custInput.value.trim().toUpperCase();
+            const street = streetInput.value.trim().toUpperCase();
+
+            // We need both pieces to make a database match
+            if (!customerName || !street) {
+                parentInput.value = "";
+                return;
+            }
+
+            parentInput.value = "Searching...";
+
+            if (typeof firebase === 'undefined' || !firebase.apps.length) {
+                parentInput.value = "Database Disconnected";
+                return;
+            }
+
+            try {
+                const db = firebase.firestore();
+                const locSnapshot = await db.collection("MappedLocations")
+                    .where("Sub_Company", "==", customerName)
+                    .where("Street", "==", street)
+                    .get();
+
+                if (!locSnapshot.empty) {
+                    const parentId = locSnapshot.docs[0].data().Parent_ID;
+                    const parentDoc = await db.collection("ParentCompanies").doc(parentId).get();
+
+                    if (parentDoc.exists) {
+                        parentInput.value = parentDoc.data().Name;
+                        parentInput.style.color = "#1e4b85"; // Highlight blue if found!
+                        return;
+                    }
+                }
+                
+                // If not found
+                parentInput.value = "None / Independent";
+                parentInput.style.color = "#7f8c8d";
+            } catch (error) {
+                console.error("Firebase Parent Lookup Error:", error);
+                parentInput.value = "Error during lookup";
+            }
+        }
 
         // --- GLOBAL APP INITIALIZATION ---
         window.onload = function() {
