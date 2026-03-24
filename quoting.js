@@ -237,55 +237,9 @@ function calcQuoteLiveMath() {
 }
 
 function getMarkupPercentage(cost) {
-    if (cost <= 5) return 4.00; if (cost <= 10) return 3.00; if (cost <= 15) return 2.00;     
+    if (cost <= 5) return 4.00; if (cost <= 10) return 3.00; if (cost <= 15) return 2.00;      
     if (cost <= 100) return 1.50; if (cost <= 500) return 1.00; if (cost <= 1000) return 0.85;   
     if (cost <= 1500) return 0.75; return 0.65;                      
-}
-
-function gatherFormData() {
-    const laborHours = parseFloat(document.getElementById('laborHoursInput').value) || 0;
-    const laborRate = parseFloat(document.getElementById('laborRateInput').value) || 0;
-    const truckCharge = parseFloat(document.getElementById('truckChargeInput').value) || 0;
-    const totalLaborAmount = laborHours * laborRate;
-    
-    let partsData = []; let partsRetailSubtotal = 0;
-    document.querySelectorAll('.part-entry-line').forEach(row => {
-        const qty = parseInt(row.querySelector('.p-qty').value) || 1;
-        const desc = row.querySelector('.p-desc').value.trim().toUpperCase();
-        const cost = parseFloat(row.querySelector('.p-cost').value);
-        const vendor = row.querySelector('.p-vendor').value.trim().toUpperCase();
-
-        if (!isNaN(cost) && desc !== "") {
-            const markupMultiplier = getMarkupPercentage(cost);
-            const retailPricePerUnit = cost + (cost * markupMultiplier);
-            const totalRetailAmount = retailPricePerUnit * qty;
-            partsRetailSubtotal += totalRetailAmount;
-            partsData.push({ qty, desc, num: row.querySelector('.p-num').value.trim().toUpperCase(), vendor, lead: row.querySelector('.p-lead').value.trim().toUpperCase() || "IN STOCK", cost, markupPercent: (markupMultiplier * 100).toFixed(0), retailUnit: retailPricePerUnit, retailTotal: totalRetailAmount });
-        }
-    });
-
-    const subtotal = partsRetailSubtotal + totalLaborAmount + truckCharge;
-    const tax = subtotal * 0.055;
-    const grandTotal = subtotal + tax;
-
-    return {
-        id: document.getElementById('currentQuoteId').value, 
-        customerName: document.getElementById('custNameInput').value.trim().toUpperCase() || "UNKNOWN CUSTOMER",
-        customerNum: document.getElementById('custNumInput').value.trim().toUpperCase() || "N/A",
-        contactName: document.getElementById('contactNameInput').value.trim().toUpperCase() || "",
-        locationAddress: document.getElementById('custStreetInput').value.trim().toUpperCase() || "UNKNOWN LOCATION",
-        custCity: document.getElementById('custCityInput').value.trim().toUpperCase() || "",
-        custState: document.getElementById('custStateInput').value.trim().toUpperCase() || "",
-        custZip: document.getElementById('custZipInput').value.trim().toUpperCase() || "",
-        locationNum: document.getElementById('locNumInput').value.trim().toUpperCase() || "N/A",
-        quoteNum: document.getElementById('quoteNumberInput').value || "N/A",
-        status: document.getElementById('quoteStatusInput').value,
-        jobWorkflow: document.getElementById('jobWorkflowInput').value,
-        requoteNote: document.getElementById('requoteNoteHistory').value, 
-        quoteDate: document.getElementById('quoteDateInput').value,
-        dueDate: document.getElementById('dueDateInput').value,
-        laborHours, laborRate, truckCharge, totalLaborAmount, parts: partsData, subtotal, tax, grandTotal
-    };
 }
 
 function updatePreviewHTML() {
@@ -439,57 +393,6 @@ function previewQuote(dbId) {
     updatePreviewHTML(); 
     document.getElementById('resultsSection').style.display = 'block';
     document.getElementById('internalView').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function loadQuoteForEditing(dbId) {
-    let db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
-    const quote = db.find(q => q.id === dbId);
-    if (!quote) return;
-
-    document.getElementById('currentQuoteId').value = quote.id;
-    document.getElementById('custNameInput').value = quote.customerName;
-    document.getElementById('custNumInput').value = quote.customerNum;
-    document.getElementById('contactNameInput').value = quote.contactName || "";
-    document.getElementById('custStreetInput').value = quote.locationAddress;
-    document.getElementById('custCityInput').value = quote.custCity || "";
-    document.getElementById('custStateInput').value = quote.custState || "";
-    document.getElementById('custZipInput').value = quote.custZip || "";
-    document.getElementById('locNumInput').value = quote.locationNum;
-    document.getElementById('quoteNumberInput').value = quote.quoteNum;
-    document.getElementById('quoteStatusInput').value = quote.status;
-    document.getElementById('jobWorkflowInput').value = quote.jobWorkflow || "N/A";
-    document.getElementById('requoteNoteHistory').value = quote.requoteNote || "";
-    document.getElementById('newRequoteNote').value = "";
-    handleQuoteStatusChange(); updateLocationDatalist(); 
-    
-    document.getElementById('quoteDateInput').value = quote.quoteDate;
-    document.getElementById('dueDateInput').value = quote.dueDate;
-    document.getElementById('laborHoursInput').value = quote.laborHours;
-    document.getElementById('laborRateInput').value = quote.laborRate;
-    document.getElementById('truckChargeInput').value = quote.truckCharge;
-
-    document.getElementById('partsContainer').innerHTML = `
-    <div class="parts-grid-layout part-header-row">
-        <label>QTY</label>
-        <label>Part Description</label>
-        <label>Part Number</label>
-        <label>Vendor</label>
-        <label>Lead Time (Days)</label>
-        <label>Our Cost $</label>
-        <label style="color:#27ae60;">Retail $ (Auto)</label>
-        <label></label>
-    </div>`;
-    
-    quote.parts.forEach(p => {
-        const row = document.createElement('div'); row.className = 'parts-grid-layout part-row part-entry-line';
-        const loadedLineRetail = p.retailTotal || 0;
-        
-        row.innerHTML = `<input type="number" class="p-qty" value="${p.qty}" min="1" oninput="calcQuoteLiveMath()"><input type="text" class="p-desc" value="${p.desc}"><input type="text" class="p-num" value="${p.num}"><input type="text" class="p-vendor text-uppercase" value="${p.vendor || ''}"><input type="text" class="p-lead" value="${p.lead}"><div class="cost-wrapper"><span>$</span><input type="number" class="p-cost" step="0.01" value="${p.cost}" oninput="calcQuoteLiveMath()"></div><div class="cost-wrapper" style="color:#27ae60;"><span>$</span><input type="text" class="p-retail" value="${loadedLineRetail.toFixed(2)}" readonly style="background:transparent; border:none; font-weight:bold; width:100%; outline:none;"></div><div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>`;
-        document.getElementById('partsContainer').appendChild(row);
-    });
-
-    document.getElementById('resultsSection').style.display = 'none';
-    document.getElementById('mainFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function deleteQuote(dbId) {
