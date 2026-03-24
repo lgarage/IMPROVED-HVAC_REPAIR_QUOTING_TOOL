@@ -511,16 +511,12 @@ function liveRecalculateStock() {
     renderTruckInventory(); 
 }
 
-// --- NEW SPREADSHEET PARSER (HANDLES MULTIPLE COLUMNS) ---
+// --- NEW SMART SPREADSHEET PARSER ---
 function bulkImportTools() {
-    // 1. Show the Custom Import Window
+    // 1. Show the Custom Import Window with new instructions
     let inst = document.getElementById('bulkImportInstructions');
     if (inst) {
-        if (currentInvTab === 'tools') {
-            inst.innerHTML = "Copy columns from Excel/Google Sheets and paste below.<br><strong style='color:#e74c3c;'>Expected Order:</strong> Tool Name | Category | Vendor";
-        } else {
-            inst.innerHTML = "Copy columns from Excel/Google Sheets and paste below.<br><strong style='color:#e74c3c;'>Expected Order:</strong> Part Name | Category | Unit Cost | Current QTY | Min Level | Vendor";
-        }
+        inst.innerHTML = "Copy columns from Excel/Google Sheets <strong>INCLUDING the Header Row</strong> and paste below.<br><span style='color:#27ae60; font-weight:bold;'>The smart parser will auto-detect columns like Name, Category, QTY, Cost, Min Level, and Vendor!</span>";
     }
     
     const textarea = document.getElementById('bulkImportTextarea');
@@ -540,39 +536,71 @@ function processBulkImport() {
     let activeData = getActiveInvData();
     let addedCount = 0;
 
-    rows.forEach((row, index) => {
-        // Excel separates columns with Tab characters
-        let cols = row.split('\t').map(c => c.trim());
-        if (cols.length === 0 || cols[0] === "") return;
+    // Default column mapping (Fallback if no headers found)
+    let map = { name: 0, cat: 1, cost: 2, qty: 3, min: 4, ven: 5 };
+    let hasHeaders = false;
 
-        // Skip the row if it looks like a column header
-        if (index === 0 && (cols[0].toLowerCase().includes('name') || cols[0].toLowerCase().includes('tool') || cols[0].toLowerCase().includes('part'))) {
-            return;
-        }
+    // Check if the first row is a header row
+    let firstRowCols = rows[0].split('\t').map(c => c.trim().toLowerCase());
+    if (firstRowCols.length === 1) firstRowCols = rows[0].split(',').map(c => c.trim().toLowerCase()); 
+    
+    // Look for recognizable header keywords
+    if (firstRowCols.some(c => c.includes('name') || c.includes('tool') || c.includes('part') || c.includes('desc') || c.includes('category'))) {
+        hasHeaders = true;
+        
+        // Dynamically find which column index holds which data
+        let nIdx = firstRowCols.findIndex(c => c.includes('name') || c.includes('tool') || c.includes('part') || c.includes('desc'));
+        let catIdx = firstRowCols.findIndex(c => c.includes('category') || c.includes('cat'));
+        let costIdx = firstRowCols.findIndex(c => c.includes('cost') || c.includes('price') || c.includes('each'));
+        let qtyIdx = firstRowCols.findIndex(c => c.includes('qty') || c.includes('quantity') || c.includes('stock'));
+        let minIdx = firstRowCols.findIndex(c => c.includes('min') || c.includes('level'));
+        let venIdx = firstRowCols.findIndex(c => c.includes('vendor') || c.includes('brand') || c.includes('supplier'));
+
+        if (nIdx !== -1) map.name = nIdx;
+        if (catIdx !== -1) map.cat = catIdx;
+        if (costIdx !== -1) map.cost = costIdx;
+        if (qtyIdx !== -1) map.qty = qtyIdx;
+        if (minIdx !== -1) map.min = minIdx;
+        if (venIdx !== -1) map.ven = venIdx;
+    }
+
+    let startIndex = hasHeaders ? 1 : 0;
+    
+    // Process the data rows
+    for (let i = startIndex; i < rows.length; i++) {
+        let row = rows[i];
+        let delimiter = row.includes('\t') ? '\t' : ',';
+        let cols = row.split(delimiter).map(c => c.trim());
+        
+        if (cols.length < 2) continue; // Skip empty or garbage rows
+
+        let partName = cols[map.name] || "Unknown Item";
+        let partCat = cols[map.cat] || "Imported";
+        let partVen = cols[map.ven] || "";
 
         if (currentInvTab === 'tools') {
             activeData.invData.tools.push({
-                name: cols[0] || "Unknown Tool",
-                category: cols[1] || "Imported",
-                vendor: cols[2] || "",
+                name: partName,
+                category: partCat,
+                vendor: partVen,
                 bundle: false,
-                url: `https://www.google.com/search?q=${encodeURIComponent((cols[2]||"") + " " + cols[0])}`
+                url: `https://www.google.com/search?q=${encodeURIComponent(partVen + " " + partName)}`
             });
             addedCount++;
         } else {
-            // Strip out dollar signs or letters so math works
-            let costStr = (cols[2] || "0").replace(/[^0-9.]/g, '');
+            // Strip out dollar signs so the math works perfectly
+            let costStr = (cols[map.cost] || "0").replace(/[^0-9.]/g, '');
             activeData.invData.consumables.push({
-                name: cols[0] || "Unknown Part",
-                category: cols[1] || "Imported",
+                name: partName,
+                category: partCat,
                 cost: parseFloat(costStr) || 0,
-                qty: parseInt(cols[3]) || 0,
-                minLevel: parseInt(cols[4]) || 0,
-                vendor: cols[5] || ""
+                qty: parseInt(cols[map.qty]) || 0,
+                minLevel: parseInt(cols[map.min]) || 0,
+                vendor: partVen
             });
             addedCount++;
         }
-    });
+    }
 
     localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
     renderTruckInventory();
@@ -580,9 +608,10 @@ function processBulkImport() {
     document.getElementById('bulkImportModal').style.display = 'none';
     if(typeof showSaveCue === 'function') showSaveCue(`✓ Imported ${addedCount} items`);
 
+    // Scroll to the bottom of the list
     setTimeout(() => {
         const tableContainer = document.querySelector('.inventory-table').parentElement;
-        tableContainer.scrollTop = tableContainer.scrollHeight;
+        if(tableContainer) tableContainer.scrollTop = tableContainer.scrollHeight;
     }, 100);
 }
 
