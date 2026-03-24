@@ -99,6 +99,15 @@ const seedDataJman = [
     ...seedDataApprentice
 ];
 
+// --- NEW DEFAULT SEED FOR CONSUMABLES ---
+const seedDataConsumables = [
+    { name: "Wire Nuts (Assorted)", category: "Electrical", cost: 0.15, qty: 0, minLevel: 100, vendor: "Home Depot" },
+    { name: "3M Super 33+ Electrical Tape", category: "Electrical", cost: 4.50, qty: 0, minLevel: 10, vendor: "Home Depot" },
+    { name: "Clear PVC Glue", category: "Plumbing", cost: 8.00, qty: 0, minLevel: 3, vendor: "Home Depot" },
+    { name: "PVC Primer", category: "Plumbing", cost: 7.00, qty: 0, minLevel: 3, vendor: "Home Depot" },
+    { name: "Zip-in Screws HW8x1/2ZG", category: "Hardware", cost: 0.05, qty: 0, minLevel: 250, vendor: "USA Tool Depot" }
+];
+
 function processSeedData(arr) {
     let uniqueList = [];
     arr.forEach(item => {
@@ -131,18 +140,33 @@ function loadAppTechs() {
         localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
     }
     
-    if(!localStorage.getItem('tp_master_templates')) {
-        localStorage.setItem('tp_master_templates', JSON.stringify({
+    // Seed templates. Checks if they exist to prevent overwriting your custom edits!
+    let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
+    let needsUpdate = false;
+
+    if (Object.keys(masterDB).length === 0) {
+        masterDB = {
             jman: { tools: masterJmanTemplate, consumables: [] },
-            apprentice: { tools: masterApprenticeTemplate, consumables: [] }
-        }));
+            apprentice: { tools: masterApprenticeTemplate, consumables: [] },
+            jman_consumables: { tools: [], consumables: seedDataConsumables }
+        };
+        needsUpdate = true;
+    } else {
+        // If they already have templates, check if they are missing the new Consumable one
+        if (!masterDB['jman_consumables']) {
+            masterDB['jman_consumables'] = { tools: [], consumables: seedDataConsumables };
+            needsUpdate = true;
+        }
+    }
+
+    if (needsUpdate) {
+        localStorage.setItem('tp_master_templates', JSON.stringify(masterDB));
     }
 
     renderTechSettings();
     renderMasterTemplates(); 
     populateTechDropdowns();
     
-    // Check stock levels on load
     setTimeout(checkGlobalVMI, 500); 
 }
 
@@ -229,7 +253,7 @@ function removeTechnician(index) {
         renderTechSettings();
         populateTechDropdowns();
         if(typeof showSaveCue === 'function') showSaveCue("✓ Technician Removed");
-        checkGlobalVMI(); // Update alerts
+        checkGlobalVMI(); 
     }
 }
 
@@ -270,7 +294,7 @@ function renderMasterTemplates() {
         let displayName = key.replace(/_/g, ' ').toUpperCase();
         container.innerHTML += `
             <div style="background:#fff; border:1px solid #e1e8ed; padding:12px 15px; border-radius:6px; display:flex; align-items:center; gap:15px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                <strong style="color:#1e4b85; min-width: 150px;">${displayName}</strong>
+                <strong style="color:#1e4b85; min-width: 170px;">${displayName}</strong>
                 <button class="gen-btn btn-sm" style="background:#f39c12; padding:6px 15px;" onclick="openMasterTemplateEditor('${key}')">Edit List</button>
                 <button class="gen-btn btn-sm" style="background:#e74c3c; padding:6px 12px;" onclick="deleteTemplate('${key}')">X</button>
             </div>
@@ -298,13 +322,20 @@ function createNewTemplate() {
 }
 
 function deleteTemplate(key) {
-    if(!confirm(`Are you sure you want to permanently delete the '${key.replace(/_/g, ' ').toUpperCase()}' template?`)) return;
+    let displayName = key.replace(/_/g, ' ').toUpperCase();
     
-    let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
-    delete masterDB[key];
-    localStorage.setItem('tp_master_templates', JSON.stringify(masterDB));
-    renderMasterTemplates();
-    if(typeof showSaveCue === 'function') showSaveCue("✓ Template Deleted");
+    // NEW SAFETY LOCK: Forces user to type DELETE
+    let confirmation = prompt(`WARNING: You are about to permanently delete the '${displayName}' template.\n\nTo confirm, type DELETE in the box below:`);
+    
+    if (confirmation === "DELETE") {
+        let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
+        delete masterDB[key];
+        localStorage.setItem('tp_master_templates', JSON.stringify(masterDB));
+        renderMasterTemplates();
+        if(typeof showSaveCue === 'function') showSaveCue("✓ Template Deleted");
+    } else if (confirmation !== null) {
+        alert("Deletion canceled. You did not type DELETE exactly.");
+    }
 }
 
 function renderTemplateLoaders() {
@@ -332,7 +363,7 @@ function openTruckInventory(techName) {
     editingTemplateType = null; 
     currentEditingTechInv = techName;
     document.getElementById('invModalTitle').innerText = `${techName}'s Truck`;
-    document.getElementById('invActionButtons').style.display = 'block'; 
+    
     switchInvTab('tools'); 
     document.getElementById('truckInventoryModal').style.display = 'block';
     renderTruckInventory();
@@ -344,9 +375,14 @@ function openMasterTemplateEditor(type) {
     
     let titleText = "Master " + type.replace(/_/g, ' ').toUpperCase() + " Template";
     document.getElementById('invModalTitle').innerText = titleText;
-    document.getElementById('invActionButtons').style.display = 'none';
     
-    switchInvTab('tools'); 
+    // If it's the consumables template, default to that tab
+    if (type.includes('consumables')) {
+        switchInvTab('consumables');
+    } else {
+        switchInvTab('tools'); 
+    }
+    
     document.getElementById('truckInventoryModal').style.display = 'block';
     renderTruckInventory();
 }
@@ -355,7 +391,7 @@ function closeTruckInventory() {
     document.getElementById('truckInventoryModal').style.display = 'none';
     currentEditingTechInv = "";
     editingTemplateType = null;
-    checkGlobalVMI(); // Always check for alerts when closing!
+    checkGlobalVMI(); 
 }
 
 function switchInvTab(tabName) {
@@ -396,7 +432,6 @@ function renderTruckInventory() {
     const tbody = document.getElementById('inventoryTableBody');
     tbody.innerHTML = '';
 
-    // DYNAMIC HEADERS
     if (currentInvTab === 'tools') {
         thead.innerHTML = `
             <tr>
@@ -445,7 +480,6 @@ function renderTruckInventory() {
                 </tr>
             `;
         } else {
-            // VMI CONSUMABLES LOGIC
             let qty = parseInt(item.qty) || 0;
             let min = parseInt(item.minLevel) || 0;
             let cost = parseFloat(item.cost) || 0.00;
@@ -618,10 +652,8 @@ function saveAndCloseTruckInventory(silent = false) {
 // --- GLOBAL VMI ALERTS & REPORTING ---
 // ====================================================================
 
-// Injects the alert button and the Report Modal into the app automatically
 (function injectVMIUI() {
     document.addEventListener("DOMContentLoaded", function() {
-        // 1. Inject the Alert Button into the main top header
         const header = document.querySelector('.app-header');
         if(header) {
             header.insertAdjacentHTML('beforeend', `
@@ -633,7 +665,6 @@ function saveAndCloseTruckInventory(silent = false) {
             `);
         }
 
-        // 2. Inject the Report Modal into the body
         const modalHTML = `
             <div id="vmiReportModal" class="modal-overlay" style="z-index: 10020;">
                 <div class="modal-content" style="max-width: 900px; height: 80vh; display: flex; flex-direction: column;">
@@ -648,7 +679,7 @@ function saveAndCloseTruckInventory(silent = false) {
                         </div>
                     </div>
                     <div id="vmiReportContent" style="flex: 1; overflow-y: auto; padding: 10px 5px;">
-                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -669,7 +700,6 @@ function saveAndCloseTruckInventory(silent = false) {
     });
 })();
 
-// Checks all trucks and displays the red button if needed
 function checkGlobalVMI() {
     let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
     let lowCount = 0;
@@ -694,7 +724,6 @@ function checkGlobalVMI() {
     }
 }
 
-// Generates the clean, grouped report
 function openVMIReport() {
     let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
     let lowItems = [];
@@ -730,7 +759,6 @@ function openVMIReport() {
             let m = parseInt(item.minLevel) || 0;
             let c = parseFloat(item.cost) || 0;
             
-            // Assume we order exactly enough to hit the Minimum level
             let orderQty = (m - q) > 0 ? (m - q) : 1; 
             let lineTotal = orderQty * c;
             
@@ -796,5 +824,5 @@ function printVMIReport() {
 
     window.print();
     document.body.innerHTML = originalContents;
-    location.reload(); // Refresh to restore all the JS bindings after printing
+    location.reload(); 
 }
