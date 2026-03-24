@@ -131,7 +131,6 @@ function loadAppTechs() {
         localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
     }
     
-    // Seed initial templates if missing
     if(!localStorage.getItem('tp_master_templates')) {
         localStorage.setItem('tp_master_templates', JSON.stringify({
             jman: { tools: masterJmanTemplate, consumables: [] },
@@ -140,8 +139,11 @@ function loadAppTechs() {
     }
 
     renderTechSettings();
-    renderMasterTemplates(); // NEW: Render dynamic templates
+    renderMasterTemplates(); 
     populateTechDropdowns();
+    
+    // Check stock levels on load
+    setTimeout(checkGlobalVMI, 500); 
 }
 
 function renderTechSettings() {
@@ -227,6 +229,7 @@ function removeTechnician(index) {
         renderTechSettings();
         populateTechDropdowns();
         if(typeof showSaveCue === 'function') showSaveCue("✓ Technician Removed");
+        checkGlobalVMI(); // Update alerts
     }
 }
 
@@ -273,14 +276,14 @@ function renderMasterTemplates() {
             </div>
         `;
     }
-    renderTemplateLoaders(); // Updates the buttons inside the Truck Modal
+    renderTemplateLoaders(); 
 }
 
 function createNewTemplate() {
     let name = prompt("Enter a name for the new template (e.g., 'Install Crew', 'Maintenance'):");
     if(!name || name.trim() === '') return;
     
-    let key = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'); // Makes it a safe ID
+    let key = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'); 
     
     let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
     if(masterDB[key]) { 
@@ -322,14 +325,14 @@ function renderTemplateLoaders() {
 }
 
 // ====================================================================
-// --- VMI / INVENTORY MODAL LOGIC (HANDLES TECHS & TEMPLATES) ---
+// --- VMI / INVENTORY MODAL LOGIC & REPLENISHMENT REPORTING ---
 // ====================================================================
 
 function openTruckInventory(techName) {
     editingTemplateType = null; 
     currentEditingTechInv = techName;
     document.getElementById('invModalTitle').innerText = `${techName}'s Truck`;
-    
+    document.getElementById('invActionButtons').style.display = 'block'; 
     switchInvTab('tools'); 
     document.getElementById('truckInventoryModal').style.display = 'block';
     renderTruckInventory();
@@ -341,6 +344,7 @@ function openMasterTemplateEditor(type) {
     
     let titleText = "Master " + type.replace(/_/g, ' ').toUpperCase() + " Template";
     document.getElementById('invModalTitle').innerText = titleText;
+    document.getElementById('invActionButtons').style.display = 'none';
     
     switchInvTab('tools'); 
     document.getElementById('truckInventoryModal').style.display = 'block';
@@ -351,6 +355,7 @@ function closeTruckInventory() {
     document.getElementById('truckInventoryModal').style.display = 'none';
     currentEditingTechInv = "";
     editingTemplateType = null;
+    checkGlobalVMI(); // Always check for alerts when closing!
 }
 
 function switchInvTab(tabName) {
@@ -391,7 +396,7 @@ function renderTruckInventory() {
     const tbody = document.getElementById('inventoryTableBody');
     tbody.innerHTML = '';
 
-    // DYNAMICALLY SWAP THE TABLE HEADERS BASED ON TAB
+    // DYNAMIC HEADERS
     if (currentInvTab === 'tools') {
         thead.innerHTML = `
             <tr>
@@ -406,12 +411,13 @@ function renderTruckInventory() {
     } else {
         thead.innerHTML = `
             <tr>
-                <th width="30%">Part Name</th>
+                <th width="25%">Part Name</th>
                 <th width="15%">Category</th>
+                <th width="10%">Unit Cost $</th>
                 <th width="10%">Current QTY</th>
                 <th width="10%">Min Level</th>
                 <th width="15%">Vendor</th>
-                <th width="15%">Status</th>
+                <th width="10%">Status</th>
                 <th width="5%"></th>
             </tr>
         `;
@@ -421,7 +427,7 @@ function renderTruckInventory() {
     const currentList = currentInvTab === 'tools' ? activeData.invData.tools : activeData.invData.consumables;
 
     if (currentList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #7f8c8d; padding: 30px;">This ${currentInvTab} list is currently empty.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #7f8c8d; padding: 30px;">This ${currentInvTab} list is currently empty.</td></tr>`;
         return;
     }
 
@@ -442,6 +448,7 @@ function renderTruckInventory() {
             // VMI CONSUMABLES LOGIC
             let qty = parseInt(item.qty) || 0;
             let min = parseInt(item.minLevel) || 0;
+            let cost = parseFloat(item.cost) || 0.00;
             let isLow = qty <= min;
             
             let statusHtml = isLow ? `<span style="color:#e74c3c; font-weight:bold; font-size:11px;">⚠️ LOW STOCK</span>` : `<span style="color:#27ae60; font-weight:bold; font-size:11px;">✓ OK</span>`;
@@ -451,6 +458,7 @@ function renderTruckInventory() {
                 <tr style="${rowBg}">
                     <td><input type="text" class="inventory-input p-name" value="${item.name}"></td>
                     <td><input type="text" class="inventory-input p-cat" value="${item.category || ''}"></td>
+                    <td><input type="number" class="inventory-input p-cost" value="${cost.toFixed(2)}" step="0.01" onchange="liveRecalculateStock()"></td>
                     <td><input type="number" class="inventory-input p-qty" value="${qty}" style="width:100%;" min="0" onchange="liveRecalculateStock()"></td>
                     <td><input type="number" class="inventory-input p-min" value="${min}" style="width:100%;" min="0" onchange="liveRecalculateStock()"></td>
                     <td><input type="text" class="inventory-input p-ven" value="${item.vendor || ''}"></td>
@@ -462,10 +470,9 @@ function renderTruckInventory() {
     });
 }
 
-// Triggers a visual refresh without saving if someone clicks the up/down arrows on QTY
 function liveRecalculateStock() {
-    saveAndCloseTruckInventory(true); // Save silently
-    renderTruckInventory(); // Redraw with red backgrounds if they dropped below Min Level
+    saveAndCloseTruckInventory(true); 
+    renderTruckInventory(); 
 }
 
 function bulkImportTools() {
@@ -484,7 +491,7 @@ function bulkImportTools() {
             });
         } else {
             activeData.invData.consumables.push({ 
-                name: itemName, category: "Imported", qty: 0, minLevel: 5, vendor: "" 
+                name: itemName, category: "Imported", cost: 0, qty: 0, minLevel: 5, vendor: "" 
             });
         }
     });
@@ -506,7 +513,7 @@ function addBlankToolRow() {
     if (currentInvTab === 'tools') { 
         activeData.invData.tools.push({ name: "", category: "", vendor: "", bundle: false, url: "" }); 
     } else { 
-        activeData.invData.consumables.push({ name: "", category: "", qty: 0, minLevel: 5, vendor: "" }); 
+        activeData.invData.consumables.push({ name: "", category: "", cost: 0, qty: 0, minLevel: 5, vendor: "" }); 
     }
     
     localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
@@ -583,6 +590,7 @@ function saveAndCloseTruckInventory(silent = false) {
                     updatedList.push({
                         name: nameEl.value,
                         category: row.querySelector('.p-cat').value,
+                        cost: parseFloat(row.querySelector('.p-cost').value) || 0,
                         qty: parseInt(row.querySelector('.p-qty').value) || 0,
                         minLevel: parseInt(row.querySelector('.p-min').value) || 0,
                         vendor: row.querySelector('.p-ven').value
@@ -605,7 +613,188 @@ function saveAndCloseTruckInventory(silent = false) {
         if(typeof showSaveCue === 'function') showSaveCue(msg);
     }
 }
+
+// ====================================================================
+// --- GLOBAL VMI ALERTS & REPORTING ---
+// ====================================================================
+
+// Injects the alert button and the Report Modal into the app automatically
+(function injectVMIUI() {
+    document.addEventListener("DOMContentLoaded", function() {
+        // 1. Inject the Alert Button into the main top header
+        const header = document.querySelector('.app-header');
+        if(header) {
+            header.insertAdjacentHTML('beforeend', `
+                <button id="vmiAlertBtn" class="gen-btn" 
+                        style="background:#e74c3c; display:none; position:absolute; right:20px; font-size:14px; padding: 10px 20px; box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4); animation: pulse 2s infinite;" 
+                        onclick="openVMIReport()">
+                    ⚠️ Order Parts
+                </button>
+            `);
+        }
+
+        // 2. Inject the Report Modal into the body
+        const modalHTML = `
+            <div id="vmiReportModal" class="modal-overlay" style="z-index: 10020;">
+                <div class="modal-content" style="max-width: 900px; height: 80vh; display: flex; flex-direction: column;">
+                    <div class="modal-header" style="flex-shrink: 0;">
+                        <div>
+                            <h2 style="color: #e74c3c; margin: 0;">Vendor Replenishment Report</h2>
+                            <p style="margin: 5px 0 0 0; font-size: 13px; color: #7f8c8d;">Parts below minimum threshold across all active trucks.</p>
+                        </div>
+                        <div style="display:flex; gap: 10px; align-items:center;">
+                            <button class="gen-btn" style="background:#1e4b85; padding: 8px 15px;" onclick="printVMIReport()">🖨️ Print / Save PDF</button>
+                            <span class="close-modal" onclick="document.getElementById('vmiReportModal').style.display='none'">×</span>
+                        </div>
+                    </div>
+                    <div id="vmiReportContent" style="flex: 1; overflow-y: auto; padding: 10px 5px;">
+                        </div>
+                </div>
+            </div>
+            
+            <style>
+                @keyframes pulse {
+                    0% { transform: scale(1); }
+                    50% { transform: scale(1.05); }
+                    100% { transform: scale(1); }
+                }
+                .vmi-vendor-block { background: #fff; border: 1px solid #c89b53; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+                .vmi-vendor-header { background: #1e4b85; color: #fff; padding: 12px 15px; font-weight: bold; font-size: 16px; display: flex; justify-content: space-between; }
+                .vmi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+                .vmi-table th, .vmi-table td { padding: 10px; text-align: left; border-bottom: 1px solid #eaeaea; }
+                .vmi-table th { background: #f4f6f7; color: #555; }
+            </style>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    });
+})();
+
+// Checks all trucks and displays the red button if needed
+function checkGlobalVMI() {
+    let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
+    let lowCount = 0;
     
-    let msg = editingTemplateType ? "✓ Master Template Saved" : "✓ Loadout Saved";
-    if(typeof showSaveCue === 'function') showSaveCue(msg);
+    for (let tech in invDB) {
+        let cons = invDB[tech].consumables || [];
+        cons.forEach(item => {
+            let q = parseInt(item.qty) || 0;
+            let m = parseInt(item.minLevel) || 0;
+            if (q <= m) lowCount++;
+        });
+    }
+
+    let alertBtn = document.getElementById('vmiAlertBtn');
+    if(alertBtn) {
+        if(lowCount > 0) {
+            alertBtn.style.display = 'inline-block';
+            alertBtn.innerHTML = `⚠️ Order Parts (${lowCount})`;
+        } else {
+            alertBtn.style.display = 'none';
+        }
+    }
+}
+
+// Generates the clean, grouped report
+function openVMIReport() {
+    let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
+    let lowItems = [];
+    
+    for (let tech in invDB) {
+        let cons = invDB[tech].consumables || [];
+        cons.forEach(item => {
+            let q = parseInt(item.qty) || 0;
+            let m = parseInt(item.minLevel) || 0;
+            if (q <= m) {
+                lowItems.push({ tech: tech, ...item });
+            }
+        });
+    }
+
+    let groupedByVendor = {};
+    let grandTotal = 0;
+
+    lowItems.forEach(item => {
+        let v = (item.vendor && item.vendor.trim() !== '') ? item.vendor.toUpperCase() : 'UNSPECIFIED VENDOR';
+        if(!groupedByVendor[v]) groupedByVendor[v] = [];
+        groupedByVendor[v].push(item);
+    });
+
+    let html = '';
+
+    for (let vendor in groupedByVendor) {
+        let vendorTotal = 0;
+        let rowsHtml = '';
+        
+        groupedByVendor[vendor].forEach(item => {
+            let q = parseInt(item.qty) || 0;
+            let m = parseInt(item.minLevel) || 0;
+            let c = parseFloat(item.cost) || 0;
+            
+            // Assume we order exactly enough to hit the Minimum level
+            let orderQty = (m - q) > 0 ? (m - q) : 1; 
+            let lineTotal = orderQty * c;
+            
+            vendorTotal += lineTotal;
+            grandTotal += lineTotal;
+
+            rowsHtml += `
+                <tr>
+                    <td style="font-weight:bold;">${item.name}</td>
+                    <td>${item.tech}</td>
+                    <td><span style="color:#e74c3c; font-weight:bold;">${q}</span> / ${m}</td>
+                    <td style="font-weight:bold; color:#27ae60;">${orderQty}</td>
+                    <td>$${c.toFixed(2)}</td>
+                    <td>$${lineTotal.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+            <div class="vmi-vendor-block">
+                <div class="vmi-vendor-header">
+                    <span>${vendor}</span>
+                    <span>Est. PO Total: $${vendorTotal.toFixed(2)}</span>
+                </div>
+                <table class="vmi-table">
+                    <thead>
+                        <tr>
+                            <th width="35%">Part Name</th>
+                            <th width="15%">Truck Needed For</th>
+                            <th width="15%">Stock / Min</th>
+                            <th width="10%">Order QTY</th>
+                            <th width="10%">Unit Cost</th>
+                            <th width="15%">Line Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    if (html === '') { html = '<p style="text-align:center; padding: 20px;">All trucks are currently fully stocked.</p>'; }
+    else { html += `<div style="text-align:right; font-size:20px; font-weight:bold; padding:20px;">GRAND TOTAL ESTIMATE: <span style="color:#27ae60;">$${grandTotal.toFixed(2)}</span></div>`; }
+
+    document.getElementById('vmiReportContent').innerHTML = html;
+    document.getElementById('vmiReportModal').style.display = 'block';
+}
+
+function printVMIReport() {
+    let printContents = document.getElementById('vmiReportContent').innerHTML;
+    let originalContents = document.body.innerHTML;
+
+    document.body.innerHTML = `
+        <div style="padding: 40px; font-family: sans-serif;">
+            <h1 style="color:#1e4b85;">Twin Pillars - Vendor Replenishment Report</h1>
+            <p>Generated on: ${new Date().toLocaleString()}</p>
+            <hr style="margin-bottom: 30px;">
+            ${printContents}
+        </div>
+    `;
+
+    window.print();
+    document.body.innerHTML = originalContents;
+    location.reload(); // Refresh to restore all the JS bindings after printing
 }
