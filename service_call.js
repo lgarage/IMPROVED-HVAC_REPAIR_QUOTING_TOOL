@@ -310,6 +310,14 @@ function openTicketDetails(dbId) {
     const sc = db.find(s => s.id === dbId);
     if (!sc) return;
 
+    // --- DYNAMICALLY GENERATE TECH DROPDOWN OPTIONS ---
+    let savedTechs = JSON.parse(localStorage.getItem('tp_tech_list') || '["Dave (Tech 1)", "Sarah (Tech 2)", "Mike (Tech 3)", "Tom (Tech 4)"]');
+    let techOptionsHtml = `<option value="Unassigned" ${sc.assignedTech === 'Unassigned' || !sc.assignedTech ? 'selected' : ''}>Unassigned</option>`;
+    
+    savedTechs.forEach(tech => {
+        techOptionsHtml += `<option value="${tech}" ${sc.assignedTech === tech ? 'selected' : ''}>${tech}</option>`;
+    });
+
     let custNumStr = sc.customerNum ? ` <span style="font-size: 14px; color: #7f8c8d; font-weight: normal;">(${sc.customerNum})</span>` : '';
     document.getElementById('tdModalTitle').innerHTML = `Ticket ${sc.ticketNum} - ${sc.customerName}${custNumStr}`;
     
@@ -339,11 +347,7 @@ function openTicketDetails(dbId) {
             <div style="margin-bottom: 15px;">
                 <p style="margin-top:0; margin-bottom: 5px;"><strong>Assign Technician:</strong></p>
                 <select id="tdTechSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;">
-                    <option value="Unassigned" ${sc.assignedTech === 'Unassigned' || !sc.assignedTech ? 'selected' : ''}>Unassigned</option>
-                    <option value="Dave (Tech 1)" ${sc.assignedTech === 'Dave (Tech 1)' ? 'selected' : ''}>Dave (Tech 1)</option>
-                    <option value="Sarah (Tech 2)" ${sc.assignedTech === 'Sarah (Tech 2)' ? 'selected' : ''}>Sarah (Tech 2)</option>
-                    <option value="Mike (Tech 3)" ${sc.assignedTech === 'Mike (Tech 3)' ? 'selected' : ''}>Mike (Tech 3)</option>
-                    <option value="Tom (Tech 4)" ${sc.assignedTech === 'Tom (Tech 4)' ? 'selected' : ''}>Tom (Tech 4)</option>
+                    ${techOptionsHtml}
                 </select>
             </div>
             
@@ -567,13 +571,21 @@ function renderServiceBoard() {
     let badge = document.getElementById('ticketCountBadge');
     if(badge) badge.innerText = listCount;
 
-    // 2. RENDER GANTT ROWS
-    const techs = [
-        { name: 'Dave', full: 'Dave (Tech 1)', color: '#2980b9' },
-        { name: 'Sarah', full: 'Sarah (Tech 2)', color: '#8e44ad' },
-        { name: 'Mike', full: 'Mike (Tech 3)', color: '#d35400' },
-        { name: 'Tom', full: 'Tom (Tech 4)', color: '#16a085' }
-    ];
+    // 2. RENDER GANTT ROWS (DYNAMIC FROM SETTINGS)
+    let savedTechs = JSON.parse(localStorage.getItem('tp_tech_list') || '[]');
+    if (savedTechs.length === 0) {
+        savedTechs = ["Dave (Tech 1)", "Sarah (Tech 2)", "Mike (Tech 3)", "Tom (Tech 4)"];
+    }
+
+    const colorPalette = ['#2980b9', '#8e44ad', '#d35400', '#16a085', '#27ae60', '#f39c12', '#c0392b', '#34495e'];
+    
+    const techs = savedTechs.map((techName, index) => {
+        return {
+            name: techName.split(' ')[0], 
+            full: techName,
+            color: colorPalette[index % colorPalette.length] 
+        };
+    });
 
     const safeDate = dateInput ? new Date(dateInput + "T12:00:00") : new Date();
     let month = safeDate.getMonth();
