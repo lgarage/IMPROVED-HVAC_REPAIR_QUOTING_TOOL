@@ -415,6 +415,7 @@ function switchInvTab(tabName) {
     renderTruckInventory();
 }
 
+// THIS FUNCTION NOW INCLUDES "SELF HEALING" TO DELETE ACCIDENTAL BLANK SPREADSHEET ROWS
 function getActiveInvData() {
     let storageKey = editingTemplateType ? 'tp_master_templates' : 'tp_truck_inventories';
     let targetKey = editingTemplateType ? editingTemplateType : currentEditingTechInv;
@@ -423,17 +424,32 @@ function getActiveInvData() {
     if (!db[targetKey] || Array.isArray(db[targetKey])) {
         let oldTools = Array.isArray(db[targetKey]) ? db[targetKey] : [];
         db[targetKey] = { tools: oldTools, consumables: [] };
+    }
+
+    // --- SELF HEALING: Hunt down and destroy ghost/empty rows ---
+    let originalToolCount = db[targetKey].tools ? db[targetKey].tools.length : 0;
+    let originalConsCount = db[targetKey].consumables ? db[targetKey].consumables.length : 0;
+
+    if (db[targetKey].tools) {
+        db[targetKey].tools = db[targetKey].tools.filter(i => i.name && i.name.trim() !== '' && i.name !== 'Unknown Item');
+    }
+    if (db[targetKey].consumables) {
+        db[targetKey].consumables = db[targetKey].consumables.filter(i => i.name && i.name.trim() !== '' && i.name !== 'Unknown Item');
+    }
+
+    // If we deleted ghost rows, save the cleaned up database immediately
+    if (db[targetKey].tools.length !== originalToolCount || db[targetKey].consumables.length !== originalConsCount) {
         localStorage.setItem(storageKey, JSON.stringify(db));
     }
     
     return { db, storageKey, targetKey, invData: db[targetKey] };
 }
 
+// THIS FUNCTION NOW USES HIGH PERFORMANCE RENDERING TO PREVENT CRASHES
 function renderTruckInventory() {
     const thead = document.querySelector('.inventory-table thead');
     const tbody = document.getElementById('inventoryTableBody');
-    tbody.innerHTML = '';
-
+    
     if (currentInvTab === 'tools') {
         thead.innerHTML = `
             <tr>
@@ -470,10 +486,12 @@ function renderTruckInventory() {
         return;
     }
 
+    let rowsHtml = ''; // Build all rows in memory first (Super Fast)
+
     currentList.forEach((item, idx) => {
         if (currentInvTab === 'tools') {
             let bundleCheck = item.bundle ? "checked" : "";
-            tbody.innerHTML += `
+            rowsHtml += `
                 <tr>
                     <td><input type="text" class="inventory-input p-name" value="${item.name || ''}"></td>
                     <td><input type="text" class="inventory-input p-cat" value="${item.category || ''}"></td>
@@ -492,7 +510,7 @@ function renderTruckInventory() {
             let statusHtml = isLow ? `<span style="color:#e74c3c; font-weight:bold; font-size:11px;">⚠️ LOW STOCK</span>` : `<span style="color:#27ae60; font-weight:bold; font-size:11px;">✓ OK</span>`;
             let rowBg = isLow ? "background-color: #fdedec;" : "";
 
-            tbody.innerHTML += `
+            rowsHtml += `
                 <tr style="${rowBg}">
                     <td><input type="text" class="inventory-input p-name" value="${item.name || ''}"></td>
                     <td><input type="text" class="inventory-input p-cat" value="${item.category || ''}"></td>
@@ -507,6 +525,8 @@ function renderTruckInventory() {
             `;
         }
     });
+
+    tbody.innerHTML = rowsHtml; // Inject perfectly constructed HTML in one shot
 }
 
 function liveRecalculateStock() {
@@ -515,7 +535,7 @@ function liveRecalculateStock() {
 }
 
 // ====================================================================
-// --- NEW SMART SPREADSHEET PARSER (HYPERLINK INCLUDED) ---
+// --- NEW SMART SPREADSHEET PARSER (HYPERLINK INCLUDED & BLANK PROOF) ---
 // ====================================================================
 function bulkImportTools() {
     let inst = document.getElementById('bulkImportInstructions');
@@ -558,7 +578,6 @@ function processBulkImport() {
     let map = { name: 0, cat: 1, cost: 2, qty: 3, min: 4, ven: 5 };
     let parsedRows = [];
 
-    // Extract data from HTML or plain text
     if (htmlData && htmlData.trim() !== '') {
         let parser = new DOMParser();
         let doc = parser.parseFromString(htmlData, 'text/html');
@@ -576,20 +595,26 @@ function processBulkImport() {
                     rowData.link = a.href;
                 }
             });
-            parsedRows.push(rowData);
+            
+            // SECURITY CHECK: If every column is blank, DO NOT push it
+            let hasData = rowData.texts.some(c => c && c !== "");
+            if(hasData) parsedRows.push(rowData);
         });
     } else {
         let rows = text.split('\n');
         rows.forEach(row => {
             let delimiter = row.includes('\t') ? '\t' : ',';
             let texts = row.split(delimiter).map(c => c.trim());
-            if(texts.length > 0 && texts[0] !== "") {
-                parsedRows.push({ texts: texts, link: "" });
-            }
+            
+            let hasData = texts.some(c => c && c !== "");
+            if(hasData) parsedRows.push({ texts: texts, link: "" });
         });
     }
 
-    if (parsedRows.length === 0) return;
+    if (parsedRows.length === 0) {
+        alert("No readable data found!");
+        return;
+    }
 
     // Map headers
     let firstRowTexts = parsedRows[0].texts.map(c => c.toLowerCase());
@@ -624,6 +649,9 @@ function processBulkImport() {
         let partCat = cols[map.cat] || "Imported";
         let partVen = cols[map.ven] || "";
         
+        // SECURITY CHECK: Do not add if it's literally just empty/unknown
+        if (partName === "Unknown Item" && partVen === "") continue;
+        
         let partUrl = rowData.link || `https://www.google.com/search?q=${encodeURIComponent(partVen + " " + partName)}`;
 
         if (currentInvTab === 'tools') {
@@ -654,7 +682,7 @@ function processBulkImport() {
     renderTruckInventory();
     
     document.getElementById('bulkImportModal').style.display = 'none';
-    if(typeof showSaveCue === 'function') showSaveCue(`✓ Imported ${addedCount} items`);
+    if(typeof showSaveCue === 'function') showSaveCue(`✓ Imported ${addedCount} valid items`);
 
     setTimeout(() => {
         const tableContainer = document.querySelector('.inventory-table').parentElement;
