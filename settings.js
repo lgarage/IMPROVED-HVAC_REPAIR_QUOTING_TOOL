@@ -848,18 +848,75 @@ function saveAndCloseTruckInventory(silent = false) {
     });
 })();
 
+// Checks all trucks, updates the header button, AND injects the Main Dashboard Widget
 function checkGlobalVMI() {
     let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
     let lowCount = 0;
+    let affectedTechs = new Set();
+    let estCost = 0;
     
+    // 1. Crunch the numbers
     for (let tech in invDB) {
         let cons = invDB[tech].consumables || [];
         cons.forEach(item => {
             let q = parseInt(item.qty) || 0;
             let m = parseInt(item.minLevel) || 0;
-            if (q <= m) lowCount++;
+            let c = parseFloat(item.cost) || 0;
+            
+            if (q <= m) {
+                lowCount++;
+                affectedTechs.add(tech.split(' ')[0]); // Grab just the tech's first name
+                let orderQty = (m - q) > 0 ? (m - q) : 1; 
+                estCost += (orderQty * c);
+            }
         });
     }
+
+    // 2. Update the Global Header Button (so it's visible on other tabs)
+    let alertBtn = document.getElementById('vmiAlertBtn');
+    if(alertBtn) {
+        if(lowCount > 0) {
+            alertBtn.style.display = 'inline-block';
+            alertBtn.innerHTML = `⚠️ Order Parts (${lowCount})`;
+        } else {
+            alertBtn.style.display = 'none';
+        }
+    }
+
+    // 3. Inject the Persistent Alert Widget onto the Main Dispatch Board
+    let dashAlert = document.getElementById('vmiDashBanner');
+    if (!dashAlert) {
+        // Find the left panel on the main service tab and inject the widget right below the header
+        let leftPanel = document.querySelector('.dispatch-left-panel');
+        if (leftPanel) {
+            let header = leftPanel.querySelector('.panel-header');
+            dashAlert = document.createElement('div');
+            dashAlert.id = 'vmiDashBanner';
+            header.insertAdjacentElement('afterend', dashAlert);
+        }
+    }
+
+    if (dashAlert) {
+        if (lowCount > 0) {
+            let techList = Array.from(affectedTechs).join(', ');
+            dashAlert.style.display = 'block';
+            dashAlert.innerHTML = `
+                <div style="background: #fdf2e9; border-bottom: 2px solid #e74c3c; padding: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: inset 0 -2px 5px rgba(0,0,0,0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #c0392b; font-weight: bold; font-size: 14px;"><i class="fas fa-exclamation-triangle"></i> LOW INVENTORY</span>
+                        <span style="color: #27ae60; font-weight: bold; font-size: 14px;">Est: $${estCost.toFixed(2)}</span>
+                    </div>
+                    <div style="font-size: 12px; color: #555; line-height: 1.4;">
+                        <strong>${lowCount} items</strong> are below minimum stock across <strong>${affectedTechs.size} trucks</strong> (${techList}).
+                    </div>
+                    <button class="gen-btn" style="background:#e74c3c; width: 100%; padding: 8px; font-size: 12px; margin-top: 5px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;" onclick="openVMIReport()">Review & Place Bulk Order</button>
+                </div>
+            `;
+        } else {
+            dashAlert.style.display = 'none';
+        }
+    }
+}
 
     let alertBtn = document.getElementById('vmiAlertBtn');
     if(alertBtn) {
