@@ -446,15 +446,17 @@ function renderTruckInventory() {
             </tr>
         `;
     } else {
+        // ADDED THE LINK COLUMN TO CONSUMABLES VIEW SO WE CAN SEE SPREADSHEET LINKS
         thead.innerHTML = `
             <tr>
-                <th width="25%">Part Name</th>
-                <th width="15%">Category</th>
+                <th width="20%">Part Name</th>
+                <th width="12%">Category</th>
                 <th width="10%">Unit Cost $</th>
                 <th width="10%">Current QTY</th>
                 <th width="10%">Min Level</th>
-                <th width="15%">Vendor</th>
+                <th width="13%">Vendor</th>
                 <th width="10%">Status</th>
+                <th width="10%">Link</th>
                 <th width="5%"></th>
             </tr>
         `;
@@ -464,7 +466,7 @@ function renderTruckInventory() {
     const currentList = currentInvTab === 'tools' ? activeData.invData.tools : activeData.invData.consumables;
 
     if (currentList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #7f8c8d; padding: 30px;">This ${currentInvTab} list is currently empty.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #7f8c8d; padding: 30px;">This ${currentInvTab} list is currently empty.</td></tr>`;
         return;
     }
 
@@ -499,6 +501,7 @@ function renderTruckInventory() {
                     <td><input type="number" class="inventory-input p-min" value="${min}" style="width:100%;" min="0" onchange="liveRecalculateStock()"></td>
                     <td><input type="text" class="inventory-input p-ven" value="${item.vendor || ''}"></td>
                     <td style="text-align: center; vertical-align: middle;">${statusHtml}</td>
+                    <td><a href="${item.url || '#'}" target="_blank" class="inv-link">Shop Link</a><input type="hidden" class="p-url" value="${item.url || ''}"></td>
                     <td><button class="gen-btn btn-sm" style="background:#e74c3c;" onclick="removeToolFromTruck(${idx})">X</button></td>
                 </tr>
             `;
@@ -511,50 +514,101 @@ function liveRecalculateStock() {
     renderTruckInventory(); 
 }
 
-// --- NEW SMART SPREADSHEET PARSER ---
+
+// ====================================================================
+// --- NEW SMART SPREADSHEET PARSER (HYPERLINK INCLUDED) ---
+// ====================================================================
 function bulkImportTools() {
-    // 1. Show the Custom Import Window with new instructions
     let inst = document.getElementById('bulkImportInstructions');
     if (inst) {
-        inst.innerHTML = "Copy columns from Excel/Google Sheets <strong>INCLUDING the Header Row</strong> and paste below.<br><span style='color:#27ae60; font-weight:bold;'>The smart parser will auto-detect columns like Name, Category, QTY, Cost, Min Level, and Vendor!</span>";
+        inst.innerHTML = "Copy columns from Excel/Google Sheets <strong>INCLUDING the Header Row</strong> and paste below.<br><span style='color:#27ae60; font-weight:bold;'>The smart parser will extract your Data and Hyperlinks automatically!</span>";
     }
     
     const textarea = document.getElementById('bulkImportTextarea');
-    if(textarea) textarea.value = "";
+    if(textarea) {
+        textarea.value = "";
+        textarea.dataset.html = ""; // Clear out old rich text
+        
+        // Setup a listener that captures the raw HTML (links) from the clipboard
+        if (!textarea.dataset.listening) {
+            textarea.addEventListener('paste', function(e) {
+                let html = e.clipboardData.getData('text/html');
+                if (html) {
+                    this.dataset.html = html;
+                }
+            });
+            textarea.dataset.listening = "true";
+        }
+    }
     
     document.getElementById('bulkImportModal').style.display = 'block';
 }
 
 function processBulkImport() {
-    let text = document.getElementById('bulkImportTextarea').value.trim();
-    if (!text) {
+    const textarea = document.getElementById('bulkImportTextarea');
+    let text = textarea.value.trim();
+    let htmlData = textarea.dataset.html;
+
+    if (!text && !htmlData) {
         document.getElementById('bulkImportModal').style.display = 'none';
         return;
     }
-    
-    let rows = text.split('\n');
+
     let activeData = getActiveInvData();
     let addedCount = 0;
-
-    // Default column mapping (Fallback if no headers found)
+    
+    // Default column assumptions
     let map = { name: 0, cat: 1, cost: 2, qty: 3, min: 4, ven: 5 };
+    let parsedRows = [];
+
+    // STEP 1: Extract data from either HTML (if available to get links) or plain text
+    if (htmlData) {
+        let parser = new DOMParser();
+        let doc = parser.parseFromString(htmlData, 'text/html');
+        let rows = doc.querySelectorAll('tr');
+
+        rows.forEach(row => {
+            let tds = row.querySelectorAll('td, th');
+            if(tds.length === 0) return;
+
+            let rowData = { texts: [], link: "" };
+            tds.forEach(td => {
+                rowData.texts.push(td.innerText.trim());
+                // Grab the very first hyperlink we find in the row
+                let a = td.querySelector('a');
+                if (a && !rowData.link) {
+                    rowData.link = a.href;
+                }
+            });
+            parsedRows.push(rowData);
+        });
+    } else {
+        // Fallback for plain text (no links)
+        let rows = text.split('\n');
+        rows.forEach(row => {
+            let delimiter = row.includes('\t') ? '\t' : ',';
+            let texts = row.split(delimiter).map(c => c.trim());
+            if(texts.length > 0 && texts[0] !== "") {
+                parsedRows.push({ texts: texts, link: "" });
+            }
+        });
+    }
+
+    if (parsedRows.length === 0) return;
+
+    // STEP 2: Dynamically map columns based on the header row
+    let firstRowTexts = parsedRows[0].texts.map(c => c.toLowerCase());
     let hasHeaders = false;
 
-    // Check if the first row is a header row
-    let firstRowCols = rows[0].split('\t').map(c => c.trim().toLowerCase());
-    if (firstRowCols.length === 1) firstRowCols = rows[0].split(',').map(c => c.trim().toLowerCase()); 
-    
-    // Look for recognizable header keywords
-    if (firstRowCols.some(c => c.includes('name') || c.includes('tool') || c.includes('part') || c.includes('desc') || c.includes('category'))) {
+    if (firstRowTexts.some(c => c.includes('name') || c.includes('tool') || c.includes('part') || c.includes('desc') || c.includes('category'))) {
         hasHeaders = true;
         
-        // Dynamically find which column index holds which data
-        let nIdx = firstRowCols.findIndex(c => c.includes('name') || c.includes('tool') || c.includes('part') || c.includes('desc'));
-        let catIdx = firstRowCols.findIndex(c => c.includes('category') || c.includes('cat'));
-        let costIdx = firstRowCols.findIndex(c => c.includes('cost') || c.includes('price') || c.includes('each'));
-        let qtyIdx = firstRowCols.findIndex(c => c.includes('qty') || c.includes('quantity') || c.includes('stock'));
-        let minIdx = firstRowCols.findIndex(c => c.includes('min') || c.includes('level'));
-        let venIdx = firstRowCols.findIndex(c => c.includes('vendor') || c.includes('brand') || c.includes('supplier'));
+        let nIdx = firstRowTexts.findIndex(c => c.includes('name') || c.includes('tool') || c.includes('part') || c.includes('desc'));
+        let catIdx = firstRowTexts.findIndex(c => c.includes('category') || c.includes('cat'));
+        let costIdx = firstRowTexts.findIndex(c => c.includes('cost') || c.includes('price') || c.includes('each'));
+        let qtyIdx = firstRowTexts.findIndex(c => c.includes('qty') || c.includes('quantity') || c.includes('stock'));
+        let minIdx = firstRowTexts.findIndex(c => c.includes('min') || c.includes('level'));
+        let venIdx = firstRowTexts.findIndex(c => c.includes('vendor') || c.includes('brand') || c.includes('supplier'));
 
         if (nIdx !== -1) map.name = nIdx;
         if (catIdx !== -1) map.cat = catIdx;
@@ -565,18 +619,19 @@ function processBulkImport() {
     }
 
     let startIndex = hasHeaders ? 1 : 0;
-    
-    // Process the data rows
-    for (let i = startIndex; i < rows.length; i++) {
-        let row = rows[i];
-        let delimiter = row.includes('\t') ? '\t' : ',';
-        let cols = row.split(delimiter).map(c => c.trim());
-        
-        if (cols.length < 2) continue; // Skip empty or garbage rows
+
+    // STEP 3: Push data into active list
+    for (let i = startIndex; i < parsedRows.length; i++) {
+        let rowData = parsedRows[i];
+        let cols = rowData.texts;
+        if (cols.length < 2) continue; // Skip garbage rows
 
         let partName = cols[map.name] || "Unknown Item";
         let partCat = cols[map.cat] || "Imported";
         let partVen = cols[map.ven] || "";
+        
+        // If Google Sheets gave us a hyperlink, use it! Otherwise, generate a Google Search link.
+        let partUrl = rowData.link || `https://www.google.com/search?q=${encodeURIComponent(partVen + " " + partName)}`;
 
         if (currentInvTab === 'tools') {
             activeData.invData.tools.push({
@@ -584,11 +639,10 @@ function processBulkImport() {
                 category: partCat,
                 vendor: partVen,
                 bundle: false,
-                url: `https://www.google.com/search?q=${encodeURIComponent(partVen + " " + partName)}`
+                url: partUrl
             });
             addedCount++;
         } else {
-            // Strip out dollar signs so the math works perfectly
             let costStr = (cols[map.cost] || "0").replace(/[^0-9.]/g, '');
             activeData.invData.consumables.push({
                 name: partName,
@@ -596,7 +650,8 @@ function processBulkImport() {
                 cost: parseFloat(costStr) || 0,
                 qty: parseInt(cols[map.qty]) || 0,
                 minLevel: parseInt(cols[map.min]) || 0,
-                vendor: partVen
+                vendor: partVen,
+                url: partUrl
             });
             addedCount++;
         }
@@ -608,7 +663,6 @@ function processBulkImport() {
     document.getElementById('bulkImportModal').style.display = 'none';
     if(typeof showSaveCue === 'function') showSaveCue(`✓ Imported ${addedCount} items`);
 
-    // Scroll to the bottom of the list
     setTimeout(() => {
         const tableContainer = document.querySelector('.inventory-table').parentElement;
         if(tableContainer) tableContainer.scrollTop = tableContainer.scrollHeight;
@@ -621,7 +675,7 @@ function addBlankToolRow() {
     if (currentInvTab === 'tools') { 
         activeData.invData.tools.push({ name: "", category: "", vendor: "", bundle: false, url: "" }); 
     } else { 
-        activeData.invData.consumables.push({ name: "", category: "", cost: 0, qty: 0, minLevel: 5, vendor: "" }); 
+        activeData.invData.consumables.push({ name: "", category: "", cost: 0, qty: 0, minLevel: 5, vendor: "", url: "" }); 
     }
     
     localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
@@ -701,7 +755,8 @@ function saveAndCloseTruckInventory(silent = false) {
                         cost: parseFloat(row.querySelector('.p-cost').value) || 0,
                         qty: parseInt(row.querySelector('.p-qty').value) || 0,
                         minLevel: parseInt(row.querySelector('.p-min').value) || 0,
-                        vendor: row.querySelector('.p-ven').value
+                        vendor: row.querySelector('.p-ven').value,
+                        url: row.querySelector('.p-url').value
                     });
                 }
             }
@@ -767,7 +822,6 @@ function saveAndCloseTruckInventory(silent = false) {
                         <span class="close-modal" onclick="document.getElementById('bulkImportModal').style.display='none'">×</span>
                     </div>
                     <p style="font-size: 13px; color: #555; margin-top: 5px;" id="bulkImportInstructions">
-                        Copy multiple columns directly from Excel/Google Sheets and paste them below.
                     </p>
                     <textarea id="bulkImportTextarea" style="width: 100%; height: 250px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; white-space: pre;"></textarea>
                     <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
