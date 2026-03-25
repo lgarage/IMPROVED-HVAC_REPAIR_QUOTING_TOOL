@@ -121,6 +121,17 @@ function processSeedData(arr) {
 const masterJmanTemplate = processSeedData(seedDataJman);
 const masterApprenticeTemplate = processSeedData(seedDataApprentice);
 
+// HELPER FUNCTION: Prevents quotes from breaking the input boxes
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 // ====================================================================
 // --- SETTINGS & TECHNICIAN LOGIC ---
 // ====================================================================
@@ -377,7 +388,8 @@ function openMasterTemplateEditor(type) {
     document.getElementById('invModalTitle').innerText = titleText;
     
     document.getElementById('btnDeleteTemplate').style.display = 'inline-block';
-    document.getElementById('btnClearInvBtn').style.display = 'none';
+    // RESTORED CLEAR ALL BUTTON FOR TEMPLATES
+    document.getElementById('btnClearInvBtn').style.display = 'inline-block';
     
     if (type.includes('consumables')) {
         switchInvTab('consumables');
@@ -409,13 +421,13 @@ function switchInvTab(tabName) {
         if (btnAdd) btnAdd.innerText = "+ Add Custom Tool";
     } else {
         document.getElementById('btnTabConsumables').classList.add('active');
-        document.getElementById('invActionButtons').style.display = 'none';
+        // Do NOT hide action buttons on consumables, let them use Clear All
+        document.getElementById('invActionButtons').style.display = 'block';
         if (btnAdd) btnAdd.innerText = "+ Add Custom Part";
     }
     renderTruckInventory();
 }
 
-// THIS FUNCTION NOW INCLUDES "SELF HEALING" TO DELETE ACCIDENTAL BLANK SPREADSHEET ROWS
 function getActiveInvData() {
     let storageKey = editingTemplateType ? 'tp_master_templates' : 'tp_truck_inventories';
     let targetKey = editingTemplateType ? editingTemplateType : currentEditingTechInv;
@@ -426,7 +438,6 @@ function getActiveInvData() {
         db[targetKey] = { tools: oldTools, consumables: [] };
     }
 
-    // --- SELF HEALING: Hunt down and destroy ghost/empty rows ---
     let originalToolCount = db[targetKey].tools ? db[targetKey].tools.length : 0;
     let originalConsCount = db[targetKey].consumables ? db[targetKey].consumables.length : 0;
 
@@ -437,7 +448,6 @@ function getActiveInvData() {
         db[targetKey].consumables = db[targetKey].consumables.filter(i => i.name && i.name.trim() !== '' && i.name !== 'Unknown Item');
     }
 
-    // If we deleted ghost rows, save the cleaned up database immediately
     if (db[targetKey].tools.length !== originalToolCount || db[targetKey].consumables.length !== originalConsCount) {
         localStorage.setItem(storageKey, JSON.stringify(db));
     }
@@ -445,7 +455,6 @@ function getActiveInvData() {
     return { db, storageKey, targetKey, invData: db[targetKey] };
 }
 
-// THIS FUNCTION NOW USES HIGH PERFORMANCE RENDERING TO PREVENT CRASHES
 function renderTruckInventory() {
     const thead = document.querySelector('.inventory-table thead');
     const tbody = document.getElementById('inventoryTableBody');
@@ -453,11 +462,11 @@ function renderTruckInventory() {
     if (currentInvTab === 'tools') {
         thead.innerHTML = `
             <tr>
-                <th width="30%">Tool Name</th>
-                <th width="20%">Category</th>
-                <th width="20%">Vendor</th>
+                <th width="25%">Tool Name</th>
+                <th width="15%">Category</th>
+                <th width="15%">Vendor</th>
                 <th width="10%">Bundle?</th>
-                <th width="15%">Link</th>
+                <th width="30%">Link</th>
                 <th width="5%"></th>
             </tr>
         `;
@@ -465,13 +474,13 @@ function renderTruckInventory() {
         thead.innerHTML = `
             <tr>
                 <th width="20%">Part Name</th>
-                <th width="12%">Category</th>
-                <th width="10%">Unit Cost $</th>
-                <th width="10%">Current QTY</th>
-                <th width="10%">Min Level</th>
-                <th width="13%">Vendor</th>
-                <th width="10%">Status</th>
-                <th width="10%">Link</th>
+                <th width="10%">Category</th>
+                <th width="8%">Unit Cost $</th>
+                <th width="8%">Current QTY</th>
+                <th width="8%">Min Level</th>
+                <th width="12%">Vendor</th>
+                <th width="9%">Status</th>
+                <th width="20%">Link</th>
                 <th width="5%"></th>
             </tr>
         `;
@@ -486,18 +495,29 @@ function renderTruckInventory() {
         return;
     }
 
-    let rowsHtml = ''; // Build all rows in memory first (Super Fast)
+    let rowsHtml = ''; 
 
     currentList.forEach((item, idx) => {
+        // Apply escapeHTML so quotes in the names do not break the input elements
+        let safeName = escapeHTML(item.name);
+        let safeCat = escapeHTML(item.category);
+        let safeVen = escapeHTML(item.vendor);
+        let safeUrl = escapeHTML(item.url);
+
         if (currentInvTab === 'tools') {
             let bundleCheck = item.bundle ? "checked" : "";
             rowsHtml += `
                 <tr>
-                    <td><input type="text" class="inventory-input p-name" value="${item.name || ''}"></td>
-                    <td><input type="text" class="inventory-input p-cat" value="${item.category || ''}"></td>
-                    <td><input type="text" class="inventory-input p-ven" value="${item.vendor || ''}"></td>
+                    <td><input type="text" class="inventory-input p-name" value="${safeName}"></td>
+                    <td><input type="text" class="inventory-input p-cat" value="${safeCat}"></td>
+                    <td><input type="text" class="inventory-input p-ven" value="${safeVen}"></td>
                     <td style="text-align: center;"><input type="checkbox" class="p-bun" ${bundleCheck}></td>
-                    <td><a href="${item.url || '#'}" target="_blank" class="inv-link">Shop Link</a><input type="hidden" class="p-url" value="${item.url || ''}"></td>
+                    <td>
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            <input type="text" class="inventory-input p-url" value="${safeUrl}" placeholder="Paste URL here..." style="width: 100%;">
+                            <a href="${safeUrl || '#'}" target="_blank" title="Test Link" style="text-decoration:none; font-size:16px;">↗️</a>
+                        </div>
+                    </td>
                     <td><button class="gen-btn btn-sm" style="background:#e74c3c;" onclick="removeToolFromTruck(${idx})">X</button></td>
                 </tr>
             `;
@@ -512,21 +532,26 @@ function renderTruckInventory() {
 
             rowsHtml += `
                 <tr style="${rowBg}">
-                    <td><input type="text" class="inventory-input p-name" value="${item.name || ''}"></td>
-                    <td><input type="text" class="inventory-input p-cat" value="${item.category || ''}"></td>
+                    <td><input type="text" class="inventory-input p-name" value="${safeName}"></td>
+                    <td><input type="text" class="inventory-input p-cat" value="${safeCat}"></td>
                     <td><input type="number" class="inventory-input p-cost" value="${cost.toFixed(2)}" step="0.01" onchange="liveRecalculateStock()"></td>
                     <td><input type="number" class="inventory-input p-qty" value="${qty}" style="width:100%;" min="0" onchange="liveRecalculateStock()"></td>
                     <td><input type="number" class="inventory-input p-min" value="${min}" style="width:100%;" min="0" onchange="liveRecalculateStock()"></td>
-                    <td><input type="text" class="inventory-input p-ven" value="${item.vendor || ''}"></td>
+                    <td><input type="text" class="inventory-input p-ven" value="${safeVen}"></td>
                     <td style="text-align: center; vertical-align: middle;">${statusHtml}</td>
-                    <td><a href="${item.url || '#'}" target="_blank" class="inv-link">Shop Link</a><input type="hidden" class="p-url" value="${item.url || ''}"></td>
+                    <td>
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            <input type="text" class="inventory-input p-url" value="${safeUrl}" placeholder="URL..." style="width: 100%;">
+                            <a href="${safeUrl || '#'}" target="_blank" title="Test Link" style="text-decoration:none; font-size:16px;">↗️</a>
+                        </div>
+                    </td>
                     <td><button class="gen-btn btn-sm" style="background:#e74c3c;" onclick="removeToolFromTruck(${idx})">X</button></td>
                 </tr>
             `;
         }
     });
 
-    tbody.innerHTML = rowsHtml; // Inject perfectly constructed HTML in one shot
+    tbody.innerHTML = rowsHtml; 
 }
 
 function liveRecalculateStock() {
@@ -535,7 +560,7 @@ function liveRecalculateStock() {
 }
 
 // ====================================================================
-// --- NEW SMART SPREADSHEET PARSER (HYPERLINK INCLUDED & BLANK PROOF) ---
+// --- SPREADSHEET PARSER (HYPERLINK INCLUDED & BLANK PROOF) ---
 // ====================================================================
 function bulkImportTools() {
     let inst = document.getElementById('bulkImportInstructions');
@@ -575,7 +600,8 @@ function processBulkImport() {
     let activeData = getActiveInvData();
     let addedCount = 0;
     
-    let map = { name: 0, cat: 1, cost: 2, qty: 3, min: 4, ven: 5 };
+    // Add "bundle" to the map
+    let map = { name: 0, cat: 1, cost: 2, qty: 3, min: 4, ven: 5, bundle: -1 };
     let parsedRows = [];
 
     if (htmlData && htmlData.trim() !== '') {
@@ -596,7 +622,6 @@ function processBulkImport() {
                 }
             });
             
-            // SECURITY CHECK: If every column is blank, DO NOT push it
             let hasData = rowData.texts.some(c => c && c !== "");
             if(hasData) parsedRows.push(rowData);
         });
@@ -616,7 +641,6 @@ function processBulkImport() {
         return;
     }
 
-    // Map headers
     let firstRowTexts = parsedRows[0].texts.map(c => c.toLowerCase());
     let hasHeaders = false;
 
@@ -629,6 +653,9 @@ function processBulkImport() {
         let qtyIdx = firstRowTexts.findIndex(c => c.includes('qty') || c.includes('quantity') || c.includes('stock'));
         let minIdx = firstRowTexts.findIndex(c => c.includes('min') || c.includes('level'));
         let venIdx = firstRowTexts.findIndex(c => c.includes('vendor') || c.includes('brand') || c.includes('supplier'));
+        
+        // NEW: Detect bundle column
+        let bunIdx = firstRowTexts.findIndex(c => c === 'bundle' || c === 'bundle?' || c.includes('included'));
 
         if (nIdx !== -1) map.name = nIdx;
         if (catIdx !== -1) map.cat = catIdx;
@@ -636,6 +663,7 @@ function processBulkImport() {
         if (qtyIdx !== -1) map.qty = qtyIdx;
         if (minIdx !== -1) map.min = minIdx;
         if (venIdx !== -1) map.ven = venIdx;
+        if (bunIdx !== -1) map.bundle = bunIdx;
     }
 
     let startIndex = hasHeaders ? 1 : 0;
@@ -649,17 +677,25 @@ function processBulkImport() {
         let partCat = cols[map.cat] || "Imported";
         let partVen = cols[map.ven] || "";
         
-        // SECURITY CHECK: Do not add if it's literally just empty/unknown
         if (partName === "Unknown Item" && partVen === "") continue;
         
         let partUrl = rowData.link || `https://www.google.com/search?q=${encodeURIComponent(partVen + " " + partName)}`;
 
         if (currentInvTab === 'tools') {
+            // Check for bundle true/false
+            let isBundle = false;
+            if (map.bundle !== -1) {
+                let bunVal = (cols[map.bundle] || "").toLowerCase();
+                if (bunVal === 'yes' || bunVal === 'y' || bunVal === 'true' || bunVal === 'x') {
+                    isBundle = true;
+                }
+            }
+
             activeData.invData.tools.push({
                 name: partName,
                 category: partCat,
                 vendor: partVen,
-                bundle: false,
+                bundle: isBundle,
                 url: partUrl
             });
             addedCount++;
