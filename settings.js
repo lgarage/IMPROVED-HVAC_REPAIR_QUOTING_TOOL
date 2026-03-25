@@ -446,7 +446,6 @@ function renderTruckInventory() {
             </tr>
         `;
     } else {
-        // ADDED THE LINK COLUMN TO CONSUMABLES VIEW SO WE CAN SEE SPREADSHEET LINKS
         thead.innerHTML = `
             <tr>
                 <th width="20%">Part Name</th>
@@ -466,7 +465,8 @@ function renderTruckInventory() {
     const currentList = currentInvTab === 'tools' ? activeData.invData.tools : activeData.invData.consumables;
 
     if (currentList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #7f8c8d; padding: 30px;">This ${currentInvTab} list is currently empty.</td></tr>`;
+        let cols = currentInvTab === 'tools' ? 6 : 9;
+        tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align: center; color: #7f8c8d; padding: 30px;">This ${currentInvTab} list is currently empty.</td></tr>`;
         return;
     }
 
@@ -475,7 +475,7 @@ function renderTruckInventory() {
             let bundleCheck = item.bundle ? "checked" : "";
             tbody.innerHTML += `
                 <tr>
-                    <td><input type="text" class="inventory-input p-name" value="${item.name}"></td>
+                    <td><input type="text" class="inventory-input p-name" value="${item.name || ''}"></td>
                     <td><input type="text" class="inventory-input p-cat" value="${item.category || ''}"></td>
                     <td><input type="text" class="inventory-input p-ven" value="${item.vendor || ''}"></td>
                     <td style="text-align: center;"><input type="checkbox" class="p-bun" ${bundleCheck}></td>
@@ -494,7 +494,7 @@ function renderTruckInventory() {
 
             tbody.innerHTML += `
                 <tr style="${rowBg}">
-                    <td><input type="text" class="inventory-input p-name" value="${item.name}"></td>
+                    <td><input type="text" class="inventory-input p-name" value="${item.name || ''}"></td>
                     <td><input type="text" class="inventory-input p-cat" value="${item.category || ''}"></td>
                     <td><input type="number" class="inventory-input p-cost" value="${cost.toFixed(2)}" step="0.01" onchange="liveRecalculateStock()"></td>
                     <td><input type="number" class="inventory-input p-qty" value="${qty}" style="width:100%;" min="0" onchange="liveRecalculateStock()"></td>
@@ -514,7 +514,6 @@ function liveRecalculateStock() {
     renderTruckInventory(); 
 }
 
-
 // ====================================================================
 // --- NEW SMART SPREADSHEET PARSER (HYPERLINK INCLUDED) ---
 // ====================================================================
@@ -527,9 +526,8 @@ function bulkImportTools() {
     const textarea = document.getElementById('bulkImportTextarea');
     if(textarea) {
         textarea.value = "";
-        textarea.dataset.html = ""; // Clear out old rich text
+        textarea.dataset.html = ""; 
         
-        // Setup a listener that captures the raw HTML (links) from the clipboard
         if (!textarea.dataset.listening) {
             textarea.addEventListener('paste', function(e) {
                 let html = e.clipboardData.getData('text/html');
@@ -557,12 +555,11 @@ function processBulkImport() {
     let activeData = getActiveInvData();
     let addedCount = 0;
     
-    // Default column assumptions
     let map = { name: 0, cat: 1, cost: 2, qty: 3, min: 4, ven: 5 };
     let parsedRows = [];
 
-    // STEP 1: Extract data from either HTML (if available to get links) or plain text
-    if (htmlData) {
+    // Extract data from HTML or plain text
+    if (htmlData && htmlData.trim() !== '') {
         let parser = new DOMParser();
         let doc = parser.parseFromString(htmlData, 'text/html');
         let rows = doc.querySelectorAll('tr');
@@ -574,7 +571,6 @@ function processBulkImport() {
             let rowData = { texts: [], link: "" };
             tds.forEach(td => {
                 rowData.texts.push(td.innerText.trim());
-                // Grab the very first hyperlink we find in the row
                 let a = td.querySelector('a');
                 if (a && !rowData.link) {
                     rowData.link = a.href;
@@ -583,7 +579,6 @@ function processBulkImport() {
             parsedRows.push(rowData);
         });
     } else {
-        // Fallback for plain text (no links)
         let rows = text.split('\n');
         rows.forEach(row => {
             let delimiter = row.includes('\t') ? '\t' : ',';
@@ -596,7 +591,7 @@ function processBulkImport() {
 
     if (parsedRows.length === 0) return;
 
-    // STEP 2: Dynamically map columns based on the header row
+    // Map headers
     let firstRowTexts = parsedRows[0].texts.map(c => c.toLowerCase());
     let hasHeaders = false;
 
@@ -620,17 +615,15 @@ function processBulkImport() {
 
     let startIndex = hasHeaders ? 1 : 0;
 
-    // STEP 3: Push data into active list
     for (let i = startIndex; i < parsedRows.length; i++) {
         let rowData = parsedRows[i];
         let cols = rowData.texts;
-        if (cols.length < 2) continue; // Skip garbage rows
+        if (cols.length < 2 && !cols[0]) continue; 
 
         let partName = cols[map.name] || "Unknown Item";
         let partCat = cols[map.cat] || "Imported";
         let partVen = cols[map.ven] || "";
         
-        // If Google Sheets gave us a hyperlink, use it! Otherwise, generate a Google Search link.
         let partUrl = rowData.link || `https://www.google.com/search?q=${encodeURIComponent(partVen + " " + partName)}`;
 
         if (currentInvTab === 'tools') {
@@ -848,14 +841,12 @@ function saveAndCloseTruckInventory(silent = false) {
     });
 })();
 
-// Checks all trucks, updates the header button, AND injects the Main Dashboard Widget
 function checkGlobalVMI() {
     let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
     let lowCount = 0;
     let affectedTechs = new Set();
     let estCost = 0;
     
-    // 1. Crunch the numbers
     for (let tech in invDB) {
         let cons = invDB[tech].consumables || [];
         cons.forEach(item => {
@@ -865,14 +856,13 @@ function checkGlobalVMI() {
             
             if (q <= m) {
                 lowCount++;
-                affectedTechs.add(tech.split(' ')[0]); // Grab just the tech's first name
+                affectedTechs.add(tech.split(' ')[0]); 
                 let orderQty = (m - q) > 0 ? (m - q) : 1; 
                 estCost += (orderQty * c);
             }
         });
     }
 
-    // 2. Update the Global Header Button (so it's visible on other tabs)
     let alertBtn = document.getElementById('vmiAlertBtn');
     if(alertBtn) {
         if(lowCount > 0) {
@@ -883,10 +873,8 @@ function checkGlobalVMI() {
         }
     }
 
-    // 3. Inject the Persistent Alert Widget onto the Main Dispatch Board
     let dashAlert = document.getElementById('vmiDashBanner');
     if (!dashAlert) {
-        // Find the left panel on the main service tab and inject the widget right below the header
         let leftPanel = document.querySelector('.dispatch-left-panel');
         if (leftPanel) {
             let header = leftPanel.querySelector('.panel-header');
@@ -914,17 +902,6 @@ function checkGlobalVMI() {
             `;
         } else {
             dashAlert.style.display = 'none';
-        }
-    }
-}
-
-    let alertBtn = document.getElementById('vmiAlertBtn');
-    if(alertBtn) {
-        if(lowCount > 0) {
-            alertBtn.style.display = 'inline-block';
-            alertBtn.innerHTML = `⚠️ Order Parts (${lowCount})`;
-        } else {
-            alertBtn.style.display = 'none';
         }
     }
 }
