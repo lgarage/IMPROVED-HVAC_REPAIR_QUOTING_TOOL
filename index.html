@@ -258,6 +258,13 @@
             </li>
             <li><a onclick="openCustomerDirectory()" title="Customer Directory"><span class="menu-icon"><i class="fas fa-address-book"></i></span> <span class="menu-text">Customer Directory</span></a></li>
 
+            <li>
+                <a onclick="openTechnicianAppPreview()" title="Opens the Field App in a new tab (same view technicians use). Does not leave this portal." role="button">
+                    <span class="menu-icon"><i class="fas fa-mobile-screen-button"></i></span>
+                    <span class="menu-text">Preview Field App</span>
+                </a>
+            </li>
+
             <li style="margin-top: auto;">
                 <a id="nav-settings" onclick="switchTab('settings')" title="Settings">
                     <span class="menu-icon"><i class="fas fa-cog"></i></span> 
@@ -1537,6 +1544,12 @@
                 }
             }
         });
+
+        /** Dispatch-only: open technician Field App in a new tab (no reciprocal link in the Field App). */
+        function openTechnicianAppPreview() {
+            const url = new URL('technician/index.html', window.location.href).href;
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
 
         function switchTab(tabName) {
             closeInvoicingSubmenu();
