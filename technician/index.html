@@ -200,12 +200,25 @@ textarea { min-height: 80px; resize: vertical; }
 }
 .tag-ocr-open-btn:active { transform: scale(0.99); }
 .tag-ocr-open-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-.tag-ocr-camera-label {
-  display: block; text-align: center; padding: 14px 16px; border-radius: 10px;
-  border: 2px dashed #c89b53; background: #fdfaf2; color: #1e4b85; font-weight: 700;
-  cursor: pointer; font-size: 15px; margin-bottom: 12px;
+/* iOS Safari: file inputs must cover a real tap target — not 0×0px — or Photo Library may not appear. */
+.tag-ocr-pick-row {
+  display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;
 }
-.tag-ocr-camera-label input { position: absolute; width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; z-index: -1; }
+@media (min-width: 400px) {
+  .tag-ocr-pick-row { flex-direction: row; }
+}
+.tag-ocr-source-btn {
+  position: relative; flex: 1; min-height: 48px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 14px 12px; border-radius: 10px; box-sizing: border-box;
+  border: 2px dashed #c89b53; background: #fdfaf2; color: #1e4b85;
+  font-weight: 700; font-size: 15px; text-align: center; line-height: 1.2;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.tag-ocr-source-btn input[type="file"] {
+  position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; font-size: 16px;
+}
 .tag-ocr-spinner-wrap {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 12px; padding: 24px 12px;
@@ -474,11 +487,17 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
       <h2 id="tagOcrModalTitle">Scan unit tag</h2>
       <button type="button" class="report-preview-close" onclick="closeTagOcrModal()" aria-label="Close">&times;</button>
     </div>
-    <p class="report-preview-hint">Use your camera or pick an existing photo from your library. Processing runs on this device only.</p>
-    <label class="tag-ocr-camera-label">
-      <input type="file" id="tagOcrFileInput" accept="image/*">
-      Tap to choose — camera or photo library
-    </label>
+    <p class="report-preview-hint">On iPhone, use <strong>Photo library</strong> for an existing picture, or <strong>Use camera</strong> for a new shot. OCR runs on this device only.</p>
+    <div class="tag-ocr-pick-row">
+      <label class="tag-ocr-source-btn">
+        <input type="file" id="tagOcrLibraryInput" accept="image/*">
+        Photo library
+      </label>
+      <label class="tag-ocr-source-btn">
+        <input type="file" id="tagOcrCameraInput" accept="image/*" capture="environment">
+        Use camera
+      </label>
+    </div>
     <div id="tagOcrLoading" class="hidden">
       <div class="tag-ocr-spinner-wrap">
         <div class="tag-ocr-spinner" role="status" aria-live="polite"></div>
@@ -1387,8 +1406,10 @@ let tagOcrBusy = false;
 
 function openTagOcrModal(){
   const modal = document.getElementById("tagOcrModal");
-  const fi = document.getElementById("tagOcrFileInput");
-  if (fi) fi.value = "";
+  ["tagOcrLibraryInput", "tagOcrCameraInput"].forEach(function(id){
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
   document.getElementById("tagOcrLoading").classList.add("hidden");
   document.getElementById("tagOcrRawPreview").classList.add("hidden");
   document.getElementById("tagOcrRawPreview").textContent = "";
@@ -1594,14 +1615,17 @@ async function runTagOcrOnFile(file){
 
 function initUnitTagOcr(){
   const openBtn = document.getElementById("openTagOcrBtn");
-  const fi = document.getElementById("tagOcrFileInput");
   if (openBtn) openBtn.onclick = () => openTagOcrModal();
-  if (fi){
-    fi.addEventListener("change", function(){
-      const f = fi.files && fi.files[0];
+  function wireTagOcrFileInput(el){
+    if (!el) return;
+    el.addEventListener("change", function(){
+      const f = this.files && this.files[0];
       if (f) runTagOcrOnFile(f);
+      this.value = "";
     });
   }
+  wireTagOcrFileInput(document.getElementById("tagOcrLibraryInput"));
+  wireTagOcrFileInput(document.getElementById("tagOcrCameraInput"));
   if (typeof Tesseract === "undefined"){
     console.warn("[OCR] Tesseract global missing after script load.");
     if (openBtn) openBtn.title = "OCR library not available";
