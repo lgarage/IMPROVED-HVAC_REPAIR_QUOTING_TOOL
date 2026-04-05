@@ -233,9 +233,13 @@ textarea { min-height: 80px; resize: vertical; }
   padding-bottom: 10px; border-bottom: 1px solid rgba(30,75,133,0.12);
 }
 .tag-ocr-result-row:last-child { border-bottom: none; padding-bottom: 0; }
-.tag-ocr-result-label { font-size: 11px; font-weight: 700; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.03em; }
+.tag-ocr-result-label {
+  font-size: 11px; font-weight: 700; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.03em;
+  display: block; margin-bottom: 2px;
+}
 .tag-ocr-result-val {
   font-size: 16px; font-weight: 700; color: #2c3e50; word-break: break-word; line-height: 1.35;
+  display: block;
 }
 .tag-ocr-result-none {
   margin: 0; font-size: 14px; color: #856404; line-height: 1.45;
@@ -373,6 +377,10 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
       <input type="text" id="unitTagSerial" placeholder="OCR or type" autocomplete="off" autocapitalize="characters">
       <label>Job #</label>
       <input type="text" id="unitTagJob" placeholder="OCR or type" autocomplete="off" autocapitalize="characters">
+      <label>Handwritten / marker (e.g. EF3)</label>
+      <input type="text" id="unitTagMarker" placeholder="OCR or type" autocomplete="off" autocapitalize="characters">
+      <label>Install date</label>
+      <input type="text" id="unitTagInstallDate" placeholder="e.g. 6-7-2023" autocomplete="off" inputmode="numeric">
       <button type="button" id="openTagOcrBtn" class="tag-ocr-open-btn">Scan nameplate photo</button>
     </div>
   </div>
@@ -1089,6 +1097,8 @@ function openWorkspace(ticketId) {
   document.getElementById('unitTagModel').value = '';
   document.getElementById('unitTagSerial').value = '';
   document.getElementById('unitTagJob').value = '';
+  document.getElementById('unitTagMarker').value = '';
+  document.getElementById('unitTagInstallDate').value = '';
 
   if (activeTicket.jobType === 'Preventative Maintenance') {
     currentMode = "PM";
@@ -1455,7 +1465,9 @@ function renderTagOcrResults(parsed){
     ["Make", parsed.make],
     ["Model #", parsed.model],
     ["Serial #", parsed.serial],
-    ["Job #", parsed.jobNumber]
+    ["Job #", parsed.jobNumber],
+    ["Marker", parsed.marker],
+    ["Install date", parsed.installDate]
   ];
   let any = false;
   rows.forEach(function(pair){
@@ -1522,6 +1534,9 @@ function filterOcrLinesForNameplate(text){
     if (low.indexOf("factory direct") >= 0) return false;
     if (low.indexOf("sound and air") >= 0) return false;
     if (line.length <= 3 && /^[©|a\s]+$/i.test(line)) return false;
+    if (/\bmust\s+be\s+installed\b/i.test(low)) return false;
+    if (/\blicensed\s+electrician\b/i.test(low)) return false;
+    if (low.indexOf("electrician") >= 0 && low.indexOf("serial") < 0 && line.length > 35) return false;
     return true;
   });
   return kept.join("\n");
@@ -1607,6 +1622,94 @@ function heuristicExtractMake(fullText){
   return "";
 }
 
+/** Handwritten fan / EF designation on tag (e.g. EF3). OCR is unreliable on handwriting; user may edit. */
+function heuristicExtractMarker(fullText){
+  const t = String(fullText || "").toUpperCase().replace(/\s+/g, " ");
+  let m = t.match(/\bEF[-\s]?\s*(\d{1,2})\b/);
+  if (m) return "EF" + m[1];
+  m = t.match(/\bE\s*F[-\s]?\s*(\d{1,2})\b/);
+  if (m) return "EF" + m[1];
+  return "";
+}
+
+/** Date near job # or standalone m/d/y on the tag. */
+function heuristicExtractInstallDate(fullText){
+  const t = String(fullText || "");
+  const nearJob = t.match(/\b(\d{6,8})\s+(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b/);
+  if (nearJob){
+    const y = nearJob[4].length === 2 ? "20" + nearJob[4] : nearJob[4];
+    return nearJob[2] + "-" + nearJob[3] + "-" + y;
+  }
+  const four = t.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](20\d{2})\b/);
+  if (four) return four[1] + "-" + four[2] + "-" + four[3];
+  const two = t.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})\b(?!\d)/);
+  if (two) return two[1] + "-" + two[2] + "-20" + two[3];
+  return "";
+}
+
+/** Strip duplicated field labels OCR glued to values (e.g. "MAKECaptiveAire"). */
+function sanitizeMakeDisplay(s){
+  if (!s) return "";
+  return String(s).replace(/^(MAKE|MANUFACTURER|MFG\.?|BRAND)\s*#?\s*/i, "").trim();
+}
+
+function sanitizeModelDisplay(s){
+  if (!s) return "";
+  return String(s).replace(/^(MODEL|M\/N)\s*#?\s*/i, "").trim();
+}
+
+/** Job digits (6–8) and optional install date from same line; drop electrician / legal junk. */
+function splitJobAndInstallDate(s){
+  if (!s) return { job: "", installDate: "" };
+  let t = String(s).replace(/\s+/g, " ").trim();
+  t = t.replace(/\s+(ELECTRICIAN|LICENSED|INSTALL|INSTALLED|MUST|BY|AE)\b.*$/i, "");
+  t = t.replace(/\s*\.?\s*AE\s*$/i, "");
+  t = t.replace(/\s+(?=[A-Z]{3,}).*$/i, "");
+  const combined = t.match(/^(\d{6,8})\s+(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (combined){
+    const y = combined[4].length === 2 ? "20" + combined[4] : combined[4];
+    return { job: combined[1], installDate: combined[2] + "-" + combined[3] + "-" + y };
+  }
+  const head = t.match(/^(\d{6,8})(?:\s+(\d{1,2}\/\d{1,2}\/\d{2,4}))?/);
+  if (head){
+    let installDate = "";
+    if (head[2]){
+      const dm = head[2].match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+      if (dm){
+        const y = dm[3].length === 2 ? "20" + dm[3] : dm[3];
+        installDate = dm[1] + "-" + dm[2] + "-" + y;
+      }
+    }
+    return { job: head[1], installDate };
+  }
+  const m = t.match(/\b(\d{6,8})\b/);
+  if (m) return { job: m[1], installDate: "" };
+  const m7 = t.match(/\b(\d{7})\b/);
+  return { job: m7 ? m7[1] : "", installDate: "" };
+}
+
+function isGarbageSerialText(s){
+  if (!s) return true;
+  const low = s.toLowerCase();
+  if (/\b(must|installed|licensed|electrician|by\s+a|wiring)\b/i.test(low)) return true;
+  if ((s.match(/\s+/g) || []).length >= 4) return true;
+  if (s.length > 34) return true;
+  return false;
+}
+
+/** Keep unit tags (PRV-3) or short alnum codes; drop sentences. */
+function sanitizeSerialDisplay(s){
+  if (!s) return "";
+  let t = String(s).trim();
+  if (isGarbageSerialText(t)) return "";
+  const unit = t.match(/\b([A-Z]{2,4}-\d{1,2})\b/i);
+  if (unit) return unit[1].toUpperCase();
+  const compact = t.replace(/\s/g, "");
+  if (/^[A-Z0-9\-]{3,24}$/i.test(compact)) return compact;
+  if (/^[A-Z0-9\-]{3,24}$/i.test(t)) return t;
+  return "";
+}
+
 /** Normalize OCR text: model, serial, job #, make — regex + line heuristics. */
 function parseNameplateTagText(raw){
   const rawFull = String(raw || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -1627,6 +1730,8 @@ function parseNameplateTagText(raw){
   let serial = "";
   let jobNumber = "";
   let make = "";
+  let marker = heuristicExtractMarker(rawFull);
+  let installDate = "";
 
   const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
 
@@ -1729,11 +1834,6 @@ function parseNameplateTagText(raw){
     if (!serial && unitTagLine && unitTagLine[1]){ serial = clean(unitTagLine[1]); console.log("[OCR][parse] Unit tag same-line:", serial); }
   }
 
-  if (model && serial && model === serial){
-    console.warn("[OCR][parse] Model and serial identical; clearing serial to avoid duplicate.");
-    serial = "";
-  }
-
   const guessSource = rawFull;
   if (!make){
     const hm = heuristicExtractMake(guessSource);
@@ -1752,8 +1852,21 @@ function parseNameplateTagText(raw){
     if (gut){ serial = clean(gut); console.log("[OCR][parse] Unit tag / serial heuristic:", serial); }
   }
 
-  console.log("[OCR][parse] Final extracted — make:", make || "(none)", "model:", model || "(none)", "serial:", serial || "(none)", "job:", jobNumber || "(none)");
-  return { model, serial, jobNumber, make };
+  make = sanitizeMakeDisplay(make);
+  model = sanitizeModelDisplay(model);
+  const jobSplit = splitJobAndInstallDate(jobNumber);
+  jobNumber = jobSplit.job;
+  installDate = jobSplit.installDate || heuristicExtractInstallDate(rawFull);
+  if (!marker) marker = heuristicExtractMarker(text);
+  serial = sanitizeSerialDisplay(serial);
+
+  if (model && serial && model === serial){
+    console.warn("[OCR][parse] Model and serial identical; clearing serial.");
+    serial = "";
+  }
+
+  console.log("[OCR][parse] Final extracted — make:", make || "(none)", "model:", model || "(none)", "serial:", serial || "(none)", "job:", jobNumber || "(none)", "marker:", marker || "(none)", "install:", installDate || "(none)");
+  return { model, serial, jobNumber, make, marker, installDate };
 }
 
 async function runTagOcrOnFile(file){
@@ -1830,13 +1943,17 @@ async function runTagOcrOnFile(file){
     const modelEl = document.getElementById("unitTagModel");
     const serialEl = document.getElementById("unitTagSerial");
     const jobEl = document.getElementById("unitTagJob");
+    const markerEl = document.getElementById("unitTagMarker");
+    const installEl = document.getElementById("unitTagInstallDate");
     if (parsed.make) makeEl.value = parsed.make;
     if (parsed.model) modelEl.value = parsed.model;
     if (parsed.serial) serialEl.value = parsed.serial;
     if (parsed.jobNumber) jobEl.value = parsed.jobNumber;
+    if (parsed.marker && markerEl) markerEl.value = parsed.marker;
+    if (parsed.installDate && installEl) installEl.value = parsed.installDate;
     saveDraft();
 
-    if (!parsed.model && !parsed.serial && !parsed.make && !parsed.jobNumber){
+    if (!parsed.model && !parsed.serial && !parsed.make && !parsed.jobNumber && !parsed.marker && !parsed.installDate){
       console.warn("[OCR] Could not match make / model / serial / job; expand Raw OCR in the modal or check the console.");
     }
   } catch (err){
@@ -2133,6 +2250,8 @@ function getFields(){
     unitTagModel: document.getElementById("unitTagModel").value || "",
     unitTagSerial: document.getElementById("unitTagSerial").value || "",
     unitTagJob: document.getElementById("unitTagJob").value || "",
+    unitTagMarker: document.getElementById("unitTagMarker").value || "",
+    unitTagInstallDate: document.getElementById("unitTagInstallDate").value || "",
     equipment: document.getElementById("equipment").value || "", notes: document.getElementById("notes").value || "",
     used: document.getElementById("used").value || "", cost: document.getElementById("cost").value || "",
     next: document.getElementById("next").value || "", workdone: document.getElementById("workdone").value || "",
@@ -2157,6 +2276,8 @@ function setFields(d){
   document.getElementById("unitTagModel").value = d.unitTagModel || "";
   document.getElementById("unitTagSerial").value = d.unitTagSerial || "";
   document.getElementById("unitTagJob").value = d.unitTagJob || "";
+  document.getElementById("unitTagMarker").value = d.unitTagMarker || "";
+  document.getElementById("unitTagInstallDate").value = d.unitTagInstallDate || "";
   document.getElementById("equipment").value = d.equipment || ""; document.getElementById("notes").value = d.notes || "";
   document.getElementById("used").value = d.used || ""; document.getElementById("cost").value = d.cost || "";
   document.getElementById("next").value = d.next || ""; document.getElementById("workdone").value = d.workdone || DEFAULT_PM_WORKDONE;
@@ -2230,6 +2351,29 @@ async function getParentCompany(locationText) {
 /* ---------- ui actions ---------- */
 document.getElementById("same").onclick = function(){ document.getElementById("next").value = document.getElementById("used").value; autoGrow(document.getElementById("next")); formatNextField(); };
 
+function collectUnitTagFields(){
+  return {
+    unitTagMake: (document.getElementById("unitTagMake") || {}).value || "",
+    unitTagModel: (document.getElementById("unitTagModel") || {}).value || "",
+    unitTagSerial: (document.getElementById("unitTagSerial") || {}).value || "",
+    unitTagJob: (document.getElementById("unitTagJob") || {}).value || "",
+    unitTagMarker: (document.getElementById("unitTagMarker") || {}).value || "",
+    unitTagInstallDate: (document.getElementById("unitTagInstallDate") || {}).value || ""
+  };
+}
+
+function formatUnitNameplateBlock(ut){
+  const lines = [];
+  if (ut.unitTagMarker) lines.push("Handwritten / marker: " + ut.unitTagMarker);
+  if (ut.unitTagMake) lines.push("Make: " + ut.unitTagMake);
+  if (ut.unitTagModel) lines.push("Model #: " + ut.unitTagModel);
+  if (ut.unitTagSerial) lines.push("Serial / unit tag: " + ut.unitTagSerial);
+  if (ut.unitTagJob) lines.push("Job #: " + ut.unitTagJob);
+  if (ut.unitTagInstallDate) lines.push("Install date: " + ut.unitTagInstallDate);
+  if (!lines.length) return "";
+  return "\n\nUnit nameplate:\n" + lines.join("\n");
+}
+
 /** Builds the same report text and visit object as Complete & Sync — without uploading. */
 async function buildReportFromForm() {
   await autoParseLocation();
@@ -2237,6 +2381,8 @@ async function buildReportFromForm() {
   const date = today();
   const parentCompany = await getParentCompany(location);
   const finalLocationDisplay = parentCompany ? `${parentCompany}\n${location}` : location;
+  const ut = collectUnitTagFields();
+  const nameplateBlock = formatUnitNameplateBlock(ut);
 
   let report = "";
   let visit = null;
@@ -2255,8 +2401,8 @@ async function buildReportFromForm() {
     const cost = document.getElementById("cost").value || "Unknown";
     const workdone = document.getElementById("workdone").value || DEFAULT_PM_WORKDONE;
 
-    report = `PM\n\nLocation:\n${finalLocationDisplay}\n\nDate:\n${date}\n\nEquipment on Site:\n${equip}\n\nNotes / Repairs:\n${notesFinal}\n\nWork done:\n${workdone}\n\nParts used:\n${used}\n\nCost of parts (if known):\n${cost}\n\nParts needed next PM:\n${next}\n\nPictures:\nNeeded photos are attached.\n`;
-    visit = { date, mode: "PM", customer: getCustomerFromLocation(location), location, equipment: equip, notesFinal, workdone, partsUsed: used, partsNeeded: next, cost, report };
+    report = `PM\n\nLocation:\n${finalLocationDisplay}\n\nDate:\n${date}${nameplateBlock}\n\nEquipment on Site:\n${equip}\n\nNotes / Repairs:\n${notesFinal}\n\nWork done:\n${workdone}\n\nParts used:\n${used}\n\nCost of parts (if known):\n${cost}\n\nParts needed next PM:\n${next}\n\nPictures:\nNeeded photos are attached.\n`;
+    visit = { date, mode: "PM", customer: getCustomerFromLocation(location), location, equipment: equip, notesFinal, workdone, partsUsed: used, partsNeeded: next, cost, report, ...ut };
 
   } else if(currentMode === "SERVICE"){
     formatServiceEquipmentField(); formatServiceUsedField(); formatQuotePartsField();
@@ -2271,8 +2417,8 @@ async function buildReportFromForm() {
     const quoteLabor = document.getElementById("quoteLabor").value.trim() || "NONE";
     const recommendations = document.getElementById("recommendations").value.trim() || "None.";
 
-    report = `SERVICE CALL\n\nLocation:\n${finalLocationDisplay}\n\nDate:\n${date}\n\nEquipment worked on:\n${serviceEquipDisplay}\n\nReason for call:\n${reason}\n\nFindings / Diagnosis:\n${diagnosis}\n\nRepairs made:\n${repairsMade}\n\nParts used:\n${used}\n\nCost of parts (if known):\n${cost}\n\nParts needed for repair quote:\n${quoteParts}\n\nLabor for repair quote:\n${quoteLabor}\n\nRecommendations / Next steps:\n${recommendations}\n\nPictures:\nRepair photos attached.\n`;
-    visit = { date, mode: "SERVICE CALL", customer: getCustomerFromLocation(location), location, equipmentWorkedOn: serviceEquipDisplay, reason, diagnosis, repairsMade, partsUsed: used, cost, quoteParts, quoteLabor, recommendations, report };
+    report = `SERVICE CALL\n\nLocation:\n${finalLocationDisplay}\n\nDate:\n${date}${nameplateBlock}\n\nEquipment worked on:\n${serviceEquipDisplay}\n\nReason for call:\n${reason}\n\nFindings / Diagnosis:\n${diagnosis}\n\nRepairs made:\n${repairsMade}\n\nParts used:\n${used}\n\nCost of parts (if known):\n${cost}\n\nParts needed for repair quote:\n${quoteParts}\n\nLabor for repair quote:\n${quoteLabor}\n\nRecommendations / Next steps:\n${recommendations}\n\nPictures:\nRepair photos attached.\n`;
+    visit = { date, mode: "SERVICE CALL", customer: getCustomerFromLocation(location), location, equipmentWorkedOn: serviceEquipDisplay, reason, diagnosis, repairsMade, partsUsed: used, cost, quoteParts, quoteLabor, recommendations, report, ...ut };
 
   } else if(currentMode === "QUOTE") {
     formatQuoteEquipField();
@@ -2283,8 +2429,8 @@ async function buildReportFromForm() {
     const testing = document.getElementById("quoteTesting").value.trim() || "Tested and verified operations.";
     const recs = document.getElementById("quoteRecs").value.trim() || "None.";
 
-    report = `QUOTED REPAIR\n\nLocation:\n${finalLocationDisplay}\n\nDate:\n${date}\n\nEquipment Repaired:\n${quoteEquipDisplay}\n\nOriginal Issue Resolved:\n${issue}\n\nRepairs Completed:\n${repairsCompleted}\n\nSystem Testing & Verification:\n${testing}\n\nFurther Recommendations:\n${recs}\n\nPictures:\nRepair photos attached.\n`;
-    visit = { date, mode: "QUOTED REPAIR", customer: getCustomerFromLocation(location), location, equipmentRepaired: quoteEquipDisplay, originalIssue: issue, repairsCompleted: repairsCompleted, partsUsed: "NONE", testingVerification: testing, recommendations: recs, report };
+    report = `QUOTED REPAIR\n\nLocation:\n${finalLocationDisplay}\n\nDate:\n${date}${nameplateBlock}\n\nEquipment Repaired:\n${quoteEquipDisplay}\n\nOriginal Issue Resolved:\n${issue}\n\nRepairs Completed:\n${repairsCompleted}\n\nSystem Testing & Verification:\n${testing}\n\nFurther Recommendations:\n${recs}\n\nPictures:\nRepair photos attached.\n`;
+    visit = { date, mode: "QUOTED REPAIR", customer: getCustomerFromLocation(location), location, equipmentRepaired: quoteEquipDisplay, originalIssue: issue, repairsCompleted: repairsCompleted, partsUsed: "NONE", testingVerification: testing, recommendations: recs, report, ...ut };
   }
 
   return { report, visit };
@@ -2420,7 +2566,7 @@ function addEnterFormatter(id, formatter){
 }
 
 function wireAutosave(){
-  [ "location","unitTagMake","unitTagModel","unitTagSerial","unitTagJob","equipment","notes","used","cost","next","workdone", "serviceEquipment","reason","diagnosis","repairsMade","serviceUsed","serviceCost","quoteParts","quoteLabor","recommendations", "quoteEquip","quoteIssue","quoteRepairs","quoteTesting","quoteRecs"
+  [ "location","unitTagMake","unitTagModel","unitTagSerial","unitTagJob","unitTagMarker","unitTagInstallDate","equipment","notes","used","cost","next","workdone", "serviceEquipment","reason","diagnosis","repairsMade","serviceUsed","serviceCost","quoteParts","quoteLabor","recommendations", "quoteEquip","quoteIssue","quoteRepairs","quoteTesting","quoteRecs"
   ].forEach(id => {
     const el = document.getElementById(id);
     if(!el) return;
@@ -2457,7 +2603,7 @@ window.onload = async function(){
 
   document.getElementById("location").value = "";
   const fieldsToClear = [
-    "unitTagMake","unitTagModel","unitTagSerial","unitTagJob","equipment","notes","used","cost","next", "serviceEquipment","reason","diagnosis","repairsMade","serviceUsed","serviceCost","quoteParts","quoteLabor","recommendations", "quoteEquip","quoteIssue","quoteRepairs","quoteTesting","quoteRecs"
+    "unitTagMake","unitTagModel","unitTagSerial","unitTagJob","unitTagMarker","unitTagInstallDate","equipment","notes","used","cost","next", "serviceEquipment","reason","diagnosis","repairsMade","serviceUsed","serviceCost","quoteParts","quoteLabor","recommendations", "quoteEquip","quoteIssue","quoteRepairs","quoteTesting","quoteRecs"
   ];
   fieldsToClear.forEach(id => { const el = document.getElementById(id); if(el) { el.value = ""; autoGrow(el); } });
 
