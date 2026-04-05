@@ -219,6 +219,39 @@ textarea { min-height: 80px; resize: vertical; }
   position: absolute; left: 0; top: 0; width: 100%; height: 100%;
   opacity: 0; cursor: pointer; font-size: 16px;
 }
+.tag-ocr-result-panel {
+  margin: 12px 0 8px 0; padding: 14px 14px; border-radius: 10px;
+  background: #f0f7f2; border: 1px solid #b8dfc4;
+}
+.tag-ocr-result-heading {
+  margin: 0 0 10px 0; font-size: 13px; font-weight: 800; color: #1e4b85;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.tag-ocr-result-body { display: flex; flex-direction: column; gap: 10px; }
+.tag-ocr-result-row {
+  display: flex; flex-direction: column; gap: 4px;
+  padding-bottom: 10px; border-bottom: 1px solid rgba(30,75,133,0.12);
+}
+.tag-ocr-result-row:last-child { border-bottom: none; padding-bottom: 0; }
+.tag-ocr-result-label { font-size: 11px; font-weight: 700; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.03em; }
+.tag-ocr-result-val {
+  font-size: 16px; font-weight: 700; color: #2c3e50; word-break: break-word; line-height: 1.35;
+}
+.tag-ocr-result-none {
+  margin: 0; font-size: 14px; color: #856404; line-height: 1.45;
+}
+.tag-ocr-raw-details {
+  margin: 10px 0 0 0; font-size: 12px; color: #7f8c8d;
+}
+.tag-ocr-raw-details summary {
+  cursor: pointer; font-weight: 600; color: #1e4b85; padding: 8px 0;
+  list-style-position: outside;
+}
+.tag-ocr-raw-pre {
+  margin: 8px 0 0 0; padding: 10px; background: #fafbfc; border: 1px solid #e1e8ed;
+  border-radius: 8px; font-size: 11px; line-height: 1.4; white-space: pre-wrap;
+  word-break: break-word; max-height: min(28vh, 220px); overflow: auto; color: #555;
+}
 .tag-ocr-spinner-wrap {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 12px; padding: 24px 12px;
@@ -504,7 +537,15 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
         <p id="tagOcrStatusText">Reading image…</p>
       </div>
     </div>
-    <pre id="tagOcrRawPreview" class="report-preview-body hidden" style="max-height: min(32vh, 280px); font-size: 12px;"></pre>
+    <div id="tagOcrResultPanel" class="tag-ocr-result-panel hidden">
+      <p class="tag-ocr-result-heading">Extracted from photo</p>
+      <div id="tagOcrResultBody" class="tag-ocr-result-body"></div>
+      <p id="tagOcrResultNone" class="tag-ocr-result-none hidden">Could not read these fields automatically. Enter them below the accordion or try a closer, well-lit photo.</p>
+    </div>
+    <details id="tagOcrRawDetails" class="tag-ocr-raw-details hidden">
+      <summary>Raw OCR text (troubleshooting only)</summary>
+      <pre id="tagOcrRawPreview" class="tag-ocr-raw-pre"></pre>
+    </details>
     <div class="report-preview-actions" style="margin-top: 8px;">
       <button type="button" class="report-preview-back" onclick="closeTagOcrModal()">Close</button>
     </div>
@@ -1404,6 +1445,40 @@ function formatEquipmentFieldValue(raw){
 /* ---------- unit tag OCR (Tesseract.js, local) ---------- */
 let tagOcrBusy = false;
 
+function renderTagOcrResults(parsed){
+  const panel = document.getElementById("tagOcrResultPanel");
+  const body = document.getElementById("tagOcrResultBody");
+  const noneEl = document.getElementById("tagOcrResultNone");
+  if (!panel || !body || !noneEl) return;
+  body.innerHTML = "";
+  const rows = [
+    ["Make", parsed.make],
+    ["Model #", parsed.model],
+    ["Serial #", parsed.serial],
+    ["Job #", parsed.jobNumber]
+  ];
+  let any = false;
+  rows.forEach(function(pair){
+    const label = pair[0];
+    const val = pair[1];
+    if (!val || !String(val).trim()) return;
+    any = true;
+    const row = document.createElement("div");
+    row.className = "tag-ocr-result-row";
+    const lab = document.createElement("span");
+    lab.className = "tag-ocr-result-label";
+    lab.textContent = label;
+    const v = document.createElement("span");
+    v.className = "tag-ocr-result-val";
+    v.textContent = String(val).trim();
+    row.appendChild(lab);
+    row.appendChild(v);
+    body.appendChild(row);
+  });
+  noneEl.classList.toggle("hidden", any);
+  panel.classList.remove("hidden");
+}
+
 function openTagOcrModal(){
   const modal = document.getElementById("tagOcrModal");
   ["tagOcrLibraryInput", "tagOcrCameraInput"].forEach(function(id){
@@ -1411,8 +1486,21 @@ function openTagOcrModal(){
     if (el) el.value = "";
   });
   document.getElementById("tagOcrLoading").classList.add("hidden");
-  document.getElementById("tagOcrRawPreview").classList.add("hidden");
-  document.getElementById("tagOcrRawPreview").textContent = "";
+  const resultPanel = document.getElementById("tagOcrResultPanel");
+  if (resultPanel){
+    resultPanel.classList.add("hidden");
+    const rb = document.getElementById("tagOcrResultBody");
+    if (rb) rb.innerHTML = "";
+    const noneEl = document.getElementById("tagOcrResultNone");
+    if (noneEl) noneEl.classList.add("hidden");
+  }
+  const rawDetails = document.getElementById("tagOcrRawDetails");
+  const rawPre = document.getElementById("tagOcrRawPreview");
+  if (rawDetails){
+    rawDetails.classList.add("hidden");
+    rawDetails.open = false;
+  }
+  if (rawPre) rawPre.textContent = "";
   modal.classList.remove("hidden");
 }
 
@@ -1562,9 +1650,15 @@ async function runTagOcrOnFile(file){
   const loading = document.getElementById("tagOcrLoading");
   const statusEl = document.getElementById("tagOcrStatusText");
   const rawPre = document.getElementById("tagOcrRawPreview");
+  const rawDetails = document.getElementById("tagOcrRawDetails");
+  const resultPanel = document.getElementById("tagOcrResultPanel");
   loading.classList.remove("hidden");
-  rawPre.classList.add("hidden");
-  rawPre.textContent = "";
+  if (resultPanel) resultPanel.classList.add("hidden");
+  if (rawDetails){
+    rawDetails.classList.add("hidden");
+    rawDetails.open = false;
+  }
+  if (rawPre) rawPre.textContent = "";
 
   console.log("[OCR] Starting Tesseract.recognize — file:", file.name, "size:", file.size, "type:", file.type);
 
@@ -1585,10 +1679,15 @@ async function runTagOcrOnFile(file){
     console.log(rawText);
     console.log("[OCR] ========== END RAW TEXT (length " + rawText.length + ") ==========");
 
-    rawPre.textContent = rawText || "(empty)";
-    rawPre.classList.remove("hidden");
-
     const parsed = parseNameplateTagText(rawText);
+    renderTagOcrResults(parsed);
+
+    if (rawPre) rawPre.textContent = rawText || "(empty)";
+    if (rawDetails){
+      rawDetails.classList.remove("hidden");
+      rawDetails.open = false;
+    }
+
     const makeEl = document.getElementById("unitTagMake");
     const modelEl = document.getElementById("unitTagModel");
     const serialEl = document.getElementById("unitTagSerial");
@@ -1600,7 +1699,7 @@ async function runTagOcrOnFile(file){
     saveDraft();
 
     if (!parsed.model && !parsed.serial && !parsed.make && !parsed.jobNumber){
-      console.warn("[OCR] Could not match make / model / serial / job; check raw text above.");
+      console.warn("[OCR] Could not match make / model / serial / job; expand Raw OCR in the modal or check the console.");
     }
   } catch (err){
     console.error("[OCR] Tesseract error:", err);
