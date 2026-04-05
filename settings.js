@@ -139,17 +139,47 @@ let appTechList = [];
 let currentEditingTechInv = "";
 let editingTemplateType = null; 
 let currentInvTab = "tools";
-const defaultTechs = ["Dave (Tech 1)", "Sarah (Tech 2)", "Mike (Tech 3)", "Tom (Tech 4)"];
 
-function loadAppTechs() {
-    const saved = localStorage.getItem('tp_tech_list');
-    if (saved) {
-        appTechList = JSON.parse(saved);
-    } else {
-        appTechList = [...defaultTechs];
-        localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
+/** Load technician roster: Firestore app_config/technicians.names when present, else localStorage (may be empty). */
+async function hydrateTechnicianRosterFromCloud() {
+    appTechList = [];
+    let loadedFromCloud = false;
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
+        try {
+            const snap = await firebase.firestore().collection('app_config').doc('technicians').get();
+            if (snap.exists) {
+                const data = snap.data() || {};
+                if (Array.isArray(data.names)) {
+                    appTechList = data.names.map(function (n) { return String(n).trim(); }).filter(Boolean);
+                    loadedFromCloud = true;
+                    localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
+                }
+            }
+        } catch (e) {
+            console.error('hydrateTechnicianRosterFromCloud', e);
+        }
     }
-    
+    if (!loadedFromCloud) {
+        const saved = localStorage.getItem('tp_tech_list');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) appTechList = parsed;
+            } catch (e) { /* ignore */ }
+        }
+    }
+}
+
+/** Re-fetch roster from cloud when opening Settings (optional refresh). */
+async function refreshTechnicianRosterFromCloud() {
+    await hydrateTechnicianRosterFromCloud();
+    renderTechSettings();
+    populateTechDropdowns();
+}
+
+async function loadAppTechs() {
+    await hydrateTechnicianRosterFromCloud();
+
     let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
     let needsUpdate = false;
 

@@ -4204,8 +4204,8 @@
         }
       }
 
-      window.onload = function () {
-        if (typeof loadAppTechs === "function") loadAppTechs();
+      window.onload = async function () {
+        if (typeof loadAppTechs === "function") await loadAppTechs();
 
         if (typeof injectDummyData === "function") injectDummyData();
         if (typeof repairAndSyncCustomerDB === "function")
@@ -4487,6 +4487,9 @@
         ) {
           loadFirebaseInvoiceArchive();
         }
+        if (tabName === "settings" && typeof refreshTechnicianRosterFromCloud === "function") {
+          void refreshTechnicianRosterFromCloud();
+        }
       }
 
       function showSaveCue(message) {
@@ -4521,7 +4524,7 @@
       }
     </script>
 
-    <script src="settings.js?v=5"></script>
+    <script src="settings.js?v=6"></script>
     <script src="customer_directory.js?v=25"></script>
     <script src="service_call.js?v=35"></script>
     <script src="quoting.js?v=6"></script>
