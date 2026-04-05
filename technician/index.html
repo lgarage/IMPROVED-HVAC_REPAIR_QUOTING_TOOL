@@ -377,8 +377,8 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
       <input type="text" id="unitTagSerial" placeholder="OCR or type" autocomplete="off" autocapitalize="characters">
       <label>Job #</label>
       <input type="text" id="unitTagJob" placeholder="OCR or type" autocomplete="off" autocapitalize="characters">
-      <label>Handwritten / marker (e.g. EF3)</label>
-      <input type="text" id="unitTagMarker" placeholder="OCR or type" autocomplete="off" autocapitalize="characters">
+      <label>Unit # (sharpie, e.g. EF3)</label>
+      <input type="text" id="unitTagMarker" placeholder="e.g. EF3" autocomplete="off" autocapitalize="characters">
       <label>Install date</label>
       <input type="text" id="unitTagInstallDate" placeholder="e.g. 6-7-2023" autocomplete="off" inputmode="numeric">
       <button type="button" id="openTagOcrBtn" class="tag-ocr-open-btn">Scan nameplate photo</button>
@@ -1466,7 +1466,7 @@ function renderTagOcrResults(parsed){
     ["Model #", parsed.model],
     ["Serial #", parsed.serial],
     ["Job #", parsed.jobNumber],
-    ["Marker", parsed.marker],
+    ["Unit # (sharpie)", parsed.marker],
     ["Install date", parsed.installDate]
   ];
   let any = false;
@@ -2364,10 +2364,10 @@ function collectUnitTagFields(){
 
 function formatUnitNameplateBlock(ut){
   const lines = [];
-  if (ut.unitTagMarker) lines.push("Handwritten / marker: " + ut.unitTagMarker);
-  if (ut.unitTagMake) lines.push("Make: " + ut.unitTagMake);
   if (ut.unitTagModel) lines.push("Model #: " + ut.unitTagModel);
-  if (ut.unitTagSerial) lines.push("Serial / unit tag: " + ut.unitTagSerial);
+  if (ut.unitTagMarker) lines.push("Unit # (sharpie): " + ut.unitTagMarker);
+  if (ut.unitTagMake) lines.push("Make: " + ut.unitTagMake);
+  if (ut.unitTagSerial) lines.push("Serial #: " + ut.unitTagSerial);
   if (ut.unitTagJob) lines.push("Job #: " + ut.unitTagJob);
   if (ut.unitTagInstallDate) lines.push("Install date: " + ut.unitTagInstallDate);
   if (!lines.length) return "";
