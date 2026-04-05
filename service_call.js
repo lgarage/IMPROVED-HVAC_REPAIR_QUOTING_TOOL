@@ -348,7 +348,7 @@ function openTicketDetails(dbId) {
     if (!sc) return;
 
     // --- DYNAMICALLY GENERATE TECH DROPDOWN OPTIONS ---
-    let savedTechs = JSON.parse(localStorage.getItem('tp_tech_list') || '["Dave (Tech 1)", "Sarah (Tech 2)", "Mike (Tech 3)", "Tom (Tech 4)"]');
+    let savedTechs = JSON.parse(localStorage.getItem('tp_tech_list') || '[]');
     let techOptionsHtml = `<option value="Unassigned" ${sc.assignedTech === 'Unassigned' || !sc.assignedTech ? 'selected' : ''}>Unassigned</option>`;
     
     savedTechs.forEach(tech => {
@@ -636,9 +636,6 @@ function renderServiceBoard() {
 
     // 2. RENDER GANTT ROWS (DYNAMIC FROM SETTINGS)
     let savedTechs = JSON.parse(localStorage.getItem('tp_tech_list') || '[]');
-    if (savedTechs.length === 0) {
-        savedTechs = ["Dave (Tech 1)", "Sarah (Tech 2)", "Mike (Tech 3)", "Tom (Tech 4)"];
-    }
 
     const colorPalette = ['#2980b9', '#8e44ad', '#d35400', '#16a085', '#27ae60', '#f39c12', '#c0392b', '#34495e'];
     
