@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "service_calls",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "assignedTech", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

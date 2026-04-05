@@ -172,10 +172,24 @@ function loadAppTechs() {
     }
 
     renderTechSettings();
-    renderMasterTemplates(); 
+    renderMasterTemplates();
     populateTechDropdowns();
-    
-    setTimeout(checkGlobalVMI, 500); 
+    syncTechnicianRosterToFirestore();
+
+    setTimeout(checkGlobalVMI, 500);
+}
+
+/** Pushes the office technician roster to Firestore so the Field app can sign in with the same names used for assignment. */
+function syncTechnicianRosterToFirestore() {
+    if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) return;
+    try {
+        firebase.firestore().collection('app_config').doc('technicians').set({
+            names: appTechList.slice(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    } catch (e) {
+        console.error('syncTechnicianRosterToFirestore', e);
+    }
 }
 
 function renderTechSettings() {
@@ -215,6 +229,7 @@ function addNewTechnician() {
     input.value = '';
     renderTechSettings();
     populateTechDropdowns();
+    syncTechnicianRosterToFirestore();
     if(typeof showSaveCue === 'function') showSaveCue("✓ Technician Added");
 }
 
@@ -240,9 +255,10 @@ function editTechnician(index) {
 
     appTechList[index] = cleanName;
     localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
-    
+
     renderTechSettings();
     populateTechDropdowns();
+    syncTechnicianRosterToFirestore();
     if(typeof showSaveCue === 'function') showSaveCue("✓ Technician Updated");
 }
 
@@ -260,8 +276,9 @@ function removeTechnician(index) {
 
         renderTechSettings();
         populateTechDropdowns();
+        syncTechnicianRosterToFirestore();
         if(typeof showSaveCue === 'function') showSaveCue("✓ Technician Removed");
-        checkGlobalVMI(); 
+        checkGlobalVMI();
     }
 }
 

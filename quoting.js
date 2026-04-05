@@ -202,6 +202,74 @@ function loadQuoteForEditing(dbId) {
     document.getElementById('mainFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/**
+ * Parses Field app report text (SERVICE CALL template) for quote lines.
+ * Sections: "Parts needed for repair quote:" and "Labor for repair quote:"
+ */
+function parseFieldTechNotesForQuote(techNotes) {
+    const out = { partDescriptions: [], laborHours: null };
+    if (!techNotes || typeof techNotes !== 'string') return out;
+    const normalized = techNotes.replace(/\r\n/g, '\n');
+    const partsMatch = normalized.match(/Parts needed for repair quote:\s*([\s\S]*?)(?=\n\n(?:Labor for repair quote|Recommendations|Next steps|Pictures):)/i);
+    const laborMatch = normalized.match(/Labor for repair quote:\s*([^\n]+)/i);
+    if (laborMatch) {
+        const lab = laborMatch[1].trim();
+        const num = lab.match(/(\d+(?:\.\d+)?)/);
+        if (num) out.laborHours = parseFloat(num[1]);
+    }
+    if (partsMatch) {
+        let block = partsMatch[1].trim();
+        if (block && !/^NONE\.?$/i.test(block)) {
+            const chunks = block.split(/\s*,\s*|\s+and\s+|\n+/i).map(s => s.trim()).filter(s => s && !/^NONE\.?$/i.test(s));
+            out.partDescriptions = chunks.length ? chunks : [block];
+        }
+    }
+    return out;
+}
+
+function setQuotePartsHeaderOnly() {
+    document.getElementById('partsContainer').innerHTML = `
+    <div class="parts-grid-layout part-header-row">
+        <label>QTY</label>
+        <label>Part Description</label>
+        <label>Part Number</label>
+        <label>Vendor</label>
+        <label>Lead Time (Days)</label>
+        <label>Our Cost $</label>
+        <label style="color:#27ae60;">Retail $ (Auto)</label>
+        <label></label>
+    </div>`;
+}
+
+/** After startNewQuote + customer fields: fills labor hours and part rows from ticket / techNotes. */
+function populateQuoteFromServiceCall(sc) {
+    const parsed = parseFieldTechNotesForQuote(sc.techNotes || '');
+    setQuotePartsHeaderOnly();
+    if (parsed.partDescriptions.length > 0) {
+        parsed.partDescriptions.forEach((d) => {
+            addPartRow();
+            const rows = document.querySelectorAll('#partsContainer .part-entry-line');
+            const last = rows[rows.length - 1];
+            const descEl = last.querySelector('.p-desc');
+            if (descEl) descEl.value = d.toUpperCase();
+        });
+    } else {
+        addPartRow();
+        const first = document.querySelector('#partsContainer .part-entry-line');
+        if (first) {
+            const bits = [];
+            if (sc.equip && String(sc.equip).trim() && sc.equip !== 'N/A') bits.push(`EQUIPMENT: ${sc.equip}`);
+            if (sc.issue && String(sc.issue).trim()) bits.push(`ISSUE: ${sc.issue}`);
+            const line = bits.join(' — ');
+            if (line) first.querySelector('.p-desc').value = line.toUpperCase();
+        }
+    }
+    if (parsed.laborHours != null && !isNaN(parsed.laborHours) && parsed.laborHours > 0) {
+        document.getElementById('laborHoursInput').value = String(parsed.laborHours);
+    }
+    if (typeof calcQuoteLiveMath === 'function') calcQuoteLiveMath();
+}
+
 function addPartRow() {
     const container = document.getElementById('partsContainer');
     const row = document.createElement('div');
