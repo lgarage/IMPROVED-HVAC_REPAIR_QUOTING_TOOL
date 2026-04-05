@@ -474,10 +474,10 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
       <h2 id="tagOcrModalTitle">Scan unit tag</h2>
       <button type="button" class="report-preview-close" onclick="closeTagOcrModal()" aria-label="Close">&times;</button>
     </div>
-    <p class="report-preview-hint">Choose a photo or use the camera. Processing runs locally in your browser.</p>
+    <p class="report-preview-hint">Use your camera or pick an existing photo from your library. Processing runs on this device only.</p>
     <label class="tag-ocr-camera-label">
-      <input type="file" id="tagOcrFileInput" accept="image/*" capture="environment">
-      Tap to take photo or choose file
+      <input type="file" id="tagOcrFileInput" accept="image/*">
+      Tap to choose — camera or photo library
     </label>
     <div id="tagOcrLoading" class="hidden">
       <div class="tag-ocr-spinner-wrap">
