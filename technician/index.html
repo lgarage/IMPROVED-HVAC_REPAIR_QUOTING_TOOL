@@ -1,0 +1,2240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+<title>Twin Pillars Field App</title>
+<link rel="icon" type="image/png" href="../tphc_logo.png">
+
+<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<style>
+/* --- BASE APP STYLES --- */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  margin: 0; padding: 0; background: #f4f7fa; color: #333; -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+
+/* --- HEADER --- */
+.app-header {
+  background: #fff; padding: 14px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  display: flex; justify-content: center; align-items: center; position: sticky; top: 0; z-index: 100;
+}
+.app-header img { max-height: 40px; }
+
+/* --- SIGN-IN (roster synced from office Dispatch → Settings → Technicians) --- */
+.login-shell {
+  position: fixed; inset: 0; z-index: 300; background: #f4f7fa;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.login-shell.hidden { display: none !important; }
+.login-card {
+  width: 100%; max-width: 400px; background: #fff; border-radius: 16px; padding: 28px 24px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08); border: 1px solid #e1e8ed;
+}
+.login-card label { margin-top: 0; }
+.login-card select, .login-card input[type="text"] { margin-top: 8px; }
+.login-hint { font-size: 12px; color: #7f8c8d; margin: 12px 0 0 0; line-height: 1.4; }
+.login-btn {
+  width: 100%; margin-top: 20px; padding: 16px; border: none; border-radius: 10px;
+  background: #1e4b85; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;
+}
+.login-btn:active { transform: scale(0.99); }
+
+/* --- SCREENS --- */
+.screen { display: none; padding: 20px; padding-bottom: 100px; }
+.screen.active { display: block; }
+
+/* --- JOB CARDS (SCHEDULE) --- */
+.job-card {
+  background: #ffffff; border: 1px solid #e1e8ed; border-radius: 12px; padding: 16px;
+  margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border-left: 6px solid #1e4b85;
+  cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
+}
+.job-card:active { transform: scale(0.98); box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.card-time { font-weight: 800; color: #1e4b85; font-size: 16px; }
+.card-badge { background: #e8f0fe; color: #1e4b85; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+.badge-emergency { background: #fdedec; color: #e74c3c; border: 1px solid #fadbd8; }
+.schedule-day-label {
+  font-size: 13px; font-weight: 800; color: #1e4b85;
+  margin: 18px 0 10px 0; padding-bottom: 6px;
+  border-bottom: 2px solid #e1e8ed; letter-spacing: 0.02em;
+}
+.schedule-day-label:first-child { margin-top: 0; }
+.schedule-day-strip-wrap { margin-bottom: 8px; }
+.schedule-day-strip {
+  display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 8px;
+  -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+}
+.schedule-day-chip {
+  flex-shrink: 0; padding: 10px 14px; border-radius: 10px; border: 2px solid #e1e8ed;
+  background: #fff; font-weight: 700; font-size: 13px; color: #555; cursor: pointer;
+  font-family: inherit;
+}
+.schedule-day-chip.active {
+  border-color: #1e4b85; background: #e8f0fe; color: #1e4b85;
+}
+.schedule-day-hint { font-size: 12px; color: #7f8c8d; margin: 0 0 10px 0; }
+.card-customer { font-size: 18px; font-weight: 800; color: #2c3e50; margin-bottom: 4px; }
+.card-address { color: #7f8c8d; font-size: 13px; line-height: 1.4; }
+
+/* --- WORKSPACE (ACTIVE JOB) --- */
+.workspace-header {
+  background: #1e4b85; color: #fff; padding: 20px; border-radius: 12px; margin-bottom: 20px;
+  box-shadow: 0 4px 15px rgba(30,75,133,0.2);
+}
+.ws-customer { font-size: 22px; font-weight: 800; margin-bottom: 5px; }
+.ws-address { font-size: 14px; opacity: 0.9; margin-bottom: 15px; line-height: 1.4; }
+.ws-ticket { font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold; }
+
+/* --- ACCORDIONS --- */
+.accordion {
+  background: #fff; border: 1px solid #e1e8ed; border-radius: 10px; margin-bottom: 12px;
+  overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+.accordion-header {
+  padding: 16px; background: #fff; font-weight: 700; color: #2c3e50; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center; font-size: 15px;
+}
+.accordion-header::after { content: '+'; color: #c89b53; font-size: 20px; font-weight: normal; }
+.accordion.open .accordion-header::after { content: '−'; }
+.accordion.open .accordion-header { border-bottom: 1px solid #f0f4f8; }
+.accordion-body { padding: 16px; display: none; background: #fafbfc; }
+.accordion.open .accordion-body { display: block; }
+
+/* --- FORM ELEMENTS --- */
+label { font-weight: 600; display: block; margin-top: 14px; color: #555; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+label:first-child { margin-top: 0; }
+input, textarea, select {
+  width: 100%; padding: 14px; font-size: 16px; margin-top: 6px; box-sizing: border-box;
+  border: 1px solid #d1d9e0; border-radius: 8px; background: #fff; font-family: inherit;
+  transition: all 0.2s; box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);
+}
+input:focus, textarea:focus, select:focus { outline: none; border-color: #c89b53; box-shadow: 0 0 0 3px rgba(200, 155, 83, 0.15); }
+textarea { min-height: 80px; resize: vertical; }
+
+/* --- PILL BUTTONS & INLINE --- */
+.pillbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 5px; }
+.pillbar button {
+  width: auto; padding: 8px 14px; font-size: 13px; background: #f0f4f8;
+  border: 1px solid #d1d9e0; color: #1e4b85; font-weight: 700; border-radius: 20px; cursor: pointer; margin-top: 0;
+}
+.pillbar button:active { background: #e1e8ed; transform: scale(0.95); }
+.inline { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+.inline .grow { flex: 1 1 200px; }
+.inline button { width: auto; background: #1e4b85; color: #fff; border: none; padding: 14px; border-radius: 8px; margin-top: 6px; font-weight: bold;}
+
+/* --- FLOATING ACTION BUTTON --- */
+.fab-container {
+  position: fixed; bottom: 65px; left: 0; width: 100%; padding: 15px 20px;
+  background: linear-gradient(transparent, #f4f7fa 30%); box-sizing: border-box; z-index: 99; pointer-events: none;
+}
+.fab-stack {
+  display: flex; flex-direction: column; gap: 10px; pointer-events: auto;
+  max-width: 560px; margin: 0 auto;
+}
+.fab-btn {
+  width: 100%; padding: 18px; border-radius: 12px; background: #27ae60; color: white; pointer-events: auto;
+  font-size: 18px; font-weight: 800; border: none; box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+  cursor: pointer; transition: transform 0.1s;
+}
+.fab-btn:active { transform: scale(0.98); }
+
+/* Report preview modal */
+.report-preview-modal {
+  position: fixed; inset: 0; z-index: 250;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.report-preview-modal.hidden { display: none !important; }
+.report-preview-backdrop {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.45);
+}
+.report-preview-sheet {
+  position: relative; width: 100%; max-width: 560px; max-height: 90vh;
+  background: #fff; border-radius: 16px 16px 0 0; padding: 16px 18px 22px;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column; box-sizing: border-box;
+}
+.report-preview-header {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  margin-bottom: 10px; flex-shrink: 0;
+}
+.report-preview-header h2 { margin: 0; font-size: 18px; color: #1e4b85; }
+.report-preview-close {
+  border: none; background: #f0f4f8; color: #2c3e50; width: 40px; height: 40px;
+  border-radius: 10px; font-size: 24px; line-height: 1; cursor: pointer; flex-shrink: 0;
+}
+.report-preview-body {
+  margin: 0; overflow: auto; max-height: min(58vh, 420px);
+  white-space: pre-wrap; word-break: break-word;
+  font-family: inherit; font-size: 14px; line-height: 1.5; color: #2c3e50;
+  background: #fafbfc; border: 1px solid #e1e8ed; border-radius: 10px; padding: 14px 16px;
+}
+.report-preview-actions {
+  margin-top: 14px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;
+}
+.report-preview-back {
+  width: 100%; padding: 14px; border-radius: 10px; border: 2px solid #d1d9e0;
+  background: #fff; color: #2c3e50; font-size: 16px; font-weight: 700; cursor: pointer;
+}
+.report-preview-sync {
+  width: 100%; padding: 16px; border-radius: 10px; border: none;
+  background: #27ae60; color: #fff; font-size: 17px; font-weight: 800; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.35);
+}
+.report-preview-sync:active { transform: scale(0.99); }
+.report-preview-hint {
+  font-size: 12px; color: #7f8c8d; margin: 0 0 10px 0; line-height: 1.4;
+}
+
+/* Unit tag OCR */
+.tag-ocr-open-btn {
+  width: 100%; margin-top: 12px; padding: 14px; border-radius: 10px; border: none;
+  background: #1e4b85; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(30,75,133,0.25);
+}
+.tag-ocr-open-btn:active { transform: scale(0.99); }
+.tag-ocr-open-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.tag-ocr-camera-label {
+  display: block; text-align: center; padding: 14px 16px; border-radius: 10px;
+  border: 2px dashed #c89b53; background: #fdfaf2; color: #1e4b85; font-weight: 700;
+  cursor: pointer; font-size: 15px; margin-bottom: 12px;
+}
+.tag-ocr-camera-label input { position: absolute; width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; z-index: -1; }
+.tag-ocr-spinner-wrap {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 24px 12px;
+}
+.tag-ocr-spinner {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 4px solid #e1e8ed; border-top-color: #1e4b85;
+  animation: tagOcrSpin 0.75s linear infinite;
+}
+@keyframes tagOcrSpin { to { transform: rotate(360deg); } }
+#tagOcrStatusText { margin: 0; font-size: 14px; color: #555; font-weight: 600; }
+
+/* --- BOTTOM NAV --- */
+.bottom-nav {
+  position: fixed; bottom: 0; width: 100%; background: #fff; border-top: 1px solid #e1e8ed; 
+  display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); box-shadow: 0 -2px 10px rgba(0,0,0,0.03);
+}
+.nav-item {
+  flex: 1; text-align: center; padding: 12px 0; color: #95a5a6; font-size: 11px;
+  font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  transition: color 0.2s;
+}
+.nav-item.active { color: #1e4b85; }
+.nav-item svg { width: 24px; height: 24px; fill: currentColor; }
+
+/* --- STATUS ALERTS --- */
+.alert-card { background: #e8f8f5; border: 1px solid #2ecc71; border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: center; display: none; }
+.alert-card h3 { color: #27ae60; margin: 0 0 5px 0; font-size: 18px; }
+.alert-card p { color: #555; font-size: 14px; margin: 0; }
+
+/* --- HISTORY UI --- */
+.history-box { border: 1px solid #e1e8ed; border-radius: 10px; padding: 20px; background: #fff; }
+.history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.history-item { border: 1px solid #e1e8ed; border-radius: 8px; background: #fafbfc; padding: 15px; cursor: pointer; transition: all 0.2s; }
+.history-item:hover { background: #f0f4f8; }
+.history-item.active { border-color: #c89b53; background: #fdfaf2; }
+.history-title { font-weight: 700; color: #1e4b85; }
+.history-sub { font-size: 14px; opacity: .8; margin-top: 6px; }
+.summary-card { border: 1px solid #e1e8ed; border-radius: 10px; background: #fafbfc; padding: 20px; margin-top: 15px; }
+.summary-card h3 { margin: 0 0 15px 0; font-size: 18px; color: #1e4b85; border-bottom: 2px solid #e1e8ed; padding-bottom: 10px; }
+.summary-row { margin-top: 10px; font-size: 15px; }
+.summary-label { font-weight: 700; color: #555; }
+hr.soft { border: none; border-top: 1px solid #e1e8ed; margin: 25px 0; }
+pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px; border: 1px solid #e1e8ed; font-family: inherit; font-size: 14px; line-height: 1.5; color: #2c3e50; }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="loginShell" class="login-shell hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+  <div class="login-card">
+    <h1 id="loginTitle" style="margin:0 0 8px 0; color:#1e4b85; font-size:22px;">Sign in</h1>
+    <p style="margin:0 0 20px 0; color:#555; font-size:14px;">Use the same technician name assigned to jobs in Dispatch.</p>
+    <label for="loginTechSelect">Technician</label>
+    <select id="loginTechSelect"></select>
+    <input type="text" id="loginTechManual" class="hidden" placeholder="Exact name as on dispatch (e.g. DAVE (TECH 1))" autocomplete="name">
+    <p id="loginRosterHint" class="login-hint"></p>
+    <button type="button" id="loginContinueBtn" class="login-btn">Continue</button>
+  </div>
+</div>
+
+<div class="app-header" role="banner">
+  <img src="../tphc_logo.png" alt="Twin Pillars" width="120" height="40" onerror="this.outerHTML='<span style=\'font-weight:800;color:#1e4b85;font-size:14px;\'>TWIN PILLARS</span>'">
+</div>
+
+<div id="screen-schedule" class="screen active">
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 15px;">
+    <div>
+      <h2 style="margin: 0; color: #2c3e50; font-size: 24px;">Your schedule</h2>
+      <span style="font-size: 12px; color: #7f8c8d;">Next 7 days</span>
+    </div>
+    <span id="techDisplayLabel" style="font-size: 12px; font-weight: bold; color: #c89b53; background: #fdfaf2; padding: 4px 8px; border-radius: 12px; border: 1px solid #fad7a1; flex-shrink: 0;">Loading...</span>
+  </div>
+
+  <div class="schedule-day-strip-wrap">
+    <p class="schedule-day-hint">Tap a day to see that day's jobs (next 7 days).</p>
+    <div id="scheduleDayStrip" class="schedule-day-strip" role="tablist" aria-label="Pick a day"></div>
+  </div>
+  
+  <div id="draftStatus" style="text-align: center; font-size: 12px; font-weight: bold; color: #7f8c8d; margin-bottom: 15px;"></div>
+
+  <div id="jobListContainer">
+    <div style="text-align:center; padding: 40px 20px; color:#95a5a6;">Fetching schedule...</div>
+  </div>
+</div>
+
+<div id="screen-workspace" class="screen hidden">
+  <div id="successCard" class="alert-card">
+    <h3>✓ Ticket Synced</h3>
+    <p>Saved successfully. You can return to your schedule.</p>
+  </div>
+
+  <div class="workspace-header">
+    <div id="ws-customer" class="ws-customer">Select a Job</div>
+    <div id="ws-address" class="ws-address">Return to Schedule to pick a ticket</div>
+    <div id="ws-ticket" class="ws-ticket">NO TICKET</div>
+  </div>
+
+  <input type="hidden" id="ticketSelector">
+  
+  <div class="accordion open" id="acc-location" style="margin-bottom: 15px;">
+     <div class="accordion-header" onclick="toggleAccordion('acc-location')">Location Data</div>
+     <div class="accordion-body">
+       <label style="margin-top:0;">Location</label>
+       <input id="location" placeholder="Example: I'm at the Planet Fitness in Milwaukee on Main Street">
+     </div>
+  </div>
+
+  <div class="accordion" id="acc-tag-ocr" style="margin-bottom: 15px;">
+    <div class="accordion-header" onclick="toggleAccordion('acc-tag-ocr')">Unit nameplate (optional)</div>
+    <div class="accordion-body">
+      <p style="font-size:12px;color:#7f8c8d;margin:0 0 12px 0;line-height:1.45;">Scan a manufacturer tag with your camera. Text is read on this device only (Tesseract.js).</p>
+      <label style="margin-top:0;">Make (manufacturer)</label>
+      <input type="text" id="unitTagMake" placeholder="OCR or type" autocomplete="off" autocapitalize="words">
+      <label>Model #</label>
+      <input type="text" id="unitTagModel" placeholder="OCR or type" autocomplete="off" autocapitalize="characters">
+      <label>Serial #</label>
+      <input type="text" id="unitTagSerial" placeholder="OCR or type" autocomplete="off" autocapitalize="characters">
+      <label>Job #</label>
+      <input type="text" id="unitTagJob" placeholder="OCR or type" autocomplete="off" autocapitalize="characters">
+      <button type="button" id="openTagOcrBtn" class="tag-ocr-open-btn">Scan nameplate photo</button>
+    </div>
+  </div>
+
+  <div id="pmSection" class="hidden">
+    <div class="accordion open" id="acc-equip-pm">
+      <div class="accordion-header" onclick="toggleAccordion('acc-equip-pm')">1. Equipment on Site</div>
+      <div class="accordion-body">
+        <textarea id="equipment" placeholder="Example: one RTU, one furnace..."></textarea>
+        <div class="pillbar">
+          <button id="addRTU" type="button">+ RTU</button>
+          <button id="addF" type="button">+ Furnace</button>
+          <button id="addUH" type="button">+ Unit Heater</button>
+          <button id="addRH" type="button">+ Radiant</button>
+          <button id="addEF" type="button">+ Exhaust Fan</button>
+          <button id="addMUA" type="button">+ MUA</button>
+        </div>
+      </div>
+    </div>
+    <div class="accordion open" id="acc-notes-pm">
+      <div class="accordion-header" onclick="toggleAccordion('acc-notes-pm')">2. Notes & Repairs</div>
+      <div class="accordion-body">
+        <label>Notes / Repairs</label>
+        <textarea id="notes" placeholder="Leave blank if everything is running good."></textarea>
+        <label>Work done</label>
+        <input id="workdone">
+      </div>
+    </div>
+    <div class="accordion" id="acc-parts-pm">
+      <div class="accordion-header" onclick="toggleAccordion('acc-parts-pm')">3. Parts & Materials</div>
+      <div class="accordion-body">
+        <label>Parts used</label>
+        <textarea id="used" placeholder="Example: two 4l190 belts and two 20 by 24 by 2 filters"></textarea>
+        <label>Cost of parts</label>
+        <input id="cost" placeholder="Example: $23">
+        <label>Parts needed next PM</label>
+        <div class="inline">
+          <div class="grow">
+            <textarea id="next" placeholder="Tap Same if identical to Parts used"></textarea>
+          </div>
+          <button id="same" type="button">Same</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="serviceSection" class="hidden">
+    <div class="accordion open" id="acc-equip-svc">
+      <div class="accordion-header" onclick="toggleAccordion('acc-equip-svc')">1. Equipment Worked On</div>
+      <div class="accordion-body">
+        <textarea id="serviceEquipment" placeholder="Example: one RTU, one furnace..."></textarea>
+        <div class="pillbar">
+          <button id="addServiceRTU" type="button">+ RTU</button>
+          <button id="addServiceF" type="button">+ Furnace</button>
+          <button id="addServiceUH" type="button">+ Unit Heater</button>
+          <button id="addServiceRH" type="button">+ Radiant</button>
+          <button id="addServiceEF" type="button">+ Exhaust Fan</button>
+          <button id="addServiceMUA" type="button">+ MUA</button>
+        </div>
+      </div>
+    </div>
+    <div class="accordion open" id="acc-notes-svc">
+      <div class="accordion-header" onclick="toggleAccordion('acc-notes-svc')">2. Diagnostics & Repairs</div>
+      <div class="accordion-body">
+        <label>Reason for call</label>
+        <textarea id="reason" placeholder="Example: No heat in lobby."></textarea>
+        <label>Findings / Diagnosis</label>
+        <textarea id="diagnosis" placeholder="Example: RTU1 heat exchanger is cracked."></textarea>
+        <label>Repairs made</label>
+        <textarea id="repairsMade" placeholder="Example: Confirmed failure and shut unit down."></textarea>
+        <label>Recommendations / Next steps</label>
+        <textarea id="recommendations" placeholder="Example: Replace RTU1 due to cracked heat exchanger."></textarea>
+      </div>
+    </div>
+    <div class="accordion" id="acc-parts-svc">
+      <div class="accordion-header" onclick="toggleAccordion('acc-parts-svc')">3. Parts & Quote Info</div>
+      <div class="accordion-body">
+        <label>Parts used</label>
+        <textarea id="serviceUsed" placeholder="Example: two 4l190 belts and one 16 by 25 by one"></textarea>
+        <label>Cost of parts</label>
+        <input id="serviceCost" placeholder="Example: $23">
+        <hr style="border:none; border-top:1px solid #e1e8ed; margin:15px 0;">
+        <label>Parts needed for repair quote</label>
+        <textarea id="quoteParts" placeholder="Example: 1 GAS VALVE and 1 IGNITER"></textarea>
+        <label>Labor for repair quote</label>
+        <input id="quoteLabor" placeholder="Example: 3 HOURS">
+      </div>
+    </div>
+  </div>
+
+  <div id="quoteSection" class="hidden">
+    <div class="accordion open" id="acc-equip-qt">
+      <div class="accordion-header" onclick="toggleAccordion('acc-equip-qt')">1. Equipment Repaired</div>
+      <div class="accordion-body">
+        <textarea id="quoteEquip" placeholder="Example: RTU1 on the roof..."></textarea>
+        <div class="pillbar">
+          <button id="addQuoteRTU" type="button">+ RTU</button>
+          <button id="addQuoteF" type="button">+ Furnace</button>
+          <button id="addQuoteUH" type="button">+ Unit Heater</button>
+          <button id="addQuoteRH" type="button">+ Radiant</button>
+          <button id="addQuoteEF" type="button">+ Exhaust Fan</button>
+          <button id="addQuoteMUA" type="button">+ MUA</button>
+        </div>
+      </div>
+    </div>
+    <div class="accordion open" id="acc-notes-qt">
+      <div class="accordion-header" onclick="toggleAccordion('acc-notes-qt')">2. Repairs Completed</div>
+      <div class="accordion-body">
+        <label>Original Issue Resolved</label>
+        <textarea id="quoteIssue" placeholder="Example: Completing quoted repair for bad inducer motor."></textarea>
+        <label>Repairs Completed</label>
+        <textarea id="quoteRepairs" placeholder="Example: Removed old inducer motor and installed new OEM motor."></textarea>
+        <label>System Testing & Verification</label>
+        <textarea id="quoteTesting" placeholder="Example: Cycled heat multiple times..."></textarea>
+        <label>Further Recommendations</label>
+        <textarea id="quoteRecs" placeholder="Example: No further issues found at this time."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="accordion" id="acc-status" style="margin-bottom: 20px;">
+    <div class="accordion-header" onclick="toggleAccordion('acc-status')">4. Job Status</div>
+    <div class="accordion-body">
+      <label style="margin-top:0;">Select Final Status</label>
+      <select id="finalJobStatus" style="font-weight: bold; border-color: #1e4b85;">
+        <option value="Completed">Completed (Ready to Bill)</option>
+        <option value="Needs Repair Quote">Needs Repair Quote</option>
+        <option value="Parts on Order">Parts on Order / Return Trip Needed</option>
+        <option value="Dispatched">Still In Progress (Coming back later)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="fab-container">
+    <div class="fab-stack">
+      <button id="generate" class="fab-btn" type="button">Complete & Sync Ticket</button>
+    </div>
+  </div>
+</div>
+
+<div id="tagOcrModal" class="report-preview-modal hidden" role="dialog" aria-modal="true" aria-labelledby="tagOcrModalTitle">
+  <div class="report-preview-backdrop" onclick="closeTagOcrModal()" aria-hidden="true"></div>
+  <div class="report-preview-sheet" onclick="event.stopPropagation()">
+    <div class="report-preview-header">
+      <h2 id="tagOcrModalTitle">Scan unit tag</h2>
+      <button type="button" class="report-preview-close" onclick="closeTagOcrModal()" aria-label="Close">&times;</button>
+    </div>
+    <p class="report-preview-hint">Choose a photo or use the camera. Processing runs locally in your browser.</p>
+    <label class="tag-ocr-camera-label">
+      <input type="file" id="tagOcrFileInput" accept="image/*" capture="environment">
+      Tap to take photo or choose file
+    </label>
+    <div id="tagOcrLoading" class="hidden">
+      <div class="tag-ocr-spinner-wrap">
+        <div class="tag-ocr-spinner" role="status" aria-live="polite"></div>
+        <p id="tagOcrStatusText">Reading image…</p>
+      </div>
+    </div>
+    <pre id="tagOcrRawPreview" class="report-preview-body hidden" style="max-height: min(32vh, 280px); font-size: 12px;"></pre>
+    <div class="report-preview-actions" style="margin-top: 8px;">
+      <button type="button" class="report-preview-back" onclick="closeTagOcrModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="reportPreviewModal" class="report-preview-modal hidden" role="dialog" aria-modal="true" aria-labelledby="reportPreviewTitle">
+  <div class="report-preview-backdrop" onclick="closeReportPreview()" aria-hidden="true"></div>
+  <div class="report-preview-sheet">
+    <div class="report-preview-header">
+      <h2 id="reportPreviewTitle">Review report</h2>
+      <button type="button" class="report-preview-close" onclick="closeReportPreview()" aria-label="Close">&times;</button>
+    </div>
+    <p class="report-preview-hint">Check that everything looks correct. You can go back to edit, or sync to finish.</p>
+    <pre id="reportPreviewBody" class="report-preview-body"></pre>
+    <div class="report-preview-actions">
+      <button type="button" class="report-preview-back" onclick="closeReportPreview()">Back to edit</button>
+      <button type="button" class="report-preview-sync" id="reportPreviewSyncBtn">Complete & Sync Ticket</button>
+    </div>
+  </div>
+</div>
+
+<div id="screen-history" class="screen hidden">
+  <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Site History</h2>
+  <div class="history-box">
+    <label style="margin-top:0;">Customer</label>
+    <select id="historyCustomer"><option value="">Select customer</option></select>
+    <label>Location</label>
+    <select id="historyLocation"><option value="">Select location</option></select>
+
+    <div id="historyLatestWrap" class="hidden">
+      <div class="summary-card">
+        <h3>Last Time We Were On Site</h3>
+        <div id="historyLatest"></div>
+      </div>
+    </div>
+
+    <div id="historyOlderWrap" class="hidden">
+      <hr class="soft">
+      <div class="summary-card">
+        <h3>Older Visits</h3>
+        <div id="historyOlderList" class="history-list"></div>
+      </div>
+    </div>
+
+    <div id="historyFullWrap" class="hidden">
+      <hr class="soft">
+      <div class="summary-card">
+        <h3>Selected Visit</h3>
+        <pre id="historyFullReport"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="screen-profile" class="screen hidden">
+  <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Settings</h2>
+  <div style="background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e1e8ed;">
+    <label style="margin-top:0;">Logged In As</label>
+    <input type="text" id="profileNameInput" readonly style="background: #f4f7fa; font-weight: bold; color: #1e4b85;">
+    <p style="font-size: 13px; color: #666; margin: 14px 0 0 0; line-height: 1.45;">Technician names are managed in the office Dispatch app under <strong>Settings → Technicians</strong>. That list syncs here so your sign-in matches job assignments.</p>
+    <button type="button" style="background: #e74c3c; color: #fff; border: none; margin-top: 20px; font-weight: bold;" onclick="switchUser()">Log Out / Switch User</button>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <div class="nav-item active" id="nav-schedule" onclick="switchScreen('schedule')">
+    <svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+    <span>Schedule</span>
+  </div>
+  <div class="nav-item" id="nav-history" onclick="switchScreen('history')">
+    <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+    <span>History</span>
+  </div>
+  <div class="nav-item" id="nav-profile" onclick="switchScreen('profile')">
+    <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+    <span>Profile</span>
+  </div>
+</nav>
+
+<script>
+// --- ENABLE FIREBASE OFFLINE QUEUE ---
+if (typeof firebase !== 'undefined' && firebase.apps.length) {
+    firebase.firestore().enablePersistence()
+      .catch(function(err) {
+          console.warn("Offline persistence issue: ", err.code);
+      });
+}
+
+/* ---------- constants & arrays ---------- */
+function pad2(n){ return String(n).padStart(2, "0"); }
+function today(){ const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+
+/** Local YYYY-MM-DD, `days` from today (can be negative). */
+function dateFromToday(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+}
+
+/** Inclusive 7-day window: today through 6 days ahead. */
+function scheduleWindowStart() { return dateFromToday(0); }
+function scheduleWindowEnd() { return dateFromToday(6); }
+
+function isYmdToday(ymd) { return ymd === today(); }
+
+function formatScheduleDayHeading(ymd) {
+  if (!ymd) return "";
+  if (isYmdToday(ymd)) return "Today";
+  const d = new Date(ymd + "T12:00:00");
+  if (Number.isNaN(d.getTime())) return ymd;
+  return d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+}
+
+function formatShortScheduleDayLabel(ymd) {
+  if (!ymd) return "";
+  const d = new Date(ymd + "T12:00:00");
+  if (Number.isNaN(d.getTime())) return ymd;
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "numeric", day: "numeric" });
+}
+
+/** Selected day for schedule list; must fall within the rolling 7-day window. */
+let selectedScheduleDayYmd = "";
+
+function ensureSelectedDayInWindow() {
+  const start = scheduleWindowStart();
+  const end = scheduleWindowEnd();
+  if (!selectedScheduleDayYmd || selectedScheduleDayYmd < start || selectedScheduleDayYmd > end) {
+    const t = today();
+    selectedScheduleDayYmd = (t >= start && t <= end) ? t : start;
+  }
+}
+
+function buildScheduleDayStrip() {
+  const strip = document.getElementById("scheduleDayStrip");
+  if (!strip) return;
+  ensureSelectedDayInWindow();
+  strip.innerHTML = "";
+  for (let i = 0; i < 7; i++) {
+    const ymd = dateFromToday(i);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "schedule-day-chip" + (ymd === selectedScheduleDayYmd ? " active" : "");
+    btn.textContent = formatShortScheduleDayLabel(ymd);
+    btn.setAttribute("data-ymd", ymd);
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("aria-selected", ymd === selectedScheduleDayYmd ? "true" : "false");
+    btn.onclick = function () {
+      selectedScheduleDayYmd = this.getAttribute("data-ymd");
+      buildScheduleDayStrip();
+      renderJobListUI();
+    };
+    strip.appendChild(btn);
+  }
+}
+
+const DEFAULT_PM_WORKDONE = "Changed filters/belts and verified operations of equipment";
+const DEFAULT_PM_NOTES = "All units are running good at this time.";
+const DRAFT_KEY = "hvac_note_tool_v16";
+const HISTORY_KEY = "hvac_site_history_v1";
+
+const KNOWN_FILTER_SIZES = [
+  "14X20X1", "16X16X2","16X20X2","16X24X2","16X25X1","16X25X2", "18X20X2","18X24X2","18X25X2",
+  "20X20X1","20X20X2","20X24X1","20X24X2","20X25X1","20X25X2","20X30X2","20X35X2", "24X24X1","24X24X2","24X24X4"
+];
+
+const KNOWN_BELTS = [
+  "3L110", "3L120", "3L130", "3L140", "3L150", "3L160", "3L170", "3L180", "3L190", "3L200", "3L210", "3L220",
+  "3L230", "3L240", "3L250", "3L260", "3L270", "3L280", "3L290", "3L300", "3L310", "3L320", "3L330", "3L340",
+  "3L350", "3L360", "3L370", "3L380", "3L390", "3L400", "3L410", "3L420", "3L430", "3L440", "3L450", "3L460",
+  "3L470", "3L480", "3L490", "3L500", "3L510", "3L520", "3L530", "3L540", "3L550", "3L560", "3L570", "3L580",
+  "3L590", "3L600", "3L610", "3L620", "3L630", "3L640", "3L650", "3L660", "3L670", "3L680", "3L690", "3L700",
+  "3L710", "3L720", "3L730", "3L740", "3L750",
+  "4L190", "4L200", "4L210", "4L220", "4L230", "4L240", "4L250", "4L260", "4L270", "4L280", "4L290", "4L300",
+  "4L310", "4L320", "4L330", "4L340", "4L350", "4L360", "4L370", "4L380", "4L390", "4L400", "4L410", "4L420",
+  "4L430", "4L440", "4L450", "4L460", "4L470", "4L480", "4L490", "4L500", "4L510", "4L520", "4L530", "4L540",
+  "4L550", "4L560", "4L570", "4L580", "4L590", "4L600", "4L610", "4L620", "4L630", "4L640", "4L650", "4L660",
+  "4L670", "4L680", "4L690", "4L700", "4L710", "4L720", "4L730", "4L740", "4L750", "4L760", "4L770", "4L780",
+  "4L790", "4L800", "4L810", "4L820", "4L830", "4L840", "4L850", "4L860", "4L870", "4L880", "4L890", "4L900",
+  "4L910", "4L920", "4L930", "4L940", "4L950", "4L960", "4L970", "4L980", "4L990", "4L1000",
+  "A20", "A21", "A22", "A23", "A24", "A25", "A26", "A27", "A28", "A29", "A30", "A31", "A32", "A33", "A34",
+  "A35", "A36", "A37", "A38", "A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46", "A47", "A48", "A49",
+  "A50", "A51", "A52", "A53", "A54", "A55", "A56", "A57", "A58", "A59", "A60", "A61", "A62", "A63", "A64",
+  "A65", "A66", "A67", "A68", "A69", "A70", "A71", "A72", "A73", "A74", "A75", "A76", "A77", "A78", "A79",
+  "A80", "A81", "A82", "A83", "A84", "A85", "A86", "A87", "A88", "A89", "A90", "A91", "A92", "A93", "A94",
+  "A95", "A96", "A97", "A98", "A99", "A100", "A105", "A110", "A112", "A120",
+  "AX20", "AX21", "AX22", "AX23", "AX24", "AX25", "AX26", "AX27", "AX28", "AX29", "AX30", "AX31", "AX32",
+  "AX33", "AX34", "AX35", "AX36", "AX37", "AX38", "AX39", "AX40", "AX41", "AX42", "AX43", "AX44", "AX45",
+  "AX46", "AX47", "AX48", "AX49", "AX50", "AX51", "AX52", "AX53", "AX54", "AX55", "AX56", "AX57", "AX58",
+  "AX59", "AX60", "AX61", "AX62", "AX63", "AX64", "AX65", "AX66", "AX67", "AX68", "AX69", "AX70", "AX71",
+  "AX72", "AX73", "AX74", "AX75", "AX76", "AX77", "AX78", "AX79", "AX80", "AX81", "AX82", "AX83", "AX84",
+  "AX85", "AX86", "AX87", "AX88", "AX89", "AX90", "AX91", "AX92", "AX93", "AX94", "AX95", "AX96", "AX97",
+  "AX98", "AX99", "AX100", "AX105", "AX110", "AX112", "AX120",
+  "B21", "B22", "B23", "B24", "B25", "B26", "B27", "B28", "B29", "B30", "B31", "B32", "B33", "B34", "B35",
+  "B36", "B37", "B38", "B39", "B40", "B41", "B42", "B43", "B44", "B45", "B46", "B47", "B48", "B49", "B50",
+  "B51", "B52", "B53", "B54", "B55", "B56", "B57", "B58", "B59", "B60", "B61", "B62", "B63", "B64", "B65",
+  "B66", "B67", "B68", "B69", "B70", "B71", "B72", "B73", "B74", "B75", "B76", "B77", "B78", "B79", "B80",
+  "B81", "B82", "B83", "B84", "B85", "B86", "B87", "B88", "B89", "B90", "B91", "B92", "B93", "B94", "B95",
+  "B96", "B97", "B98", "B99", "B100", "B103", "B105", "B108", "B112", "B120", "B124", "B130",
+  "BX21", "BX22", "BX23", "BX24", "BX25", "BX26", "BX27", "BX28", "BX29", "BX30", "BX31", "BX32", "BX33",
+  "BX34", "BX35", "BX36", "BX37", "BX38", "BX39", "BX40", "BX41", "BX42", "BX43", "BX44", "BX45", "BX46",
+  "BX47", "BX48", "BX49", "BX50", "BX51", "BX52", "BX53", "BX54", "BX55", "BX56", "BX57", "BX58", "BX59",
+  "BX60", "BX61", "BX62", "BX63", "BX64", "BX65", "BX66", "BX67", "BX68", "BX69", "BX70", "BX71", "BX72",
+  "BX73", "BX74", "BX75", "BX76", "BX77", "BX78", "BX79", "BX80", "BX81", "BX82", "BX83", "BX84", "BX85",
+  "BX86", "BX87", "BX88", "BX89", "BX90", "BX91", "BX92", "BX93", "BX94", "BX95", "BX96", "BX97", "BX98",
+  "BX99", "BX100", "BX103", "BX105", "BX108", "BX112", "BX120", "BX124", "BX130"
+];
+
+const NUM_MAP = { zero:"0", one:"1", two:"2", three:"3", four:"4", five:"5", six:"6", seven:"7", eight:"8", nine:"9", ten:"10", ones:"1", twos:"2", threes:"3", fours:"4", fives:"5", to:"2", too:"2" };
+const EQUIP_LABELS = { RTU:"Rooftop Unit", F:"Furnace", UH:"Unit Heater", RH:"Radiant Heater", EF:"Exhaust Fan", MUA:"Make-Up Air Unit" };
+
+/* ---------- app state ---------- */
+let currentMode = "PM";
+let currentHistoryCustomer = "";
+let currentHistoryLocation = "";
+let currentHistorySelectedIndex = 0;
+let currentTechProfile = "";
+let myTickets = [];
+let activeTicket = null;
+let scheduleUnsubscribe = null;
+let scheduleFirstSnapshotPending = true;
+/** Set when the schedule listener starts; used to resubscribe after the local calendar day changes. */
+let lastScheduleWindowStart = '';
+let cachedTechnicianRoster = [];
+let autosaveWired = false;
+function ensureWireAutosave() {
+  if (autosaveWired) return;
+  wireAutosave();
+  autosaveWired = true;
+}
+
+/* ---------- screen & UI logic ---------- */
+function switchScreen(screenName) {
+  document.querySelectorAll('.screen').forEach(s => { s.classList.add('hidden'); s.classList.remove('active'); });
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const targetScreen = document.getElementById('screen-' + screenName);
+  if(targetScreen) { targetScreen.classList.remove('hidden'); targetScreen.classList.add('active'); }
+
+  const targetNav = document.getElementById('nav-' + (screenName === 'workspace' ? 'schedule' : screenName));
+  if(targetNav) targetNav.classList.add('active');
+
+  if (screenName === 'history') populateHistoryCustomers();
+
+  window.scrollTo(0,0);
+}
+
+function toggleAccordion(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+
+function applyMode(){
+  const pmSection = document.getElementById("pmSection");
+  const serviceSection = document.getElementById("serviceSection");
+  const quoteSection = document.getElementById("quoteSection");
+
+  pmSection.classList.add("hidden"); serviceSection.classList.add("hidden"); quoteSection.classList.add("hidden");
+
+  if(currentMode === "PM"){
+    pmSection.classList.remove("hidden"); 
+  } else if(currentMode === "SERVICE"){
+    serviceSection.classList.remove("hidden"); 
+  } else if (currentMode === "QUOTE") {
+    quoteSection.classList.remove("hidden");
+  }
+}
+
+/* ---------- roster from Dispatch (Firestore app_config/technicians) ---------- */
+async function fetchTechnicianRosterFromCloud() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return [];
+  try {
+    const snap = await firebase.firestore().collection('app_config').doc('technicians').get();
+    if (!snap.exists) return [];
+    const data = snap.data();
+    const names = data.names || [];
+    return Array.isArray(names) ? names.filter(Boolean) : [];
+  } catch (e) {
+    console.error('fetchTechnicianRosterFromCloud', e);
+    return [];
+  }
+}
+
+/** Map a saved or typed name to the roster string used in Firestore assignedTech. */
+function resolveCanonicalTechName(saved, roster) {
+  if (!saved || !String(saved).trim()) return null;
+  const s = String(saved).trim();
+  if (!roster || !roster.length) return s;
+  const exact = roster.find((n) => n === s);
+  if (exact) return exact;
+  const lower = s.toLowerCase();
+  const ci = roster.find((n) => n.toLowerCase() === lower);
+  if (ci) return ci;
+  const first = lower.split(/[\s(]/)[0];
+  if (first) {
+    const byFirst = roster.find((n) => n.split(/[\s(]/)[0].toLowerCase() === first);
+    if (byFirst) return byFirst;
+  }
+  return null;
+}
+
+function setupLoginForm(roster) {
+  const sel = document.getElementById('loginTechSelect');
+  const manual = document.getElementById('loginTechManual');
+  const hint = document.getElementById('loginRosterHint');
+  sel.innerHTML = '';
+  if (roster.length) {
+    roster.forEach((name) => {
+      const o = document.createElement('option');
+      o.value = name;
+      o.textContent = name;
+      sel.appendChild(o);
+    });
+    sel.classList.remove('hidden');
+    manual.classList.add('hidden');
+    hint.textContent = 'Names come from the office Dispatch app (Settings → Technicians). Open that page once after changes to refresh the list.';
+  } else {
+    sel.classList.add('hidden');
+    manual.classList.remove('hidden');
+    manual.value = '';
+    hint.textContent = 'No roster found yet. On an office computer, open Dispatch → Settings so technicians sync to the cloud. You can still type your name exactly as it appears on assigned jobs.';
+  }
+}
+
+function showLoginShell(roster) {
+  setupLoginForm(roster);
+  document.getElementById('loginShell').classList.remove('hidden');
+}
+
+function hideLoginShell() {
+  document.getElementById('loginShell').classList.add('hidden');
+}
+
+async function completeTechnicianLogin() {
+  const sel = document.getElementById('loginTechSelect');
+  const manual = document.getElementById('loginTechManual');
+  let name = '';
+  if (!sel.classList.contains('hidden') && sel.options.length) {
+    name = sel.value;
+  } else {
+    name = (manual.value || '').trim();
+    if (name) name = name.toUpperCase();
+  }
+  if (!name) {
+    alert('Choose or enter your technician name.');
+    return;
+  }
+  let canonical = resolveCanonicalTechName(name, cachedTechnicianRoster);
+  if (cachedTechnicianRoster.length && !canonical) {
+    alert('That name is not on the roster. Pick from the list, or ask the office to add you in Dispatch → Settings → Technicians.');
+    return;
+  }
+  if (!canonical) canonical = name;
+  localStorage.setItem('tp_saved_tech', canonical);
+  hideLoginShell();
+  const openedFromDispatchLink = await loadUserProfile();
+  if (!openedFromDispatchLink) switchScreen('schedule');
+  ensureWireAutosave();
+}
+
+/* ---------- user profile ---------- */
+async function loadUserProfile(options = {}) {
+  const runDeepLink = options.runDeepLink !== false;
+  currentTechProfile = localStorage.getItem('tp_saved_tech');
+  if (!currentTechProfile) {
+    return new Promise((resolve) => { resolve(false); });
+  }
+  document.getElementById('techDisplayLabel').innerText = "👤 " + currentTechProfile;
+  const profileInput = document.getElementById('profileNameInput');
+  if (profileInput) profileInput.value = currentTechProfile;
+  return new Promise((resolve) => {
+    subscribeToMyTickets((opened) => resolve(opened), runDeepLink);
+  });
+}
+
+async function switchUser() {
+  unsubscribeSchedule();
+  localStorage.removeItem('tp_saved_tech');
+  currentTechProfile = '';
+  selectedScheduleDayYmd = '';
+  cachedTechnicianRoster = await fetchTechnicianRosterFromCloud();
+  showLoginShell(cachedTechnicianRoster);
+  switchScreen('schedule');
+}
+
+/* ---------- cloud tickets (real-time; assignments from Dispatch appear immediately) ---------- */
+function unsubscribeSchedule() {
+  if (scheduleUnsubscribe) {
+    scheduleUnsubscribe();
+    scheduleUnsubscribe = null;
+  }
+}
+
+function renderJobListUI() {
+  const container = document.getElementById('jobListContainer');
+  if (!container) return;
+  ensureSelectedDayInWindow();
+  buildScheduleDayStrip();
+  container.innerHTML = '';
+  const day = selectedScheduleDayYmd;
+  const forDay = myTickets.filter((d) => d.date === day);
+  const sorted = forDay.slice().sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+  if (sorted.length) {
+    container.innerHTML += `<div class="schedule-day-label">${formatScheduleDayHeading(day)}</div>`;
+  }
+  sorted.forEach((data) => {
+    let badgeClass = "card-badge";
+    if (data.priority === 'Emergency') badgeClass += " badge-emergency";
+    const cardHTML = `
+        <div class="job-card" onclick="openWorkspace('${data.id}')">
+          <div class="card-header">
+            <span class="card-time">${data.startTime || '8:00 AM'}</span>
+            <span class="${badgeClass}">${data.jobType}</span>
+          </div>
+          <div class="card-customer">${data.customerName}</div>
+          <div class="card-address">📍 ${data.locationAddress}, ${data.custCity || ''}</div>
+        </div>
+      `;
+    container.innerHTML += cardHTML;
+  });
+  if (sorted.length === 0) {
+    container.innerHTML = '<div style="text-align:center; padding: 40px; color:#95a5a6; background:#fff; border-radius:12px;">No released jobs for you on this day. Dispatch must check <strong>Release to Field app</strong> before a job appears here.</div>';
+  }
+}
+
+/**
+ * Live listener: open jobs for this tech with date in the next 7 days (today + 6). Unsubscribe before resubscribing.
+ * @param {function(boolean): void} onFirstSnapshot — called once after the first snapshot (for deep link + init).
+ * @param {boolean} runDeepLink — false when switching user so ?ticketId= does not reopen.
+ */
+function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
+  unsubscribeSchedule();
+  scheduleFirstSnapshotPending = true;
+  const container = document.getElementById('jobListContainer');
+
+  const finishFirst = (opened) => {
+    if (!scheduleFirstSnapshotPending) return;
+    scheduleFirstSnapshotPending = false;
+    if (typeof onFirstSnapshot === 'function') onFirstSnapshot(!!opened);
+  };
+
+  if (!currentTechProfile || typeof firebase === 'undefined' || !firebase.apps.length) {
+    myTickets = [];
+    renderJobListUI();
+    if (runDeepLink) maybeOpenDeepLinkedTicket().then(finishFirst);
+    else finishFirst(false);
+    return;
+  }
+
+  try {
+    const db = firebase.firestore();
+    const startStr = scheduleWindowStart();
+    const endStr = scheduleWindowEnd();
+    container.innerHTML = '<div style="text-align:center; padding: 40px; color:#95a5a6;">Connecting…</div>';
+    myTickets = [];
+
+    // Only equality on assignedTech — no composite index required. We filter the 7-day window client-side.
+    // (A server-side date range needs a composite index; see firestore.indexes.json if you prefer fewer reads at scale.)
+    const q = db.collection('service_calls')
+      .where('assignedTech', '==', currentTechProfile);
+
+    lastScheduleWindowStart = scheduleWindowStart();
+
+    scheduleUnsubscribe = q.onSnapshot(
+      (snapshot) => {
+        myTickets = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.archived) return;
+          if (data.status === 'Completed' || data.status === 'Canceled') return;
+          if (data.releasedToTech === false) return;
+          const d = data.date;
+          if (!d || typeof d !== 'string' || d < startStr || d > endStr) return;
+          data.id = doc.id;
+          myTickets.push(data);
+        });
+        renderJobListUI();
+        if (scheduleFirstSnapshotPending) {
+          if (runDeepLink) maybeOpenDeepLinkedTicket().then(finishFirst);
+          else finishFirst(false);
+        }
+      },
+      (error) => {
+        console.error("Schedule listener error:", error);
+        container.innerHTML = '<div style="text-align:center; padding: 40px; color:#e74c3c;">Error connecting to dispatch board.</div>';
+        if (scheduleFirstSnapshotPending) {
+          if (runDeepLink) maybeOpenDeepLinkedTicket().then(finishFirst);
+          else finishFirst(false);
+        }
+      }
+    );
+  } catch (error) {
+    console.error("Error subscribing to tickets:", error);
+    container.innerHTML = '<div style="text-align:center; padding: 40px; color:#e74c3c;">Error connecting to dispatch board.</div>';
+    if (runDeepLink) maybeOpenDeepLinkedTicket().then(finishFirst);
+    else finishFirst(false);
+  }
+}
+
+window.addEventListener('beforeunload', () => { unsubscribeSchedule(); });
+
+/** Opens a ticket from ?ticketId= in the URL (optional bookmark/deep link). */
+async function maybeOpenDeepLinkedTicket() {
+  const params = new URLSearchParams(window.location.search);
+  const tid = params.get("ticketId") || params.get("id");
+  if (!tid || typeof firebase === "undefined" || !firebase.apps.length) return false;
+  try {
+    let t = myTickets.find((x) => x.id === tid);
+    if (!t) {
+      const snap = await firebase.firestore().collection("service_calls").doc(tid).get();
+      if (!snap.exists) return false;
+      const data = snap.data();
+      if (data.archived) return false;
+      if (data.releasedToTech === false) {
+        alert("This job has not been released by dispatch yet. It will open here after they enable Release to Field app.");
+        return false;
+      }
+      t = data;
+      t.id = tid;
+      myTickets.push(t);
+    }
+    openWorkspace(tid);
+    return true;
+  } catch (e) {
+    console.error("Deep link ticket:", e);
+    return false;
+  }
+}
+
+function openWorkspace(ticketId) {
+  activeTicket = myTickets.find(t => t.id === ticketId);
+  if (!activeTicket) return;
+
+  document.getElementById('ws-customer').innerText = activeTicket.customerName;
+  document.getElementById('ws-address').innerText = `${activeTicket.locationAddress}, ${activeTicket.custCity || ''}`;
+  document.getElementById('ws-ticket').innerText = `${activeTicket.ticketNum} • ${activeTicket.jobType}`;
+
+  document.getElementById('ticketSelector').value = ticketId;
+  document.getElementById('location').value = `${activeTicket.customerName} - ${activeTicket.locationAddress}`;
+  document.getElementById('unitTagMake').value = '';
+  document.getElementById('unitTagModel').value = '';
+  document.getElementById('unitTagSerial').value = '';
+  document.getElementById('unitTagJob').value = '';
+
+  if (activeTicket.jobType === 'Preventative Maintenance') {
+    currentMode = "PM";
+  } else if (activeTicket.jobType === 'Quoted Repair') {
+    currentMode = "QUOTE";
+    document.getElementById('quoteIssue').value = "Original ticket: " + activeTicket.ticketNum + "\nIssue: " + activeTicket.issue;
+  } else {
+    currentMode = "SERVICE";
+    document.getElementById('reason').value = activeTicket.issue;
+  }
+
+  if (activeTicket.equip && activeTicket.equip !== 'N/A') {
+    if (currentMode === 'PM') document.getElementById('equipment').value = activeTicket.equip;
+    if (currentMode === 'SERVICE') document.getElementById('serviceEquipment').value = activeTicket.equip;
+    if (currentMode === 'QUOTE') document.getElementById('quoteEquip').value = activeTicket.equip;
+  }
+
+  document.getElementById('successCard').style.display = 'none';
+  applyMode();
+  switchScreen('workspace');
+  saveDraft();
+}
+
+/* ---------- location local formatting fallback ---------- */
+function titleCaseWords(str){
+  return str.split(" ").filter(Boolean).map(w => {
+      const upper = w.toUpperCase();
+      if(/^\d/.test(w)) return w;
+      if(["NW","NE","SW","SE"].includes(upper)) return upper;
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  }).join(" ");
+}
+
+function normalizeStreetSuffix(street){
+  let s = street.trim().toLowerCase();
+  s = s.replace(/\bavenue\b/g, "Ave.");
+  s = s.replace(/\bstreet\b/g, "St.");
+  s = s.replace(/\broad\b/g, "Rd.");
+  s = s.replace(/\bdrive\b/g, "Dr.");
+  s = s.replace(/\bboulevard\b/g, "Blvd.");
+  s = s.replace(/\blane\b/g, "Ln.");
+  s = s.replace(/\bcourt\b/g, "Ct.");
+  s = s.replace(/\bplace\b/g, "Pl.");
+  s = s.replace(/\bhighway\b/g, "Hwy.");
+  return titleCaseWords(s);
+}
+
+function normalizeSiteName(name){
+  let s = (name || "").trim().toLowerCase();
+  s = s.replace(/^(the|a|an)\s+/i, ""); 
+  s = s.replace(/\s{2,}/g, " ").trim();
+  return titleCaseWords(s);
+}
+
+function formatLocation(raw){
+  let t = (raw || "").trim().toLowerCase();
+  if(!t) return "";
+
+  t = t.replace(/^(i am at|i'm at|im at|we are at|heading to|i am in|i'm in|im in|i am on|i'm on|im on)\s+/i, "");
+  t = t.replace(/[.,]/g, " ");
+  t = t.replace(/\bthe\b/gi, " ");
+  t = t.replace(/\s{2,}/g, " ").trim();
+
+  let m = t.match(/^(.+?)\s+in\s+(.+?)\s+at\s+(.+)$/i);
+  if(m) return `${normalizeSiteName(m[3])} - ${titleCaseWords(m[2])} - ${normalizeStreetSuffix(m[1])}`;
+
+  m = t.match(/^(.+?)\s+on\s+(.+?)\s+at\s+(.+)$/i);
+  if(m) return `${normalizeSiteName(m[3])} - ${titleCaseWords(m[1])} - ${normalizeStreetSuffix(m[2])}`;
+
+  m = t.match(/^(.+?)\s+in\s+(.+?)\s+on\s+(.+)$/i);
+  if(m) return `${normalizeSiteName(m[1])} - ${titleCaseWords(m[2])} - ${normalizeStreetSuffix(m[3])}`;
+
+  m = t.match(/^(.+?)\s+on\s+(.+?)\s+in\s+(.+)$/i);
+  if(m) return `${normalizeSiteName(m[1])} - ${titleCaseWords(m[3])} - ${normalizeStreetSuffix(m[2])}`;
+
+  m = t.match(/^(.+?)\s+in\s+(.+)$/i);
+  if(m) return `${normalizeSiteName(m[1])} - ${titleCaseWords(m[2])}`;
+
+  return normalizeSiteName(t);
+}
+
+/* ---------- AI AUTO-LOCATION PARSER ---------- */
+async function autoParseLocation() {
+    const locInput = document.getElementById('location');
+    const rawText = locInput.value.trim();
+
+    if (!rawText) return;
+    if (rawText === rawText.toUpperCase() && rawText.includes(' - ')) return;
+
+    const originalBg = locInput.style.backgroundColor;
+    locInput.style.backgroundColor = '#e8f4fd'; 
+
+    const applyFallback = () => {
+        let fallbackText = formatLocation(rawText);
+        if (!fallbackText.includes(' - ')) fallbackText = rawText; 
+        locInput.value = fallbackText.toUpperCase();
+        saveDraft();
+    };
+
+    if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) {
+        const prompt = `
+        You are a strict data extraction AI for an HVAC dispatch system.
+        Extract the Business Name, City, and Street from the technician's spoken text.
+        
+        RULES:
+        1. ONLY use the information provided in the input text. DO NOT invent cities or names.
+        2. Identify the Business, City, and Street, REGARDLESS of the order they are spoken.
+        3. IGNORE conversational filler.
+        4. STRIP leading articles like "A", "AN", or "THE" from the Business Name.
+        5. Map the extracted entities to a JSON object with EXACTLY these keys: "business", "city", "street".
+        6. Abbreviate street types standardly.
+        7. If a piece of information is missing entirely, leave its value as an empty string "".
+        
+        Text: "${rawText}"
+        Output:
+        `;
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${firebaseConfig.apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    contents: [{ parts: [{ text: prompt }] }], 
+                    generationConfig: { temperature: 0.0, responseMimeType: "application/json" } 
+                })
+            });
+
+            if (!response.ok) {
+                applyFallback();
+                locInput.style.backgroundColor = originalBg;
+                return;
+            }
+
+            const data = await response.json();
+            if (data.candidates && data.candidates.length > 0) {
+                let aiResponseText = data.candidates[0].content.parts[0].text;
+                aiResponseText = aiResponseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const locationData = JSON.parse(aiResponseText);
+                
+                const business = (locationData.business || "").toUpperCase().trim();
+                const city = (locationData.city || "").toUpperCase().trim();
+                const street = (locationData.street || "").toUpperCase().trim();
+                
+                const finalParts = [business, city, street].filter(Boolean);
+                if (finalParts.length > 0) {
+                    locInput.value = finalParts.join(" - ");
+                    saveDraft(); 
+                } else {
+                    applyFallback();
+                }
+            } else {
+                applyFallback();
+            }
+        } catch (error) { 
+            applyFallback();
+        }
+    } else {
+        applyFallback();
+    }
+    
+    locInput.style.backgroundColor = originalBg;
+}
+
+/* ---------- AI PARTS PARSER ---------- */
+async function autoParseParts(fieldId) {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    const rawText = el.value.trim();
+    
+    if (!rawText) return;
+
+    if (/^\d+\s*-/.test(rawText) && !rawText.toLowerCase().includes('filter') && !rawText.toLowerCase().includes('belt')) {
+        el.value = normalizeParts(rawText);
+        autoGrow(el);
+        saveDraft();
+        return;
+    }
+
+    const originalBg = el.style.backgroundColor;
+    el.style.backgroundColor = '#e8f4fd'; 
+
+    const applyFallback = () => {
+        el.value = normalizeParts(rawText);
+        autoGrow(el);
+        saveDraft();
+    };
+
+    if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) {
+        const prompt = `
+        You are a strict data extraction AI for an HVAC dispatch system.
+        The technician dictated a list of HVAC parts into their phone, resulting in a run-on sentence without commas.
+        Your job is to identify each distinct part and its quantity, and output them as a JSON array of strings.
+        
+        KNOWN INVENTORY:
+        Valid Filters: ${KNOWN_FILTER_SIZES.join(", ")}
+        Valid Belts: ${KNOWN_BELTS.join(", ")}
+        
+        RULES:
+        1. Convert spelled-out numbers ("one", "two", "to", "six") into digits (1, 2, 6).
+        2. Format filter sizes as NumXNumXNum. If the dictation is slightly garbled, snap it to the closest match in the Valid Filters list.
+        3. Format belt sizes with NO spaces. Snap to the closest match in the Valid Belts list.
+        4. Remove the words "filter", "filters", "belt", and "belts" from the output string.
+        5. Each string in the JSON array must follow the exact format: "QTY - PART_NAME" (e.g., "2 - 14X20X2").
+        6. Output ONLY the raw JSON array format. No backticks, no markdown.
+        
+        Text: "${rawText}"
+        Output:
+        `;
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${firebaseConfig.apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    contents: [{ parts: [{ text: prompt }] }], 
+                    generationConfig: { temperature: 0.0, responseMimeType: "application/json" } 
+                })
+            });
+
+            if (!response.ok) {
+                applyFallback();
+                el.style.backgroundColor = originalBg;
+                return;
+            }
+
+            const data = await response.json();
+            if (data.candidates && data.candidates.length > 0) {
+                let aiResponseText = data.candidates[0].content.parts[0].text;
+                aiResponseText = aiResponseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                
+                const partsArray = JSON.parse(aiResponseText);
+                if (Array.isArray(partsArray) && partsArray.length > 0) {
+                    el.value = sortPartsArray(partsArray).join("\n");
+                    autoGrow(el);
+                    saveDraft();
+                } else {
+                    applyFallback();
+                }
+            } else {
+                applyFallback();
+            }
+        } catch (error) { 
+            applyFallback();
+        }
+    } else {
+        applyFallback();
+    }
+    
+    el.style.backgroundColor = originalBg;
+}
+
+/* ---------- generic helpers ---------- */
+function convertNumbers(text){
+  let t = text || "";
+  Object.keys(NUM_MAP).forEach(k => {
+    const r = new RegExp("\\b" + k + "\\b", "gi");
+    t = t.replace(r, NUM_MAP[k]);
+  });
+  return t;
+}
+
+function levenshtein(a, b){
+  const m = a.length; const n = b.length;
+  const dp = Array.from({length:m + 1}, () => Array(n + 1).fill(0));
+  for(let i = 0; i <= m; i++) dp[i][0] = i;
+  for(let j = 0; j <= n; j++) dp[0][j] = j;
+  for(let i = 1; i <= m; i++){
+    for(let j = 1; j <= n; j++){
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min( dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost );
+    }
+  }
+  return dp[m][n];
+}
+
+function closestMatch(value, list, maxDistance){
+  let best = value; let bestScore = Infinity;
+  list.forEach(item => {
+    const d = levenshtein(value.toUpperCase(), item.toUpperCase());
+    if(d < bestScore){ bestScore = d; best = item; }
+  });
+  return bestScore <= maxDistance ? best : value;
+}
+
+function autoGrow(el){
+  if(!el) return;
+  el.style.height = "auto";
+  el.style.height = Math.max(el.scrollHeight, 90) + "px";
+}
+
+function escapeHtml(text){
+  return String(text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function getCustomerFromLocation(location){
+  const parts = String(location || "").split(" - ").map(s => s.trim()).filter(Boolean);
+  return parts.length ? parts[0] : "Unknown";
+}
+
+/* ---------- equipment parsing ---------- */
+function normalizeEquipmentSpeech(text){
+  let t = (text || "").toLowerCase();
+  t = t.replace(/\n/g, " "); t = t.replace(/[–—]/g, "-"); t = t.replace(/\s+and\s+/g, ", "); t = t.replace(/\s{2,}/g, " ").trim();
+  t = t.replace(/\bare\s*to\s*you\b/g, "rtu"); t = t.replace(/\bar\s*to\s*you\b/g, "rtu"); t = t.replace(/\br\s*to\s*you\b/g, "rtu");
+  t = t.replace(/\br\s*too\s*you\b/g, "rtu"); t = t.replace(/\br\s*two\s*you\b/g, "rtu"); t = t.replace(/\br\s*t\s*u\b/g, "rtu");
+  t = t.replace(/\brt\s*you\b/g, "rtu"); t = t.replace(/\brt\s*u\b/g, "rtu"); t = t.replace(/\brt\b/g, "rtu");
+  t = t.replace(/\bhour\s*to\s*you\b/g, "rtu"); t = t.replace(/\bone\s*hour\s*to\s*you\b/g, "1 rtu"); t = t.replace(/\b1\s*hour\s*to\s*you\b/g, "1 rtu");
+  t = t.replace(/\bfurnaces?\b/g, "furnace"); t = t.replace(/\bunit heaters?\b/g, "unit heater"); t = t.replace(/\bradiant heaters?\b/g, "radiant heater");
+  t = t.replace(/\bexhaust fans?\b/g, "exhaust fan"); t = t.replace(/\bmake[\s-]?up air(?: unit)?s?\b/g, "mua"); t = t.replace(/\brooftop units?\b/g, "rtu");
+  t = convertNumbers(t);
+  return t;
+}
+
+function expandEquipmentCounts(text){
+  let t = normalizeEquipmentSpeech(text);
+  const patterns = [ {re:/\b(\d+)\s*rtu\b/g, code:"RTU"}, {re:/\b(\d+)\s*furnace\b/g, code:"F"}, {re:/\b(\d+)\s*unit heater\b/g, code:"UH"}, {re:/\b(\d+)\s*radiant heater\b/g, code:"RH"}, {re:/\b(\d+)\s*exhaust fan\b/g, code:"EF"}, {re:/\b(\d+)\s*mua\b/g, code:"MUA"} ];
+  const out = [];
+  patterns.forEach(p => {
+    let m;
+    while((m = p.re.exec(t)) !== null){
+      const count = parseInt(m[1], 10);
+      if(!Number.isNaN(count) && count > 0 && count < 50){
+        for(let i = 1; i <= count; i++) out.push(p.code + i);
+      }
+    }
+  });
+  const directMatches = [...t.matchAll(/\b(RTU|RH|UH|F|EF|MUA)\s*-?\s*(\d+)\b/gi)];
+  directMatches.forEach(m => out.push(m[1].toUpperCase() + m[2]));
+  const unique = [];
+  out.forEach(x => { if(!unique.includes(x)) unique.push(x); });
+  return unique.join(", ");
+}
+
+function parseEquipCodes(codeCsv){ return (codeCsv || "").split(",").map(s => s.trim()).filter(Boolean); }
+
+function expandEquipment(codeCsv){
+  const codes = parseEquipCodes(codeCsv);
+  if(!codes.length) return "Not listed";
+  return codes.map(c => {
+    const m = c.match(/^([A-Z]+)(\d+)$/);
+    if(!m) return c;
+    const label = EQUIP_LABELS[m[1]] || m[1];
+    return `${m[1]}${m[2]} (${label})`;
+  }).join("\n");
+}
+
+function firstUnitOfType(codes, type){ return codes.find(c => c.startsWith(type)) || null; }
+
+function formatEquipmentFieldValue(raw){
+  const codes = expandEquipmentCounts(raw);
+  return codes || raw;
+}
+
+/* ---------- unit tag OCR (Tesseract.js, local) ---------- */
+let tagOcrBusy = false;
+
+function openTagOcrModal(){
+  const modal = document.getElementById("tagOcrModal");
+  const fi = document.getElementById("tagOcrFileInput");
+  if (fi) fi.value = "";
+  document.getElementById("tagOcrLoading").classList.add("hidden");
+  document.getElementById("tagOcrRawPreview").classList.add("hidden");
+  document.getElementById("tagOcrRawPreview").textContent = "";
+  modal.classList.remove("hidden");
+}
+
+function closeTagOcrModal(){
+  document.getElementById("tagOcrModal").classList.add("hidden");
+}
+
+/** Normalize OCR text: model, serial, job #, make — regex + line heuristics. */
+function parseNameplateTagText(raw){
+  const text = String(raw || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  console.log("[OCR][parse] Normalized text length:", text.length);
+
+  function clean(val, maxLen){
+    const cap = typeof maxLen === "number" ? maxLen : 80;
+    if (!val) return "";
+    let s = val.replace(/\s+/g, " ").trim();
+    s = s.replace(/^[:;\-–—\s]+/, "").replace(/[:;]\s*$/, "").trim();
+    s = s.replace(/\s*\|\s*.*$/, "").trim();
+    if (s.length > cap) s = s.slice(0, cap).trim();
+    return s;
+  }
+
+  let model = "";
+  let serial = "";
+  let jobNumber = "";
+  let make = "";
+
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+
+  const jobRes = [
+    /(?:^|\n)\s*SERVICE\s*ORDER\s*#?\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /(?:^|\n)\s*(?:WORK\s*)?ORDER\s*#?\s*(?:NO\.?)?\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /(?:^|\n)\s*W\s*\.?\s*O\s*\.?\s*#?\s*(?:NO\.?)?\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /(?:^|\n)\s*JOB\s*#?\s*(?:NO\.?|NUMBER|N\/O)?\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /(?:^|\n)\s*REF\s*#?\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /\bJOB\s*#?\s*[:\s\-–—]+\s*([A-Za-z0-9\-#][^\n]{1,46})/i
+  ];
+  for (let i = 0; i < jobRes.length; i++){
+    const m = text.match(jobRes[i]);
+    if (m && m[1]){
+      jobNumber = clean(m[1], 48);
+      if (/^job\s*$/i.test(jobNumber)) jobNumber = "";
+      if (jobNumber){ console.log("[OCR][parse] Job # regex #" + i + " matched:", jobNumber); break; }
+    }
+  }
+
+  const makeRes = [
+    /(?:^|\n)\s*MANUFACTURER\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /(?:^|\n)\s*MFG\s*\.?\s*(?:NAME)?\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /(?:^|\n)\s*MAKE\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /(?:^|\n)\s*BRAND\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /(?:^|\n)\s*(?:MANUFACTURED\s+)?BY\s*[:\s\-–—]*\s*([^\n]+)/i
+  ];
+  for (let i = 0; i < makeRes.length; i++){
+    const m = text.match(makeRes[i]);
+    if (m && m[1]){
+      make = clean(m[1], 42);
+      if (make){ console.log("[OCR][parse] Make regex #" + i + " matched:", make); break; }
+    }
+  }
+
+  const MFG_FIRST_LINE = /^(CARRIER|TRANE|LENNOX|GOODMAN|RHEEM|RUUD|YORK|DAIKIN|AMANA|BRYANT|PAYNE|HEIL|TEMPSTAR|LUXAIRE|COMFORTMAKER|COLEMAN|EVCON|NORDYNE|AMERISTAR|WESTINGHOUSE|GENERAL\s+ELECTRIC|GE\s+APPLIANCE|ICP|DAY\s*&\s*NIGHT|FRASER-JOHNSTON|JCI|JOHNSON\s+CONTROLS|MCQUAY|BARD|ADDISON|WATERFURNACE|BOSCH|MITSUBISHI|FUJITSU|SAMSUNG|LG)\b/i;
+  if (!make && lines.length && lines[0].length >= 3 && lines[0].length <= 44 && MFG_FIRST_LINE.test(lines[0])){
+    make = clean(lines[0], 42);
+    console.log("[OCR][parse] Make from first line (brand hint):", make);
+  }
+
+  const modelRes = [
+    /(?:^|\n)\s*M\s*\/\s*N\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /(?:^|\n)\s*MODEL\s*(?:NO\.?|NUMBER|N\/O|#)?\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /\bMODEL\s*(?:NO\.?|NUMBER)?\s*[:\s\-–—]+\s*([A-Za-z0-9][^\n]{1,72})/i
+  ];
+  for (let i = 0; i < modelRes.length; i++){
+    const m = text.match(modelRes[i]);
+    if (m && m[1]){
+      model = clean(m[1]);
+      console.log("[OCR][parse] Model regex #" + i + " matched:", model);
+      break;
+    }
+  }
+
+  const serialRes = [
+    /(?:^|\n)\s*S\s*\/\s*N\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /(?:^|\n)\s*SERIAL\s*(?:NO\.?|NUMBER|N\/O|#)?\s*[:\s\-–—]*\s*([^\n]+)/i,
+    /\bSERIAL\s*(?:NO\.?|NUMBER)?\s*[:\s\-–—]+\s*([A-Za-z0-9][^\n]{1,72})/i
+  ];
+  for (let i = 0; i < serialRes.length; i++){
+    const m = text.match(serialRes[i]);
+    if (m && m[1]){
+      serial = clean(m[1]);
+      console.log("[OCR][parse] Serial regex #" + i + " matched:", serial);
+      break;
+    }
+  }
+
+  for (let i = 0; i < lines.length; i++){
+    const line = lines[i];
+    const next = lines[i + 1] || "";
+    if (!jobNumber && /^(JOB|W\.?\s*O\.?|WORK\s*ORDER|ORDER|REF)\s*#?\s*$/i.test(line) && next){
+      const c = clean(next, 48);
+      if (c){ jobNumber = c; console.log("[OCR][parse] Job # from line after label:", jobNumber); }
+    }
+    if (!make && /^(MANUFACTURER|MFG\.?|MAKE|BRAND)\s*$/i.test(line) && next){
+      const c = clean(next, 42);
+      if (c && !/^MODEL\b/i.test(c)){ make = c; console.log("[OCR][parse] Make from line after label:", make); }
+    }
+    if (!model && /^(MODEL|M\/N)\b/i.test(line) && !/[A-Z0-9]{3,}/i.test(line.replace(/^(MODEL|M\/N)\b/i, "")) && next){
+      const c = clean(next);
+      if (c){ model = c; console.log("[OCR][parse] Model from line after label:", model); }
+    }
+    if (!serial && /^(SERIAL|S\/N)\b/i.test(line) && !/[A-Z0-9]{3,}/i.test(line.replace(/^(SERIAL|S\/N)\b/i, "")) && next){
+      const c = clean(next);
+      if (c){ serial = c; console.log("[OCR][parse] Serial from line after label:", serial); }
+    }
+    const sameLineJob = line.match(/^(?:JOB|W\.?\s*O\.?|WORK\s*ORDER|ORDER)\s*#?\s*[:\s\-–—]+\s*(.+)$/i);
+    if (!jobNumber && sameLineJob && sameLineJob[1]){ jobNumber = clean(sameLineJob[1], 48); console.log("[OCR][parse] Job # same-line:", jobNumber); }
+    const sameLineMake = line.match(/^(?:MANUFACTURER|MFG|MAKE|BRAND)\s*[:\s\-–—]+\s*(.+)$/i);
+    if (!make && sameLineMake && sameLineMake[1]){ make = clean(sameLineMake[1], 42); console.log("[OCR][parse] Make same-line:", make); }
+    const sameLineModel = line.match(/^(?:MODEL|M\/N)\s*[:\s\-–—]+\s*(.+)$/i);
+    if (!model && sameLineModel && sameLineModel[1]){ model = clean(sameLineModel[1]); console.log("[OCR][parse] Model same-line:", model); }
+    const sameLineSerial = line.match(/^(?:SERIAL|S\/N)\s*[:\s\-–—]+\s*(.+)$/i);
+    if (!serial && sameLineSerial && sameLineSerial[1]){ serial = clean(sameLineSerial[1]); console.log("[OCR][parse] Serial same-line:", serial); }
+  }
+
+  if (model && serial && model === serial){
+    console.warn("[OCR][parse] Model and serial identical; clearing serial to avoid duplicate.");
+    serial = "";
+  }
+
+  console.log("[OCR][parse] Final extracted — make:", make || "(none)", "model:", model || "(none)", "serial:", serial || "(none)", "job:", jobNumber || "(none)");
+  return { model, serial, jobNumber, make };
+}
+
+async function runTagOcrOnFile(file){
+  if (!file || !file.type || !file.type.startsWith("image/")){
+    console.warn("[OCR] Not an image file:", file);
+    return;
+  }
+  if (typeof Tesseract === "undefined"){
+    console.error("[OCR] Tesseract.js not loaded (check CDN).");
+    alert("OCR library failed to load. Check your connection and reload.");
+    return;
+  }
+
+  tagOcrBusy = true;
+  document.getElementById("openTagOcrBtn").disabled = true;
+  const loading = document.getElementById("tagOcrLoading");
+  const statusEl = document.getElementById("tagOcrStatusText");
+  const rawPre = document.getElementById("tagOcrRawPreview");
+  loading.classList.remove("hidden");
+  rawPre.classList.add("hidden");
+  rawPre.textContent = "";
+
+  console.log("[OCR] Starting Tesseract.recognize — file:", file.name, "size:", file.size, "type:", file.type);
+
+  try {
+    const { data } = await Tesseract.recognize(file, "eng", {
+      logger(m){
+        console.log("[OCR][tesseract]", m);
+        if (m.status === "recognizing text" && typeof m.progress === "number"){
+          statusEl.textContent = "Reading text… " + Math.round(m.progress * 100) + "%";
+        } else if (m.status){
+          statusEl.textContent = String(m.status);
+        }
+      }
+    });
+
+    const rawText = (data && data.text) ? data.text : "";
+    console.log("[OCR] ========== RAW TESSERACT TEXT (full) ==========");
+    console.log(rawText);
+    console.log("[OCR] ========== END RAW TEXT (length " + rawText.length + ") ==========");
+
+    rawPre.textContent = rawText || "(empty)";
+    rawPre.classList.remove("hidden");
+
+    const parsed = parseNameplateTagText(rawText);
+    const makeEl = document.getElementById("unitTagMake");
+    const modelEl = document.getElementById("unitTagModel");
+    const serialEl = document.getElementById("unitTagSerial");
+    const jobEl = document.getElementById("unitTagJob");
+    if (parsed.make) makeEl.value = parsed.make;
+    if (parsed.model) modelEl.value = parsed.model;
+    if (parsed.serial) serialEl.value = parsed.serial;
+    if (parsed.jobNumber) jobEl.value = parsed.jobNumber;
+    saveDraft();
+
+    if (!parsed.model && !parsed.serial && !parsed.make && !parsed.jobNumber){
+      console.warn("[OCR] Could not match make / model / serial / job; check raw text above.");
+    }
+  } catch (err){
+    console.error("[OCR] Tesseract error:", err);
+    alert("OCR failed: " + (err && err.message ? err.message : String(err)));
+  } finally {
+    tagOcrBusy = false;
+    document.getElementById("openTagOcrBtn").disabled = false;
+    loading.classList.add("hidden");
+    statusEl.textContent = "Reading image…";
+  }
+}
+
+function initUnitTagOcr(){
+  const openBtn = document.getElementById("openTagOcrBtn");
+  const fi = document.getElementById("tagOcrFileInput");
+  if (openBtn) openBtn.onclick = () => openTagOcrModal();
+  if (fi){
+    fi.addEventListener("change", function(){
+      const f = fi.files && fi.files[0];
+      if (f) runTagOcrOnFile(f);
+    });
+  }
+  if (typeof Tesseract === "undefined"){
+    console.warn("[OCR] Tesseract global missing after script load.");
+    if (openBtn) openBtn.title = "OCR library not available";
+  }
+}
+
+/* ---------- parts parsing ---------- */
+function normalizeFilterSize(rawSize){
+  let s = (rawSize || "").toUpperCase().trim();
+  s = s.replace(/\bbuy\b/gi, "BY"); s = convertNumbers(s); s = s.replace(/\s+BY\s+/gi, "X"); s = s.replace(/\s*X\s*/gi, "X"); s = s.replace(/\s+/g, ""); s = s.replace(/[^0-9X]/g, "");
+  const nums = s.split("X").filter(Boolean);
+  if(nums.length === 3) s = `${nums[0]}X${nums[1]}X${nums[2]}`;
+  return closestMatch(s, KNOWN_FILTER_SIZES, 2).toUpperCase();
+}
+
+function normalizeBeltCode(rawCode){
+  let s = (rawCode || "").toUpperCase().trim();
+  s = s.replace(/\s+/g, ""); s = s.replace(/[-_]/g, "");
+  const m = s.match(/^(AX|BX|A|B|4L)(\d+)$/);
+  if(m){ const code = m[1] + m[2]; return closestMatch(code, KNOWN_BELTS, 1).toUpperCase(); }
+  return closestMatch(s, KNOWN_BELTS, 1).toUpperCase();
+}
+
+function formatPartOutput(qty, value){ return `${qty} - ${String(value).toUpperCase()}`; }
+
+function recoverConcatenatedFilter(firstNum, secondNum, thirdNum){
+  const a = String(firstNum); const b = String(secondNum); const c = String(thirdNum);
+  for(let i = 1; i < a.length; i++){
+    const qty = a.slice(0, i); const firstDim = a.slice(i); const candidate = `${firstDim}X${b}X${c}`;
+    const matched = closestMatch(candidate, KNOWN_FILTER_SIZES, 2);
+    if(KNOWN_FILTER_SIZES.includes(matched)) return `${parseInt(qty, 10)} - ${matched}`;
+  }
+  return null;
+}
+
+function parsePartItem(item){
+  let t = item.toLowerCase().trim();
+  if(!t) return [];
+
+  t = t.replace(/\bbuy\b/g, "by"); t = convertNumbers(t); t = t.replace(/\s{2,}/g, " ").trim(); t = t.replace(/\bfilters?\b/g, "").trim(); t = t.replace(/\bbelts?\b/g, "").trim();
+
+  let beltMatch = t.match(/^(\d+)\s+(ax|bx|a|b|4l)\s*-?\s*(\d+)$/i);
+  if(beltMatch) return [formatPartOutput(parseInt(beltMatch[1], 10), normalizeBeltCode(beltMatch[2] + beltMatch[3]))];
+  beltMatch = t.match(/^(\d+)(ax|bx|a|b|4l)\s*-?\s*(\d+)$/i);
+  if(beltMatch) return [formatPartOutput(parseInt(beltMatch[1], 10), normalizeBeltCode(beltMatch[2] + beltMatch[3]))];
+  beltMatch = t.match(/^(\d+)\s+(4)\s*l\s*(\d+)$/i);
+  if(beltMatch) return [formatPartOutput(parseInt(beltMatch[1], 10), normalizeBeltCode(`4L${beltMatch[3]}`))];
+
+  let f = t;
+  f = f.replace(/\s+by\s+/g, " x "); f = f.replace(/\s*x\s*/g, " x "); f = f.replace(/\s{2,}/g, " ").trim();
+
+  let m = f.match(/^(\d+)\s+(\d+)\s+(\d+)\s*x\s*(\d+)$/i);
+  if(m) return [formatPartOutput(parseInt(m[1], 10), normalizeFilterSize(`${m[2]}x${m[3]}x${m[4]}`))];
+  m = f.match(/^(\d+)\s+(\d+)\s*x\s*(\d+)\s*x\s*(\d+)$/i);
+  if(m) return [formatPartOutput(parseInt(m[1], 10), normalizeFilterSize(`${m[2]}x${m[3]}x${m[4]}`))];
+  m = f.match(/^(\d+)x(\d+)x(\d+)x(\d+)$/i);
+  if(m) return [formatPartOutput(parseInt(m[1], 10), normalizeFilterSize(`${m[2]}x${m[3]}x${m[4]}`))];
+  m = f.match(/^(\d+)\s+(\d+x\d+x\d+)$/i);
+  if(m) return [formatPartOutput(parseInt(m[1], 10), normalizeFilterSize(m[2]))];
+  m = f.match(/^(\d+)\s+(\d+)\s*x\s*(\d+)$/i);
+  if(m){ const recovered = recoverConcatenatedFilter(m[1], m[2], m[3]); if(recovered) return [recovered]; }
+
+  const nums = f.match(/\d+/g);
+  if(nums && nums.length === 4) return [formatPartOutput(parseInt(nums[0], 10), normalizeFilterSize(`${nums[1]}x${nums[2]}x${nums[3]}`))];
+  if(nums && nums.length === 3){ const recovered = recoverConcatenatedFilter(nums[0], nums[1], nums[2]); if(recovered) return [recovered]; }
+
+  const beltNums = f.match(/^(\d+)\s*(ax|bx|a|b|4l)\s*(\d+)$/i);
+  if(beltNums) return [formatPartOutput(parseInt(beltNums[1], 10), normalizeBeltCode(beltNums[2] + beltNums[3]))];
+
+  return [item.trim().toUpperCase()];
+}
+
+// ---------------------------------------------------------
+// NEW: CUSTOM JAVASCRIPT SORTING ENGINE
+// ---------------------------------------------------------
+function sortPartsArray(parts) {
+  const filters = []; const belts = [];
+  parts.forEach(p => { if (p.includes('X')) filters.push(p); else belts.push(p); });
+
+  filters.sort((a, b) => {
+    const [a1, a2, a3] = (a.match(/\d+/g) || [0,0,0]).slice(-3).map(Number);
+    const [b1, b2, b3] = (b.match(/\d+/g) || [0,0,0]).slice(-3).map(Number);
+    if (a1 !== b1) return a1 - b1;
+    if (a2 !== b2) return a2 - b2;
+    return a3 - b3;
+  });
+
+  belts.sort((a, b) => {
+    const beltA = a.split('-')[1] || a;
+    const beltB = b.split('-')[1] || b;
+    return beltA.trim().localeCompare(beltB.trim(), undefined, {numeric: true});
+  });
+
+  return [...filters, ...belts];
+}
+
+function normalizeParts(text){
+  let t = (text || "").trim();
+  if(!t) return "";
+
+  t = t.replace(/\s+and\s+/gi, ", "); t = t.replace(/\s{2,}/g, " ").trim();
+
+  const items = t.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+  const out = [];
+
+  items.forEach(item => {
+    parsePartItem(item).forEach(x => {
+      const cleaned = String(x).replace(/\bFILTERS?\b/gi, "").replace(/\bBELTS?\b/gi, "").replace(/\s{2,}/g, " ").trim().toUpperCase();
+      if(cleaned) out.push(cleaned);
+    });
+  });
+
+  return sortPartsArray(out).join("\n");
+}
+
+/* ---------- notes ---------- */
+function normalizeNotesForParsing(text){
+  let t = (text || "").trim().toLowerCase();
+  t = t.replace(/\n/g, " "); t = t.replace(/\s{2,}/g, " ").trim();
+  t = t.replace(/\bare\s*to\s*you\b/g,"rtu"); t = t.replace(/\bar\s*to\s*you\b/g,"rtu"); t = t.replace(/\br\s*to\s*you\b/g,"rtu");
+  t = t.replace(/\br\s*too\s*you\b/g,"rtu"); t = t.replace(/\br\s*two\s*you\b/g,"rtu"); t = t.replace(/\br\s*t\s*u\b/g,"rtu");
+  t = t.replace(/\brt\s*you\b/g,"rtu"); t = t.replace(/\brt\s*u\b/g,"rtu"); t = t.replace(/\brt\b/g,"rtu");
+  t = t.replace(/\bhour\s*to\s*you\b/g,"rtu");
+  t = t.replace(/\bfurnaces?\b/g,"furnace"); t = t.replace(/\bunit heaters?\b/g,"unit heater"); t = t.replace(/\bradiant heaters?\b/g,"radiant heater");
+  t = t.replace(/\bexhaust fans?\b/g,"exhaust fan"); t = t.replace(/\bmake[\s-]?up air(?: unit)?s?\b/g,"mua"); t = t.replace(/\brooftop units?\b/g,"rtu");
+  t = convertNumbers(t);
+  t = t.replace(/\b(rtu|rh|uh|f|ef|mua)\s*(\d+)\b/gi, (_, a, n) => `${a.toUpperCase()}${n}`);
+  return t;
+}
+
+function extractRepairsFromNotes(notesText, equipCodes){
+  const text = (notesText || "").trim();
+  if(!text) return {general:"", repairs:[]};
+
+  const pieces = text.replace(/\r/g,"").split(/\n+|(?<=[.?!])\s+/).map(s => s.trim()).filter(Boolean);
+  const repairs = []; const general = [];
+
+  function looksLikeRepair(s){ return /\b(needs?|need|replace|replaced|failed|bad|broken|repair|recommend|suggest|not working|no heat|no cooling|leaking|motor|belt|capacitor|blower|fan|heat exchanger|cracked)\b/i.test(s); }
+
+  pieces.forEach(piece => {
+    const norm = normalizeNotesForParsing(piece);
+    let unit = null;
+
+    const explicit = norm.match(/\b(RTU|RH|UH|F|EF|MUA)\d+\b/i);
+    if(explicit) unit = explicit[0].toUpperCase();
+
+    if(!unit && /\brtu\b/i.test(norm)) unit = firstUnitOfType(equipCodes, "RTU");
+    if(!unit && /\bfurnace\b|\bf\b/i.test(norm)) unit = firstUnitOfType(equipCodes, "F");
+    if(!unit && /\bunit heater\b|\buh\b/i.test(norm)) unit = firstUnitOfType(equipCodes, "UH");
+    if(!unit && /\bradiant heater\b|\brh\b/i.test(norm)) unit = firstUnitOfType(equipCodes, "RH");
+    if(!unit && /\bexhaust fan\b|\bef\b/i.test(norm)) unit = firstUnitOfType(equipCodes, "EF");
+    if(!unit && /\bmua\b|make up air/i.test(norm)) unit = firstUnitOfType(equipCodes, "MUA");
+
+    if(unit && looksLikeRepair(norm)){
+      let msg = piece.trim();
+      msg = msg.replace(/^(rtu|rt|furnace|unit heater|radiant heater|exhaust fan|make[\s-]?up air|mua|ef|rh|uh|f)\s*-?\s*(one|two|three|four|five|six|seven|eight|nine|ten|\d+)?\s*/i, "");
+      msg = msg.replace(/^\s*[:\-–]\s*/, "");
+      if(!msg) msg = "Repair needed.";
+      repairs.push(`${unit} - ${msg}`);
+    } else {
+      general.push(piece);
+    }
+  });
+  return { general: general.join(" ").trim(), repairs };
+}
+
+/* ---------- history storage ---------- */
+function getHistoryData(){ try{ return JSON.parse(localStorage.getItem(HISTORY_KEY) || "{}"); }catch(e){ return {}; } }
+function saveHistoryData(data){ localStorage.setItem(HISTORY_KEY, JSON.stringify(data)); }
+
+function buildVisitSummary(visit){
+  if(visit.mode === "PM"){ return { date: visit.date, type: "PM", primary: visit.location, details: visit.notesFinal || "No notes.", parts: visit.partsUsed || "NONE" }; } 
+  else if(visit.mode === "QUOTED REPAIR"){ return { date: visit.date, type: "QUOTED REPAIR", primary: visit.location, details: visit.repairsCompleted || "No repairs recorded.", parts: visit.partsUsed || "NONE" }; }
+  return { date: visit.date, type: "SERVICE CALL", primary: visit.location, details: visit.diagnosis || "No diagnosis.", parts: visit.partsUsed || "NONE" };
+}
+
+function saveVisitToHistory(visit){
+  if(!visit.location) return;
+  const customer = getCustomerFromLocation(visit.location);
+  const data = getHistoryData();
+  if(!data[customer]) data[customer] = {};
+  if(!data[customer][visit.location]) data[customer][visit.location] = [];
+  data[customer][visit.location].unshift(visit);
+  saveHistoryData(data);
+}
+
+function populateHistoryCustomers(){
+  const select = document.getElementById("historyCustomer");
+  const data = getHistoryData();
+  const customers = Object.keys(data).sort();
+  select.innerHTML = `<option value="">Select customer</option>`;
+  customers.forEach(customer => { const opt = document.createElement("option"); opt.value = customer; opt.textContent = customer; select.appendChild(opt); });
+  if(customers.includes(currentHistoryCustomer)){ select.value = currentHistoryCustomer; } else { currentHistoryCustomer = ""; }
+  populateHistoryLocations();
+}
+
+function populateHistoryLocations(){
+  const locationSelect = document.getElementById("historyLocation");
+  const data = getHistoryData();
+  locationSelect.innerHTML = `<option value="">Select location</option>`;
+  if(!currentHistoryCustomer || !data[currentHistoryCustomer]){ currentHistoryLocation = ""; renderHistoryView(); return; }
+  const locations = Object.keys(data[currentHistoryCustomer]).sort();
+  locations.forEach(location => { const opt = document.createElement("option"); opt.value = location; opt.textContent = location; locationSelect.appendChild(opt); });
+  if(locations.includes(currentHistoryLocation)){ locationSelect.value = currentHistoryLocation; } else { currentHistoryLocation = ""; }
+  renderHistoryView();
+}
+
+function renderHistoryView(){
+  const latestWrap = document.getElementById("historyLatestWrap");
+  const olderWrap = document.getElementById("historyOlderWrap");
+  const fullWrap = document.getElementById("historyFullWrap");
+  const latest = document.getElementById("historyLatest");
+  const olderList = document.getElementById("historyOlderList");
+  const full = document.getElementById("historyFullReport");
+  const data = getHistoryData();
+
+  latestWrap.classList.add("hidden"); olderWrap.classList.add("hidden"); fullWrap.classList.add("hidden");
+  latest.innerHTML = ""; olderList.innerHTML = ""; full.textContent = "";
+
+  if(!currentHistoryCustomer || !currentHistoryLocation) return;
+  if(!data[currentHistoryCustomer] || !data[currentHistoryCustomer][currentHistoryLocation]) return;
+
+  const visits = data[currentHistoryCustomer][currentHistoryLocation];
+  if(!visits.length) return;
+
+  const latestVisit = visits[0];
+  const s = buildVisitSummary(latestVisit);
+
+  latest.innerHTML = `
+    <div class="summary-row"><span class="summary-label">Date:</span> ${escapeHtml(s.date)}</div>
+    <div class="summary-row"><span class="summary-label">Type:</span> ${escapeHtml(s.type)}</div>
+    <div class="summary-row"><span class="summary-label">What was done last time:</span> ${escapeHtml(s.details)}</div>
+    <div class="summary-row"><span class="summary-label">Parts used:</span> ${escapeHtml(s.parts)}</div>
+  `;
+  latestWrap.classList.remove("hidden");
+
+  if(typeof currentHistorySelectedIndex !== "number" || currentHistorySelectedIndex >= visits.length){ currentHistorySelectedIndex = 0; }
+
+  if(visits.length > 1){
+    olderWrap.classList.remove("hidden");
+    visits.forEach((visit, idx) => {
+      const box = document.createElement("div");
+      const sum = buildVisitSummary(visit);
+      box.className = "history-item" + (idx === currentHistorySelectedIndex ? " active" : "");
+      box.innerHTML = `<div class="history-title">${escapeHtml(sum.date)} - ${escapeHtml(sum.type)}</div><div class="history-sub">${escapeHtml(sum.details)}</div>`;
+      box.onclick = () => { currentHistorySelectedIndex = idx; renderHistoryView(); };
+      olderList.appendChild(box);
+    });
+  } else {
+    const box = document.createElement("div");
+    const sum = buildVisitSummary(latestVisit);
+    box.className = "history-item active";
+    box.innerHTML = `<div class="history-title">${escapeHtml(sum.date)} - ${escapeHtml(sum.type)}</div><div class="history-sub">${escapeHtml(sum.details)}</div>`;
+    box.onclick = () => { currentHistorySelectedIndex = 0; renderHistoryView(); };
+    olderList.appendChild(box);
+    olderWrap.classList.remove("hidden");
+  }
+
+  full.textContent = visits[currentHistorySelectedIndex].report || "";
+  fullWrap.classList.remove("hidden");
+}
+
+/* ---------- draft ---------- */
+function getFields(){
+  return {
+    currentMode, location: document.getElementById("location").value || "",
+    unitTagMake: document.getElementById("unitTagMake").value || "",
+    unitTagModel: document.getElementById("unitTagModel").value || "",
+    unitTagSerial: document.getElementById("unitTagSerial").value || "",
+    unitTagJob: document.getElementById("unitTagJob").value || "",
+    equipment: document.getElementById("equipment").value || "", notes: document.getElementById("notes").value || "",
+    used: document.getElementById("used").value || "", cost: document.getElementById("cost").value || "",
+    next: document.getElementById("next").value || "", workdone: document.getElementById("workdone").value || "",
+    serviceEquipment: document.getElementById("serviceEquipment").value || "", reason: document.getElementById("reason").value || "",
+    diagnosis: document.getElementById("diagnosis").value || "", repairsMade: document.getElementById("repairsMade").value || "",
+    serviceUsed: document.getElementById("serviceUsed").value || "", serviceCost: document.getElementById("serviceCost").value || "",
+    quoteParts: document.getElementById("quoteParts").value || "", quoteLabor: document.getElementById("quoteLabor").value || "",
+    recommendations: document.getElementById("recommendations").value || "", quoteEquip: document.getElementById("quoteEquip").value || "",
+    quoteIssue: document.getElementById("quoteIssue").value || "", quoteRepairs: document.getElementById("quoteRepairs").value || "",
+    quoteTesting: document.getElementById("quoteTesting").value || "", quoteRecs: document.getElementById("quoteRecs").value || "",
+    historyCustomer: currentHistoryCustomer, historyLocation: currentHistoryLocation, historySelectedIndex: currentHistorySelectedIndex,
+    savedAt: new Date().toISOString()
+  };
+}
+
+function setFields(d){
+  currentMode = d.currentMode || "PM";
+  currentHistoryCustomer = d.historyCustomer || ""; currentHistoryLocation = d.historyLocation || ""; currentHistorySelectedIndex = typeof d.historySelectedIndex === "number" ? d.historySelectedIndex : 0;
+  applyMode();
+  document.getElementById("location").value = d.location || "";
+  document.getElementById("unitTagMake").value = d.unitTagMake || "";
+  document.getElementById("unitTagModel").value = d.unitTagModel || "";
+  document.getElementById("unitTagSerial").value = d.unitTagSerial || "";
+  document.getElementById("unitTagJob").value = d.unitTagJob || "";
+  document.getElementById("equipment").value = d.equipment || ""; document.getElementById("notes").value = d.notes || "";
+  document.getElementById("used").value = d.used || ""; document.getElementById("cost").value = d.cost || "";
+  document.getElementById("next").value = d.next || ""; document.getElementById("workdone").value = d.workdone || DEFAULT_PM_WORKDONE;
+  document.getElementById("serviceEquipment").value = d.serviceEquipment || ""; document.getElementById("reason").value = d.reason || "";
+  document.getElementById("diagnosis").value = d.diagnosis || ""; document.getElementById("repairsMade").value = d.repairsMade || "";
+  document.getElementById("serviceUsed").value = d.serviceUsed || ""; document.getElementById("serviceCost").value = d.serviceCost || "";
+  document.getElementById("quoteParts").value = d.quoteParts || ""; document.getElementById("quoteLabor").value = d.quoteLabor || "";
+  document.getElementById("recommendations").value = d.recommendations || ""; document.getElementById("quoteEquip").value = d.quoteEquip || "";
+  document.getElementById("quoteIssue").value = d.quoteIssue || ""; document.getElementById("quoteRepairs").value = d.quoteRepairs || "";
+  document.getElementById("quoteTesting").value = d.quoteTesting || ""; document.getElementById("quoteRecs").value = d.quoteRecs || "";
+  [ "equipment","notes","used","next", "serviceEquipment","reason","diagnosis","repairsMade","serviceUsed","quoteParts","recommendations", "quoteEquip","quoteIssue","quoteRepairs","quoteTesting","quoteRecs"
+  ].forEach(id => autoGrow(document.getElementById(id)));
+  populateHistoryCustomers();
+}
+
+function saveDraft(){ try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(getFields())); }catch(e){} }
+function loadDraft(){ const raw = localStorage.getItem(DRAFT_KEY); if(!raw) return false; try{ const d = JSON.parse(raw); setFields(d); return true; }catch(e){ return false; } }
+
+/* ---------- immediate field formatting ---------- */
+function formatEquipmentField(){ const el = document.getElementById("equipment"); if(el.value.trim()){ el.value = formatEquipmentFieldValue(el.value); autoGrow(el); saveDraft(); } }
+function formatUsedField(){ autoParseParts("used"); }
+function formatNextField(){ autoParseParts("next"); }
+function formatServiceEquipmentField(){ const el = document.getElementById("serviceEquipment"); if(el.value.trim()){ el.value = formatEquipmentFieldValue(el.value); autoGrow(el); saveDraft(); } }
+function formatServiceUsedField(){ autoParseParts("serviceUsed"); }
+function formatQuotePartsField(){ autoParseParts("quoteParts"); }
+function formatQuoteEquipField(){ const el = document.getElementById("quoteEquip"); if(el.value.trim()){ el.value = formatEquipmentFieldValue(el.value); autoGrow(el); saveDraft(); } }
+
+/* ---------- BACKGROUND CLOUD SYNC ---------- */
+function uploadReportToCloud(visitData, fullReportText) {
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+    const db = firebase.firestore();
+    const ticketId = document.getElementById('ticketSelector').value;
+    const finalStatus = document.getElementById('finalJobStatus').value;
+
+    const payload = {
+        ...visitData, fullReportText: fullReportText, techName: currentTechProfile,
+        linkedTicketId: ticketId || "None", status: finalStatus, 
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(), deviceSavedAt: new Date().toISOString() 
+    };
+
+    db.collection('completed_reports').add(payload).catch(e => console.error("Sync queued."));
+    if (ticketId) { db.collection('service_calls').doc(ticketId).set({ status: finalStatus, techNotes: fullReportText }, { merge: true }).catch(e => console.error("Ticket update queued.")); }
+
+    document.querySelectorAll('.accordion').forEach(a => a.classList.remove('open'));
+    const sc = document.getElementById('successCard');
+    sc.style.display = 'block';
+    
+    if (navigator.onLine) { sc.innerHTML = `<h3>✓ Ticket Synced</h3><p>Report uploaded. Status changed to <strong>${finalStatus}</strong>.</p>`; } 
+    else { sc.innerHTML = `<h3 style="color:#f39c12;">✓ Saved Offline</h3><p>Will sync in background when signal returns.</p>`; }
+    window.scrollTo(0,0);
+}
+
+/* ---------- firebase parent lookup ---------- */
+async function getParentCompany(locationText) {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
+  try {
+    const db = firebase.firestore();
+    const pieces = locationText.split(" - ");
+    if (pieces.length < 2) return null;
+    const subCompany = pieces[0].trim();
+    const street = pieces[pieces.length - 1].trim(); 
+    const locSnapshot = await db.collection("MappedLocations").where("Sub_Company", "==", subCompany).where("Street", "==", street).get();
+    if (locSnapshot.empty) return null;
+    const parentId = locSnapshot.docs[0].data().Parent_ID;
+    const parentDoc = await db.collection("ParentCompanies").doc(parentId).get();
+    if (parentDoc.exists) return parentDoc.data().Name; 
+    return null;
+  } catch (error) { return null; }
+}
+
+/* ---------- ui actions ---------- */
+document.getElementById("same").onclick = function(){ document.getElementById("next").value = document.getElementById("used").value; autoGrow(document.getElementById("next")); formatNextField(); };
+
+/** Builds the same report text and visit object as Complete & Sync — without uploading. */
+async function buildReportFromForm() {
+  await autoParseLocation();
+  const location = document.getElementById("location").value || "[Location]";
+  const date = today();
+  const parentCompany = await getParentCompany(location);
+  const finalLocationDisplay = parentCompany ? `${parentCompany}\n${location}` : location;
+
+  let report = "";
+  let visit = null;
+
+  if(currentMode === "PM"){
+    formatEquipmentField(); formatUsedField(); formatNextField();
+    const equipRaw = document.getElementById("equipment").value || "";
+    const equipCodes = parseEquipCodes(equipRaw);
+    const equip = expandEquipment(equipRaw);
+    const notesRaw = (document.getElementById("notes").value || "").trim();
+    const extracted = extractRepairsFromNotes(notesRaw, equipCodes);
+    let notesFinal = DEFAULT_PM_NOTES;
+    if(extracted.general) notesFinal = extracted.general; else if(extracted.repairs.length) notesFinal = extracted.repairs.join("\n");
+    const used = document.getElementById("used").value.trim() ? normalizeParts(document.getElementById("used").value) : "NONE";
+    const next = document.getElementById("next").value.trim() ? normalizeParts(document.getElementById("next").value) : "NONE";
+    const cost = document.getElementById("cost").value || "Unknown";
+    const workdone = document.getElementById("workdone").value || DEFAULT_PM_WORKDONE;
+
+    report = `PM\n\nLocation:\n${finalLocationDisplay}\n\nDate:\n${date}\n\nEquipment on Site:\n${equip}\n\nNotes / Repairs:\n${notesFinal}\n\nWork done:\n${workdone}\n\nParts used:\n${used}\n\nCost of parts (if known):\n${cost}\n\nParts needed next PM:\n${next}\n\nPictures:\nNeeded photos are attached.\n`;
+    visit = { date, mode: "PM", customer: getCustomerFromLocation(location), location, equipment: equip, notesFinal, workdone, partsUsed: used, partsNeeded: next, cost, report };
+
+  } else if(currentMode === "SERVICE"){
+    formatServiceEquipmentField(); formatServiceUsedField(); formatQuotePartsField();
+    const serviceEquipRaw = document.getElementById("serviceEquipment").value || "";
+    const serviceEquipDisplay = parseEquipCodes(serviceEquipRaw).length ? expandEquipment(serviceEquipRaw) : (serviceEquipRaw || "Not listed");
+    const reason = document.getElementById("reason").value.trim() || "Not listed.";
+    const diagnosis = document.getElementById("diagnosis").value.trim() || "Not listed.";
+    const repairsMade = document.getElementById("repairsMade").value.trim() || "None.";
+    const used = document.getElementById("serviceUsed").value.trim() ? normalizeParts(document.getElementById("serviceUsed").value) : "NONE";
+    const cost = document.getElementById("serviceCost").value || "Unknown";
+    const quoteParts = document.getElementById("quoteParts").value.trim() ? normalizeParts(document.getElementById("quoteParts").value) : "NONE";
+    const quoteLabor = document.getElementById("quoteLabor").value.trim() || "NONE";
+    const recommendations = document.getElementById("recommendations").value.trim() || "None.";
+
+    report = `SERVICE CALL\n\nLocation:\n${finalLocationDisplay}\n\nDate:\n${date}\n\nEquipment worked on:\n${serviceEquipDisplay}\n\nReason for call:\n${reason}\n\nFindings / Diagnosis:\n${diagnosis}\n\nRepairs made:\n${repairsMade}\n\nParts used:\n${used}\n\nCost of parts (if known):\n${cost}\n\nParts needed for repair quote:\n${quoteParts}\n\nLabor for repair quote:\n${quoteLabor}\n\nRecommendations / Next steps:\n${recommendations}\n\nPictures:\nRepair photos attached.\n`;
+    visit = { date, mode: "SERVICE CALL", customer: getCustomerFromLocation(location), location, equipmentWorkedOn: serviceEquipDisplay, reason, diagnosis, repairsMade, partsUsed: used, cost, quoteParts, quoteLabor, recommendations, report };
+
+  } else if(currentMode === "QUOTE") {
+    formatQuoteEquipField();
+    const quoteEquipRaw = document.getElementById("quoteEquip").value || "";
+    const quoteEquipDisplay = parseEquipCodes(quoteEquipRaw).length ? expandEquipment(quoteEquipRaw) : (quoteEquipRaw || "Not listed");
+    const issue = document.getElementById("quoteIssue").value.trim() || "Not listed.";
+    const repairsCompleted = document.getElementById("quoteRepairs").value.trim() || "None.";
+    const testing = document.getElementById("quoteTesting").value.trim() || "Tested and verified operations.";
+    const recs = document.getElementById("quoteRecs").value.trim() || "None.";
+
+    report = `QUOTED REPAIR\n\nLocation:\n${finalLocationDisplay}\n\nDate:\n${date}\n\nEquipment Repaired:\n${quoteEquipDisplay}\n\nOriginal Issue Resolved:\n${issue}\n\nRepairs Completed:\n${repairsCompleted}\n\nSystem Testing & Verification:\n${testing}\n\nFurther Recommendations:\n${recs}\n\nPictures:\nRepair photos attached.\n`;
+    visit = { date, mode: "QUOTED REPAIR", customer: getCustomerFromLocation(location), location, equipmentRepaired: quoteEquipDisplay, originalIssue: issue, repairsCompleted: repairsCompleted, partsUsed: "NONE", testingVerification: testing, recommendations: recs, report };
+  }
+
+  return { report, visit };
+}
+
+function isMissingQuotePartOrLabor(value) {
+  const t = (value || "").trim();
+  if (!t) return true;
+  if (/^NONE\.?$/i.test(t)) return true;
+  return false;
+}
+
+/** When final status is "Needs Repair Quote", parts + labor for the quote must be filled (Service Call §3). */
+function validateNeedsRepairQuote() {
+  const status = document.getElementById("finalJobStatus").value;
+  if (status !== "Needs Repair Quote") return { ok: true };
+  if (currentMode !== "SERVICE") {
+    currentMode = "SERVICE";
+    applyMode();
+    const accParts = document.getElementById("acc-parts-svc");
+    if (accParts) accParts.classList.add("open");
+    const accStatus = document.getElementById("acc-status");
+    if (accStatus) accStatus.classList.add("open");
+    return {
+      ok: false,
+      message: "Switched to Service Call so you can enter the repair quote. Fill in section 3 — Parts needed for repair quote and Labor for repair quote — then tap Complete & Sync again."
+    };
+  }
+  const qp = document.getElementById("quoteParts").value;
+  const ql = document.getElementById("quoteLabor").value;
+  const partsMissing = isMissingQuotePartOrLabor(qp);
+  const laborMissing = isMissingQuotePartOrLabor(ql);
+  if (partsMissing && laborMissing) {
+    return {
+      ok: false,
+      message: "Needs Repair Quote: enter both parts needed for the quote and labor hours (section 3 — Parts & Quote Info) before syncing."
+    };
+  }
+  if (partsMissing) {
+    return { ok: false, message: "Needs Repair Quote: list parts needed for the repair quote (section 3)." };
+  }
+  if (laborMissing) {
+    return { ok: false, message: "Needs Repair Quote: enter labor for the repair quote, e.g. hours (section 3)." };
+  }
+  return { ok: true };
+}
+
+function closeReportPreview() {
+  document.getElementById("reportPreviewModal").classList.add("hidden");
+  document.body.style.overflow = "";
+}
+
+function openReportPreview(text) {
+  document.getElementById("reportPreviewBody").textContent = text;
+  document.getElementById("reportPreviewModal").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+/** Opens preview first; sync only happens from the modal confirm button. */
+document.getElementById("generate").onclick = async function(){
+  const check = validateNeedsRepairQuote();
+  if (!check.ok) {
+    alert(check.message);
+    return;
+  }
+  const { report } = await buildReportFromForm();
+  if (!report) return;
+  saveDraft();
+  openReportPreview(report);
+};
+
+document.getElementById("reportPreviewSyncBtn").onclick = async function(){
+  const check = validateNeedsRepairQuote();
+  if (!check.ok) {
+    alert(check.message);
+    return;
+  }
+  const { report, visit } = await buildReportFromForm();
+  if (!report || !visit) {
+    closeReportPreview();
+    return;
+  }
+  saveVisitToHistory(visit);
+  populateHistoryCustomers();
+  uploadReportToCloud(visit, report);
+  saveDraft();
+  closeReportPreview();
+};
+
+/* Unified Add Equipment function */
+function addEquipmentCode(fieldId, prefix){
+  const el = document.getElementById(fieldId);
+  const current = (el.value || "").trim();
+  const codes = parseEquipCodes(current);
+  let max = 0;
+  codes.forEach(c => { const m = c.match(new RegExp("^" + prefix + "(\\d+)$")); if(m) max = Math.max(max, parseInt(m[1], 10)); });
+  const nextNum = max + 1;
+  const appendText = current ? current + ", " + prefix + nextNum : prefix + nextNum;
+  el.value = appendText;
+  autoGrow(el); saveDraft();
+}
+
+/* Pill Buttons */
+document.getElementById("addRTU").onclick = () => addEquipmentCode("equipment", "RTU");
+document.getElementById("addF").onclick = () => addEquipmentCode("equipment", "F");
+document.getElementById("addUH").onclick = () => addEquipmentCode("equipment", "UH");
+document.getElementById("addRH").onclick = () => addEquipmentCode("equipment", "RH");
+document.getElementById("addEF").onclick = () => addEquipmentCode("equipment", "EF");
+document.getElementById("addMUA").onclick = () => addEquipmentCode("equipment", "MUA");
+
+document.getElementById("addServiceRTU").onclick = () => addEquipmentCode("serviceEquipment", "RTU");
+document.getElementById("addServiceF").onclick = () => addEquipmentCode("serviceEquipment", "F");
+document.getElementById("addServiceUH").onclick = () => addEquipmentCode("serviceEquipment", "UH");
+document.getElementById("addServiceRH").onclick = () => addEquipmentCode("serviceEquipment", "RH");
+document.getElementById("addServiceEF").onclick = () => addEquipmentCode("serviceEquipment", "EF");
+document.getElementById("addServiceMUA").onclick = () => addEquipmentCode("serviceEquipment", "MUA");
+
+document.getElementById("addQuoteRTU").onclick = () => addEquipmentCode("quoteEquip", "RTU");
+document.getElementById("addQuoteF").onclick = () => addEquipmentCode("quoteEquip", "F");
+document.getElementById("addQuoteUH").onclick = () => addEquipmentCode("quoteEquip", "UH");
+document.getElementById("addQuoteRH").onclick = () => addEquipmentCode("quoteEquip", "RH");
+document.getElementById("addQuoteEF").onclick = () => addEquipmentCode("quoteEquip", "EF");
+document.getElementById("addQuoteMUA").onclick = () => addEquipmentCode("quoteEquip", "MUA");
+
+function addEnterFormatter(id, formatter){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.addEventListener("keydown", (e) => {
+    if( e.key === "Enter" && !["notes","reason","diagnosis","repairsMade","recommendations", "quoteIssue", "quoteRepairs", "quoteTesting", "quoteRecs"].includes(id) ){
+      e.preventDefault(); formatter(); e.target.blur();
+    }
+  });
+}
+
+function wireAutosave(){
+  [ "location","unitTagMake","unitTagModel","unitTagSerial","unitTagJob","equipment","notes","used","cost","next","workdone", "serviceEquipment","reason","diagnosis","repairsMade","serviceUsed","serviceCost","quoteParts","quoteLabor","recommendations", "quoteEquip","quoteIssue","quoteRepairs","quoteTesting","quoteRecs"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener("input", () => { saveDraft(); if(el.tagName.toLowerCase() === "textarea"){ autoGrow(el); } });
+  });
+
+  document.getElementById("location").addEventListener("blur", autoParseLocation);
+  document.getElementById("equipment").addEventListener("blur", formatEquipmentField);
+  document.getElementById("used").addEventListener("blur", formatUsedField);
+  document.getElementById("next").addEventListener("blur", formatNextField);
+  document.getElementById("serviceEquipment").addEventListener("blur", formatServiceEquipmentField);
+  document.getElementById("serviceUsed").addEventListener("blur", formatServiceUsedField);
+  document.getElementById("quoteParts").addEventListener("blur", formatQuotePartsField);
+  document.getElementById("quoteEquip").addEventListener("blur", formatQuoteEquipField);
+
+  addEnterFormatter("location", autoParseLocation);
+  addEnterFormatter("equipment", formatEquipmentField);
+  addEnterFormatter("used", formatUsedField);
+  addEnterFormatter("next", formatNextField);
+  addEnterFormatter("serviceEquipment", formatServiceEquipmentField);
+  addEnterFormatter("serviceUsed", formatServiceUsedField);
+  addEnterFormatter("quoteParts", formatQuotePartsField);
+  addEnterFormatter("quoteEquip", formatQuoteEquipField);
+
+  document.addEventListener("visibilitychange", () => { if(document.visibilityState === "hidden") saveDraft(); });
+  window.addEventListener("pagehide", saveDraft);
+}
+
+/* ---------- init ---------- */
+window.onload = async function(){
+  initUnitTagOcr();
+  document.getElementById("workdone").value = DEFAULT_PM_WORKDONE;
+  applyMode();
+
+  document.getElementById("location").value = "";
+  const fieldsToClear = [
+    "unitTagMake","unitTagModel","unitTagSerial","unitTagJob","equipment","notes","used","cost","next", "serviceEquipment","reason","diagnosis","repairsMade","serviceUsed","serviceCost","quoteParts","quoteLabor","recommendations", "quoteEquip","quoteIssue","quoteRepairs","quoteTesting","quoteRecs"
+  ];
+  fieldsToClear.forEach(id => { const el = document.getElementById(id); if(el) { el.value = ""; autoGrow(el); } });
+
+  saveDraft();
+  populateHistoryCustomers();
+
+  cachedTechnicianRoster = await fetchTechnicianRosterFromCloud();
+  const savedRaw = localStorage.getItem('tp_saved_tech');
+  let canonical = resolveCanonicalTechName(savedRaw, cachedTechnicianRoster);
+  if (canonical && canonical !== savedRaw) {
+    localStorage.setItem('tp_saved_tech', canonical);
+  }
+  if (!canonical) {
+    showLoginShell(cachedTechnicianRoster);
+    document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
+    return;
+  }
+
+  const openedFromDispatchLink = await loadUserProfile();
+  if (!openedFromDispatchLink) switchScreen('schedule');
+
+  document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
+  ensureWireAutosave();
+
+  setInterval(function () {
+    if (!currentTechProfile || !lastScheduleWindowStart) return;
+    if (scheduleWindowStart() !== lastScheduleWindowStart) {
+      subscribeToMyTickets(undefined, false);
+    }
+  }, 60000);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible' || !currentTechProfile || !lastScheduleWindowStart) return;
+    if (scheduleWindowStart() !== lastScheduleWindowStart) {
+      subscribeToMyTickets(undefined, false);
+    }
+  });
+};
+  
+</script>
+</body>
+</html>
