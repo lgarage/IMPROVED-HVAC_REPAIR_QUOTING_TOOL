@@ -1589,12 +1589,84 @@ async function preprocessImageForOcrHighContrast(file){
   return preprocessImageForOcrWithFilter(file, "grayscale(1) contrast(1.52) brightness(0.96)", 2.85);
 }
 
+function maxConsecutiveDigits(s){
+  const runs = String(s).match(/\d+/g);
+  if (!runs) return 0;
+  let mx = 0;
+  for (let i = 0; i < runs.length; i++){
+    if (runs[i].length > mx) mx = runs[i].length;
+  }
+  return mx;
+}
+
+/** OCR often glues "NC" + zip "27596" (+ stray digits) into a fake "model" like ENC2759643. */
+function isLikelyAddressOrZipFabricatedModel(s){
+  if (!s) return false;
+  const t = String(s).toUpperCase().replace(/\s/g, "");
+  if (t.indexOf("27596") >= 0) return true;
+  if (/NC\d{5}/.test(t)) return true;
+  if (/^E?NC\d{6,}$/.test(t)) return true;
+  if (/^E?NC\d{5}/.test(t)) return true;
+  if (/YOUNGSVILLE/i.test(String(s))) return true;
+  return false;
+}
+
+function isStrictHvacModelShape(s){
+  const t = String(s).toUpperCase().trim();
+  if (/^[A-Z]{2}\d{2}[A-Z]{3}$/.test(t)) return true;
+  return /^[A-Z]{2}\d{2,4}[A-Z]{2,4}$/.test(t) && t.length <= 12;
+}
+
+function acceptModelCandidate(cand){
+  if (!cand || !String(cand).trim()) return false;
+  const s = String(cand).trim().toUpperCase();
+  if (isLikelyAddressOrZipFabricatedModel(s)) return false;
+  if (s.length < 5 || s.length > 18) return false;
+  if (/^(MCA|MOCP|SCFM|MAXR|ETL|UL|CSA|RPM|HP|VAC|AWG|MIN|MAX|INTER|TEK)$/i.test(s)) return false;
+  if (/^BMN|^HD\d|^CP\d|^GE\d/i.test(s)) return false;
+  if (/^\d+$/.test(s)) return false;
+  if (!/[A-Z]/.test(s) || !/\d/.test(s)) return false;
+  const mcd = maxConsecutiveDigits(s);
+  if (mcd >= 5 && !isStrictHvacModelShape(s)) return false;
+  return true;
+}
+
 function isPlausibleModelToken(cand){
   if (!cand || cand.length < 6 || cand.length > 16) return false;
-  if (/^(MCA|MOCP|SCFM|MAXR|ETL|UL|CSA|RPM|HP|VAC|AWG|MIN|MAX|INTER|TEK)$/i.test(cand)) return false;
-  if (/^BMN|^HD\d|^CP\d|^GE\d/i.test(cand)) return false;
-  if (/^\d+$/.test(cand)) return false;
-  return /[A-Z]/.test(cand) && /\d/.test(cand);
+  return acceptModelCandidate(cand);
+}
+
+/** Prefer stamped model pattern (e.g. DU85HFA) near MODEL / M/N labels — avoids address line OCR. */
+function tryExtractStrictHvacModel(s){
+  const raw = String(s || "");
+  const t = raw.toUpperCase().replace(/\s+/g, " ");
+  let m = t.match(/\bMODEL\s*#?\s*[:\s\-–—]*\s*([A-Z]{2}\d{2}[A-Z]{3})\b/);
+  if (m && acceptModelCandidate(m[1])) return m[1].toUpperCase();
+  m = t.match(/\bM\s*\/\s*N\s*[:\s\-–—]*\s*([A-Z]{2}\d{2}[A-Z]{3})\b/);
+  if (m && acceptModelCandidate(m[1])) return m[1].toUpperCase();
+  m = t.match(/\bMODEL\s*#?\s*[:\s\-–—]*\s*([A-Z]{2}\d{2,4}[A-Z]{2,4})\b/);
+  if (m && acceptModelCandidate(m[1])) return m[1].toUpperCase();
+  m = t.match(/\bMODEL\s*#?\s*[:\s\-–—]*\s*([A-Z]{2}\s+\d{2}\s+[A-Z]{3})\b/);
+  if (m){
+    const c = m[1].replace(/\s+/g, "").toUpperCase();
+    if (acceptModelCandidate(c)) return c;
+  }
+
+  const compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const reStrict = /([A-Z]{2}\d{2}[A-Z]{3})/g;
+  let best = "";
+  while ((m = reStrict.exec(compact)) !== null){
+    const cand = m[1];
+    if (acceptModelCandidate(cand) && isStrictHvacModelShape(cand)){
+      if (!isLikelyAddressOrZipFabricatedModel(cand)) return cand;
+    }
+  }
+  const reLoose = /([A-Z]{2}\d{2,4}[A-Z]{2,4})/g;
+  while ((m = reLoose.exec(compact)) !== null){
+    const cand = m[1];
+    if (acceptModelCandidate(cand) && maxConsecutiveDigits(cand) <= 4) best = cand;
+  }
+  return best;
 }
 
 /** Model # on nameplate; OCR often splits letters/digits (e.g. "DU 85 HFA") or drops word boundaries. */
@@ -1924,6 +1996,15 @@ function parseNameplateTagText(raw){
     }
   }
 
+  const strictM = tryExtractStrictHvacModel(text) || tryExtractStrictHvacModel(rawFull);
+  if (strictM){
+    model = strictM;
+    console.log("[OCR][parse] Strict HVAC model:", model);
+  } else if (model){
+    const sm = sanitizeModelDisplay(model);
+    if (!acceptModelCandidate(sm) || isLikelyAddressOrZipFabricatedModel(sm)) model = "";
+  }
+
   const guessSource = rawFull;
   if (!make){
     const hm = heuristicExtractMake(guessSource);
@@ -1944,6 +2025,10 @@ function parseNameplateTagText(raw){
 
   make = sanitizeMakeDisplay(make);
   model = sanitizeModelDisplay(model);
+  const finalStrictModel = tryExtractStrictHvacModel(rawFull) || tryExtractStrictHvacModel(text);
+  if (finalStrictModel) model = finalStrictModel;
+  else if (model && (!acceptModelCandidate(model) || isLikelyAddressOrZipFabricatedModel(model))) model = "";
+
   const jobSplit = splitJobAndInstallDate(jobNumber);
   jobNumber = jobSplit.job;
   installDate = jobSplit.installDate || heuristicExtractInstallDate(rawFull);
