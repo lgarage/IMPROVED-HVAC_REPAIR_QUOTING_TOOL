@@ -266,12 +266,18 @@ function syncCustomerToDirectory(data) {
         }
         
         let existingLoc = db[data.customerName].locations[locId] || {};
-        db[data.customerName].locations[locId] = {
+        let newLoc = {
             street: street, city: data.custCity || "", state: data.custState || "", zip: data.custZip || "", 
             contact: data.contactName || existingLoc.contact || "",
             phone: data.contactPhone || existingLoc.phone || "",
             email: data.contactEmail || existingLoc.email || ""
         };
+        if (Object.prototype.hasOwnProperty.call(data, 'parentId')) {
+            if (data.parentId) newLoc.parentId = data.parentId;
+        } else if (existingLoc.parentId) {
+            newLoc.parentId = existingLoc.parentId;
+        }
+        db[data.customerName].locations[locId] = newLoc;
 
         let pfx = currentActiveView === 'service' ? 'sc' : (currentActiveView === 'invoice' ? 'inv' : '');
         let locField = pfx ? pfx + 'LocNumInput' : 'locNumInput';
@@ -319,6 +325,7 @@ function openCustomerDirectory() {
     document.getElementById('newCustDirForm').style.display = 'none';
     renderCustomerDirectory();
     document.getElementById('customerSearch').focus();
+    loadParentCompanies();
 }
 
 function closeCustomerDirectory() { document.getElementById('customerModal').style.display = 'none'; }
@@ -396,14 +403,14 @@ function renderCustomerDirectory() {
                             <td style="width: 45%;">${displayLoc}</td>
                             <td style="width: 20%; color:#555;">${locId}</td>
                             <td style="width: 30%; text-align: right;">
-                                <button class="select-cust-btn" onclick="loadCustomerIntoForm('${safeRawName}', '${custId}', '${street.replace(/'/g, "\\'")}', '${city.replace(/'/g, "\\'")}', '${state.replace(/'/g, "\\'")}', '${zip}', '${locId}', '${contact.replace(/'/g, "\\'")}', '${phone}', '${email}')">Select Location</button>
+                                <button class="select-cust-btn" onclick="loadCustomerIntoForm('${safeRawName}', '${custId}', '${street.replace(/'/g, "\\'")}', '${city.replace(/'/g, "\\'")}', '${state.replace(/'/g, "\\'")}', '${zip}', '${locId}', '${contact.replace(/'/g, "\\'")}', '${phone}', '${email}', '${(locData.parentId || '').replace(/'/g, "\\'")}')">Select Location</button>
                                 <button class="delete-btn" style="padding: 6px 10px; margin-left: 5px;" onclick="deleteCustomerLocation('${safeRawName}', '${locId}')">X</button>
                             </td>
                         </tr>
                     `;
                 });
             } else {
-                locsHTML += `<tr><td colspan="4" style="text-align: center; padding: 15px; color: #999;">No locations saved for this customer.<br><button class="select-cust-btn" style="margin-top: 8px;" onclick="loadCustomerIntoForm('${safeRawName}', '${custId}', '', '', '', '', '', '', '', '')">Load Customer Only</button></td></tr>`;
+                locsHTML += `<tr><td colspan="4" style="text-align: center; padding: 15px; color: #999;">No locations saved for this customer.<br><button class="select-cust-btn" style="margin-top: 8px;" onclick="loadCustomerIntoForm('${safeRawName}', '${custId}', '', '', '', '', '', '', '', '', '')">Load Customer Only</button></td></tr>`;
             }
             locsHTML += `</table></td></tr>`;
             tbody.innerHTML += locsHTML;
@@ -412,7 +419,7 @@ function renderCustomerDirectory() {
     if (!hasResults) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 20px; color:#777;">No customers found.</td></tr>`;
 }
 
-function loadCustomerIntoForm(name, custId, street, city, state, zip, locId, contact, phone, email) {
+async function loadCustomerIntoForm(name, custId, street, city, state, zip, locId, contact, phone, email, parentId) {
     let pfx = '';
     let custIdStr = 'custNumInput';
     let locIdStr = 'locNumInput';
@@ -431,21 +438,28 @@ function loadCustomerIntoForm(name, custId, street, city, state, zip, locId, con
         document.getElementById('invZipInput').value = zip;
         document.getElementById('invLocNumInput').value = locId === "N/A" ? "" : locId;
         
-        let formattedLoc = name + "\n" + street;
-        if(city) formattedLoc += "\n" + city + ", " + state + " " + zip;
-        document.getElementById('invBillTo').value = formattedLoc;
-        document.getElementById('invServiceLoc').value = formattedLoc;
+        if (parentId && typeof setInvoiceParentSelect === 'function') await setInvoiceParentSelect(parentId);
+        else if (typeof updateInvoiceBillToParentRadioState === 'function') updateInvoiceBillToParentRadioState();
+        if (typeof applyInvoiceBillTo === 'function') applyInvoiceBillTo();
+    } else if (currentActiveView === 'service') {
+        document.getElementById(custIdStr).value = custId;
+        document.getElementById('scCustStreetInput').value = street;
+        document.getElementById('scCustCityInput').value = city;
+        document.getElementById('scCustStateInput').value = state;
+        document.getElementById('scCustZipInput').value = zip;
+        document.getElementById(locIdStr).value = locId === "N/A" ? "" : locId;
+        if (document.getElementById('scContactNameInput')) document.getElementById('scContactNameInput').value = contact || "";
+        if (document.getElementById('scContactPhoneInput')) document.getElementById('scContactPhoneInput').value = phone || "";
+        if (document.getElementById('scContactEmailInput')) document.getElementById('scContactEmailInput').value = email || "";
+        if (parentId && typeof setServiceParentSelect === 'function') await setServiceParentSelect(parentId);
     } else {
         document.getElementById(custIdStr).value = custId;
-        document.getElementById(pfx+'custStreetInput').value = street;
-        document.getElementById(pfx+'custCityInput').value = city;
-        document.getElementById(pfx+'custStateInput').value = state;
-        document.getElementById(pfx+'custZipInput').value = zip;
+        document.getElementById('custStreetInput').value = street;
+        document.getElementById('custCityInput').value = city;
+        document.getElementById('custStateInput').value = state;
+        document.getElementById('custZipInput').value = zip;
         document.getElementById(locIdStr).value = locId === "N/A" ? "" : locId;
-        
-        if(document.getElementById(pfx+'contactNameInput')) document.getElementById(pfx+'contactNameInput').value = contact || "";
-        if(document.getElementById(pfx+'contactPhoneInput')) document.getElementById(pfx+'contactPhoneInput').value = phone || "";
-        if(document.getElementById(pfx+'contactEmailInput')) document.getElementById(pfx+'contactEmailInput').value = email || "";
+        if (document.getElementById('contactNameInput')) document.getElementById('contactNameInput').value = contact || "";
     }
     
     updateLocationDatalist(); 
@@ -507,20 +521,26 @@ function checkLocationAutoNumber(context) {
         if (db[name].locations[locId].street.toUpperCase() === street) { matchedLocId = locId; matchedLocData = db[name].locations[locId]; break; }
     }
 
-    if (matchedLocId) {
+        if (matchedLocId) {
         locInput.value = matchedLocId;
         if(context === 'invoice') {
             document.getElementById('invCityInput').value = matchedLocData.city || "";
             document.getElementById('invStateInput').value = matchedLocData.state || "";
             document.getElementById('invZipInput').value = matchedLocData.zip || "";
+            if (matchedLocData.parentId && typeof setInvoiceParentSelect === 'function') {
+                setInvoiceParentSelect(matchedLocData.parentId);
+            }
+        } else if (context === 'service') {
+            document.getElementById('scCustCityInput').value = matchedLocData.city || "";
+            document.getElementById('scCustStateInput').value = matchedLocData.state || "";
+            document.getElementById('scCustZipInput').value = matchedLocData.zip || "";
+            if (document.getElementById('scContactNameInput') && matchedLocData.contact) document.getElementById('scContactNameInput').value = matchedLocData.contact;
+            if (document.getElementById('scContactPhoneInput') && matchedLocData.phone) document.getElementById('scContactPhoneInput').value = matchedLocData.phone;
+            if (document.getElementById('scContactEmailInput') && matchedLocData.email) document.getElementById('scContactEmailInput').value = matchedLocData.email;
         } else {
-            let pfx = context === 'quoting' ? '' : 'sc';
-            document.getElementById(pfx+'custCityInput').value = matchedLocData.city || "";
-            document.getElementById(pfx+'custStateInput').value = matchedLocData.state || "";
-            document.getElementById(pfx+'custZipInput').value = matchedLocData.zip || "";
-            if (document.getElementById(pfx+'contactNameInput') && matchedLocData.contact) document.getElementById(pfx+'contactNameInput').value = matchedLocData.contact;
-            if (document.getElementById(pfx+'contactPhoneInput') && matchedLocData.phone) document.getElementById(pfx+'contactPhoneInput').value = matchedLocData.phone;
-            if (document.getElementById(pfx+'contactEmailInput') && matchedLocData.email) document.getElementById(pfx+'contactEmailInput').value = matchedLocData.email;
+            document.getElementById('custCityInput').value = matchedLocData.city || "";
+            document.getElementById('custStateInput').value = matchedLocData.state || "";
+            document.getElementById('custZipInput').value = matchedLocData.zip || "";
         }
     } else if (locInput.value === "" || locInput.value === "Auto-generated") {
         locInput.value = `LOC-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -547,6 +567,11 @@ function attachTabAutocomplete(inputId, datalistId, context, type, nextFocusId) 
                             checkLocationAutoNumber(context);
                         }
 
+                        if (context === 'invoice') {
+                            if (typeof checkInvoiceParentCompany === 'function') checkInvoiceParentCompany();
+                            if (typeof applyInvoiceBillTo === 'function') applyInvoiceBillTo();
+                        }
+
                         if(context === 'quoting') triggerQuoteAutoSave();
                         if(context === 'service') triggerServiceAutoSave();
                         
@@ -565,6 +590,10 @@ function attachTabAutocomplete(inputId, datalistId, context, type, nextFocusId) 
     inputEl.addEventListener('change', function() {
         if (type === 'customer') { checkCustomerAutoNumber(context); updateLocationDatalist(); } 
         else if (type === 'location') { checkLocationAutoNumber(context); }
+        if (context === 'invoice') {
+            if (typeof checkInvoiceParentCompany === 'function') checkInvoiceParentCompany();
+            if (typeof applyInvoiceBillTo === 'function') applyInvoiceBillTo();
+        }
         if(context === 'quoting') triggerQuoteAutoSave();
         if(context === 'service') triggerServiceAutoSave();
     });
@@ -598,8 +627,64 @@ async function loadParentCompanies() {
         const linkSelect = document.getElementById('linkParentSelect');
         if (linkSelect) linkSelect.innerHTML = options.replace('-- No Parent / Select Existing --', '-- Select Existing Parent --');
 
+        const invSelect = document.getElementById('invParentSelect');
+        if (invSelect) invSelect.innerHTML = options;
+
+        const scParentSel = document.getElementById('scParentSelect');
+        if (scParentSel) scParentSel.innerHTML = options;
+
     } catch (error) {
         console.error("Error loading parents:", error);
+    }
+}
+
+async function setInvoiceParentSelect(parentId) {
+    if (!parentId || currentActiveView !== 'invoice') return;
+    await loadParentCompanies();
+    const sel = document.getElementById('invParentSelect');
+    const newIn = document.getElementById('invParentNew');
+    if (!sel) return;
+    if ([...sel.options].some(o => o.value === parentId)) {
+        sel.value = parentId;
+        if (newIn) newIn.value = '';
+    }
+    if (typeof loadInvoiceParentBillingAddress === 'function') await loadInvoiceParentBillingAddress(parentId);
+    if (typeof updateInvoiceBillToParentRadioState === 'function') updateInvoiceBillToParentRadioState();
+    if (typeof applyInvoiceBillTo === 'function') applyInvoiceBillTo();
+}
+
+async function checkInvoiceParentCompany() {
+    const custInput = document.getElementById('invCustNameInput');
+    const streetInput = document.getElementById('invStreetInput');
+    const sel = document.getElementById('invParentSelect');
+    const newIn = document.getElementById('invParentNew');
+    if (!custInput || !streetInput || !sel || !newIn) return;
+
+    const customerName = custInput.value.trim().toUpperCase();
+    const street = streetInput.value.trim().toUpperCase();
+    if (!customerName || !street) return;
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+
+    try {
+        await loadParentCompanies();
+        const db = firebase.firestore();
+        const locSnapshot = await db.collection('MappedLocations')
+            .where('Sub_Company', '==', customerName)
+            .where('Street', '==', street)
+            .get();
+
+        if (!locSnapshot.empty) {
+            const parentId = locSnapshot.docs[0].data().Parent_ID;
+            if (parentId && [...sel.options].some(o => o.value === parentId)) {
+                sel.value = parentId;
+                newIn.value = '';
+                if (typeof loadInvoiceParentBillingAddress === 'function') await loadInvoiceParentBillingAddress(parentId);
+                if (typeof updateInvoiceBillToParentRadioState === 'function') updateInvoiceBillToParentRadioState();
+                if (typeof applyInvoiceBillTo === 'function') applyInvoiceBillTo();
+            }
+        }
+    } catch (e) {
+        console.error('Invoice parent lookup error:', e);
     }
 }
 

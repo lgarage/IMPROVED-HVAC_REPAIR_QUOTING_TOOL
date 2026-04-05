@@ -25,10 +25,10 @@
         body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 0; box-sizing: border-box; display: flex; }
         h1, h2, h3, h4 { margin-top: 0; color: #1e4b85; }
         button { cursor: pointer; border-radius: 4px; font-weight: bold; font-family: inherit; }
-        input[type="text"]:not(#newRequoteNote):not(#customerSearch):not(#invoiceSearch):not(#scIssueInput):not(#scNotesInput):not(#invPasteArea):not(#newTechNameInput):not(.lowercase-input), 
-        textarea:not(#requoteNoteHistory):not(#scIssueInput):not(#scNotesInput):not(#invPasteArea) { text-transform: uppercase; }
+        input[type="text"]:not(#newRequoteNote):not(#customerSearch):not(#invoiceSearch):not(#scIssueInput):not(#scNotesInput):not(#invPasteArea):not(#newTechNameInput):not(#scParentNew):not(.lowercase-input), 
+        textarea:not(#requoteNoteHistory):not(#scIssueInput):not(#scNotesInput):not(#scTechNotesReadonly):not(#invPasteArea) { text-transform: uppercase; }
         #customerSearch, #invoiceSearch { text-transform: uppercase; }
-        .sidebar { transition: width 0.3s ease; position: fixed; top: 0; left: 0; height: 100vh; overflow-x: hidden; width: 240px; background-color: #1e4b85; color: #fff; box-shadow: 2px 0 10px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column;}
+        .sidebar { transition: width 0.3s ease; position: fixed; top: 0; left: 0; height: 100vh; overflow-x: visible; overflow-y: auto; width: 240px; background-color: #1e4b85; color: #fff; box-shadow: 2px 0 10px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column;}
         .sidebar.collapsed { width: 70px; }
         .sidebar-header { background-color: #fff; padding: 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #c89b53; box-sizing: border-box; width: 100%; transition: all 0.3s ease; }
         .sidebar.collapsed .sidebar-header { flex-direction: column; padding: 15px 5px; gap: 15px; }
@@ -46,6 +46,23 @@
         .sidebar.collapsed .sidebar-footer { display: none; }
         .sidebar-menu a:hover, .sidebar-menu a.active-tab { background-color: #c89b53; color: #fff; padding-left: 25px; }
         .sidebar.collapsed .sidebar-menu a:hover, .sidebar.collapsed .sidebar-menu a.active-tab { padding-left: 20px; }
+        .sidebar-item-has-submenu { position: relative; }
+        .sidebar-submenu-trigger { display: flex; align-items: center; gap: 12px; white-space: nowrap; overflow: hidden; padding: 18px 20px; color: #ecf0f1; font-size: 15px; font-weight: bold; transition: all 0.2s; cursor: pointer; box-sizing: border-box; border: none; background: transparent; width: 100%; font-family: inherit; text-align: left; }
+        .sidebar.collapsed .sidebar-submenu-trigger { padding: 18px 20px; justify-content: center; gap: 0; }
+        .sidebar-submenu-trigger .invoicing-chevron { margin-left: auto; font-size: 11px; opacity: 0.85; }
+        .sidebar-submenu-trigger .invoicing-chevron i { transition: transform 0.2s ease; }
+        .sidebar.collapsed .sidebar-submenu-trigger .invoicing-chevron { display: none; }
+        .sidebar-item-has-submenu.sidebar-invoicing-open .sidebar-submenu-trigger,
+        .sidebar-invoicing-active .sidebar-submenu-trigger { background-color: #c89b53; color: #fff; padding-left: 25px; }
+        .sidebar.collapsed .sidebar-item-has-submenu.sidebar-invoicing-open .sidebar-submenu-trigger,
+        .sidebar.collapsed .sidebar-invoicing-active .sidebar-submenu-trigger { padding-left: 20px; }
+        .sidebar-item-has-submenu.sidebar-invoicing-open .invoicing-chevron i { transform: rotate(90deg); }
+        /* fixed + JS placement: escapes sidebar overflow clipping and overlays main content */
+        .sidebar-submenu-flyout { display: none; position: fixed; top: 0; left: 0; margin: 0; min-width: 220px; background: #153661; border: 1px solid rgba(200,155,83,0.5); border-left: 3px solid #c89b53; box-shadow: 4px 8px 24px rgba(0,0,0,0.35); z-index: 10050; flex-direction: column; }
+        .sidebar-item-has-submenu.sidebar-invoicing-open .sidebar-submenu-flyout { display: flex; }
+        .sidebar-submenu-flyout a { display: block; padding: 14px 18px; color: #ecf0f1; text-decoration: none; font-size: 14px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.06); transition: background 0.15s, padding-left 0.15s; }
+        .sidebar-submenu-flyout a:last-child { border-bottom: none; }
+        .sidebar-submenu-flyout a:hover, .sidebar-submenu-flyout a.active-tab { background-color: #c89b53; color: #fff; padding-left: 22px; }
         .menu-icon { font-size: 20px; min-width: 25px; text-align: center; }
         .sidebar-footer { padding: 20px; font-size: 12px; color: rgba(255,255,255,0.5); text-align: center; }
         .main-content { margin-left: 240px; padding: 15px; flex: 1; min-width: 0; height: 100vh; overflow-y: auto; scroll-behavior: smooth; box-sizing: border-box; transition: margin-left 0.3s ease; }
@@ -197,6 +214,7 @@
         .btn-sm { padding: 4px 8px; font-size: 11px; border-radius: 3px; border: none; font-weight: bold; cursor: pointer; color: #fff;}
         .inv-link { color: #3498db; text-decoration: none; font-weight: bold; }
         .inv-link:hover { text-decoration: underline; color: #2980b9; }
+        .inv-print-preline { white-space: pre-line; }
 
         @media print {
             @page { margin: 0; }
@@ -208,6 +226,7 @@
             .document-print-view { border: none; padding: 0; max-width: 100%; box-shadow: none; margin: 0;}
             #customerQuoteView:not(.screen-preview) { display: none !important; }
             #printInvoiceView:not(.screen-preview) { display: none !important; }
+            #printInvoiceViewArch:not(.screen-preview) { display: none !important; }
         }
     </style>
 </head>
@@ -224,13 +243,23 @@
         </div>
 
        <ul class="sidebar-menu">
-            <li><a id="nav-service" onclick="switchTab('service')" class="active-tab"><span class="menu-icon"><i class="fas fa-clipboard-list"></i></span> <span class="menu-text">Service Call Intake</span></a></li>
-            <li><a id="nav-quoting" onclick="switchTab('quoting')"><span class="menu-icon"><i class="fas fa-comment-dollar"></i></span> <span class="menu-text">Quoting Tool</span></a></li>
-            <li><a id="nav-invoice" onclick="switchTab('invoice')"><span class="menu-icon"><i class="fas fa-file-invoice"></i></span> <span class="menu-text">Invoicing Tool</span></a></li>
-            <li><a onclick="openCustomerDirectory()"><span class="menu-icon"><i class="fas fa-address-book"></i></span> <span class="menu-text">Customer Directory</span></a></li>
-            
+            <li><a id="nav-service" onclick="switchTab('service')" class="active-tab" title="Service Call Intake"><span class="menu-icon"><i class="fas fa-clipboard-list"></i></span> <span class="menu-text">Service Call Intake</span></a></li>
+            <li><a id="nav-quoting" onclick="switchTab('quoting')" title="Quoting Tool"><span class="menu-icon"><i class="fas fa-comment-dollar"></i></span> <span class="menu-text">Quoting Tool</span></a></li>
+            <li class="sidebar-item-has-submenu" id="sidebar-nav-invoicing">
+                <button type="button" class="sidebar-submenu-trigger" id="sidebar-invoicing-trigger" onclick="toggleInvoicingSubmenu(event)" title="Click to choose Invoicing Tool or Invoice Archive" aria-expanded="false" aria-haspopup="true" aria-controls="sidebar-invoicing-flyout">
+                    <span class="menu-icon"><i class="fas fa-file-invoice"></i></span>
+                    <span class="menu-text">Invoicing</span>
+                    <span class="menu-text invoicing-chevron"><i class="fas fa-chevron-right"></i></span>
+                </button>
+                <div class="sidebar-submenu-flyout" id="sidebar-invoicing-flyout" role="menu" aria-label="Invoicing">
+                    <a id="nav-invoice" role="menuitem" onclick="switchTab('invoice')" title="Create and edit invoices">Invoicing Tool</a>
+                    <a id="nav-invoice-archive" role="menuitem" onclick="switchTab('invoice-archive')" title="Browse saved invoices">Invoice Archive</a>
+                </div>
+            </li>
+            <li><a onclick="openCustomerDirectory()" title="Customer Directory"><span class="menu-icon"><i class="fas fa-address-book"></i></span> <span class="menu-text">Customer Directory</span></a></li>
+
             <li style="margin-top: auto;">
-                <a id="nav-settings" onclick="switchTab('settings')">
+                <a id="nav-settings" onclick="switchTab('settings')" title="Settings">
                     <span class="menu-icon"><i class="fas fa-cog"></i></span> 
                     <span class="menu-text">Settings</span>
                 </a>
@@ -248,6 +277,7 @@
                 <div class="dispatch-left-panel">
                     <div class="panel-header">
                         <span>Service Requests <span class="badge" style="background:#fff; color:#1e4b85; margin-left:8px; padding: 2px 6px; border-radius: 12px;" id="ticketCountBadge">0</span></span>
+                        <button type="button" class="gen-btn" style="background:#7f8c8d; padding: 4px 10px; font-size:12px; margin-right:6px;" onclick="openArchivedServiceModal()" title="View archived service calls">Archived</button>
                         <button class="gen-btn" style="background:#2ecc71; padding: 4px 10px; font-size:12px;" onclick="scrollToServiceForm()">+ New</button>
                     </div>
                     <div id="serviceRequestList" class="panel-content"></div>
@@ -308,19 +338,42 @@
                         <div class="input-group" style="flex: 2;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                                 <label style="margin-bottom:0; font-size: 14px;">Customer Name</label>
-                                <button type="button" id="scMicBtn" onmousedown="startDispatcherVoiceSearch()" style="background:#f39c12; color:#fff; border:none; border-radius:8px; padding:12px 25px; font-size:15px; font-weight:bold; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.15); transition: transform 0.1s, background 0.1s; user-select: none;">
+                                <button type="button" id="scMicBtn" onmousedown="startDispatcherVoiceSearch(event)" ontouchstart="startDispatcherVoiceSearch(event)" style="touch-action:none; background:#f39c12; color:#fff; border:none; border-radius:8px; padding:12px 25px; font-size:15px; font-weight:bold; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.15); transition: transform 0.1s, background 0.1s; user-select: none;">
                                     🎤 HOLD TO SPEAK
                                 </button>
                             </div>
                             <input type="text" id="scCustNameInput" placeholder="e.g. Planet Fitness" list="customerNamesList" onblur="checkServiceParentCompany()">
                         </div>
                         <div class="input-group" style="flex: 1;">
-                            <label style="margin-bottom:5px;">Parent Company</label>
-                            <input type="text" id="scParentCompanyInput" placeholder="Auto-fetches..." readonly style="background:#f2f4f6; color:#7f8c8d; font-weight:bold; margin-top: auto;">
-                        </div>
-                        <div class="input-group" style="flex: 1;">
                             <label style="margin-bottom:5px;">Customer #</label>
                             <input type="text" id="scCustNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold; margin-top: auto;">
+                        </div>
+                    </div>
+
+                    <div style="background:#eaf2f8; padding:12px 10px; border-radius:4px; border:1px solid #b9d5ec; margin-bottom:12px;">
+                        <label style="font-size:12px; color:#1e4b85; font-weight:bold; display:block; margin-bottom:6px;">Parent Company (Optional)</label>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                            <select id="scParentSelect" style="flex:1; min-width:200px; border:1px solid #ccc; padding:10px; border-radius:4px; font-family:inherit; text-transform:uppercase;" onchange="onScParentCompanySelectChange(this.value)">
+                                <option value="">-- No Parent / Select Existing --</option>
+                            </select>
+                            <input type="text" id="scParentNew" placeholder="OR Type New Parent Name..." style="flex:1; min-width:200px; border:1px solid #ccc; padding:10px; border-radius:4px; box-sizing:border-box; text-transform:uppercase;" oninput="onScParentNewTyped()">
+                        </div>
+                        <div style="margin-bottom:10px;">
+                            <span style="font-size:12px; color:#1e4b85; font-weight:bold; display:block; margin-bottom:6px;">Bill service ticket to (reference)</span>
+                            <label style="font-size:13px; margin-right:16px; cursor:pointer;"><input type="radio" name="scBillToTarget" id="scBillToSite" value="site" checked onchange="updateServiceBillToParentRadioState()"> Service site / customer on job</label>
+                            <label style="font-size:13px; cursor:pointer;"><input type="radio" name="scBillToTarget" id="scBillToParent" value="parent" disabled onchange="updateServiceBillToParentRadioState()"> Parent company (HQ)</label>
+                        </div>
+                        <label style="font-size:12px; color:#1e4b85; font-weight:bold; display:block; margin-bottom:6px;">Parent billing address (HQ / remit-to)</label>
+                        <div class="form-row" style="margin-bottom:8px;">
+                            <div class="input-group" style="flex:2;"><label style="font-size:11px;">Street</label><input type="text" id="scParentBillStreet" placeholder="Parent remit-to street" style="text-transform:uppercase;"></div>
+                        </div>
+                        <div class="form-row" style="margin-bottom:8px;">
+                            <div class="input-group" style="flex:2;"><label style="font-size:11px;">City</label><input type="text" id="scParentBillCity" placeholder="City" style="text-transform:uppercase;"></div>
+                            <div class="input-group" style="flex:1;"><label style="font-size:11px;">State</label><input type="text" id="scParentBillState" placeholder="ST" style="text-transform:uppercase;"></div>
+                            <div class="input-group" style="flex:1;"><label style="font-size:11px;">Zip</label><input type="text" id="scParentBillZip" placeholder="Zip" style="text-transform:uppercase;"></div>
+                        </div>
+                        <div style="text-align:right;">
+                            <button type="button" class="gen-btn" style="background:#1e4b85; padding:8px 14px; font-size:12px; width:auto; color:#fff;" onclick="saveServiceParentCompanyAddress()">Save parent billing address</button>
                         </div>
                     </div>
 
@@ -346,7 +399,7 @@
                         </div>
                         <div class="input-group">
                             <label>Location #</label>
-                            <input type="text" id="locNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
+                            <input type="text" id="scLocNumInput" placeholder="Auto-generated" readonly style="background:#f2f4f6; color:#555; font-weight:bold;">
                         </div>
                     </div>
 
@@ -441,6 +494,15 @@
 
                     <div class="form-row">
                         <div class="input-group" style="width:100%;">
+                            <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:14px; line-height:1.4; text-transform:none; letter-spacing:0;">
+                                <input type="checkbox" id="scReleasedToTech" style="width:18px; height:18px; margin-top:3px; flex-shrink:0;">
+                                <span><strong>Release to Field app</strong> — allow the assigned technician to see this job on the Field app. New tickets start unchecked until dispatch is ready.</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group" style="width:100%;">
                             <div class="form-row" style="margin-bottom: 5px;">
                                 <div class="input-group">
                                     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -465,10 +527,17 @@
                             <input type="text" id="scNotesInput" placeholder="e.g. Gate code is 1234, Check in at front desk">
                         </div>
                     </div>
+
+                    <div class="form-row">
+                        <div class="input-group" style="width:100%;">
+                            <label>Technician report (Field app)</label>
+                            <textarea id="scTechNotesReadonly" readonly tabindex="0" style="resize:vertical; min-height:140px; font-family:inherit; background:#f4f7fa; border:1px solid #d1d9e0; color:#2c3e50;" placeholder="The full report from the Field app appears here after the tech taps Complete &amp; Sync. Dispatch notes above are separate."></textarea>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="action-bar">
-                    <button class="generate-btn" style="background-color: #27ae60;" onclick="saveServiceCall(false)">Save Service Ticket</button>
+                    <button type="button" class="generate-btn" style="background-color: #27ae60;" onclick="saveServiceCall(false)">Generate Service Ticket</button>
                 </div>
             </div>
         </div> 
@@ -722,33 +791,39 @@
         </div> 
 
         <div id="view-invoice" class="app-view">
-            <div class="form-container" id="invoiceBuilder">
+            <form class="form-container" id="invoiceBuilder" autocomplete="off">
                 <div class="tool-header" style="display: flex; align-items: center; justify-content: flex-start; gap: 30px;">
                     <h2 style="margin: 0; white-space: nowrap;">Invoice Generator</h2>
-                    <input type="text" id="invoiceSearch" placeholder="🔍 Search past invoices (Name, Invoice #, Address)..." onkeyup="filterInvoices()" style="flex: 1; max-width: 500px; padding: 10px 15px; border: 2px solid #1e4b85; border-radius: 20px; font-size: 14px; outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
+                    <input type="text" id="invoiceSearch" placeholder="🔍 Search past invoices (Name, Invoice #, Address)… Press Enter to open in Invoice Archive" autocomplete="off" onkeyup="filterInvoices()" onkeydown="if(event.key==='Enter'){ event.preventDefault(); openInvoiceSearchMatchInArchive(); }" style="flex: 1; max-width: 500px; padding: 10px 15px; border: 2px solid #1e4b85; border-radius: 20px; font-size: 14px; outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
                     <button class="gen-btn" style="background-color: #7f8c8d; padding: 10px 15px; margin-left: auto; white-space: nowrap;" onclick="clearInvoiceForm()">+ Clear Form</button>
                 </div>
 
-                <div style="max-height: 250px; overflow-y: auto; border: 1px solid #eaeaea; border-radius: 6px; margin-bottom: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-                    <table class="db-table" style="width: 100%; margin: 0;">
-                        <thead style="position: sticky; top: 0; z-index: 10;">
-                            <tr>
-                                <th width="80">Preview</th>
-                                <th>Date</th>
-                                <th>Invoice #</th>
-                                <th>Customer</th>
-                                <th>Location</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody id="invoiceDbTableBody"></tbody>
-                    </table>
+                <div style="margin-bottom: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-radius: 6px; border: 1px solid #eaeaea; overflow: hidden;">
+                    <div style="max-height: 250px; overflow-y: auto;">
+                        <table class="db-table" style="width: 100%; margin: 0;">
+                            <thead style="position: sticky; top: 0; z-index: 10;">
+                                <tr>
+                                    <th width="80">Preview</th>
+                                    <th>Date</th>
+                                    <th>Invoice #</th>
+                                    <th>Customer</th>
+                                    <th>Location</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoiceDbTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 10px 12px; background: #fafafa; border-top: 1px solid #eaeaea;">
+                        <button type="button" id="invoiceShowMoreBtn" class="gen-btn" style="display: none; background: #1e4b85; padding: 8px 18px; font-size: 13px;" onclick="toggleInvoiceShowMore()">Show more</button>
+                        <button type="button" id="invoiceShowLessBtn" class="gen-btn" style="display: none; background: #7f8c8d; padding: 8px 18px; font-size: 13px;" onclick="toggleInvoiceShowLess()">Show less</button>
+                    </div>
                 </div>
                 
                 <div class="form-section">
                     <h4 style="margin-top:0; color:#1e4b85;">1. Paste Tech Notes Here</h4>
-                    <p style="font-size: 13px; color: #666; margin-top:2px;">Paste the exact output block from the Tech Note Tool.</p>
-                    <textarea id="invPasteArea" placeholder="Paste report here..." style="min-height: 120px; background: #fffde7; border-color: #c89b53;" onblur="parsePastedNotes()"></textarea>
+                    <p style="font-size: 13px; color: #666; margin-top:2px;">Paste Tech Note output and tab out. The app parses first; if the layout is unclear or fields stay empty, Gemini fills in automatically (same Google API key as Maps / Firebase).</p>
+                    <textarea id="invPasteArea" placeholder="Paste tech completion output (QUOTED REPAIR, SERVICE CALL, PM, etc.)…" autocomplete="off" style="min-height: 120px; background: #fffde7; border-color: #c89b53;" onblur="parsePastedNotes()"></textarea>
                 </div>
 
                 <div class="form-section">
@@ -756,7 +831,7 @@
                     <div class="form-row">
                         <div class="input-group">
                             <label>Customer Name</label>
-                            <input type="text" id="invCustNameInput" placeholder="Auto-filled from notes..." list="customerNamesList">
+                            <input type="text" id="invCustNameInput" placeholder="Auto-filled from notes..." list="customerNamesList" autocomplete="off" onblur="checkInvoiceParentCompany()" oninput="applyInvoiceBillTo()">
                         </div>
                         <div class="input-group">
                             <label>Customer #</label>
@@ -767,11 +842,38 @@
                             <input type="text" id="invNum" placeholder="Loading from cloud..." readonly style="background:#f2f4f6; font-weight:bold; color:#c0392b;">
                         </div>
                     </div>
+
+                    <div style="background:#eaf2f8; padding:12px 10px; border-radius:4px; border:1px solid #b9d5ec; margin-bottom:12px;">
+                        <label style="font-size:12px; color:#1e4b85; font-weight:bold; display:block; margin-bottom:6px;">Parent Company (Optional)</label>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                            <select id="invParentSelect" autocomplete="off" style="flex:1; min-width:200px; border:1px solid #ccc; padding:10px; border-radius:4px; font-family:inherit; text-transform:uppercase;" onchange="onInvParentCompanySelectChange(this.value)">
+                                <option value="">-- No Parent / Select Existing --</option>
+                            </select>
+                            <input type="text" id="invParentNew" placeholder="OR Type New Parent Name..." autocomplete="off" style="flex:1; min-width:200px; border:1px solid #ccc; padding:10px; border-radius:4px; box-sizing:border-box; text-transform:uppercase;" oninput="onInvParentNewTyped()">
+                        </div>
+                        <div style="margin-bottom:10px;">
+                            <span style="font-size:12px; color:#1e4b85; font-weight:bold; display:block; margin-bottom:6px;">Bill invoice to</span>
+                            <label style="font-size:13px; margin-right:16px; cursor:pointer;"><input type="radio" name="invBillToTarget" id="invBillToSite" value="site" checked onchange="applyInvoiceBillTo()"> Service site / customer on job</label>
+                            <label style="font-size:13px; cursor:pointer;"><input type="radio" name="invBillToTarget" id="invBillToParent" value="parent" disabled onchange="applyInvoiceBillTo()"> Parent company (HQ)</label>
+                        </div>
+                        <label style="font-size:12px; color:#1e4b85; font-weight:bold; display:block; margin-bottom:6px;">Parent billing address (HQ / remit-to)</label>
+                        <div class="form-row" style="margin-bottom:8px;">
+                            <div class="input-group" style="flex:2;"><label style="font-size:11px;">Street</label><input type="text" id="invParentBillStreet" placeholder="Parent remit-to street" autocomplete="off" style="text-transform:uppercase;" oninput="applyInvoiceBillTo()"></div>
+                        </div>
+                        <div class="form-row" style="margin-bottom:8px;">
+                            <div class="input-group" style="flex:2;"><label style="font-size:11px;">City</label><input type="text" id="invParentBillCity" placeholder="City" autocomplete="off" style="text-transform:uppercase;" oninput="applyInvoiceBillTo()"></div>
+                            <div class="input-group" style="flex:1;"><label style="font-size:11px;">State</label><input type="text" id="invParentBillState" placeholder="ST" autocomplete="off" style="text-transform:uppercase;" oninput="applyInvoiceBillTo()"></div>
+                            <div class="input-group" style="flex:1;"><label style="font-size:11px;">Zip</label><input type="text" id="invParentBillZip" placeholder="Zip" autocomplete="off" style="text-transform:uppercase;" oninput="applyInvoiceBillTo()"></div>
+                        </div>
+                        <div style="text-align:right;">
+                            <button type="button" class="gen-btn" style="background:#1e4b85; padding:8px 14px; font-size:12px; width:auto; color:#fff;" onclick="saveInvoiceParentCompanyAddress()">Save parent billing address</button>
+                        </div>
+                    </div>
                     
                     <div class="form-row">
                         <div class="input-group" style="flex: 2;">
                             <label>Location Street Address</label>
-                            <input type="text" id="invStreetInput" placeholder="Auto-filled from notes..." list="locationStreetsList">
+                            <input type="text" id="invStreetInput" placeholder="Auto-filled from notes..." list="locationStreetsList" autocomplete="off" onblur="checkInvoiceParentCompany()" oninput="applyInvoiceBillTo()">
                         </div>
                         <div class="input-group">
                             <label>Location #</label>
@@ -779,22 +881,35 @@
                         </div>
                     </div>
 
-                    <div class="form-row">
-                        <div class="input-group" style="flex: 2;"><label>City</label><input type="text" id="invCityInput" placeholder="e.g. Green Bay"></div>
-                        <div class="input-group" style="flex: 1;"><label>State</label><input type="text" id="invStateInput" placeholder="e.g. WI"></div>
-                        <div class="input-group" style="flex: 1;"><label>Zip Code</label><input type="text" id="invZipInput" placeholder="e.g. 54304"></div>
+                        <div class="form-row">
+                        <div class="input-group" style="flex: 2;"><label>City</label><input type="text" id="invCityInput" placeholder="e.g. Green Bay" autocomplete="off" oninput="applyInvoiceBillTo()"></div>
+                        <div class="input-group" style="flex: 1;"><label>State</label><input type="text" id="invStateInput" placeholder="e.g. WI" autocomplete="off" oninput="applyInvoiceBillTo()"></div>
+                        <div class="input-group" style="flex: 1;"><label>Zip Code</label><input type="text" id="invZipInput" placeholder="e.g. 54304" autocomplete="off" oninput="applyInvoiceBillTo()"></div>
                     </div>
 
-                    <div style="text-align: right; margin-top: 10px; margin-bottom: 20px;">
+                    <div class="form-row" style="margin-top: 8px;">
+                        <div class="input-group" style="flex: 1; max-width: 280px;">
+                            <label>Service date (job)</label>
+                            <input type="date" id="invServiceDate" style="padding: 8px; border: 1px solid #ccc; border-radius: 3px;">
+                        </div>
+                    </div>
+
+                    <div style="text-align: right; margin-top: 10px; margin-bottom: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                         <button type="button" class="gen-btn" style="background: #f39c12; padding: 10px 20px; font-size: 13px; width: auto; color: #fff;" onclick="openCustomerDirectory()">
                             <i class="fas fa-edit"></i> Edit Site Info / Link Parent Company
+                        </button>
+                        <button type="button" class="gen-btn" style="background: #2ecc71; padding: 10px 20px; font-size: 13px; width: auto; color: #fff;" onclick="saveInvoiceCustomerToDirectory()">
+                            <i class="fas fa-address-book"></i> Save to Customer Directory
                         </button>
                     </div>
 
                     <div class="form-row" style="margin-top: 20px;">
                         <div class="input-group" style="flex: 1;"><label>Equipment on Site</label><textarea id="invEquip" style="min-height: 60px; font-size:13px;"></textarea></div>
-                        <div class="input-group" style="flex: 1;"><label>Notes / Repairs</label><textarea id="invNotes" style="min-height: 60px; font-size:13px;"></textarea></div>
-                        <div class="input-group" style="flex: 1;"><label>Work Done</label><textarea id="invWork" style="min-height: 60px; font-size:13px;"></textarea></div>
+                        <div class="input-group" style="flex: 1;"><label>Reason for call</label><textarea id="invNotes" style="min-height: 60px; font-size:13px;"></textarea></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="input-group" style="flex: 1;"><label>Diagnosis</label><textarea id="invDiag" style="min-height: 60px; font-size:13px;" placeholder="Findings / diagnosis (optional)"></textarea></div>
+                        <div class="input-group" style="flex: 1;"><label>Notes / Repairs</label><textarea id="invWork" style="min-height: 60px; font-size:13px;"></textarea></div>
                     </div>
                     <textarea id="invBillTo" style="display:none;"></textarea>
                     <textarea id="invServiceLoc" style="display:none;"></textarea>
@@ -842,21 +957,22 @@
                         <button type="button" id="saveInvoiceBtn" style="background:#1e4b85; color:#fff; font-weight:bold; font-size:18px; flex:1;" onclick="saveAndPrintInvoice()">Save to Cloud & Print PDF</button>
                     </div>
                 </div>
-            </div>
+            </form>
             
             <div class="results-section" id="invoiceResultsSection">
                 <div id="printInvoiceView" class="document-print-view">
                     <div class="inv-header">
                         <div class="inv-company">
                             <h2>Twin Pillars Heating & Cooling LLC</h2>
-                            <p>55 Jewelers Park Drive Suite 500</p>
-                            <p>Neenah, WI 54956</p>
+                            <p>2944 Holmgren Way</p>
+                            <p>Green Bay, WI 54304</p>
                             <p>920-441-5916</p>
                         </div>
                         <div class="inv-details">
                             <div class="print-title" style="margin-bottom:15px;">INVOICE</div>
                             <p><strong>INVOICE #:</strong> <span id="pInvNum"></span></p>
-                            <p><strong>DATE:</strong> <span id="pInvDate"></span></p>
+                            <p><strong>INVOICE DATE:</strong> <span id="pInvDate"></span></p>
+                            <p><strong>SERVICE DATE:</strong> <span id="pInvServiceDate"></span></p>
                             <br>
                             <p><strong>TOTAL AMOUNT:</strong> <span id="pTotal1"></span></p>
                             <p><strong>TOTAL DUE:</strong> <span id="pTotal2"></span></p>
@@ -875,9 +991,10 @@
                     </div>
 
                     <div class="inv-tech-notes">
-                        <p><strong>Equipment on Site:</strong> <span id="pInvEquip"></span></p>
-                        <p><strong>Notes / Repairs:</strong> <span id="pInvNotes"></span></p>
-                        <p><strong>Work Done:</strong> <span id="pInvWork"></span></p>
+                        <p><strong>Equipment on Site:</strong> <span id="pInvEquip" class="inv-print-preline"></span></p>
+                        <p><strong>Reason for call:</strong> <span id="pInvNotes" class="inv-print-preline"></span></p>
+                        <p><strong>Diagnosis:</strong> <span id="pInvDiag" class="inv-print-preline"></span></p>
+                        <p><strong>Notes / Repairs:</strong> <span id="pInvWork"></span></p>
                     </div>
 
                     <table class="print-table invoice-style">
@@ -897,8 +1014,8 @@
                     <div class="inv-tear-off">
                         <div class="inv-tear-left">
                             <h4>Twin Pillars Heating & Cooling LLC</h4>
-                            <p>55 Jewelers Park Drive Suite 500</p>
-                            <p>Neenah, WI 54956</p>
+                            <p>2944 Holmgren Way</p>
+                            <p>Green Bay, WI 54304</p>
                             <p>920-441-5916</p>
                             <br><br>
                             <p>Customer ID - Name: <span id="pBottomCust"></span></p>
@@ -916,6 +1033,105 @@
             </div>
         </div>
 
+        <div id="view-invoice-archive" class="app-view">
+            <div class="form-container" id="invoiceArchiveContainer">
+                <div class="tool-header" style="display: flex; align-items: center; justify-content: flex-start; gap: 20px; flex-wrap: wrap;">
+                    <h2 style="margin: 0;">Invoice Archive</h2>
+                    <input type="text" id="invoiceArchiveSearch" placeholder="🔍 Search all invoices (Name, Invoice #, Address)..." onkeyup="filterInvoiceArchive()" style="flex: 1; min-width: 280px; max-width: 560px; padding: 10px 15px; border: 2px solid #1e4b85; border-radius: 20px; font-size: 14px; outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
+                    <p style="margin: 0 0 0 auto; font-size: 13px; color: #666;">Up to 500 most recent invoices</p>
+                </div>
+                <p style="font-size: 13px; color: #555; margin: 10px 0 16px;">Browse and open any saved invoice. In the sidebar, open <strong>Invoicing</strong> and choose <strong>Invoicing Tool</strong> to create new invoices.</p>
+                <div style="max-height: calc(100vh - 220px); min-height: 200px; overflow-y: auto; border: 1px solid #eaeaea; border-radius: 6px;">
+                    <table class="db-table" style="width: 100%; margin: 0;">
+                        <thead style="position: sticky; top: 0; z-index: 10;">
+                            <tr>
+                                <th width="80">Preview</th>
+                                <th>Date</th>
+                                <th>Invoice #</th>
+                                <th>Customer</th>
+                                <th>Location</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoiceArchiveTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="results-section" id="invoiceArchiveResultsSection" style="display: none;">
+                    <div id="printInvoiceViewArch" class="document-print-view">
+                        <div class="inv-header">
+                            <div class="inv-company">
+                                <h2>Twin Pillars Heating & Cooling LLC</h2>
+                                <p>2944 Holmgren Way</p>
+                                <p>Green Bay, WI 54304</p>
+                                <p>920-441-5916</p>
+                            </div>
+                            <div class="inv-details">
+                                <div class="print-title" style="margin-bottom:15px;">INVOICE</div>
+                                <p><strong>INVOICE #:</strong> <span id="pInvNumArch"></span></p>
+                                <p><strong>INVOICE DATE:</strong> <span id="pInvDateArch"></span></p>
+                                <p><strong>SERVICE DATE:</strong> <span id="pInvServiceDateArch"></span></p>
+                                <br>
+                                <p><strong>TOTAL AMOUNT:</strong> <span id="pTotal1Arch"></span></p>
+                                <p><strong>TOTAL DUE:</strong> <span id="pTotal2Arch"></span></p>
+                            </div>
+                        </div>
+
+                        <div class="inv-addresses">
+                            <div class="inv-bill-to">
+                                <h4>BILL TO:</h4>
+                                <p id="pInvBillNameArch"></p>
+                            </div>
+                            <div class="inv-bill-to">
+                                <h4>SERVICE LOCATION:</h4>
+                                <p id="pInvShipNameArch"></p>
+                            </div>
+                        </div>
+
+                        <div class="inv-tech-notes">
+                            <p><strong>Equipment on Site:</strong> <span id="pInvEquipArch" class="inv-print-preline"></span></p>
+                            <p><strong>Reason for call:</strong> <span id="pInvNotesArch" class="inv-print-preline"></span></p>
+                            <p><strong>Diagnosis:</strong> <span id="pInvDiagArch" class="inv-print-preline"></span></p>
+                            <p><strong>Notes / Repairs:</strong> <span id="pInvWorkArch"></span></p>
+                        </div>
+
+                        <table class="print-table invoice-style">
+                            <thead><tr><th>DESCRIPTION / MEMO</th><th>AMOUNT</th></tr></thead>
+                            <tbody id="pInvTableBodyArch"></tbody>
+                        </table>
+
+                        <div class="total-box-wrapper" style="margin-bottom: 50px;">
+                            <div class="total-box-container" style="width: 300px;">
+                                <div class="inv-total-line inv-grand-line">
+                                    <span>TOTAL AMOUNT:</span>
+                                    <span id="pInvGrandTotalArch"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="inv-tear-off">
+                            <div class="inv-tear-left">
+                                <h4>Twin Pillars Heating & Cooling LLC</h4>
+                                <p>2944 Holmgren Way</p>
+                                <p>Green Bay, WI 54304</p>
+                                <p>920-441-5916</p>
+                                <br><br>
+                                <p>Customer ID - Name: <span id="pBottomCustArch"></span></p>
+                                <p>Invoice #: <span id="pBottomInvArch"></span></p>
+                            </div>
+                            <div style="width: 300px; padding-top: 20px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:14px;">
+                                    <strong>TOTAL DUE:</strong> <span id="pBottomTotalArch"></span>
+                                </div>
+                                <div style="border-bottom: 1px solid #000; margin-bottom: 5px; height: 15px;"></div>
+                                <div style="font-size:12px;">AMOUNT ENCLOSED:</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
        <div id="view-settings" class="app-view">
             <div class="form-container">
                 <div class="tool-header">
@@ -924,7 +1140,7 @@
                 
                 <div class="form-section">
                     <h4>Manage Technicians & Truck Inventory</h4>
-                    <p style="font-size: 13px; color: #666;">Add, edit, or remove technicians from your active roster. Click the backpack icon to manage their truck's tools and VMI stock.</p>
+                    <p style="font-size: 13px; color: #666;">Add, edit, or remove technicians from your active roster. This list syncs to the cloud so the Field technician app can sign in with the same names used when assigning jobs. Click the backpack icon to manage each truck's tools and VMI stock.</p>
                     
                     <div style="display:flex; gap:10px; margin-bottom: 20px;">
                         <input type="text" id="newTechNameInput" placeholder="e.g. John (Tech 5)" style="flex:1; max-width: 400px;" class="lowercase-input">
@@ -959,10 +1175,21 @@
             </div>
             <div id="tdModalContent" style="font-size: 14px; line-height: 1.6; margin-bottom: 20px; max-height: 55vh; overflow-y: auto; padding-right: 10px;"></div>
             <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eaeaea; padding-top: 15px;">
-                <button class="gen-btn" style="background:#e74c3c; padding: 10px 20px; color:#fff; margin-right: auto;" id="tdDeleteBtn">Delete</button>
-                <button class="gen-btn" style="background:#7f8c8d; padding: 10px 20px;" onclick="closeTicketDetails()">Cancel</button>
-                <button class="gen-btn" style="background:#f39c12; padding: 10px 20px; color:#fff;" id="tdEditBtn">Edit Ticket Form</button>
+                <button type="button" class="gen-btn" style="background:#34495e; padding: 10px 20px; color:#fff; margin-right: auto;" id="tdArchiveBtn" title="Remove from active board; keeps record in database">Archive</button>
+                <button type="button" class="gen-btn" style="background:#7f8c8d; padding: 10px 20px;" onclick="closeTicketDetails()">Cancel</button>
+                <button type="button" class="gen-btn" style="background:#f39c12; padding: 10px 20px; color:#fff;" id="tdEditBtn">Edit Ticket Form</button>
             </div>
+        </div>
+    </div>
+
+    <div id="archivedServiceModal" class="modal-overlay" style="z-index: 10002;">
+        <div class="modal-content" style="max-width: 720px; max-height: 85vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="flex-shrink: 0;">
+                <h2 style="margin:0; color:#1e4b85;">Archived service calls</h2>
+                <span class="close-modal" onclick="document.getElementById('archivedServiceModal').style.display='none'">×</span>
+            </div>
+            <p style="font-size:13px; color:#666; margin:0 0 12px 0;">Stored in the cloud with your other tickets. Active board and map only show non-archived calls.</p>
+            <div id="archivedServiceModalBody" style="overflow-y: auto; flex: 1; font-size: 13px;"></div>
         </div>
     </div>
 
@@ -1132,26 +1359,25 @@
         async function checkServiceParentCompany() {
             const custInput = document.getElementById('scCustNameInput');
             const streetInput = document.getElementById('scCustStreetInput');
-            const parentInput = document.getElementById('scParentCompanyInput');
+            const sel = document.getElementById('scParentSelect');
+            const newIn = document.getElementById('scParentNew');
 
-            if (!custInput || !streetInput || !parentInput) return;
+            if (!custInput || !streetInput || !sel) return;
 
             const customerName = custInput.value.trim().toUpperCase();
             const street = streetInput.value.trim().toUpperCase();
 
             if (!customerName || !street) {
-                parentInput.value = "";
+                sel.value = '';
+                if (newIn) newIn.value = '';
+                if (typeof updateServiceBillToParentRadioState === 'function') updateServiceBillToParentRadioState();
                 return;
             }
 
-            parentInput.value = "Searching...";
-
-            if (typeof firebase === 'undefined' || !firebase.apps.length) {
-                parentInput.value = "Database Disconnected";
-                return;
-            }
+            if (typeof firebase === 'undefined' || !firebase.apps.length) return;
 
             try {
+                await loadParentCompanies();
                 const db = firebase.firestore();
                 const locSnapshot = await db.collection("MappedLocations")
                     .where("Sub_Company", "==", customerName)
@@ -1160,20 +1386,15 @@
 
                 if (!locSnapshot.empty) {
                     const parentId = locSnapshot.docs[0].data().Parent_ID;
-                    const parentDoc = await db.collection("ParentCompanies").doc(parentId).get();
-
-                    if (parentDoc.exists) {
-                        parentInput.value = parentDoc.data().Name;
-                        parentInput.style.color = "#1e4b85"; 
-                        return;
+                    if (parentId && [...sel.options].some(o => o.value === parentId)) {
+                        sel.value = parentId;
+                        if (newIn) newIn.value = '';
+                        if (typeof loadServiceParentBillingAddress === 'function') await loadServiceParentBillingAddress(parentId);
+                        if (typeof updateServiceBillToParentRadioState === 'function') updateServiceBillToParentRadioState();
                     }
                 }
-                
-                parentInput.value = "None / Independent";
-                parentInput.style.color = "#7f8c8d";
             } catch (error) {
                 console.error("Firebase Parent Lookup Error:", error);
-                parentInput.value = "Error during lookup";
             }
         }
 
@@ -1199,9 +1420,10 @@
             if(typeof renderQuoteHistory === 'function') renderQuoteHistory();
             if(typeof updateCustomerDatalist === 'function') updateCustomerDatalist();
 
-            if(typeof loadFirebaseInvoices === "function") {
-               loadFirebaseInvoices();
-            }
+                if(typeof loadFirebaseInvoices === "function") {
+                   loadFirebaseInvoices();
+                }
+                if (typeof loadParentCompanies === 'function') loadParentCompanies();
 
             const savedBoardHeight = localStorage.getItem('tp_board_height');
             if (savedBoardHeight) {
@@ -1247,7 +1469,57 @@
             }
         };
 
+        function positionInvoicingFlyout() {
+            const wrap = document.getElementById('sidebar-nav-invoicing');
+            const flyout = document.getElementById('sidebar-invoicing-flyout');
+            if (!wrap || !flyout || !wrap.classList.contains('sidebar-invoicing-open')) return;
+            const r = wrap.getBoundingClientRect();
+            flyout.style.top = Math.round(r.top) + 'px';
+            flyout.style.left = Math.round(r.right) + 'px';
+        }
+
+        function repositionInvoicingSubmenu() {
+            requestAnimationFrame(positionInvoicingFlyout);
+        }
+        window.repositionInvoicingSubmenu = repositionInvoicingSubmenu;
+
+        function toggleInvoicingSubmenu(event) {
+            if (event) event.stopPropagation();
+            const wrap = document.getElementById('sidebar-nav-invoicing');
+            const btn = document.getElementById('sidebar-invoicing-trigger');
+            if (!wrap) return;
+            wrap.classList.toggle('sidebar-invoicing-open');
+            const isOpen = wrap.classList.contains('sidebar-invoicing-open');
+            if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            if (isOpen) repositionInvoicingSubmenu();
+        }
+
+        function closeInvoicingSubmenu() {
+            const wrap = document.getElementById('sidebar-nav-invoicing');
+            const btn = document.getElementById('sidebar-invoicing-trigger');
+            if (wrap) wrap.classList.remove('sidebar-invoicing-open');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+        }
+
+        (function initInvoicingFlyoutListeners() {
+            function onMove() {
+                const wrap = document.getElementById('sidebar-nav-invoicing');
+                if (wrap && wrap.classList.contains('sidebar-invoicing-open')) repositionInvoicingSubmenu();
+            }
+            window.addEventListener('resize', onMove);
+            window.addEventListener('scroll', onMove, true);
+            const sb = document.getElementById('appSidebar');
+            if (sb) sb.addEventListener('scroll', onMove);
+        })();
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') closeInvoicingSubmenu();
+        });
+
         document.addEventListener('click', function(event) {
+            const invoicingWrap = document.getElementById('sidebar-nav-invoicing');
+            if (invoicingWrap && !invoicingWrap.contains(event.target)) closeInvoicingSubmenu();
+
             const custModal = document.getElementById('customerModal');
             const detailModal = document.getElementById('ticketDetailsModal');
             if (event.target == custModal && typeof closeCustomerDirectory === 'function') closeCustomerDirectory();
@@ -1267,20 +1539,28 @@
         });
 
         function switchTab(tabName) {
+            closeInvoicingSubmenu();
+            if (typeof hideInvoiceArchivePreview === 'function' && tabName !== 'invoice-archive') hideInvoiceArchivePreview();
             currentActiveView = tabName;
             
             document.getElementById('view-service').classList.remove('active');
             document.getElementById('view-quoting').classList.remove('active');
             document.getElementById('view-invoice').classList.remove('active');
+            document.getElementById('view-invoice-archive').classList.remove('active');
             document.getElementById('view-settings').classList.remove('active');
             
             document.getElementById('nav-service').classList.remove('active-tab');
             document.getElementById('nav-quoting').classList.remove('active-tab');
             document.getElementById('nav-invoice').classList.remove('active-tab');
+            document.getElementById('nav-invoice-archive').classList.remove('active-tab');
             document.getElementById('nav-settings').classList.remove('active-tab');
+            const invoicingNav = document.getElementById('sidebar-nav-invoicing');
+            if (invoicingNav) invoicingNav.classList.remove('sidebar-invoicing-active');
             
             document.getElementById('view-' + tabName).classList.add('active');
-            document.getElementById('nav-' + tabName).classList.add('active-tab');
+            const navEl = document.getElementById('nav-' + tabName);
+            if (navEl) navEl.classList.add('active-tab');
+            if (invoicingNav && (tabName === 'invoice' || tabName === 'invoice-archive')) invoicingNav.classList.add('sidebar-invoicing-active');
             
             if(typeof updateLocationDatalist === 'function') updateLocationDatalist();
             
@@ -1288,6 +1568,7 @@
                 setTimeout(() => { if(dispatchMap) dispatchMap.invalidateSize(); }, 100);
             }
             if(tabName === 'invoice') {
+                if (typeof toggleInvoiceShowLess === 'function') toggleInvoiceShowLess();
                 const invParts = document.getElementById('invPartsContainer');
                 if(invParts && invParts.children.length <= 1) { 
                     if(typeof addInvoicePartRow === "function") {
@@ -1299,6 +1580,13 @@
                         fetchNextInvoiceNumber(); 
                     }
                 }
+                const invSd = document.getElementById('invServiceDate');
+                if (invSd && !invSd.value) invSd.valueAsDate = new Date();
+                if(typeof loadParentCompanies === 'function') loadParentCompanies();
+                if (typeof applyInvoiceBillTo === 'function') applyInvoiceBillTo();
+            }
+            if (tabName === 'invoice-archive' && typeof loadFirebaseInvoiceArchive === 'function') {
+                loadFirebaseInvoiceArchive();
             }
         }
         
@@ -1327,10 +1615,10 @@
     </script>
     
    <script src="settings.js?v=5"></script>
-    <script src="customer_directory.js?v=21"></script>
-    <script src="service_call.js?v=26"></script>
-    <script src="quoting.js?v=5"></script>
-    <script src="invoice.js?v=18"></script>
+    <script src="customer_directory.js?v=25"></script>
+    <script src="service_call.js?v=35"></script>
+    <script src="quoting.js?v=6"></script>
+    <script src="invoice.js?v=36"></script>
 
 </body>
 </html>

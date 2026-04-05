@@ -6,6 +6,7 @@
 function toggleSidebar() {
     document.getElementById('appSidebar').classList.toggle('collapsed');
     document.querySelector('.main-content').classList.toggle('expanded');
+    if (typeof repositionInvoicingSubmenu === 'function') repositionInvoicingSubmenu();
     setTimeout(() => { if(dispatchMap) dispatchMap.invalidateSize(); }, 300); // Redraw map to fit new space
 }
 
@@ -139,6 +140,7 @@ function updateMapMarkers() {
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
     
     db.forEach(sc => {
+        if (sc.archived) return;
         // Hide tickets that are completely done
         if (sc.status === 'Completed' || sc.status === 'Canceled') return;
         
@@ -212,7 +214,9 @@ function gatherServiceData() {
         status: document.getElementById('scStatusInput').value,
         issue: document.getElementById('scIssueInput').value.trim(),
         equip: document.getElementById('scEquipInput').value.trim().toUpperCase(),
-        notes: document.getElementById('scNotesInput').value.trim()
+        notes: document.getElementById('scNotesInput').value.trim(),
+        parentId: (document.getElementById('scParentSelect') && document.getElementById('scParentSelect').value) || "",
+        releasedToTech: document.getElementById('scReleasedToTech') ? document.getElementById('scReleasedToTech').checked : true
     };
 }
 
@@ -243,7 +247,27 @@ function clearServiceForm() {
     document.getElementById('scIssueInput').value = "";
     document.getElementById('scEquipInput').value = "";
     document.getElementById('scNotesInput').value = "";
-    
+    const scTn = document.getElementById('scTechNotesReadonly');
+    if (scTn) scTn.value = "";
+    const scRel = document.getElementById('scReleasedToTech');
+    if (scRel) scRel.checked = false;
+
+    const scPs = document.getElementById('scParentSelect');
+    const scPn = document.getElementById('scParentNew');
+    if (scPs) scPs.value = "";
+    if (scPn) scPn.value = "";
+    ['scParentBillStreet', 'scParentBillCity', 'scParentBillState', 'scParentBillZip'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+    const scSite = document.getElementById('scBillToSite');
+    const scPar = document.getElementById('scBillToParent');
+    if (scSite) scSite.checked = true;
+    if (scPar) {
+        scPar.checked = false;
+        scPar.disabled = true;
+    }
+
     document.getElementById('scDateInput').valueAsDate = new Date();
     document.getElementById('scStartTimeInput').value = "08:00"; 
     document.getElementById('scDurationInput').value = "2.0";   
@@ -252,9 +276,14 @@ function clearServiceForm() {
     document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function saveServiceCall(isAutoSave = false) {
-    const data = gatherServiceData();
-    
+/** Service Requests panel "+ New" — same as clearing the intake form for a fresh ticket. */
+function scrollToServiceForm() {
+    clearServiceForm();
+}
+
+async function saveServiceCall(isAutoSave = false) {
+    let data = gatherServiceData();
+
     if (isAutoSave && data.id === "" && data.customerName === "UNKNOWN CUSTOMER") return false;
 
     if (!isAutoSave) {
@@ -262,18 +291,26 @@ function saveServiceCall(isAutoSave = false) {
             alert("A Customer Name and Reported Issue are required to log a service call.");
             return false;
         }
-        if(typeof syncCustomerToDirectory === 'function') syncCustomerToDirectory(data);
+        if (typeof resolveServiceParentForSave === 'function') {
+            try {
+                const pid = await resolveServiceParentForSave();
+                if (pid) data.parentId = pid;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        if (typeof syncCustomerToDirectory === 'function') syncCustomerToDirectory(data);
     } else if (data.id !== "") {
-        if(typeof syncCustomerToDirectory === 'function') syncCustomerToDirectory(data); 
+        if (typeof syncCustomerToDirectory === 'function') syncCustomerToDirectory(data);
     }
 
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
 
     if (data.id) {
-        // EDITING EXISTING
+        // EDITING EXISTING — merge so Field-app fields (e.g. techNotes) are not wiped; gatherServiceData() does not include them.
         const index = db.findIndex(sc => sc.id === data.id);
         if (index !== -1) {
-            db[index] = data;
+            db[index] = { ...db[index], ...data };
             if (!isAutoSave) { showSaveCue("✓ Ticket Updated!"); clearServiceForm(); }
         }
     } else {
@@ -343,13 +380,17 @@ function openTicketDetails(dbId) {
             <button class="gen-btn" style="background:#3498db; flex:1; padding:10px;" onclick="convertToInvoice('${sc.id}')"><i class="fas fa-file-invoice"></i> Generate Invoice</button>
         </div>
 
-        <div style="background: #fcfdfe; padding: 15px; border: 1px solid #eaeaea; border-radius: 4px; margin-bottom: 15px;">
+            <div style="background: #fcfdfe; padding: 15px; border: 1px solid #eaeaea; border-radius: 4px; margin-bottom: 15px;">
             <div style="margin-bottom: 15px;">
                 <p style="margin-top:0; margin-bottom: 5px;"><strong>Assign Technician:</strong></p>
                 <select id="tdTechSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;">
                     ${techOptionsHtml}
                 </select>
             </div>
+            <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:12px; font-size:13px; line-height:1.35;">
+                <input type="checkbox" id="tdReleasedToTech" style="width:18px; height:18px; margin-top:2px; flex-shrink:0;" ${sc.releasedToTech !== false ? 'checked' : ''}>
+                <span><strong>Release to Field app</strong> — technician can see this job on their phone once checked. Leave unchecked to keep it dispatch-only until you are ready.</span>
+            </label>
             
             <div style="display:flex; gap:10px; margin-bottom:5px;">
                 <div style="flex:1;">
@@ -383,12 +424,13 @@ function openTicketDetails(dbId) {
         <p><strong>Reported Issue:</strong><br><span style="background:#f4f7f6; padding:10px; display:block; border-radius:4px; margin-top:5px; white-space: pre-wrap;">${sc.issue}</span></p>
         <p><strong>Equipment:</strong> ${sc.equip || 'N/A'}</p>
         <p><strong>Dispatch Notes:</strong> ${sc.notes || 'N/A'}</p>
+        ${sc.techNotes ? `<p style="margin-top:14px;"><strong>Technician report (Field app):</strong></p><pre style="background:#e8f4fc; padding:12px; border-radius:4px; margin-top:6px; white-space:pre-wrap; font-family:inherit; font-size:13px; line-height:1.45; border:1px solid #b8d4ea; max-height:280px; overflow:auto;">${escapeHtmlServiceArchive(sc.techNotes)}</pre>` : '<p style="font-size:12px; color:#999; margin-top:10px;"><em>No technician report yet (Field app).</em></p>'}
     `;
 
-    document.getElementById('tdEditBtn').onclick = function() {
+    document.getElementById('tdEditBtn').onclick = async function() {
         closeTicketDetails();
-        loadServiceCall(dbId);
-        
+        await loadServiceCall(dbId);
+
         setTimeout(() => {
             const formEl = document.getElementById('serviceFormContainer');
             const scrollBox = document.querySelector('.main-content');
@@ -406,20 +448,22 @@ function openTicketDetails(dbId) {
         }, 300);
     };
 
-    document.getElementById('tdDeleteBtn').onclick = function() {
-        if(confirm("Are you sure you want to permanently delete this ticket?")) {
-            if(typeof deleteServiceCall === 'function') {
-                deleteServiceCall(dbId);
-            } else {
-                let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
-                db = db.filter(s => s.id !== dbId);
-                localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
-                if(typeof syncSingleServiceCallToCloud === 'function') syncSingleServiceCallToCloud(dbId, null);
-                renderServiceBoard();
-            }
-            closeTicketDetails();
-            if(typeof showSaveCue === 'function') showSaveCue("Ticket Deleted");
+    document.getElementById('tdArchiveBtn').onclick = function() {
+        if (!confirm("Archive this ticket? It will leave the active service list and map, but the full record stays saved in the database for future reference.")) {
+            return;
         }
+        closeTicketDetails();
+        let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+        const idx = db.findIndex((s) => s.id === dbId);
+        if (idx === -1) return;
+        db[idx].archived = true;
+        db[idx].archivedAt = new Date().toISOString();
+        localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+        if (typeof syncSingleServiceCallToCloud === 'function') {
+            syncSingleServiceCallToCloud(dbId, db[idx]);
+        }
+        renderServiceBoard();
+        if (typeof showSaveCue === 'function') showSaveCue('Ticket archived (saved to cloud)');
     };
 
     document.getElementById('ticketDetailsModal').style.display = 'block';
@@ -453,6 +497,9 @@ function closeTicketDetails() {
             if(timeInput) db[scIndex].startTime = timeInput.value;
             if(durInput) db[scIndex].duration = durInput.value;
 
+            const tdRel = document.getElementById('tdReleasedToTech');
+            if (tdRel) db[scIndex].releasedToTech = tdRel.checked;
+
             localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
             syncSingleServiceCallToCloud(db[scIndex].id, db[scIndex]);
             renderServiceBoard(); 
@@ -462,7 +509,7 @@ function closeTicketDetails() {
     currentOpenDetailsId = null;
 }
 
-function loadServiceCall(dbId) {
+async function loadServiceCall(dbId) {
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
     const data = db.find(s => s.id === dbId);
     if(!data) return;
@@ -500,6 +547,20 @@ function loadServiceCall(dbId) {
     document.getElementById('scIssueInput').value = data.issue;
     document.getElementById('scEquipInput').value = data.equip;
     document.getElementById('scNotesInput').value = data.notes;
+    const scRelEdit = document.getElementById('scReleasedToTech');
+    if (scRelEdit) scRelEdit.checked = data.releasedToTech !== false;
+    const scTechRo = document.getElementById('scTechNotesReadonly');
+    if (scTechRo) scTechRo.value = data.techNotes || '';
+
+    if (data.parentId && typeof setServiceParentSelect === 'function') {
+        await setServiceParentSelect(data.parentId);
+    } else {
+        const scPs = document.getElementById('scParentSelect');
+        const scPn = document.getElementById('scParentNew');
+        if (scPs) scPs.value = '';
+        if (scPn) scPn.value = '';
+        if (typeof updateServiceBillToParentRadioState === 'function') updateServiceBillToParentRadioState();
+    }
 }
 
 // --- HELPER FUNCTION: FORMAT TIME FOR BLOCKS ---
@@ -536,6 +597,7 @@ function renderServiceBoard() {
     let listCount = 0;
     
     db.forEach(sc => {
+        if (sc.archived) return;
         if (sc.status === 'Completed' || sc.status === 'Canceled') return;
         listCount++;
         
@@ -545,12 +607,13 @@ function renderServiceBoard() {
         if (sc.priority === 'Routine') colorClass = 'priority-Routine';
 
         let techAssignStr = sc.assignedTech === 'Unassigned' || !sc.assignedTech ? `<span style="color:#e74c3c; font-weight:bold;">Unassigned</span>` : `<span style="color:#27ae60;"><i class="fas fa-user"></i> ${sc.assignedTech.split(' ')[0]}</span>`;
+        const releaseBadge = sc.releasedToTech === false ? `<span style="font-size:9px; background:#fdebd0; color:#ca6f1e; padding:2px 6px; border-radius:4px; font-weight:700; margin-left:4px;">Field: hold</span>` : '';
 
         let cardHTML = `
             <div class="glass-card ${colorClass}" draggable="true" ondragstart="drag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')">
                 <div class="tc-title">
                     <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">${sc.customerName}</span>
-                    <span style="font-size:10px; color:#aaa;">${sc.ticketNum}</span>
+                    <span style="font-size:10px; color:#aaa;">${sc.ticketNum}${releaseBadge}</span>
                 </div>
                 <div class="tc-loc"><i class="fas fa-map-marker-alt" style="color:#c89b53;"></i> ${sc.locationAddress} | ${sc.custCity}, ${sc.custState}</div>
                 <div class="tc-footer">
@@ -632,6 +695,7 @@ function renderServiceBoard() {
     let monthString = `${year}-${String(month + 1).padStart(2, '0')}`;
 
     db.forEach(sc => {
+        if (sc.archived) return;
         if (!sc.assignedTech || sc.assignedTech === 'Unassigned') return;
         if (sc.status === 'Completed' || sc.status === 'Canceled') return;
         if (!sc.date) return;
@@ -1198,61 +1262,87 @@ function toggleNewCustomerWarning(isNew) {
 
 let dispatcherRecognition;
 let currentVoiceSearchText = "";
+/** Saved when the engine ends a segment (silence); prepended to the next session while still holding the button. */
+let dispatcherVoiceCarryover = "";
 let isDispatcherRecording = false;
 let currentSearchResults = []; 
 
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     dispatcherRecognition = new SpeechRecognition();
-    dispatcherRecognition.continuous = true; 
-    dispatcherRecognition.interimResults = true; 
+    dispatcherRecognition.continuous = true;
+    dispatcherRecognition.interimResults = true;
+    dispatcherRecognition.maxAlternatives = 1;
 
+    /** Full transcript = carryover from prior segment + this segment (Chrome clears results on restart). */
     dispatcherRecognition.onresult = (event) => {
-        let transcript = "";
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-            transcript += event.results[i][0].transcript;
+        let segment = "";
+        for (let i = 0; i < event.results.length; i++) {
+            segment += event.results[i][0].transcript;
         }
-        currentVoiceSearchText = transcript;
-        
+        const seg = segment.trim();
+        currentVoiceSearchText = (dispatcherVoiceCarryover + (dispatcherVoiceCarryover && seg ? " " : "") + seg).trim();
+
         const micBtn = document.getElementById('scMicBtn');
         if (isDispatcherRecording && micBtn) {
             micBtn.innerText = "🗣️ " + currentVoiceSearchText;
         }
     };
 
+    /** After silence the engine stops; keep text and restart while the button is still held. */
+    dispatcherRecognition.onend = () => {
+        if (isDispatcherRecording) {
+            dispatcherVoiceCarryover = currentVoiceSearchText;
+            try {
+                dispatcherRecognition.start();
+            } catch (e) {}
+        }
+    };
+
     dispatcherRecognition.onerror = (event) => {
-        console.error('Speech error', event.error);
+        if (event.error === "aborted") return;
+        if (event.error === "no-speech" && isDispatcherRecording) return;
+        console.error("Speech error", event.error);
         resetDispatcherMicBtn();
     };
 }
 
-function startDispatcherVoiceSearch() {
+function startDispatcherVoiceSearch(e) {
+    if (e && e.type === "touchstart") e.preventDefault();
     if (!dispatcherRecognition) {
         alert("Voice search not supported in this browser. Please use Chrome or Safari.");
         return;
     }
     if (isDispatcherRecording) return;
-    
+
     isDispatcherRecording = true;
-    currentVoiceSearchText = ""; 
-    
-    const micBtn = document.getElementById('scMicBtn');
-    if(micBtn) {
-        micBtn.innerText = "🔴 LISTENING... (Speak Now)";
+    currentVoiceSearchText = "";
+    dispatcherVoiceCarryover = "";
+
+    const micBtn = document.getElementById("scMicBtn");
+    if (micBtn) {
+        micBtn.innerText = "🔴 LISTENING... (release when done)";
         micBtn.style.backgroundColor = "#e74c3c";
-        micBtn.style.transform = "scale(0.95)"; 
+        micBtn.style.transform = "scale(0.95)";
     }
-    
-    window.addEventListener('mouseup', stopDispatcherVoiceSearch);
-    try { dispatcherRecognition.start(); } catch(e) {}
+
+    window.addEventListener("mouseup", stopDispatcherVoiceSearch);
+    window.addEventListener("touchend", stopDispatcherVoiceSearch, { passive: true });
+    try {
+        dispatcherRecognition.start();
+    } catch (err) {}
 }
 
 async function stopDispatcherVoiceSearch() {
     if (!isDispatcherRecording) return;
     isDispatcherRecording = false;
-    
-    window.removeEventListener('mouseup', stopDispatcherVoiceSearch);
-    try { dispatcherRecognition.stop(); } catch(e) {}
+    dispatcherVoiceCarryover = "";
+
+    window.removeEventListener("mouseup", stopDispatcherVoiceSearch);
+    window.removeEventListener("touchend", stopDispatcherVoiceSearch);
+    try {
+        dispatcherRecognition.stop();
+    } catch (e) {}
     
     const micBtn = document.getElementById('scMicBtn');
     if(micBtn) micBtn.style.transform = "scale(1)"; 
@@ -1663,8 +1753,21 @@ function convertToQuote(ticketId) {
     let notesArea = document.getElementById('requoteNoteHistory');
     if (notesArea) {
         document.getElementById('requoteNoteContainer').style.display = 'flex';
-        notesArea.value = `Originated from Service Ticket: ${sc.ticketNum}\nReported Issue: ${sc.issue}`;
+        let block = `Originated from Service Ticket: ${sc.ticketNum}
+Reported Issue: ${sc.issue || ''}
+Equipment: ${sc.equip || 'N/A'}
+Dispatch Notes: ${sc.notes || 'N/A'}`;
+        if (sc.techNotes && String(sc.techNotes).trim()) {
+            block += `\n\n--- Field technician report (full text) ---\n${sc.techNotes}`;
+        }
+        notesArea.value = block;
     }
+
+    if (typeof populateQuoteFromServiceCall === 'function') populateQuoteFromServiceCall(sc);
+    else if (typeof addPartRow === 'function') addPartRow();
+
+    if (typeof handleQuoteStatusChange === 'function') handleQuoteStatusChange();
+    if (typeof updateLocationDatalist === 'function') updateLocationDatalist();
 
     if (typeof showSaveCue === 'function') showSaveCue("✓ Copied to Quoting Tool");
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1697,6 +1800,13 @@ function convertToInvoice(ticketId) {
 
     document.getElementById('invEquip').value = sc.equip || "";
     document.getElementById('invNotes').value = `Original Ticket: ${sc.ticketNum}\nReported Issue: ${sc.issue}`;
+    const invDiagCopy = document.getElementById('invDiag');
+    if (invDiagCopy) invDiagCopy.value = "";
+    const invSdCopy = document.getElementById('invServiceDate');
+    if (invSdCopy) {
+        if (sc.date) invSdCopy.value = sc.date;
+        else invSdCopy.valueAsDate = new Date();
+    }
 
     let formattedLoc = street;
     let csz = [];
@@ -1709,10 +1819,14 @@ function convertToInvoice(ticketId) {
 
     let billToEl = document.getElementById('invBillTo');
     let serviceLocEl = document.getElementById('invServiceLoc');
-    if (billToEl) billToEl.value = custName + "\n" + formattedLoc;
-    if (serviceLocEl) serviceLocEl.value = formattedLoc;
+    const billAndServiceBlock = custName + "\n" + formattedLoc;
+    if (billToEl) billToEl.value = billAndServiceBlock;
+    if (serviceLocEl) serviceLocEl.value = billAndServiceBlock;
 
     if (typeof fetchNextInvoiceNumber === 'function') fetchNextInvoiceNumber();
+
+    if (typeof checkInvoiceParentCompany === 'function') checkInvoiceParentCompany();
+    if (typeof applyInvoiceBillTo === 'function') applyInvoiceBillTo();
 
     if (typeof showSaveCue === 'function') showSaveCue("✓ Copied to Invoicing Tool");
     
@@ -1720,4 +1834,47 @@ function convertToInvoice(ticketId) {
         const formContainer = document.getElementById('invCustNameInput');
         if(formContainer) formContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 150);
+}
+
+function escapeHtmlServiceArchive(s) {
+    if (s == null) return "";
+    return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function openArchivedServiceModal() {
+    const body = document.getElementById("archivedServiceModalBody");
+    const modal = document.getElementById("archivedServiceModal");
+    if (!body || !modal) return;
+    let db = [];
+    try {
+        db = JSON.parse(localStorage.getItem("twinPillarsServiceDB") || "[]");
+    } catch (e) {
+        db = [];
+    }
+    const archived = db.filter((s) => s.archived).sort((a, b) => String(b.archivedAt || "").localeCompare(String(a.archivedAt || "")));
+    if (archived.length === 0) {
+        body.innerHTML = '<p style="color:#777; margin:0;">No archived service calls yet. Open a ticket, then use <strong>Archive</strong> in the details window.</p>';
+    } else {
+        const rows = archived
+            .map((sc) => {
+                const archWhen = sc.archivedAt ? new Date(sc.archivedAt).toLocaleString() : "—";
+                return `<tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">${escapeHtmlServiceArchive(sc.ticketNum)}</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">${escapeHtmlServiceArchive(sc.customerName)}</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">${escapeHtmlServiceArchive(sc.date)}</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">${escapeHtmlServiceArchive(sc.status)}</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; font-size:12px; color:#555;">${escapeHtmlServiceArchive(archWhen)}</td>
+                </tr>`;
+            })
+            .join("");
+        body.innerHTML = `<table style="width:100%; border-collapse:collapse;">
+            <thead><tr style="background:#f4f6f7; text-align:left; font-size:12px;">
+                <th style="padding:8px;">Ticket</th><th>Customer</th><th>Sched. date</th><th>Status</th><th>Archived</th>
+            </tr></thead><tbody>${rows}</tbody></table>`;
+    }
+    modal.style.display = "block";
 }
