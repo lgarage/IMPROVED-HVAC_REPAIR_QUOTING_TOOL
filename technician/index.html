@@ -1543,7 +1543,7 @@ function filterOcrLinesForNameplate(text){
 }
 
 /** Upscale + grayscale + contrast so Tesseract reads stamped text more reliably (esp. on phones). */
-async function preprocessImageForOcr(file){
+function preprocessImageForOcrWithFilter(file, filterCss, scaleCap){
   return new Promise(function(resolve){
     if (!file || !file.type || !file.type.startsWith("image/")) { resolve(file); return; }
     const img = new Image();
@@ -1555,7 +1555,7 @@ async function preprocessImageForOcr(file){
         const h = img.naturalHeight || img.height;
         if (!w || !h){ resolve(file); return; }
         const maxDim = 2200;
-        const scale = Math.min(2.4, maxDim / Math.max(w, h));
+        const scale = Math.min(scaleCap || 2.4, maxDim / Math.max(w, h));
         const cw = Math.round(w * scale);
         const ch = Math.round(h * scale);
         const canvas = document.createElement("canvas");
@@ -1563,7 +1563,7 @@ async function preprocessImageForOcr(file){
         canvas.height = ch;
         const ctx = canvas.getContext("2d");
         if (!ctx){ resolve(file); return; }
-        ctx.filter = "grayscale(1) contrast(1.22) brightness(1.03)";
+        ctx.filter = filterCss || "grayscale(1) contrast(1.22) brightness(1.03)";
         ctx.drawImage(img, 0, 0, cw, ch);
         ctx.filter = "none";
         canvas.toBlob(function(blob){
@@ -1571,7 +1571,7 @@ async function preprocessImageForOcr(file){
           else resolve(file);
         }, "image/png", 0.92);
       } catch (e){
-        console.warn("[OCR] preprocessImageForOcr", e);
+        console.warn("[OCR] preprocessImageForOcrWithFilter", e);
         resolve(file);
       }
     };
@@ -1580,18 +1580,61 @@ async function preprocessImageForOcr(file){
   });
 }
 
+async function preprocessImageForOcr(file){
+  return preprocessImageForOcrWithFilter(file, "grayscale(1) contrast(1.22) brightness(1.03)", 2.4);
+}
+
+/** Stronger contrast + upscale — helps dark sharpie (e.g. EF3) and faint stamped model #. */
+async function preprocessImageForOcrHighContrast(file){
+  return preprocessImageForOcrWithFilter(file, "grayscale(1) contrast(1.52) brightness(0.96)", 2.85);
+}
+
+function isPlausibleModelToken(cand){
+  if (!cand || cand.length < 6 || cand.length > 16) return false;
+  if (/^(MCA|MOCP|SCFM|MAXR|ETL|UL|CSA|RPM|HP|VAC|AWG|MIN|MAX|INTER|TEK)$/i.test(cand)) return false;
+  if (/^BMN|^HD\d|^CP\d|^GE\d/i.test(cand)) return false;
+  if (/^\d+$/.test(cand)) return false;
+  return /[A-Z]/.test(cand) && /\d/.test(cand);
+}
+
+/** Model # on nameplate; OCR often splits letters/digits (e.g. "DU 85 HFA") or drops word boundaries. */
 function heuristicExtractModel(fullText){
-  const t = String(fullText || "").toUpperCase().replace(/\s+/g, " ");
+  const raw = String(fullText || "");
+  const t = raw.toUpperCase().replace(/\s+/g, " ");
   const re = /\b([A-Z]{1,3}\d{2,}[A-Z0-9]{0,8})\b/g;
   let best = "";
   let m;
   while ((m = re.exec(t)) !== null){
     const cand = m[1];
-    if (cand.length < 6 || cand.length > 15) continue;
-    if (/^(MCA|MOCP|SCFM|MAXR|ETL|UL|CSA|RPM|HP|VAC|AWG|MIN|MAX)$/i.test(cand)) continue;
-    if (/^BMN|^HD\d|^CP\d|^GE\d/i.test(cand)) continue;
+    if (!isPlausibleModelToken(cand)) continue;
     if (/^[A-Z]{2}\d{2}[A-Z]{3}$/.test(cand)) return cand;
-    if (!best && /[A-Z]/.test(cand) && /\d/.test(cand)) best = cand;
+    if (/^[A-Z]{2}\d{2,4}[A-Z]{2,4}$/.test(cand) && cand.length <= 12) return cand;
+    if (!best && isPlausibleModelToken(cand)) best = cand;
+  }
+
+  const spaced = raw.toUpperCase().replace(/\s+/g, " ");
+  const glue = spaced.match(/\b([A-Z]{1,4})\s+(\d{2,4})\s+([A-Z]{2,4})\b/);
+  if (glue){
+    const cand = glue[1] + glue[2] + glue[3];
+    if (isPlausibleModelToken(cand)) return cand;
+  }
+
+  const compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const reCompact = /([A-Z]{2}\d{2,4}[A-Z]{2,4})/g;
+  while ((m = reCompact.exec(compact)) !== null){
+    const cand = m[1];
+    if (!isPlausibleModelToken(cand)) continue;
+    if (/^[A-Z]{2}\d{2}[A-Z]{3}$/.test(cand)) return cand;
+    if (/^[A-Z]{2}\d{2,4}[A-Z]{2,4}$/.test(cand) && cand.length <= 12) return cand;
+    if (!best) best = cand;
+  }
+
+  const reLoose = /([A-Z]{1,3}\d{2,6}[A-Z0-9]{1,6})/g;
+  while ((m = reLoose.exec(compact)) !== null){
+    const cand = m[1];
+    if (!isPlausibleModelToken(cand)) continue;
+    if (/^[A-Z]{2}\d{2}[A-Z]{3}$/.test(cand)) return cand;
+    if (!best) best = cand;
   }
   return best;
 }
@@ -1622,13 +1665,49 @@ function heuristicExtractMake(fullText){
   return "";
 }
 
-/** Handwritten fan / EF designation on tag (e.g. EF3). OCR is unreliable on handwriting; user may edit. */
+/** Sharpie / handwritten fan unit (e.g. EF3). Tolerant of OCR splitting E F 3 or misreads. */
 function heuristicExtractMarker(fullText){
-  const t = String(fullText || "").toUpperCase().replace(/\s+/g, " ");
-  let m = t.match(/\bEF[-\s]?\s*(\d{1,2})\b/);
-  if (m) return "EF" + m[1];
-  m = t.match(/\bE\s*F[-\s]?\s*(\d{1,2})\b/);
-  if (m) return "EF" + m[1];
+  const raw = String(fullText || "");
+  const t = raw.toUpperCase().replace(/\s+/g, " ");
+
+  function fromMatch(mm){
+    if (!mm || !mm[1]) return "";
+    const n = parseInt(mm[1], 10);
+    if (isNaN(n) || n < 0 || n > 99) return "";
+    return "EF" + n;
+  }
+
+  let m = t.match(/\bE[\s\.\-_]{0,4}F[\s\.\-_]{0,4}(\d{1,2})\b/);
+  let out = fromMatch(m);
+  if (out) return out;
+
+  m = t.match(/\bEF[\s\.\-_]{0,3}(\d{1,2})\b/);
+  out = fromMatch(m);
+  if (out) return out;
+
+  m = t.match(/\bEF(\d{1,2})\b/);
+  out = fromMatch(m);
+  if (out) return out;
+
+  const compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  m = compact.match(/EF(\d{1,2})(?=[A-Z0-9]|$)/);
+  out = fromMatch(m);
+  if (out) return out;
+
+  const lines = raw.split(/\n/);
+  for (let i = 0; i < lines.length; i++){
+    const line = lines[i].trim();
+    if (!line || line.length > 18) continue;
+    const u = line.toUpperCase();
+    m = u.match(/^E[\s\.\-_]{0,4}F[\s\.\-_]{0,4}(\d{1,2})\s*$/);
+    out = fromMatch(m);
+    if (out) return out;
+    m = u.match(/^EF[\s\.\-_]{0,3}(\d{1,2})\s*$/);
+    out = fromMatch(m);
+    if (out) return out;
+    const lo = u.replace(/[^A-Z0-9]/g, "");
+    if (/^EF\d{1,2}$/.test(lo)) return lo.replace(/^EF(\d+)$/, (_, d) => "EF" + parseInt(d, 10));
+  }
   return "";
 }
 
@@ -1834,6 +1913,17 @@ function parseNameplateTagText(raw){
     if (!serial && unitTagLine && unitTagLine[1]){ serial = clean(unitTagLine[1]); console.log("[OCR][parse] Unit tag same-line:", serial); }
   }
 
+  if (!model){
+    for (let li = 0; li < lines.length; li++){
+      const gm = heuristicExtractModel(lines[li]);
+      if (gm){
+        model = clean(gm);
+        console.log("[OCR][parse] Model per-line heuristic:", model);
+        break;
+      }
+    }
+  }
+
   const guessSource = rawFull;
   if (!make){
     const hm = heuristicExtractMake(guessSource);
@@ -1899,7 +1989,10 @@ async function runTagOcrOnFile(file){
 
   try {
     statusEl.textContent = "Preparing image…";
-    const imageForOcr = await preprocessImageForOcr(file);
+    const [blobStd, blobHi] = await Promise.all([
+      preprocessImageForOcr(file),
+      preprocessImageForOcrHighContrast(file)
+    ]);
 
     const ocrOpts = {
       logger(m){
@@ -1913,20 +2006,37 @@ async function runTagOcrOnFile(file){
       tessedit_pageseg_mode: 6
     };
 
-    let data;
-    try {
-      const result = await Tesseract.recognize(imageForOcr, "eng", ocrOpts);
-      data = result.data;
-    } catch (e1){
-      console.warn("[OCR] Retrying without PSM 6", e1);
-      const result = await Tesseract.recognize(imageForOcr, "eng", {
-        logger: ocrOpts.logger
-      });
-      data = result.data;
+    async function recognizeSafe(blob, opts){
+      try{
+        const result = await Tesseract.recognize(blob, "eng", opts);
+        return (result && result.data && result.data.text) ? result.data.text : "";
+      } catch (e){
+        console.warn("[OCR] recognizeSafe failed", e);
+        return "";
+      }
     }
 
-    const rawText = (data && data.text) ? data.text : "";
-    console.log("[OCR] ========== RAW TESSERACT TEXT (full) ==========");
+    let rawText = "";
+    try {
+      const parts = await Promise.all([
+        recognizeSafe(blobStd, ocrOpts),
+        recognizeSafe(blobHi, ocrOpts),
+        recognizeSafe(blobHi, { logger: ocrOpts.logger, tessedit_pageseg_mode: 11 })
+      ]);
+      rawText = parts.filter(Boolean).join("\n");
+    } catch (e1){
+      console.warn("[OCR] Multi-pass failed, single pass", e1);
+      rawText = await recognizeSafe(blobStd, ocrOpts);
+    }
+    if (!rawText.trim()){
+      try {
+        rawText = await recognizeSafe(blobStd, { logger: ocrOpts.logger });
+      } catch (e2){
+        console.warn("[OCR] Fallback recognize", e2);
+      }
+    }
+
+    console.log("[OCR] ========== RAW TESSERACT TEXT (full, merged passes) ==========");
     console.log(rawText);
     console.log("[OCR] ========== END RAW TEXT (length " + rawText.length + ") ==========");
 
