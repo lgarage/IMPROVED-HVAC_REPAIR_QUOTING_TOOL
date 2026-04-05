@@ -1,0 +1,8 @@
+# Local / secrets (never commit service account JSON)
+*-firebase-adminsdk-*.json
+serviceAccount*.json
+.env
+.env.*
+
+# Dependencies (if you add a build step later)
+node_modules/
