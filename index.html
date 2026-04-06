@@ -1301,6 +1301,194 @@
           display: none !important;
         }
       }
+
+      /* --- Equipment Manager (append-only; isolated feature) --- */
+      #equipmentManagerModal.em-modal-hidden {
+        display: none !important;
+      }
+      #equipmentManagerModal.em-modal-visible {
+        display: flex !important;
+      }
+      #equipmentManagerModal {
+        position: fixed;
+        inset: 0;
+        z-index: 10050;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 24px 16px;
+        overflow-y: auto;
+        background: rgba(0, 0, 0, 0.45);
+        box-sizing: border-box;
+      }
+      .em-modal-panel {
+        background: #fff;
+        border-radius: 10px;
+        max-width: 720px;
+        width: 100%;
+        padding: 20px 22px 24px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+        border: 1px solid #d1d9e0;
+        margin-bottom: 40px;
+      }
+      .em-modal-header {
+        border-bottom: 2px solid #e8eef4;
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+      }
+      .em-modal-header h2 {
+        margin: 0 0 8px 0;
+        font-size: 1.2rem;
+        color: #1e4b85;
+      }
+      .em-context-line {
+        font-size: 13px;
+        color: #555;
+        line-height: 1.45;
+        margin: 4px 0;
+      }
+      .em-context-line strong {
+        color: #2c3e50;
+      }
+      .em-form-grid label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        color: #555;
+        margin-top: 12px;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      .em-form-grid input[type="text"],
+      .em-form-grid input[type="number"],
+      .em-form-grid input[type="file"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px 12px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 15px;
+      }
+      .em-row-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+      .em-btn {
+        padding: 12px 18px;
+        border: none;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      .em-btn-primary {
+        background: #1e4b85;
+        color: #fff;
+      }
+      .em-btn-secondary {
+        background: #ecf0f1;
+        color: #2c3e50;
+      }
+      .em-btn-close {
+        background: transparent;
+        color: #7f8c8d;
+        border: 1px solid #ccc;
+      }
+      .em-spinner-wrap {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        margin: 10px 0;
+        font-size: 14px;
+        color: #1e4b85;
+      }
+      .em-spinner-wrap.em-active {
+        display: flex;
+      }
+      .em-spinner {
+        width: 22px;
+        height: 22px;
+        border: 3px solid #e1e8ed;
+        border-top-color: #1e4b85;
+        border-radius: 50%;
+        animation: em-spin 0.75s linear infinite;
+      }
+      @keyframes em-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .em-health-bar {
+        margin-top: 14px;
+        padding: 12px;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e1e8ed;
+        font-size: 15px;
+      }
+      .em-health-score {
+        font-weight: 800;
+        color: #1e4b85;
+      }
+      .em-proposal {
+        display: none;
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 2px solid #e8eef4;
+      }
+      .em-proposal.em-visible {
+        display: block;
+      }
+      .em-proposal-cols {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 12px;
+      }
+      @media (max-width: 700px) {
+        .em-proposal-cols {
+          grid-template-columns: 1fr;
+        }
+      }
+      .em-prop-card {
+        border: 1px solid #d1d9e0;
+        border-radius: 8px;
+        padding: 14px;
+        background: #fafbfc;
+      }
+      .em-prop-card h4 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #1e4b85;
+      }
+      .em-prop-card .em-price {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #2c3e50;
+      }
+      .em-badge-warn {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 6px 8px;
+        background: #fdedec;
+        color: #c0392b;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .em-prop-best.em-reco {
+        border-color: #27ae60;
+        background: #e8f8ef;
+        box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.25);
+      }
+      .em-reco-label {
+        font-size: 12px;
+        font-weight: 800;
+        color: #27ae60;
+        margin-top: 6px;
+      }
     </style>
   </head>
   <body>
@@ -4529,5 +4717,135 @@
     <script src="service_call.js?v=35"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=36"></script>
+
+    <div
+      id="equipmentManagerModal"
+      class="modal em-modal-hidden"
+      aria-hidden="true"
+    >
+      <div class="em-modal-panel">
+        <div class="em-modal-header">
+          <h2>Equipment Profile &amp; Grading</h2>
+          <div class="em-context-line">
+            <strong>Parent Company:</strong>
+            <span id="emHdrParent">—</span>
+          </div>
+          <div class="em-context-line">
+            <strong>Customer:</strong> <span id="emHdrCustomer">—</span>
+          </div>
+          <div class="em-context-line">
+            <strong>Location:</strong> <span id="emHdrLocation">—</span>
+          </div>
+        </div>
+
+        <div class="em-form-grid">
+          <label for="emPhotoOverall">Upload Overall Photo</label>
+          <input
+            type="file"
+            id="emPhotoOverall"
+            name="emPhotoOverall"
+            accept="image/*"
+          />
+
+          <label for="emPhotoPlate">Upload Data Plate Photo</label>
+          <input
+            type="file"
+            id="emPhotoPlate"
+            name="emPhotoPlate"
+            accept="image/*"
+          />
+
+          <div id="emOcrSpinner" class="em-spinner-wrap" aria-live="polite">
+            <div class="em-spinner" role="status"></div>
+            <span>Reading data plate with Gemini…</span>
+          </div>
+
+          <label for="emBrand">Brand</label>
+          <input type="text" id="emBrand" autocomplete="off" />
+
+          <label for="emModel">Model</label>
+          <input type="text" id="emModel" autocomplete="off" />
+
+          <label for="emSerialJob">Serial / Job #</label>
+          <input type="text" id="emSerialJob" autocomplete="off" />
+
+          <label for="emUnitTag">Unit Tag (e.g., RTU-2)</label>
+          <input type="text" id="emUnitTag" autocomplete="off" />
+
+          <label for="emVoltage">Voltage</label>
+          <input type="text" id="emVoltage" autocomplete="off" />
+
+          <label for="emPhase">Phase</label>
+          <input type="text" id="emPhase" autocomplete="off" />
+
+          <label for="emRefrigerant">Refrigerant</label>
+          <input type="text" id="emRefrigerant" autocomplete="off" />
+
+          <label for="emTonnage">Tonnage (from model)</label>
+          <input type="text" id="emTonnage" autocomplete="off" />
+
+          <label for="emMfgYear">Manufacture Year</label>
+          <input type="text" id="emMfgYear" autocomplete="off" />
+
+          <label for="emAgeYears">Age in Years</label>
+          <input type="number" id="emAgeYears" min="0" step="1" />
+
+          <label for="emCRV">Estimated CRV ($)</label>
+          <input type="number" id="emCRV" min="0" step="1" />
+
+          <label for="emPrevRepairs">Total Previous Repairs ($)</label>
+          <input type="number" id="emPrevRepairs" min="0" step="1" />
+
+          <label for="emProposedCost">Proposed Repair Cost ($)</label>
+          <input type="number" id="emProposedCost" min="0" step="1" />
+        </div>
+
+        <div class="em-health-bar" id="emHealthBar">
+          <span>Integrity score: </span>
+          <span class="em-health-score" id="emHealthScore">100</span>
+          <span> — Grade </span>
+          <span class="em-health-score" id="emHealthGrade">A</span>
+        </div>
+
+        <div class="em-row-actions">
+          <button type="button" class="em-btn em-btn-primary" id="emSaveBtn">
+            Save Equipment
+          </button>
+          <button type="button" class="em-btn em-btn-secondary" id="emProposalBtn">
+            Generate Customer Proposal
+          </button>
+          <button type="button" class="em-btn em-btn-close" id="emCloseBtn">
+            Close
+          </button>
+        </div>
+
+        <div id="emProposalSection" class="em-proposal">
+          <h3 style="margin: 0 0 8px 0; color: #1e4b85; font-size: 1rem">
+            Customer proposal options
+          </h3>
+          <div class="em-proposal-cols">
+            <div class="em-prop-card" id="emPropGood">
+              <h4>Good</h4>
+              <div class="em-price" id="emPriceGood">—</div>
+              <div id="emWarnGood"></div>
+            </div>
+            <div class="em-prop-card" id="emPropBetter">
+              <h4>Better</h4>
+              <div class="em-price" id="emPriceBetter">—</div>
+              <div id="emWarnBetter"></div>
+            </div>
+            <div class="em-prop-card em-prop-best" id="emPropBest">
+              <h4>Best</h4>
+              <div class="em-price" id="emPriceBest">—</div>
+              <div class="em-reco-label" id="emRecoLabel" style="display: none">
+                Fact-Driven Recommendation
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="equipment_manager.js"></script>
   </body>
 </html>
