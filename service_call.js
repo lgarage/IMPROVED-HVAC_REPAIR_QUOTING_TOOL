@@ -1622,17 +1622,21 @@ async function cleanIssueWithAI(rawText) {
     if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) {
         const safeRaw = String(rawText).replace(/"""|```/g, " ");
         const prompt = [
-            "You are an expert HVAC dispatch editor. The text below was spoken by a dispatcher and transcribed by speech-to-text.",
-            "It may contain wrong homophones (e.g. \"ARE SINGLING\" meant \"OUR CEILING\", \"ARE\" meant \"OUR\"), repetition, or missing punctuation.",
+            "You edit HVAC dispatch \"Reported Issue\" notes. Input is speech-to-text from a dispatcher.",
             "",
-            "Tasks:",
-            "1) Infer the intended meaning and fix errors so the ticket is accurate.",
-            "2) Keep EVERY important fact: what is wrong, where, what the customer is doing (e.g. bucket), and any note about photos/attachments.",
-            "3) You may merge repeated phrases; do not drop useful details.",
-            "4) Use clear, professional wording for a service call \"Reported Issue / Scope of Work\".",
-            "5) Output in ALL CAPS. Use normal sentence punctuation. Multiple sentences are OK.",
+            "Fix homophones and nonsense duplicates (e.g. a second \"OUR SEALANT IS LEAKING\" often means the same ceiling leak as \"OUR CEILING\" — merge into one clear statement, not two conflicting lines).",
             "",
-            "Return ONLY the cleaned dispatch notes — no quotes, no markdown, no preamble.",
+            "Punctuation and style (required):",
+            "- Split ideas into separate sentences. End each sentence with a period.",
+            "- Do not leave one giant run-on line. Use 2–5 short sentences when needed.",
+            "- Remove repeated filler like saying \"CURRENTLY\" in every clause; keep the meaning once, in clean English.",
+            "- Where helpful, use a comma after introductory phrases; otherwise keep sentences simple.",
+            "- Preserve: what is leaking or failed, customer mitigation (e.g. bucket), and photo/attachment notes.",
+            "",
+            "Output rules:",
+            "- ALL CAPS.",
+            "- Professional, concise wording — same facts, fewer words, correct punctuation.",
+            "- Return ONLY the final notes: no quotes, no markdown, no labels, no preamble.",
             "",
             "RAW TRANSCRIPT:",
             '"""',
@@ -1646,7 +1650,7 @@ async function cleanIssueWithAI(rawText) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { temperature: 0.15, maxOutputTokens: 1024 }
+                    generationConfig: { temperature: 0.1, maxOutputTokens: 1024 }
                 })
             });
 
@@ -1658,6 +1662,8 @@ async function cleanIssueWithAI(rawText) {
                 const part = data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0];
                 if (part && part.text) {
                     cleanText = part.text.trim().replace(/^["']|["']$/g, "").trim().toUpperCase();
+                    cleanText = cleanText.replace(/\s+/g, " ").replace(/\s+([.,!?])/g, "$1").trim();
+                    if (cleanText.length > 0 && !/[.!?]$/.test(cleanText)) cleanText += ".";
                     aiSuccess = cleanText.length > 0;
                 }
             }
