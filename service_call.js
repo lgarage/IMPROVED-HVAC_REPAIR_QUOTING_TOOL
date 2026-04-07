@@ -1304,8 +1304,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     };
 }
 
-function startDispatcherVoiceSearch(e) {
-    if (e && e.type === "touchstart") e.preventDefault();
+function startDispatcherVoiceSearch() {
     if (!dispatcherRecognition) {
         alert("Voice search not supported in this browser. Please use Chrome or Safari.");
         return;
@@ -1324,7 +1323,6 @@ function startDispatcherVoiceSearch(e) {
     }
 
     window.addEventListener("mouseup", stopDispatcherVoiceSearch);
-    window.addEventListener("touchend", stopDispatcherVoiceSearch, { passive: true });
     try {
         dispatcherRecognition.start();
     } catch (err) {}
@@ -1336,7 +1334,6 @@ async function stopDispatcherVoiceSearch() {
     dispatcherVoiceCarryover = "";
 
     window.removeEventListener("mouseup", stopDispatcherVoiceSearch);
-    window.removeEventListener("touchend", stopDispatcherVoiceSearch);
     try {
         dispatcherRecognition.stop();
     } catch (e) {}
@@ -1529,6 +1526,8 @@ function applySearchResultToForm(data) {
 
 let issueRecognition;
 let currentIssueVoiceText = "";
+/** Same pattern as customer mic: speech engine segments; carry over between restarts while holding. */
+let issueVoiceCarryover = "";
 let isIssueRecording = false;
 
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -1538,24 +1537,28 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     issueRecognition.interimResults = true; 
 
     issueRecognition.onresult = (event) => {
-        let transcript = "";
-        for (let i = 0; i < event.results.length; ++i) {
-            transcript += event.results[i][0].transcript;
-            if (event.results[i].isFinal) transcript += " ";
+        let segment = "";
+        for (let i = 0; i < event.results.length; i++) {
+            segment += event.results[i][0].transcript;
         }
-        
-        if (transcript.trim() !== "") {
-            currentIssueVoiceText = transcript;
-            const micBtn = document.getElementById('scIssueMicBtn');
-            if (isIssueRecording && micBtn) { micBtn.innerText = "🗣️ Listening..."; }
+        const seg = segment.trim();
+        currentIssueVoiceText = (issueVoiceCarryover + (issueVoiceCarryover && seg ? " " : "") + seg).trim();
+        const micBtn = document.getElementById('scIssueMicBtn');
+        if (isIssueRecording && micBtn) {
+            micBtn.innerText = "🗣️ " + (currentIssueVoiceText.length > 48 ? currentIssueVoiceText.slice(0, 45) + "…" : currentIssueVoiceText);
         }
     };
 
     issueRecognition.onend = () => {
-        if (isIssueRecording) { try { issueRecognition.start(); } catch(e) {} }
+        if (isIssueRecording) {
+            issueVoiceCarryover = currentIssueVoiceText;
+            try { issueRecognition.start(); } catch (e) {}
+        }
     };
 
     issueRecognition.onerror = (event) => {
+        if (event.error === "aborted") return;
+        if (event.error === "no-speech" && isIssueRecording) return;
         if (event.error !== 'no-speech') {
             console.error('Speech error', event.error);
             resetIssueMicBtn();
@@ -1568,11 +1571,12 @@ function startIssueVoiceInput() {
     if (isIssueRecording) return;
     
     isIssueRecording = true;
-    currentIssueVoiceText = ""; 
+    currentIssueVoiceText = "";
+    issueVoiceCarryover = "";
     
     const micBtn = document.getElementById('scIssueMicBtn');
     if(micBtn) {
-        micBtn.innerText = "🔴 LISTENING... (Speak Now)";
+        micBtn.innerText = "🔴 LISTENING... (release when done)";
         micBtn.style.backgroundColor = "#e74c3c";
         micBtn.style.transform = "scale(0.95)"; 
     }
@@ -1583,7 +1587,8 @@ function startIssueVoiceInput() {
 
 async function stopIssueVoiceInput() {
     if (!isIssueRecording) return;
-    isIssueRecording = false; 
+    isIssueRecording = false;
+    issueVoiceCarryover = "";
     
     window.removeEventListener('mouseup', stopIssueVoiceInput);
     try { issueRecognition.stop(); } catch(e) {}
@@ -1615,23 +1620,46 @@ async function cleanIssueWithAI(rawText) {
     let aiSuccess = false;
 
     if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) {
-        const prompt = `
-        You are a professional HVAC Dispatcher. Rewrite the following spoken notes into a clean, concise, and highly professional service call description.
-        Rules: Fix grammar/spelling, remove filler words, keep 1-3 sentences max, output in ALL CAPS, add proper punctuation. Return ONLY the cleaned description.
-        Raw Spoken Notes: "${rawText}"
-        `;
+        const safeRaw = String(rawText).replace(/"""|```/g, " ");
+        const prompt = [
+            "You are an expert HVAC dispatch editor. The text below was spoken by a dispatcher and transcribed by speech-to-text.",
+            "It may contain wrong homophones (e.g. \"ARE SINGLING\" meant \"OUR CEILING\", \"ARE\" meant \"OUR\"), repetition, or missing punctuation.",
+            "",
+            "Tasks:",
+            "1) Infer the intended meaning and fix errors so the ticket is accurate.",
+            "2) Keep EVERY important fact: what is wrong, where, what the customer is doing (e.g. bucket), and any note about photos/attachments.",
+            "3) You may merge repeated phrases; do not drop useful details.",
+            "4) Use clear, professional wording for a service call \"Reported Issue / Scope of Work\".",
+            "5) Output in ALL CAPS. Use normal sentence punctuation. Multiple sentences are OK.",
+            "",
+            "Return ONLY the cleaned dispatch notes — no quotes, no markdown, no preamble.",
+            "",
+            "RAW TRANSCRIPT:",
+            '"""',
+            safeRaw,
+            '"""'
+        ].join("\n");
 
         try {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${firebaseConfig.apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2 } })
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { temperature: 0.15, maxOutputTokens: 1024 }
+                })
             });
 
             const data = await response.json();
+            if (data.error) {
+                console.error("Gemini API error:", data.error);
+            }
             if (data.candidates && data.candidates.length > 0) {
-                cleanText = data.candidates[0].content.parts[0].text.trim().toUpperCase();
-                aiSuccess = true;
+                const part = data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0];
+                if (part && part.text) {
+                    cleanText = part.text.trim().replace(/^["']|["']$/g, "").trim().toUpperCase();
+                    aiSuccess = cleanText.length > 0;
+                }
             }
         } catch (error) { console.error("AI Cleanup Failed:", error); }
     }
