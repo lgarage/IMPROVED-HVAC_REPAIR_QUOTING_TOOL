@@ -586,11 +586,37 @@ function formatTimeRange(startStr, durationStr) {
     return `${startH}:${startM}${startAmPm} - ${finalEndH}:${finalEndM}${endAmPm}`;
 }
 
+/** Native tooltip text for gantt blocks (customer, time, address, issue). */
+function buildGanttEventTooltip(sc, displayTime) {
+    const addrParts = [];
+    if (sc.locationAddress) addrParts.push(String(sc.locationAddress).trim());
+    const cityState = [sc.custCity, sc.custState].filter(Boolean).join(", ");
+    if (cityState) addrParts.push(cityState);
+    if (sc.custZip) addrParts.push(String(sc.custZip).trim());
+    const address = addrParts.length ? addrParts.join(" · ") : "—";
+    const desc = sc.issue && String(sc.issue).trim()
+        ? String(sc.issue).replace(/\s+/g, " ").trim()
+        : "";
+    const lines = [
+        "Customer: " + (sc.customerName || ""),
+        "Time: " + displayTime,
+        "Address: " + address
+    ];
+    if (desc) lines.push("Description: " + desc);
+    return lines.join("\n");
+}
+
 function renderServiceBoard() {
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
     const listContainer = document.getElementById('serviceRequestList');
     const timeline = document.getElementById('scheduleTimeline');
     const dateInput = document.getElementById('boardDateSelector').value;
+
+    const ganttContainer = document.querySelector(".gantt-container");
+    if (ganttContainer) {
+        ganttContainer.classList.remove("board-view-day", "board-view-week", "board-view-month");
+        ganttContainer.classList.add("board-view-" + currentBoardView);
+    }
 
     // 1. RENDER LEFT PANEL
     listContainer.innerHTML = '';
@@ -764,28 +790,39 @@ function renderServiceBoard() {
         if (currentBoardView === 'day') {
             block.innerHTML = `
                 <div class="resize-handle resize-left" onmousedown="startTimelineResize(event, '${sc.id}', 'left')"></div>
-                <div style="font-size: 11px; margin-bottom: 3px; display:flex; align-items:center; gap:5px; opacity:0.9;">
-                    <i class="far fa-clock"></i> <span>${displayTime}</span>
-                </div>
-                <div class="gantt-job-title" style="font-size: 14px; margin-bottom: 3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sc.customerName}</div>
-                <div class="gantt-job-sub" style="font-size: 11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.8;">
-                    ${contactDisplay} &bull; ${zipDisplay}
+                <div class="gantt-job-block-inner">
+                    <div class="gantt-job-line gantt-job-time-row">
+                        <i class="far fa-clock" aria-hidden="true"></i>
+                        <span class="gantt-job-time-text">${displayTime}</span>
+                    </div>
+                    <div class="gantt-job-line gantt-job-name">${sc.customerName}</div>
+                    <div class="gantt-job-line gantt-job-detail">${contactDisplay} · ${zipDisplay}</div>
                 </div>
                 <div class="resize-handle resize-right" onmousedown="startTimelineResize(event, '${sc.id}', 'right')"></div>
             `;
         } else if (currentBoardView === 'week') {
-            block.style.padding = '4px';
             block.innerHTML = `
                 <div class="resize-handle resize-left" onmousedown="startTimelineResize(event, '${sc.id}', 'left')"></div>
-                <div style="font-size: 9px; opacity:0.9; margin-bottom:2px; white-space:nowrap; overflow:hidden;"><i class="far fa-clock"></i> ${displayTime}</div>
-                <div class="gantt-job-title" style="font-size:11px; margin-bottom:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sc.customerName}</div>
+                <div class="gantt-job-block-inner">
+                    <div class="gantt-job-line gantt-job-time-row">
+                        <i class="far fa-clock" aria-hidden="true"></i>
+                        <span class="gantt-job-time-text">${displayTime}</span>
+                    </div>
+                    <div class="gantt-job-line gantt-job-name">${sc.customerName}</div>
+                </div>
                 <div class="resize-handle resize-right" onmousedown="startTimelineResize(event, '${sc.id}', 'right')"></div>
             `;
         } else {
-            block.style.padding = '0';
-            block.innerHTML = '';
-            block.title = `${sc.customerName} (${displayTime})`; 
+            block.className = "gantt-job-block gantt-job-block--month";
+            block.innerHTML = `
+                <div class="gantt-job-block-inner gantt-job-block-inner--month">
+                    <span class="gantt-job-month-text">${displayTime}</span>
+                    <span class="gantt-job-month-text">${sc.customerName}</span>
+                </div>
+            `;
         }
+
+        block.setAttribute("title", buildGanttEventTooltip(sc, displayTime));
 
         tContainer.appendChild(block);
     });
