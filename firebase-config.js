@@ -24,6 +24,12 @@ function getGeminiApiKey() {
   return firebaseConfig.apiKey || "";
 }
 
+/**
+ * Model id for generativelanguage.googleapis.com .../models/MODEL:generateContent
+ * (gemini-1.5-flash was retired; change here if Google renames again.)
+ */
+var GEMINI_GENERATE_MODEL = "gemini-2.5-flash";
+
 // Initialize Firebase (only official fields; geminiApiKey is app-only)
 firebase.initializeApp({
   apiKey: firebaseConfig.apiKey,

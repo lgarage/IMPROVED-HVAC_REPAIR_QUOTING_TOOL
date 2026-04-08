@@ -1644,7 +1644,7 @@ async function cleanIssueWithAI(rawText) {
         ].join("\n");
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(getGeminiApiKey())}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${typeof GEMINI_GENERATE_MODEL !== "undefined" ? GEMINI_GENERATE_MODEL : "gemini-2.5-flash"}:generateContent?key=${encodeURIComponent(getGeminiApiKey())}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1751,7 +1751,9 @@ async function improveIssueTextWithAI() {
 
     try {
         const response = await fetch(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" +
+            "https://generativelanguage.googleapis.com/v1beta/models/" +
+                (typeof GEMINI_GENERATE_MODEL !== "undefined" ? GEMINI_GENERATE_MODEL : "gemini-2.5-flash") +
+                ":generateContent?key=" +
                 encodeURIComponent(getGeminiApiKey()),
             {
                 method: "POST",

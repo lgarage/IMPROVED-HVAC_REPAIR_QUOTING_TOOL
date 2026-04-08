@@ -5,7 +5,12 @@
 (function () {
   "use strict";
 
-  var GEMINI_MODEL = "gemini-1.5-flash";
+  function geminiModelId() {
+    if (typeof GEMINI_GENERATE_MODEL !== "undefined" && GEMINI_GENERATE_MODEL) {
+      return GEMINI_GENERATE_MODEL;
+    }
+    return "gemini-2.5-flash";
+  }
 
   function loadScript(src) {
     return new Promise(function (resolve, reject) {
@@ -143,7 +148,7 @@
     }
     var url =
       "https://generativelanguage.googleapis.com/v1beta/models/" +
-      GEMINI_MODEL +
+      geminiModelId() +
       ":generateContent?key=" +
       encodeURIComponent(key);
 
