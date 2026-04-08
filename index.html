@@ -2336,6 +2336,8 @@
                         display: flex;
                         justify-content: space-between;
                         align-items: center;
+                        flex-wrap: wrap;
+                        gap: 10px;
                       "
                     >
                       <label
@@ -2346,26 +2348,58 @@
                         "
                         >Reported Issue / Scope of Work</label
                       >
-                      <button
-                        type="button"
-                        id="scIssueMicBtn"
-                        onmousedown="startIssueVoiceInput()"
+                      <div
                         style="
-                          background: #f39c12;
-                          color: #fff;
-                          border: none;
-                          border-radius: 8px;
-                          padding: 12px 25px;
-                          font-size: 15px;
-                          font-weight: bold;
-                          cursor: pointer;
-                          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-                          transition: transform 0.1s, background 0.1s;
-                          user-select: none;
+                          display: flex;
+                          align-items: stretch;
+                          gap: 10px;
+                          flex-wrap: wrap;
                         "
                       >
-                        🎤 HOLD TO SPEAK
-                      </button>
+                        <button
+                          type="button"
+                          id="scIssueMicBtn"
+                          onmousedown="startIssueVoiceInput()"
+                          style="
+                            background: #f39c12;
+                            color: #fff;
+                            border: none;
+                            border-radius: 8px;
+                            padding: 12px 22px;
+                            font-size: 15px;
+                            font-weight: bold;
+                            cursor: pointer;
+                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+                            transition: transform 0.1s, background 0.1s;
+                            user-select: none;
+                          "
+                        >
+                          🎤 HOLD TO SPEAK
+                        </button>
+                        <button
+                          type="button"
+                          id="scIssueImproveAiBtn"
+                          onclick="improveIssueTextWithAI()"
+                          title="Polish the text in the box for invoices (grammar, tone, no new facts)"
+                          style="
+                            background: linear-gradient(180deg, #234a7c 0%, #1e4b85 100%);
+                            color: #fff;
+                            border: 2px solid #c89b53;
+                            border-radius: 8px;
+                            padding: 12px 20px;
+                            font-size: 15px;
+                            font-weight: bold;
+                            cursor: pointer;
+                            box-shadow: 0 4px 12px rgba(30, 75, 133, 0.25);
+                            transition: transform 0.1s, filter 0.15s;
+                            user-select: none;
+                          "
+                          onmouseenter="this.style.filter='brightness(1.06)'"
+                          onmouseleave="this.style.filter='none'"
+                        >
+                          ✨ Improve With AI
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -4713,7 +4747,7 @@
 
     <script src="settings.js?v=6"></script>
     <script src="customer_directory.js?v=25"></script>
-    <script src="service_call.js?v=39"></script>
+    <script src="service_call.js?v=40"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=36"></script>
 

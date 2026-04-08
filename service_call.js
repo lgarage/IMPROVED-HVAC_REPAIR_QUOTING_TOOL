@@ -1682,6 +1682,100 @@ async function cleanIssueWithAI(rawText) {
     resetIssueMicBtn();
 }
 
+/**
+ * Replaces #scIssueInput content using Gemini + invoice-style editor rules (user speaks/types raw; this polishes on demand).
+ */
+async function improveIssueTextWithAI() {
+    const ta = document.getElementById("scIssueInput");
+    const btn = document.getElementById("scIssueImproveAiBtn");
+    if (!ta) return;
+
+    const raw = ta.value.trim();
+    if (!raw) {
+        alert("Enter or dictate text in the issue box first, then click Improve With AI.");
+        return;
+    }
+
+    if (typeof firebaseConfig === "undefined" || !firebaseConfig.apiKey) {
+        alert("Gemini API key is not available (firebaseConfig).");
+        return;
+    }
+
+    const safeRaw = String(raw).replace(/"""|```/g, " ");
+    const editorRules = [
+        "You are an expert HVAC Dispatch Editor. Your job is to take raw, hastily written, or voice-transcribed notes and transform them into clean, concise, and highly professional text for a customer invoice. Follow these strict rules:",
+        "1. Fix all grammar, punctuation, and spelling.",
+        "2. Remove repetitive statements, filler words (like 'um', 'uh'), and run-on sentences.",
+        "3. Maintain an objective, professional tone.",
+        "4. NEVER invent new information, parts, or complaints; only use the exact facts provided in the raw text.",
+        "5. Output ONLY the finalized, cleaned text. Do not include any introductory or concluding remarks.",
+    ].join("\n");
+
+    const prompt =
+        editorRules +
+        "\n\nRAW TEXT TO EDIT:\n\"\"\"\n" +
+        safeRaw +
+        "\n\"\"\"";
+
+    const label = "✨ Improve With AI";
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = "⏳ Improving…";
+    }
+
+    try {
+        const response = await fetch(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" +
+                encodeURIComponent(firebaseConfig.apiKey),
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
+                }),
+            }
+        );
+
+        const data = await response.json();
+        if (data.error) {
+            console.error("Gemini API error:", data.error);
+            alert(data.error.message || "Gemini request failed.");
+            return;
+        }
+
+        const part =
+            data.candidates &&
+            data.candidates[0] &&
+            data.candidates[0].content &&
+            data.candidates[0].content.parts &&
+            data.candidates[0].content.parts[0];
+
+        let out = part && part.text ? String(part.text).trim() : "";
+        out = out.replace(/^["']|["']$/g, "").trim();
+        const fence = out.match(/```(?:\w*)?\s*([\s\S]*?)```/);
+        if (fence) out = fence[1].trim();
+
+        if (!out) {
+            alert("No text returned from AI. Try again or check the console.");
+            return;
+        }
+
+        ta.value = out.replace(/\s+/g, " ").trim();
+        if (typeof showSaveCue === "function") {
+            showSaveCue("✨ Issue polished for invoice");
+        }
+    } catch (err) {
+        console.error("improveIssueTextWithAI", err);
+        alert("Improve With AI failed: " + (err && err.message ? err.message : String(err)));
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = label;
+        }
+    }
+}
+
 // ====================================================================
 // --- CUSTOM BOARD VERTICAL RESIZER ---
 // ====================================================================
