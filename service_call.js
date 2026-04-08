@@ -1619,7 +1619,7 @@ async function cleanIssueWithAI(rawText) {
     let cleanText = "";
     let aiSuccess = false;
 
-    if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) {
+    if (typeof getGeminiApiKey === "function" && getGeminiApiKey()) {
         const safeRaw = String(rawText).replace(/"""|```/g, " ");
         const prompt = [
             "You edit HVAC dispatch \"Reported Issue\" notes. Input is speech-to-text; dispatchers often repeat themselves on purpose — your job is to consolidate.",
@@ -1644,7 +1644,7 @@ async function cleanIssueWithAI(rawText) {
         ].join("\n");
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${firebaseConfig.apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(getGeminiApiKey())}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1722,8 +1722,8 @@ async function improveIssueTextWithAI() {
         return;
     }
 
-    if (typeof firebaseConfig === "undefined" || !firebaseConfig.apiKey) {
-        alert("Gemini API key is not available (firebaseConfig).");
+    if (typeof getGeminiApiKey !== "function" || !getGeminiApiKey()) {
+        alert("Gemini API key is not available. Set firebaseConfig.geminiApiKey or apiKey in firebase-config.js.");
         return;
     }
 
@@ -1752,7 +1752,7 @@ async function improveIssueTextWithAI() {
     try {
         const response = await fetch(
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" +
-                encodeURIComponent(firebaseConfig.apiKey),
+                encodeURIComponent(getGeminiApiKey()),
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

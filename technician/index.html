@@ -1198,7 +1198,7 @@ async function autoParseLocation() {
         saveDraft();
     };
 
-    if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) {
+    if (typeof getGeminiApiKey === 'function' && getGeminiApiKey()) {
         const prompt = `
         You are a strict data extraction AI for an HVAC dispatch system.
         Extract the Business Name, City, and Street from the technician's spoken text.
@@ -1217,7 +1217,7 @@ async function autoParseLocation() {
         `;
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${firebaseConfig.apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(getGeminiApiKey())}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -1286,7 +1286,7 @@ async function autoParseParts(fieldId) {
         saveDraft();
     };
 
-    if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey) {
+    if (typeof getGeminiApiKey === 'function' && getGeminiApiKey()) {
         const prompt = `
         You are a strict data extraction AI for an HVAC dispatch system.
         The technician dictated a list of HVAC parts into their phone, resulting in a run-on sentence without commas.
@@ -1309,7 +1309,7 @@ async function autoParseParts(fieldId) {
         `;
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${firebaseConfig.apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(getGeminiApiKey())}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 

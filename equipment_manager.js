@@ -32,6 +32,10 @@
   }
 
   function getApiKey() {
+    if (typeof getGeminiApiKey === "function") {
+      var k = getGeminiApiKey();
+      if (k) return k;
+    }
     if (typeof firebaseConfig !== "undefined" && firebaseConfig.apiKey) {
       return firebaseConfig.apiKey;
     }
@@ -135,7 +139,7 @@
   function callGeminiVision(base64Data, mimeType, promptText) {
     var key = getApiKey();
     if (!key) {
-      return Promise.reject(new Error("No API key (firebaseConfig.apiKey)."));
+      return Promise.reject(new Error("No Gemini API key (set geminiApiKey or apiKey in firebase-config.js)."));
     }
     var url =
       "https://generativelanguage.googleapis.com/v1beta/models/" +

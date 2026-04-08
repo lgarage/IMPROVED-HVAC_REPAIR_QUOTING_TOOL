@@ -269,7 +269,7 @@ function hasRecognizableInvoiceTemplate(src, rawOpt) {
 
 /** After local parse: run Gemini only when notes look unstructured or important fields stayed empty. */
 function shouldAutoRunGeminiInvoice(rawText, parseSource) {
-    if (typeof firebaseConfig === "undefined" || !firebaseConfig.apiKey) return false;
+    if (typeof getGeminiApiKey !== "function" || !getGeminiApiKey()) return false;
     const t = (rawText || "").trim();
     if (t.length < 50) return false;
 
@@ -300,9 +300,9 @@ async function parseInvoicePasteWithGemini(opts) {
         if (!silent) alert("Paste technician notes first.");
         return;
     }
-    if (typeof firebaseConfig === "undefined" || !firebaseConfig.apiKey) {
+    if (typeof getGeminiApiKey !== "function" || !getGeminiApiKey()) {
         if (!silent) {
-            alert("Add your Web API key in firebase-config.js. Enable the Generative Language API in Google Cloud if requests fail.");
+            alert("Add geminiApiKey (or apiKey) in firebase-config.js. Enable the Generative Language API in Google Cloud if requests fail.");
         }
         return;
     }
@@ -328,7 +328,7 @@ ${safeBody}
 
     try {
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${firebaseConfig.apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(getGeminiApiKey())}`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
