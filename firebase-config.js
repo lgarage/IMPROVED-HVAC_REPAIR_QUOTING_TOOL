@@ -13,7 +13,7 @@ const firebaseConfig = {
    * Paste your rotated Gemini browser key here (Generative Language API).
    * Leave "" to use apiKey for Gemini too. Restrict the key by HTTP referrer in Google Cloud.
    */
-  geminiApiKey: "AIzaSyD0_nvTFX2R4H0pSxRTc5JNQN973z5eClQ",
+  geminiApiKey: "AIzaSyDUrLMmvEREFGOJRn3oXKk5Cs06yYpfSnk",
 };
 
 /** Key used for all Gemini HTTP calls (dispatcher, technician, invoice, equipment manager). */
