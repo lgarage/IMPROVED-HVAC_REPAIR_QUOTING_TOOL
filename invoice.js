@@ -100,7 +100,7 @@ function looksLikePmPaste(rawText, parseSource) {
 }
 
 // --- SMART PASTED NOTES PARSER (OMNIVOROUS) ---
-// Gemini may run after parse when fields look incomplete (same API key as cleanIssueWithAI in service_call.js).
+// Gemini may run after parse when fields look incomplete (same API key as dispatcher Improve With AI).
 async function parsePastedNotes() {
     const text = document.getElementById("invPasteArea").value;
     if (!text) return;
@@ -286,7 +286,7 @@ function shouldAutoRunGeminiInvoice(rawText, parseSource) {
 }
 
 /**
- * Gemini 1.5 Flash (same key as service_call.js cleanIssueWithAI). Auto-called with { merge, silent }.
+ * Same Gemini key as dispatcher. Auto-called with { merge, silent }.
  * @param {{ merge?: boolean, silent?: boolean }} opts merge = only fill empty fields; silent = no alerts on failure
  */
 async function parseInvoicePasteWithGemini(opts) {

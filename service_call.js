@@ -1585,7 +1585,7 @@ function startIssueVoiceInput() {
     try { issueRecognition.start(); } catch(e) {}
 }
 
-async function stopIssueVoiceInput() {
+function stopIssueVoiceInput() {
     if (!isIssueRecording) return;
     isIssueRecording = false;
     issueVoiceCarryover = "";
@@ -1597,14 +1597,9 @@ async function stopIssueVoiceInput() {
     if(micBtn) micBtn.style.transform = "scale(1)"; 
     
     if (currentIssueVoiceText.trim() !== "") {
-        if(micBtn) {
-            micBtn.innerText = "✨ Processing...";
-            micBtn.style.backgroundColor = "#9b59b6"; 
-        }
-        await cleanIssueWithAI(currentIssueVoiceText);
-    } else {
-        resetIssueMicBtn();
+        appendIssueTranscriptLocal(currentIssueVoiceText);
     }
+    resetIssueMicBtn();
 }
 
 function resetIssueMicBtn() {
@@ -1615,71 +1610,17 @@ function resetIssueMicBtn() {
     }
 }
 
-async function cleanIssueWithAI(rawText) {
-    let cleanText = "";
-    let aiSuccess = false;
-
-    if (typeof getGeminiApiKey === "function" && getGeminiApiKey()) {
-        const safeRaw = String(rawText).replace(/"""|```/g, " ");
-        const prompt = [
-            "You edit HVAC dispatch \"Reported Issue\" notes. Input is speech-to-text; dispatchers often repeat themselves on purpose — your job is to consolidate.",
-            "",
-            "Redundancy rules (important):",
-            "- If the SAME problem is stated twice (e.g. \"CEILING IS LEAKING\" and later \"BECAUSE OUR CEILING IS LEAKING\"), keep ONE clear statement of the problem. Do not restate the leak in a \"because\" clause that only repeats the first sentence.",
-            "- Merge overlapping sentences: one sentence for what failed, one for what the customer is doing (e.g. bucket), one for photos/docs if mentioned — no duplicate facts.",
-            "- Drop repeated filler: do not use \"CURRENTLY\" in every sentence; at most once if needed, or omit.",
-            "- Fix obvious speech-to-text mistakes in common phrases, e.g. \"PHOTOS FROM MORE INFORMATION\" should be \"PHOTOS FOR MORE INFORMATION\" or \"SEE ATTACHED PHOTOS FOR DETAILS\".",
-            "",
-            "Other fixes:",
-            "- Homophones / bad STT (e.g. SEALANT vs CEILING when it duplicates an earlier line): merge into one accurate line.",
-            "- Punctuation: separate sentences with periods; no long run-on paragraph.",
-            "",
-            "Preserve all distinct facts (leak location, bucket/mitigation, attached photos). Output in ALL CAPS. Professional tone.",
-            "Return ONLY the cleaned notes — no quotes, markdown, or preamble.",
-            "",
-            "RAW TRANSCRIPT:",
-            '"""',
-            safeRaw,
-            '"""'
-        ].join("\n");
-
-        try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${typeof GEMINI_GENERATE_MODEL !== "undefined" ? GEMINI_GENERATE_MODEL : "gemini-2.5-flash"}:generateContent?key=${encodeURIComponent(getGeminiApiKey())}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { temperature: 0.1, maxOutputTokens: 1024 }
-                })
-            });
-
-            const data = await response.json();
-            if (data.error) {
-                console.error("Gemini API error:", data.error);
-            }
-            if (data.candidates && data.candidates.length > 0) {
-                const part = data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0];
-                if (part && part.text) {
-                    cleanText = part.text.trim().replace(/^["']|["']$/g, "").trim().toUpperCase();
-                    cleanText = cleanText.replace(/\s+/g, " ").replace(/\s+([.,!?])/g, "$1").trim();
-                    if (cleanText.length > 0 && !/[.!?]$/.test(cleanText)) cleanText += ".";
-                    aiSuccess = cleanText.length > 0;
-                }
-            }
-        } catch (error) { console.error("AI Cleanup Failed:", error); }
+/** Append voice transcript with light local formatting only (no Gemini). Use Improve With AI to polish. */
+function appendIssueTranscriptLocal(rawText) {
+    let cleanText = String(rawText || "").trim().toUpperCase();
+    if (!cleanText) return;
+    if (!cleanText.endsWith(".") && !cleanText.endsWith("?") && !cleanText.endsWith("!")) {
+        cleanText += ".";
     }
-
-    if (!aiSuccess) {
-        cleanText = rawText.trim().toUpperCase();
-        if (!cleanText.endsWith('.') && !cleanText.endsWith('?') && !cleanText.endsWith('!')) { cleanText += '.'; }
-    }
-
-    let existingText = document.getElementById('scIssueInput').value.trim();
-    if (existingText !== "") { document.getElementById('scIssueInput').value = existingText + " " + cleanText; } 
-    else { document.getElementById('scIssueInput').value = cleanText; }
-
-    if (aiSuccess && typeof showSaveCue === 'function') { showSaveCue("✨ Notes Cleaned by AI"); }
-    resetIssueMicBtn();
+    const ta = document.getElementById("scIssueInput");
+    if (!ta) return;
+    const existingText = ta.value.trim();
+    ta.value = existingText !== "" ? existingText + " " + cleanText : cleanText;
 }
 
 /** If Gemini returns API-not-enabled, show steps (Firebase key is already correct). */
