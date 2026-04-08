@@ -1682,6 +1682,32 @@ async function cleanIssueWithAI(rawText) {
     resetIssueMicBtn();
 }
 
+/** If Gemini returns API-not-enabled, show steps (Firebase key is already correct). */
+function alertIfGeminiApiDisabled(errMsg) {
+    const m = String(errMsg || "");
+    if (
+        !/generative\s*language|generativelanguage\.googleapis/i.test(m) ||
+        !/not\s*been\s*used|disabled|PERMISSION_DENIED|SERVICE_DISABLED|403/i.test(m)
+    ) {
+        return false;
+    }
+    const proj =
+        typeof firebaseConfig !== "undefined" && firebaseConfig.projectId
+            ? firebaseConfig.projectId
+            : "";
+    const enableUrl =
+        "https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com?project=" +
+        encodeURIComponent(proj || "twin-pillars-app");
+    alert(
+        "You are already using your Firebase API key. Google also requires the Generative Language API to be turned ON for the same Google Cloud project as Firebase.\n\n" +
+            "1) Open the link below\n" +
+            "2) Click Enable\n" +
+            "3) Wait 1–2 minutes, then try Improve With AI again\n\n" +
+            enableUrl
+    );
+    return true;
+}
+
 /**
  * Replaces #scIssueInput content using Gemini + invoice-style editor rules (user speaks/types raw; this polishes on demand).
  */
@@ -1740,7 +1766,10 @@ async function improveIssueTextWithAI() {
         const data = await response.json();
         if (data.error) {
             console.error("Gemini API error:", data.error);
-            alert(data.error.message || "Gemini request failed.");
+            const msg = data.error.message || "Gemini request failed.";
+            if (!alertIfGeminiApiDisabled(msg)) {
+                alert(msg);
+            }
             return;
         }
 
