@@ -684,12 +684,15 @@ function renderServiceBoard() {
 
     let html = '';
     techs.forEach(t => {
+        const st = typeof evaluateTechStatus === "function"
+            ? evaluateTechStatus(t.full)
+            : { label: "Active", className: "tech-status-active" };
         html += `<div class="gantt-row" id="row-${t.name}" ondrop="drop(event, '${t.full}')" ondragover="allowDrop(event)">
             <div class="gantt-tech-cell">
                 <div class="tech-avatar" style="background:${t.color};">${t.name.charAt(0)}</div>
                 <div class="tech-info">
                     <div class="tech-name">${t.name}</div>
-                    <div class="tech-status">Active</div>
+                    <div class="tech-status ${st.className}">${st.label}</div>
                 </div>
             </div>
             <div class="gantt-timeline" id="timeline-${t.name}" data-tech="${t.full}" style="background-size: ${bgSize} 100%;"

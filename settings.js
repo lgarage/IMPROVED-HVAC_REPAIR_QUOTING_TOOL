@@ -136,9 +136,188 @@ function escapeHTML(str) {
 // --- SETTINGS & TECHNICIAN LOGIC ---
 // ====================================================================
 let appTechList = [];
+/** Per-tech: { onCallEligible: boolean, ptoDates: string[] } keyed by roster name (uppercase). */
+let techProfiles = {};
+/** Firestore app_config/onCallState — pause rotation + manual on-call tech. */
+let onCallState = { pauseRotation: false, manualOnCallTech: "" };
 let currentEditingTechInv = "";
 let editingTemplateType = null; 
 let currentInvTab = "tools";
+let ptoModalTechIndex = -1;
+
+const ROTATION_ANCHOR_MONDAY = new Date(2024, 0, 1, 12, 0, 0);
+
+function persistTechProfilesLocal() {
+    try {
+        localStorage.setItem("tp_tech_profiles", JSON.stringify(techProfiles));
+    } catch (e) { /* ignore */ }
+}
+
+function getTechProfile(name) {
+    const key = String(name || "").trim();
+    if (!key) return { onCallEligible: false, ptoDates: [] };
+    const p = techProfiles[key];
+    if (!p) return { onCallEligible: false, ptoDates: [] };
+    return {
+        onCallEligible: !!p.onCallEligible,
+        ptoDates: Array.isArray(p.ptoDates) ? p.ptoDates.slice() : []
+    };
+}
+
+function setTechProfile(name, partial) {
+    const key = String(name || "").trim();
+    if (!key) return;
+    const cur = getTechProfile(key);
+    techProfiles[key] = {
+        onCallEligible: partial.onCallEligible !== undefined ? !!partial.onCallEligible : cur.onCallEligible,
+        ptoDates: partial.ptoDates !== undefined ? (Array.isArray(partial.ptoDates) ? partial.ptoDates.slice() : []) : cur.ptoDates
+    };
+    persistTechProfilesLocal();
+    syncTechnicianRosterToFirestore();
+}
+
+/** Monday 00:00 local for the ISO week containing d (week starts Monday). */
+function getMondayOfWeek(d) {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+    const day = x.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    x.setDate(x.getDate() + diff);
+    return x;
+}
+
+function ymdFromDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+}
+
+function parseYmdLocal(ymd) {
+    const p = String(ymd || "").split("-");
+    if (p.length !== 3) return null;
+    return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10), 12, 0, 0);
+}
+
+function weekRotationIndex(mondayDate) {
+    const ms = mondayDate.getTime() - ROTATION_ANCHOR_MONDAY.getTime();
+    return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
+}
+
+function getEligibleOnCallTechsOrdered() {
+    return appTechList.filter(function (n) {
+        return getTechProfile(n).onCallEligible;
+    });
+}
+
+/**
+ * Nominated on-call for the calendar week containing targetDate (rotation only; ignores PTO skips).
+ * Used for PTO overlap warnings.
+ */
+function calculateProjectedOnCall(targetDate) {
+    const d = targetDate instanceof Date ? targetDate : new Date(targetDate);
+    const monday = getMondayOfWeek(d);
+    const elig = getEligibleOnCallTechsOrdered();
+    if (!elig.length) return null;
+    const idx = ((weekRotationIndex(monday) % elig.length) + elig.length) % elig.length;
+    return elig[idx];
+}
+
+function techHasPtoAnyDayInWeek(techName, weekMonday) {
+    const pto = getTechProfile(techName).ptoDates;
+    if (!pto.length) return false;
+    const set = {};
+    pto.forEach(function (y) { set[y] = true; });
+    for (let i = 0; i < 7; i++) {
+        const x = new Date(weekMonday);
+        x.setDate(x.getDate() + i);
+        if (set[ymdFromDate(x)]) return true;
+    }
+    return false;
+}
+
+/**
+ * Effective on-call tech for a given instant: manual override, or rotation with PTO skips.
+ */
+function getEffectiveOnCallTech(now) {
+    const t = now instanceof Date ? now : new Date(now);
+    if (onCallState.pauseRotation && onCallState.manualOnCallTech) {
+        return onCallState.manualOnCallTech;
+    }
+    const monday = getMondayOfWeek(t);
+    const elig = getEligibleOnCallTechsOrdered();
+    if (!elig.length) return null;
+    const wk = weekRotationIndex(monday);
+    const startIdx = ((wk % elig.length) + elig.length) % elig.length;
+    for (let i = 0; i < elig.length; i++) {
+        const idx = (startIdx + i) % elig.length;
+        const name = elig[idx];
+        if (!techHasPtoAnyDayInWeek(name, monday)) return name;
+    }
+    return null;
+}
+
+/** Monday–Friday 7:00 AM–4:00 PM local (4:00 PM inclusive). */
+function isWithinStandardBusinessHours(date) {
+    const day = date.getDay();
+    if (day === 0 || day === 6) return false;
+    const mins = date.getHours() * 60 + date.getMinutes();
+    return mins >= 7 * 60 && mins <= 16 * 60;
+}
+
+/**
+ * Dispatch board status label + CSS class for tech row.
+ */
+function evaluateTechStatus(techFullName) {
+    const name = String(techFullName || "").trim();
+    const prof = getTechProfile(name);
+    const today = ymdFromDate(new Date());
+    const pto = prof.ptoDates || [];
+    if (pto.indexOf(today) >= 0) {
+        return { label: "Inactive (PTO)", className: "tech-status-pto" };
+    }
+    if (isWithinStandardBusinessHours(new Date())) {
+        return { label: "Active", className: "tech-status-active" };
+    }
+    const oncall = getEffectiveOnCallTech(new Date());
+    if (oncall && oncall === name) {
+        return { label: "Active", className: "tech-status-active" };
+    }
+    return { label: "Inactive", className: "tech-status-inactive" };
+}
+
+function expandDateRangeToYmdList(startYmd, endYmd) {
+    const a = parseYmdLocal(startYmd);
+    const b = parseYmdLocal(endYmd);
+    if (!a || !b || a > b) return [];
+    const out = [];
+    const cur = new Date(a);
+    while (cur <= b) {
+        out.push(ymdFromDate(cur));
+        cur.setDate(cur.getDate() + 1);
+    }
+    return out;
+}
+
+function weeksOverlappingYmdRange(startYmd, endYmd) {
+    const list = expandDateRangeToYmdList(startYmd, endYmd);
+    const mondays = {};
+    list.forEach(function (y) {
+        const mon = getMondayOfWeek(parseYmdLocal(y));
+        mondays[ymdFromDate(mon)] = true;
+    });
+    return Object.keys(mondays);
+}
+
+function checkPtoOverlapsProjectedOnCall(techName, startYmd, endYmd) {
+    const weeks = weeksOverlappingYmdRange(startYmd, endYmd);
+    const hits = [];
+    weeks.forEach(function (monYmd) {
+        const mon = parseYmdLocal(monYmd);
+        const projected = calculateProjectedOnCall(mon);
+        if (projected && projected === techName) hits.push(monYmd);
+    });
+    return hits;
+}
 
 /** Load technician roster: Firestore app_config/technicians.names when present, else localStorage (may be empty). */
 async function hydrateTechnicianRosterFromCloud() {
@@ -154,6 +333,17 @@ async function hydrateTechnicianRosterFromCloud() {
                     loadedFromCloud = true;
                     localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
                 }
+                if (data.profiles && typeof data.profiles === "object") {
+                    techProfiles = {};
+                    Object.keys(data.profiles).forEach(function (k) {
+                        const raw = data.profiles[k] || {};
+                        techProfiles[String(k).trim()] = {
+                            onCallEligible: !!raw.onCallEligible,
+                            ptoDates: Array.isArray(raw.ptoDates) ? raw.ptoDates.map(function (d) { return String(d).trim(); }).filter(Boolean) : []
+                        };
+                    });
+                    persistTechProfilesLocal();
+                }
             }
         } catch (e) {
             console.error('hydrateTechnicianRosterFromCloud', e);
@@ -168,17 +358,63 @@ async function hydrateTechnicianRosterFromCloud() {
             } catch (e) { /* ignore */ }
         }
     }
+    if (Object.keys(techProfiles).length === 0) {
+        const lp = localStorage.getItem("tp_tech_profiles");
+        if (lp) {
+            try {
+                const parsed = JSON.parse(lp);
+                if (parsed && typeof parsed === "object") techProfiles = parsed;
+            } catch (e) { /* ignore */ }
+        }
+    }
+}
+
+async function hydrateOnCallStateFromCloud() {
+    if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
+        try {
+            const ls = localStorage.getItem("tp_on_call_state");
+            if (ls) onCallState = JSON.parse(ls);
+        } catch (e) { /* ignore */ }
+        return;
+    }
+    try {
+        const snap = await firebase.firestore().collection('app_config').doc('onCallState').get();
+        if (snap.exists) {
+            const d = snap.data() || {};
+            onCallState = {
+                pauseRotation: !!d.pauseRotation,
+                manualOnCallTech: d.manualOnCallTech ? String(d.manualOnCallTech).trim() : ""
+            };
+        } else {
+            try {
+                const ls = localStorage.getItem("tp_on_call_state");
+                if (ls) onCallState = JSON.parse(ls);
+            } catch (e) { /* ignore */ }
+        }
+    } catch (e) {
+        console.error('hydrateOnCallStateFromCloud', e);
+        try {
+            const ls = localStorage.getItem("tp_on_call_state");
+            if (ls) onCallState = JSON.parse(ls);
+        } catch (e2) { /* ignore */ }
+    }
+    try {
+        localStorage.setItem("tp_on_call_state", JSON.stringify(onCallState));
+    } catch (e) { /* ignore */ }
 }
 
 /** Re-fetch roster from cloud when opening Settings (optional refresh). */
 async function refreshTechnicianRosterFromCloud() {
     await hydrateTechnicianRosterFromCloud();
+    await hydrateOnCallStateFromCloud();
     renderTechSettings();
+    renderOnCallPanel();
     populateTechDropdowns();
 }
 
 async function loadAppTechs() {
     await hydrateTechnicianRosterFromCloud();
+    await hydrateOnCallStateFromCloud();
 
     let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
     let needsUpdate = false;
@@ -202,6 +438,7 @@ async function loadAppTechs() {
     }
 
     renderTechSettings();
+    renderOnCallPanel();
     renderMasterTemplates();
     populateTechDropdowns();
     syncTechnicianRosterToFirestore();
@@ -209,17 +446,159 @@ async function loadAppTechs() {
     setTimeout(checkGlobalVMI, 500);
 }
 
-/** Pushes the office technician roster to Firestore so the Field app can sign in with the same names used for assignment. */
+/** Pushes the office technician roster + profiles to Firestore (names preserved for Field app). */
 function syncTechnicianRosterToFirestore() {
     if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) return;
     try {
         firebase.firestore().collection('app_config').doc('technicians').set({
             names: appTechList.slice(),
+            profiles: techProfiles,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
     } catch (e) {
         console.error('syncTechnicianRosterToFirestore', e);
     }
+}
+
+function syncOnCallStateToFirestore() {
+    if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) return;
+    try {
+        firebase.firestore().collection('app_config').doc('onCallState').set({
+            pauseRotation: !!onCallState.pauseRotation,
+            manualOnCallTech: onCallState.manualOnCallTech || "",
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    } catch (e) {
+        console.error('syncOnCallStateToFirestore', e);
+    }
+    try {
+        localStorage.setItem("tp_on_call_state", JSON.stringify(onCallState));
+    } catch (e) { /* ignore */ }
+}
+
+function renderOnCallPanel() {
+    const el = document.getElementById("onCallManagementPanel");
+    if (!el) return;
+    const effective = getEffectiveOnCallTech(new Date());
+    const projectedWeek = calculateProjectedOnCall(new Date());
+    const pause = onCallState.pauseRotation;
+    const elig = getEligibleOnCallTechsOrdered();
+    let html = "";
+    html += '<div style="font-weight:bold;color:#1e4b85;margin-bottom:8px;">On-Call Management</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin-bottom:12px;">';
+    html += '<div style="min-width:220px;"><span style="color:#555;font-size:12px;">Current on-call</span><br/>';
+    html += '<strong style="font-size:16px;">' + escapeHTML(effective || "—") + '</strong>';
+    if (!pause && projectedWeek && projectedWeek !== effective) {
+        html += '<div style="font-size:11px;color:#7f8c8d;margin-top:4px;">Rotation slot (this week): ' + escapeHTML(projectedWeek) + "</div>";
+    }
+    html += "</div>";
+    html += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">';
+    html += '<input type="checkbox" id="onCallPauseRotation" ' + (pause ? "checked" : "") + ' onchange="onOnCallPauseToggle(this.checked)" />';
+    html += '<span>Pause automatic rotation (manual override)</span></label>';
+    html += "</div>";
+    html += '<div id="onCallManualWrap" style="margin-top:10px;' + (pause ? "" : "display:none;") + '">';
+    html += '<label style="font-size:12px;color:#555;">On-call technician</label><br/>';
+    html += '<select id="onCallManualSelect" style="margin-top:4px;padding:8px;min-width:260px;border-radius:4px;border:1px solid #ccc;" onchange="onOnCallManualChange(this.value)">';
+    html += '<option value="">— Select —</option>';
+    elig.forEach(function (n) {
+        html += '<option value="' + escapeHTML(n) + '" ' + (onCallState.manualOnCallTech === n ? "selected" : "") + ">" + escapeHTML(n) + "</option>";
+    });
+    html += "</select>";
+    html += '<p style="font-size:11px;color:#7f8c8d;margin:8px 0 0 0;">While paused, this technician stays on-call until you turn the toggle off.</p>';
+    html += "</div>";
+    el.innerHTML = html;
+}
+
+function onOnCallPauseToggle(checked) {
+    onCallState.pauseRotation = !!checked;
+    const wrap = document.getElementById("onCallManualWrap");
+    if (wrap) wrap.style.display = checked ? "block" : "none";
+    if (!checked) onCallState.manualOnCallTech = "";
+    syncOnCallStateToFirestore();
+    renderOnCallPanel();
+    if (typeof renderServiceBoard === "function") {
+        try { renderServiceBoard(); } catch (e) {}
+    }
+    if (typeof showSaveCue === "function") showSaveCue("On-call settings saved");
+}
+
+function onOnCallManualChange(val) {
+    onCallState.manualOnCallTech = String(val || "").trim();
+    syncOnCallStateToFirestore();
+    renderOnCallPanel();
+    if (typeof renderServiceBoard === "function") {
+        try { renderServiceBoard(); } catch (e) {}
+    }
+    if (typeof showSaveCue === "function") showSaveCue("On-call override saved");
+}
+
+function setTechOnCallEligible(index, eligible) {
+    const name = appTechList[index];
+    if (!name) return;
+    const p = getTechProfile(name);
+    p.onCallEligible = !!eligible;
+    setTechProfile(name, p);
+    renderOnCallPanel();
+    if (typeof showSaveCue === "function") showSaveCue("Technician updated");
+}
+
+function openPtoModal(index) {
+    ptoModalTechIndex = index;
+    const name = appTechList[index];
+    if (!name) return;
+    const modal = document.getElementById("ptoModal");
+    const title = document.getElementById("ptoModalTitle");
+    const start = document.getElementById("ptoStartInput");
+    const end = document.getElementById("ptoEndInput");
+    if (title) title.textContent = "PTO — " + name;
+    const today = ymdFromDate(new Date());
+    if (start) start.value = today;
+    if (end) end.value = today;
+    if (modal) modal.style.display = "flex";
+}
+
+function closePtoModal() {
+    const modal = document.getElementById("ptoModal");
+    if (modal) modal.style.display = "none";
+    ptoModalTechIndex = -1;
+}
+
+function savePtoRange() {
+    if (ptoModalTechIndex < 0) return;
+    const name = appTechList[ptoModalTechIndex];
+    const start = document.getElementById("ptoStartInput");
+    const end = document.getElementById("ptoEndInput");
+    if (!start || !end || !name) return;
+    const s = start.value;
+    const e = end.value;
+    if (!s || !e) {
+        alert("Choose start and end dates.");
+        return;
+    }
+    const newDays = expandDateRangeToYmdList(s, e);
+    if (!newDays.length) {
+        alert("Invalid date range.");
+        return;
+    }
+    const hits = checkPtoOverlapsProjectedOnCall(name, s, e);
+    if (hits.length) {
+        alert(
+            "⚠️ WARNING: " + name + " is scheduled to be On-Call during these dates. The system will skip them. Please ensure coverage is manually assigned if needed."
+        );
+    }
+    const p = getTechProfile(name);
+    const merged = {};
+    p.ptoDates.forEach(function (d) { merged[d] = true; });
+    newDays.forEach(function (d) { merged[d] = true; });
+    p.ptoDates = Object.keys(merged).sort();
+    setTechProfile(name, p);
+    closePtoModal();
+    renderTechSettings();
+    renderOnCallPanel();
+    if (typeof renderServiceBoard === "function") {
+        try { renderServiceBoard(); } catch (e) {}
+    }
+    if (typeof showSaveCue === "function") showSaveCue("PTO saved");
 }
 
 function renderTechSettings() {
@@ -233,13 +612,22 @@ function renderTechSettings() {
     }
 
     appTechList.forEach((tech, index) => {
+        const elig = getTechProfile(tech).onCallEligible;
+        const safe = escapeHTML(tech);
         container.innerHTML += `
-            <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e1e8ed; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                <span style="font-weight:bold; color:#2c3e50; font-size:15px; text-transform:uppercase;">👤 ${tech}</span>
-                <div style="display:flex; gap:8px;">
-                    <button class="gen-btn" style="background:#1e4b85; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="openTruckInventory('${tech}')">🎒 Inventory</button>
-                    <button class="gen-btn" style="background:#3498db; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="editTechnician(${index})">Edit</button>
-                    <button class="gen-btn" style="background:#e74c3c; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="removeTechnician(${index})">Remove</button>
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e1e8ed; box-shadow: 0 1px 3px rgba(0,0,0,0.02); flex-wrap:wrap;">
+                <div style="flex:1; min-width:200px;">
+                    <div style="font-weight:bold; color:#2c3e50; font-size:15px; text-transform:uppercase; margin-bottom:8px;">👤 ${safe}</div>
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#444; cursor:pointer; user-select:none;">
+                        <input type="checkbox" ${elig ? "checked" : ""} onchange="setTechOnCallEligible(${index}, this.checked)" />
+                        Eligible for On-Call Rotation
+                    </label>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+                    <button type="button" class="gen-btn" style="background:#16a085; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="openPtoModal(${index})">Manage PTO</button>
+                    <button type="button" class="gen-btn" style="background:#1e4b85; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="openTruckInventoryByIndex(${index})">🎒 Inventory</button>
+                    <button type="button" class="gen-btn" style="background:#3498db; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="editTechnician(${index})">Edit</button>
+                    <button type="button" class="gen-btn" style="background:#e74c3c; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="removeTechnician(${index})">Remove</button>
                 </div>
             </div>
         `;
@@ -248,6 +636,7 @@ function renderTechSettings() {
 
 function addNewTechnician() {
     const input = document.getElementById('newTechNameInput');
+    const chk = document.getElementById('newTechOnCallEligible');
     const name = input.value.trim().toUpperCase();
     if (name === '') return;
     if (appTechList.includes(name)) {
@@ -256,10 +645,13 @@ function addNewTechnician() {
     }
     appTechList.push(name);
     localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
+    const wantElig = chk && chk.checked;
+    setTechProfile(name, { onCallEligible: wantElig, ptoDates: [] });
     input.value = '';
+    if (chk) chk.checked = false;
     renderTechSettings();
+    renderOnCallPanel();
     populateTechDropdowns();
-    syncTechnicianRosterToFirestore();
     if(typeof showSaveCue === 'function') showSaveCue("✓ Technician Added");
 }
 
@@ -283,10 +675,17 @@ function editTechnician(index) {
         localStorage.setItem('tp_truck_inventories', JSON.stringify(invDB));
     }
 
+    if (techProfiles[currentName]) {
+        techProfiles[cleanName] = techProfiles[currentName];
+        delete techProfiles[currentName];
+        persistTechProfilesLocal();
+    }
+
     appTechList[index] = cleanName;
     localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
 
     renderTechSettings();
+    renderOnCallPanel();
     populateTechDropdowns();
     syncTechnicianRosterToFirestore();
     if(typeof showSaveCue === 'function') showSaveCue("✓ Technician Updated");
@@ -304,7 +703,17 @@ function removeTechnician(index) {
             localStorage.setItem('tp_truck_inventories', JSON.stringify(invDB));
         }
 
+        if (techProfiles[techName]) {
+            delete techProfiles[techName];
+            persistTechProfilesLocal();
+        }
+        if (onCallState.manualOnCallTech === techName) {
+            onCallState.manualOnCallTech = "";
+            syncOnCallStateToFirestore();
+        }
+
         renderTechSettings();
+        renderOnCallPanel();
         populateTechDropdowns();
         syncTechnicianRosterToFirestore();
         if(typeof showSaveCue === 'function') showSaveCue("✓ Technician Removed");
@@ -413,6 +822,11 @@ function renderTemplateLoaders() {
 // ====================================================================
 // --- VMI / INVENTORY MODAL LOGIC & REPLENISHMENT REPORTING ---
 // ====================================================================
+
+function openTruckInventoryByIndex(index) {
+    const n = appTechList[index];
+    if (n) openTruckInventory(n);
+}
 
 function openTruckInventory(techName) {
     editingTemplateType = null; 

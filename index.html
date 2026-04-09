@@ -721,8 +721,16 @@
       }
       .tech-status {
         font-size: 10px;
-        color: #27ae60;
         font-weight: bold;
+      }
+      .tech-status.tech-status-active {
+        color: #27ae60;
+      }
+      .tech-status.tech-status-inactive {
+        color: #95a5a6;
+      }
+      .tech-status.tech-status-pto {
+        color: #e67e22;
       }
       .gantt-timeline {
         flex: 1;
@@ -3872,14 +3880,48 @@
               icon to manage each truck's tools and VMI stock.
             </p>
 
-            <div style="display: flex; gap: 10px; margin-bottom: 20px">
+            <div
+              id="onCallManagementPanel"
+              style="
+                max-width: 700px;
+                margin-bottom: 20px;
+                padding: 16px;
+                background: #f8fafc;
+                border: 1px solid #dce4ec;
+                border-radius: 8px;
+              "
+            ></div>
+
+            <div
+              style="
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+                align-items: center;
+                margin-bottom: 16px;
+              "
+            >
               <input
                 type="text"
                 id="newTechNameInput"
                 placeholder="e.g. John (Tech 5)"
-                style="flex: 1; max-width: 400px"
+                style="flex: 1; min-width: 200px; max-width: 400px"
                 class="lowercase-input"
               />
+              <label
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  font-size: 13px;
+                  color: #444;
+                  cursor: pointer;
+                  user-select: none;
+                "
+              >
+                <input type="checkbox" id="newTechOnCallEligible" />
+                Eligible for On-Call Rotation
+              </label>
               <button
                 class="gen-btn"
                 style="background: #27ae60; padding: 10px 20px; font-size: 14px"
@@ -3930,6 +3972,81 @@
     </div>
 
     <div id="saveIndicator">✓ Auto-Saved</div>
+
+    <div
+      id="ptoModal"
+      class="modal-overlay"
+      style="display: none; z-index: 10003"
+      onclick="if (event.target === this) closePtoModal()"
+    >
+      <div class="modal-content" style="max-width: 420px">
+        <div class="modal-header">
+          <h2 id="ptoModalTitle">PTO</h2>
+          <span class="close-modal" onclick="closePtoModal()">×</span>
+        </div>
+        <p style="font-size: 13px; color: #666; margin: 0 0 12px 0">
+          Select dates this technician is unavailable (vacation). Saved as
+          individual days in Firestore.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <label style="font-size: 13px"
+            >Start date
+            <input
+              type="date"
+              id="ptoStartInput"
+              style="
+                display: block;
+                margin-top: 4px;
+                padding: 8px;
+                width: 100%;
+                box-sizing: border-box;
+              "
+            />
+          </label>
+          <label style="font-size: 13px"
+            >End date
+            <input
+              type="date"
+              id="ptoEndInput"
+              style="
+                display: block;
+                margin-top: 4px;
+                padding: 8px;
+                width: 100%;
+                box-sizing: border-box;
+              "
+            />
+          </label>
+        </div>
+        <div
+          style="
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 18px;
+            border-top: 1px solid #eaeaea;
+            padding-top: 14px;
+          "
+        >
+          <button
+            type="button"
+            class="gen-btn"
+            style="background: #7f8c8d; padding: 10px 18px"
+            onclick="closePtoModal()"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="gen-btn"
+            style="background: #16a085; padding: 10px 18px; color: #fff"
+            onclick="savePtoRange()"
+          >
+            Save PTO
+          </button>
+        </div>
+      </div>
+    </div>
 
     <div id="ticketDetailsModal" class="modal-overlay">
       <div class="modal-content" style="max-width: 600px">
@@ -4852,9 +4969,9 @@
       }
     </script>
 
-    <script src="settings.js?v=6"></script>
+    <script src="settings.js?v=7"></script>
     <script src="customer_directory.js?v=25"></script>
-    <script src="service_call.js?v=45"></script>
+    <script src="service_call.js?v=46"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=38"></script>
 
