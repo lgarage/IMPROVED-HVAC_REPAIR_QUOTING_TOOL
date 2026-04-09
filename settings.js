@@ -415,26 +415,12 @@ async function refreshTechnicianRosterFromCloud() {
 async function loadAppTechs() {
     await hydrateTechnicianRosterFromCloud();
     await hydrateOnCallStateFromCloud();
+    await hydrateInventoryTemplatesFromFirestore();
 
-    let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
-    let needsUpdate = false;
-
-    if (Object.keys(masterDB).length === 0) {
-        masterDB = {
-            jman: { tools: masterJmanTemplate, consumables: [] },
-            apprentice: { tools: masterApprenticeTemplate, consumables: [] },
-            jman_consumables: { tools: [], consumables: seedDataConsumables }
-        };
-        needsUpdate = true;
-    } else {
-        if (!masterDB['jman_consumables']) {
-            masterDB['jman_consumables'] = { tools: [], consumables: seedDataConsumables };
-            needsUpdate = true;
-        }
-    }
-
-    if (needsUpdate) {
-        localStorage.setItem('tp_master_templates', JSON.stringify(masterDB));
+    let masterDB = getMasterTemplatesDB();
+    if (!masterDB["jman_consumables"]) {
+        masterDB["jman_consumables"] = { tools: [], consumables: seedDataConsumables };
+        persistInventoryStorage("tp_master_templates", masterDB);
     }
 
     renderTechSettings();
@@ -745,11 +731,133 @@ function populateTechDropdowns() {
 }
 
 // ====================================================================
-// --- DYNAMIC TEMPLATE MANAGEMENT ---
+// --- DYNAMIC TEMPLATE MANAGEMENT (Firestore: app_config/inventory_templates) ---
 // ====================================================================
 
+function buildDefaultMasterTemplatesDB() {
+    return {
+        jman: { tools: masterJmanTemplate, consumables: [] },
+        apprentice: { tools: masterApprenticeTemplate, consumables: [] },
+        jman_consumables: { tools: [], consumables: seedDataConsumables }
+    };
+}
+
+function getMasterTemplatesDB() {
+    try {
+        return JSON.parse(localStorage.getItem("tp_master_templates") || "{}");
+    } catch (e) {
+        return {};
+    }
+}
+
+function syncInventoryTemplatesToFirestore() {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+    try {
+        const masterDB = getMasterTemplatesDB();
+        firebase.firestore().collection("app_config").doc("inventory_templates").set(
+            {
+                templates: masterDB,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            },
+            { merge: true }
+        );
+    } catch (e) {
+        console.error("syncInventoryTemplatesToFirestore", e);
+    }
+}
+
+/** Writes local cache; syncs master templates to Firestore when key is tp_master_templates. */
+function persistInventoryStorage(storageKey, db) {
+    localStorage.setItem(storageKey, JSON.stringify(db));
+    if (storageKey === "tp_master_templates") {
+        syncInventoryTemplatesToFirestore();
+    }
+}
+
+function syncTruckInventoriesToFirestore() {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+    try {
+        const invDB = JSON.parse(localStorage.getItem("tp_truck_inventories") || "{}");
+        firebase.firestore().collection("app_config").doc("truck_inventories").set(
+            {
+                dataJson: JSON.stringify(invDB),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            },
+            { merge: true }
+        );
+    } catch (e) {
+        console.error("syncTruckInventoriesToFirestore", e);
+    }
+}
+
+/**
+ * Load master templates from Firestore; if missing, seed defaults and upload once (silent migration).
+ */
+async function hydrateInventoryTemplatesFromFirestore() {
+    const defaults = buildDefaultMasterTemplatesDB();
+    const applyLocal = function (masterDB) {
+        localStorage.setItem("tp_master_templates", JSON.stringify(masterDB));
+    };
+
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+        let masterDB = getMasterTemplatesDB();
+        if (Object.keys(masterDB).length === 0) {
+            applyLocal(defaults);
+        } else if (!masterDB.jman_consumables) {
+            masterDB.jman_consumables = { tools: [], consumables: seedDataConsumables };
+            applyLocal(masterDB);
+        }
+        return;
+    }
+
+    try {
+        const snap = await firebase.firestore().collection("app_config").doc("inventory_templates").get();
+        if (!snap.exists) {
+            let masterDB = getMasterTemplatesDB();
+            if (Object.keys(masterDB).length === 0) {
+                masterDB = defaults;
+            }
+            if (!masterDB.jman_consumables) {
+                masterDB.jman_consumables = { tools: [], consumables: seedDataConsumables };
+            }
+            applyLocal(masterDB);
+            await firebase.firestore().collection("app_config").doc("inventory_templates").set({
+                templates: getMasterTemplatesDB(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            return;
+        }
+        const data = snap.data() || {};
+        const masterDB =
+            data.templates && typeof data.templates === "object" ? data.templates : {};
+        if (Object.keys(masterDB).length === 0) {
+            let localFallback = getMasterTemplatesDB();
+            const merged = Object.keys(localFallback).length ? localFallback : defaults;
+            if (!merged.jman_consumables) {
+                merged.jman_consumables = { tools: [], consumables: seedDataConsumables };
+            }
+            applyLocal(merged);
+            await firebase.firestore().collection("app_config").doc("inventory_templates").set({
+                templates: getMasterTemplatesDB(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            return;
+        }
+        if (!masterDB.jman_consumables) {
+            masterDB.jman_consumables = { tools: [], consumables: seedDataConsumables };
+        }
+        applyLocal(masterDB);
+    } catch (e) {
+        console.error("hydrateInventoryTemplatesFromFirestore", e);
+        let masterDB = getMasterTemplatesDB();
+        if (Object.keys(masterDB).length === 0) {
+            applyLocal(defaults);
+        }
+    }
+}
+
 function renderMasterTemplates() {
-    let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
+    let masterDB = getMasterTemplatesDB();
     let container = document.getElementById('masterTemplatesContainer');
     if(!container) return;
     
@@ -772,14 +880,14 @@ function createNewTemplate() {
     
     let key = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'); 
     
-    let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
+    let masterDB = getMasterTemplatesDB();
     if(masterDB[key]) { 
         alert("A template with a similar name already exists!"); 
         return; 
     }
     
     masterDB[key] = { tools: [], consumables: [] };
-    localStorage.setItem('tp_master_templates', JSON.stringify(masterDB));
+    persistInventoryStorage("tp_master_templates", masterDB);
     renderMasterTemplates();
     if(typeof showSaveCue === 'function') showSaveCue("✓ Template Created");
 }
@@ -791,9 +899,9 @@ function deleteCurrentTemplate() {
     let confirmation = prompt(`WARNING: You are about to permanently delete the '${displayName}' template.\n\nTo confirm, type DELETE in the box below:`);
     
     if (confirmation === "DELETE") {
-        let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
+        let masterDB = getMasterTemplatesDB();
         delete masterDB[editingTemplateType];
-        localStorage.setItem('tp_master_templates', JSON.stringify(masterDB));
+        persistInventoryStorage("tp_master_templates", masterDB);
         renderMasterTemplates();
         closeTruckInventory();
         if(typeof showSaveCue === 'function') showSaveCue("✓ Template Deleted");
@@ -803,7 +911,7 @@ function deleteCurrentTemplate() {
 }
 
 function renderTemplateLoaders() {
-    let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
+    let masterDB = getMasterTemplatesDB();
     let container = document.getElementById('dynamicTemplateLoaders');
     if(!container) return;
     
@@ -828,7 +936,7 @@ function openTruckInventoryByIndex(index) {
     if (n) openTruckInventory(n);
 }
 
-function openTruckInventory(techName) {
+function openTruckInventory(techName, initialTab) {
     editingTemplateType = null; 
     currentEditingTechInv = techName;
     document.getElementById('invModalTitle').innerText = `${techName}'s Truck`;
@@ -836,7 +944,7 @@ function openTruckInventory(techName) {
     document.getElementById('btnDeleteTemplate').style.display = 'none';
     document.getElementById('btnClearInvBtn').style.display = 'inline-block';
     
-    switchInvTab('tools'); 
+    switchInvTab(initialTab === 'consumables' ? 'consumables' : 'tools'); 
     document.getElementById('truckInventoryModal').style.display = 'block';
     renderTruckInventory();
 }
@@ -910,7 +1018,7 @@ function getActiveInvData() {
     }
 
     if (db[targetKey].tools.length !== originalToolCount || db[targetKey].consumables.length !== originalConsCount) {
-        localStorage.setItem(storageKey, JSON.stringify(db));
+        persistInventoryStorage(storageKey, db);
     }
     
     return { db, storageKey, targetKey, invData: db[targetKey] };
@@ -1175,7 +1283,7 @@ function processBulkImport() {
         }
     }
 
-    localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
+    persistInventoryStorage(activeData.storageKey, activeData.db);
     renderTruckInventory();
     
     document.getElementById('bulkImportModal').style.display = 'none';
@@ -1196,7 +1304,7 @@ function addBlankToolRow() {
         activeData.invData.consumables.push({ name: "", category: "", cost: 0, qty: 0, minLevel: 5, vendor: "", url: "" }); 
     }
     
-    localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
+    persistInventoryStorage(activeData.storageKey, activeData.db);
     renderTruckInventory();
     
     const tableContainer = document.querySelector('.inventory-table').parentElement;
@@ -1209,7 +1317,7 @@ function removeToolFromTruck(index) {
     if (currentInvTab === 'tools') { activeData.invData.tools.splice(index, 1); } 
     else { activeData.invData.consumables.splice(index, 1); }
     
-    localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
+    persistInventoryStorage(activeData.storageKey, activeData.db);
     renderTruckInventory();
 }
 
@@ -1217,7 +1325,7 @@ function loadMasterTemplate(type) {
     let displayName = type.replace(/_/g, ' ').toUpperCase();
     if(!confirm(`Are you sure you want to load the ${displayName} template? This will add to any tools currently on this list.`)) return;
 
-    let masterDB = JSON.parse(localStorage.getItem('tp_master_templates') || '{}');
+    let masterDB = getMasterTemplatesDB();
     let templateToLoad = masterDB[type];
     
     if (!templateToLoad) return;
@@ -1233,7 +1341,7 @@ function loadMasterTemplate(type) {
     activeData.invData.tools = activeData.invData.tools.concat(copyTools);
     activeData.invData.consumables = activeData.invData.consumables.concat(copyCons);
     
-    localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
+    persistInventoryStorage(activeData.storageKey, activeData.db);
     renderTruckInventory();
 }
 
@@ -1246,7 +1354,7 @@ function clearTruckInventory() {
     if (currentInvTab === 'tools') { activeData.invData.tools = []; } 
     else { activeData.invData.consumables = []; }
     
-    localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
+    persistInventoryStorage(activeData.storageKey, activeData.db);
     renderTruckInventory();
 }
 
@@ -1286,7 +1394,7 @@ function saveAndCloseTruckInventory(silent = false) {
     if (currentInvTab === 'tools') { activeData.invData.tools = updatedList; } 
     else { activeData.invData.consumables = updatedList; }
     
-    localStorage.setItem(activeData.storageKey, JSON.stringify(activeData.db));
+    persistInventoryStorage(activeData.storageKey, activeData.db);
     
     if (!silent) {
         closeTruckInventory();
@@ -1360,6 +1468,11 @@ function saveAndCloseTruckInventory(silent = false) {
                 .vmi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
                 .vmi-table th, .vmi-table td { padding: 10px; text-align: left; border-bottom: 1px solid #eaeaea; }
                 .vmi-table th { background: #f4f6f7; color: #555; }
+                .vmi-tech-header { cursor: pointer; color: #1e4b85; display: inline-flex; align-items: center; gap: 6px; }
+                .vmi-tech-header:hover { color: #2563eb; text-decoration: underline; }
+                .vmi-tech-edit-icon { cursor: pointer; color: #2563eb; font-size: 14px; user-select: none; }
+                .vmi-tech-edit-icon:hover { color: #1d4ed8; }
+                .vmi-qty-input { width: 56px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; }
             </style>
         `;
         document.body.insertAdjacentHTML('beforeend', modalsHTML);
@@ -1431,17 +1544,37 @@ function checkGlobalVMI() {
     }
 }
 
+function closeVmiAndOpenInventoryFromEncoded(enc) {
+    const techName = decodeURIComponent(enc);
+    const modal = document.getElementById("vmiReportModal");
+    if (modal) modal.style.display = "none";
+    openTruckInventory(techName, "consumables");
+}
+
+function vmiQtyChange(input) {
+    const tech = decodeURIComponent(input.getAttribute("data-tech-enc") || "");
+    const idx = parseInt(input.getAttribute("data-idx"), 10);
+    if (!tech || isNaN(idx)) return;
+    let invDB = JSON.parse(localStorage.getItem("tp_truck_inventories") || "{}");
+    if (!invDB[tech] || !invDB[tech].consumables || invDB[tech].consumables[idx] === undefined) return;
+    invDB[tech].consumables[idx].qty = Math.max(0, parseInt(input.value, 10) || 0);
+    localStorage.setItem("tp_truck_inventories", JSON.stringify(invDB));
+    syncTruckInventoriesToFirestore();
+    checkGlobalVMI();
+    openVMIReport();
+}
+
 function openVMIReport() {
     let invDB = JSON.parse(localStorage.getItem('tp_truck_inventories') || '{}');
     let lowItems = [];
     
     for (let tech in invDB) {
         let cons = invDB[tech].consumables || [];
-        cons.forEach(item => {
+        cons.forEach((item, idx) => {
             let q = parseInt(item.qty) || 0;
             let m = parseInt(item.minLevel) || 0;
             if (q <= m) {
-                lowItems.push({ tech: tech, ...item });
+                lowItems.push(Object.assign({}, item, { tech: tech, itemIndex: idx }));
             }
         });
     }
@@ -1464,6 +1597,7 @@ function openVMIReport() {
         
         for (let techName in groupedByVendor[vendor]) {
             let techRows = '';
+            const encTech = encodeURIComponent(techName);
             
             groupedByVendor[vendor][techName].forEach(item => {
                 let q = parseInt(item.qty) || 0;
@@ -1478,12 +1612,18 @@ function openVMIReport() {
 
                 techRows += `
                     <tr>
-                        <td style="font-weight:bold;">${item.name}</td>
-                        <td>${item.category || 'N/A'}</td>
-                        <td><span style="color:#e74c3c; font-weight:bold;">${q}</span> / ${m}</td>
-                        <td style="font-weight:bold; color:#27ae60; font-size: 14px;">${orderQty}</td>
+                        <td style="font-weight:bold;">${escapeHTML(item.name)}</td>
+                        <td>${escapeHTML(item.category || 'N/A')}</td>
+                        <td>
+                            <input type="number" class="vmi-qty-input" min="0" value="${q}"
+                                data-tech-enc="${encTech}"
+                                data-idx="${item.itemIndex}"
+                                onchange="vmiQtyChange(this)" />
+                            <span style="color:#555;"> / ${m}</span>
+                        </td>
+                        <td class="vmi-order-qty" style="font-weight:bold; color:#27ae60; font-size: 14px;">${orderQty}</td>
                         <td>$${c.toFixed(2)}</td>
-                        <td>$${lineTotal.toFixed(2)}</td>
+                        <td class="vmi-line-total">$${lineTotal.toFixed(2)}</td>
                     </tr>
                 `;
             });
@@ -1491,7 +1631,12 @@ function openVMIReport() {
             vendorHtml += `
                 <tr>
                     <td colspan="6" style="background:#eaf2f8; color:#1e4b85; font-weight:bold; font-size:14px; padding:8px 10px; border-top: 2px solid #bdc3c7;">
-                        📦 TECH BIN: ${techName.toUpperCase()}
+                        <span class="vmi-tech-header" role="button" tabindex="0" title="Open truck inventory"
+                            onclick="closeVmiAndOpenInventoryFromEncoded('${encTech}')"
+                            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeVmiAndOpenInventoryFromEncoded('${encTech}');}">
+                            📦 TECH BIN: <span style="text-decoration:underline;">${escapeHTML(techName.toUpperCase())}</span>
+                        </span>
+                        <span class="vmi-tech-edit-icon" title="Edit inventory" onclick="closeVmiAndOpenInventoryFromEncoded('${encTech}')">✏️</span>
                     </td>
                 </tr>
                 ${techRows}
@@ -1501,7 +1646,7 @@ function openVMIReport() {
         html += `
             <div class="vmi-vendor-block">
                 <div class="vmi-vendor-header">
-                    <span>🏢 VENDOR: ${vendor}</span>
+                    <span>🏢 VENDOR: ${escapeHTML(vendor)}</span>
                     <span>Est. PO Total: $${vendorTotal.toFixed(2)}</span>
                 </div>
                 <table class="vmi-table">
