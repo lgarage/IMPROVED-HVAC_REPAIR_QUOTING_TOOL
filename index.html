@@ -1332,6 +1332,10 @@
         color: #1e4b85;
         font-weight: bold;
       }
+      .inventory-table tr.ghost-row td {
+        background: #fafcfd;
+        border-bottom: 1px dashed #dce4ec;
+      }
       .inventory-input {
         width: 100%;
         padding: 6px;
@@ -4215,8 +4219,10 @@
             </button>
             <button
               id="btnAddCustomItem"
+              type="button"
               class="gen-btn btn-sm"
-              style="background: #27ae60; padding: 8px 15px"
+              style="display: none !important"
+              aria-hidden="true"
               onclick="addBlankToolRow()"
             >
               + Add Custom Tool
@@ -4969,7 +4975,7 @@
       }
     </script>
 
-    <script src="settings.js?v=8"></script>
+    <script src="settings.js?v=9"></script>
     <script src="customer_directory.js?v=25"></script>
     <script src="service_call.js?v=46"></script>
     <script src="quoting.js?v=6"></script>

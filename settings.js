@@ -982,17 +982,13 @@ function switchInvTab(tabName) {
     document.getElementById('btnTabTools').classList.remove('active');
     document.getElementById('btnTabConsumables').classList.remove('active');
     
-    const btnAdd = document.getElementById('btnAddCustomItem');
-    
     if(tabName === 'tools') {
         document.getElementById('btnTabTools').classList.add('active');
         if (!editingTemplateType) document.getElementById('invActionButtons').style.display = 'block';
-        if (btnAdd) btnAdd.innerText = "+ Add Custom Tool";
     } else {
         document.getElementById('btnTabConsumables').classList.add('active');
         // Do NOT hide action buttons on consumables, let them use Clear All
         document.getElementById('invActionButtons').style.display = 'block';
-        if (btnAdd) btnAdd.innerText = "+ Add Custom Part";
     }
     renderTruckInventory();
 }
@@ -1011,10 +1007,30 @@ function getActiveInvData() {
     let originalConsCount = db[targetKey].consumables ? db[targetKey].consumables.length : 0;
 
     if (db[targetKey].tools) {
-        db[targetKey].tools = db[targetKey].tools.filter(i => i.name && i.name.trim() !== '' && i.name !== 'Unknown Item');
+        db[targetKey].tools = db[targetKey].tools.filter(function (i) {
+            if (i.name === "Unknown Item") return false;
+            return (
+                (i.name && String(i.name).trim()) ||
+                (i.category && String(i.category).trim()) ||
+                (i.vendor && String(i.vendor).trim()) ||
+                (i.url && String(i.url).trim()) ||
+                !!i.bundle
+            );
+        });
     }
     if (db[targetKey].consumables) {
-        db[targetKey].consumables = db[targetKey].consumables.filter(i => i.name && i.name.trim() !== '' && i.name !== 'Unknown Item');
+        db[targetKey].consumables = db[targetKey].consumables.filter(function (i) {
+            if (i.name === "Unknown Item") return false;
+            return (
+                (i.name && String(i.name).trim()) ||
+                (i.category && String(i.category).trim()) ||
+                (i.vendor && String(i.vendor).trim()) ||
+                (i.url && String(i.url).trim()) ||
+                (parseInt(i.qty, 10) || 0) !== 0 ||
+                (parseInt(i.minLevel, 10) || 0) !== 0 ||
+                (parseFloat(i.cost) || 0) !== 0
+            );
+        });
     }
 
     if (db[targetKey].tools.length !== originalToolCount || db[targetKey].consumables.length !== originalConsCount) {
@@ -1022,6 +1038,140 @@ function getActiveInvData() {
     }
     
     return { db, storageKey, targetKey, invData: db[targetKey] };
+}
+
+function inventoryNavSelectors() {
+    return currentInvTab === "tools"
+        ? [".p-name", ".p-cat", ".p-ven", ".p-bun", ".p-url"]
+        : [".p-name", ".p-cat", ".p-cost", ".p-qty", ".p-min", ".p-ven", ".p-url"];
+}
+
+function ghostInventoryRowHasMeaningfulInput(tr) {
+    if (currentInvTab === "tools") {
+        const name = (tr.querySelector(".p-name") && tr.querySelector(".p-name").value) || "";
+        const cat = (tr.querySelector(".p-cat") && tr.querySelector(".p-cat").value) || "";
+        const ven = (tr.querySelector(".p-ven") && tr.querySelector(".p-ven").value) || "";
+        const url = (tr.querySelector(".p-url") && tr.querySelector(".p-url").value) || "";
+        const bun = tr.querySelector(".p-bun") && tr.querySelector(".p-bun").checked;
+        return (
+            name.trim() !== "" ||
+            cat.trim() !== "" ||
+            ven.trim() !== "" ||
+            url.trim() !== "" ||
+            bun
+        );
+    }
+    const name = (tr.querySelector(".p-name") && tr.querySelector(".p-name").value) || "";
+    const cat = (tr.querySelector(".p-cat") && tr.querySelector(".p-cat").value) || "";
+    const ven = (tr.querySelector(".p-ven") && tr.querySelector(".p-ven").value) || "";
+    const url = (tr.querySelector(".p-url") && tr.querySelector(".p-url").value) || "";
+    const qty = parseInt(tr.querySelector(".p-qty") && tr.querySelector(".p-qty").value, 10) || 0;
+    const min = parseInt(tr.querySelector(".p-min") && tr.querySelector(".p-min").value, 10) || 0;
+    const cost = parseFloat(tr.querySelector(".p-cost") && tr.querySelector(".p-cost").value) || 0;
+    return (
+        name.trim() !== "" ||
+        cat.trim() !== "" ||
+        ven.trim() !== "" ||
+        url.trim() !== "" ||
+        qty !== 0 ||
+        min !== 0 ||
+        cost !== 0
+    );
+}
+
+function promoteGhostInventoryRow(tr) {
+    if (!tr || !tr.classList.contains("ghost-row")) return;
+    if (!ghostInventoryRowHasMeaningfulInput(tr)) return;
+    const activeData = getActiveInvData();
+    if (currentInvTab === "tools") {
+        activeData.invData.tools.push({
+            name: (tr.querySelector(".p-name") && tr.querySelector(".p-name").value) || "",
+            category: (tr.querySelector(".p-cat") && tr.querySelector(".p-cat").value) || "",
+            vendor: (tr.querySelector(".p-ven") && tr.querySelector(".p-ven").value) || "",
+            bundle: !!(tr.querySelector(".p-bun") && tr.querySelector(".p-bun").checked),
+            url: (tr.querySelector(".p-url") && tr.querySelector(".p-url").value) || ""
+        });
+    } else {
+        activeData.invData.consumables.push({
+            name: (tr.querySelector(".p-name") && tr.querySelector(".p-name").value) || "",
+            category: (tr.querySelector(".p-cat") && tr.querySelector(".p-cat").value) || "",
+            cost: parseFloat(tr.querySelector(".p-cost") && tr.querySelector(".p-cost").value) || 0,
+            qty: parseInt(tr.querySelector(".p-qty") && tr.querySelector(".p-qty").value, 10) || 0,
+            minLevel: parseInt(tr.querySelector(".p-min") && tr.querySelector(".p-min").value, 10) || 0,
+            vendor: (tr.querySelector(".p-ven") && tr.querySelector(".p-ven").value) || "",
+            url: (tr.querySelector(".p-url") && tr.querySelector(".p-url").value) || ""
+        });
+    }
+    persistInventoryStorage(activeData.storageKey, activeData.db);
+    renderTruckInventory();
+}
+
+function ghostRowMaybePromote(e) {
+    const tr = e.target && e.target.closest && e.target.closest("tr.ghost-row");
+    if (!tr) return;
+    if (ghostInventoryRowHasMeaningfulInput(tr)) {
+        promoteGhostInventoryRow(tr);
+    }
+}
+
+function onInventoryTableKeydown(e) {
+    const tag = (e.target && e.target.tagName) || "";
+    if (tag !== "INPUT" && tag !== "TEXTAREA") return;
+    const tbody = document.getElementById("inventoryTableBody");
+    if (!tbody || !tbody.contains(e.target)) return;
+    const tr = e.target.closest("tr");
+    if (!tr) return;
+    const cols = inventoryNavSelectors();
+    const inputs = cols.map(function (sel) {
+        return tr.querySelector(sel);
+    }).filter(Boolean);
+
+    function colIndexOf(el) {
+        for (let i = 0; i < cols.length; i++) {
+            if (tr.querySelector(cols[i]) === el) return i;
+        }
+        return -1;
+    }
+
+    const allRows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+    const rowIdx = allRows.indexOf(tr);
+    if (rowIdx < 0) return;
+
+    if (e.key === "Tab" && !e.shiftKey) {
+        const ci = colIndexOf(e.target);
+        if (ci === -1) return;
+        if (ci === cols.length - 1) {
+            e.preventDefault();
+            const nextRow = allRows[rowIdx + 1];
+            if (nextRow) {
+                const first = nextRow.querySelector(cols[0]);
+                if (first) first.focus();
+            } else {
+                const first = tr.querySelector(cols[0]);
+                if (first) first.focus();
+            }
+        }
+    }
+    if (e.key === "Enter") {
+        e.preventDefault();
+        const ci = colIndexOf(e.target);
+        if (ci === -1) return;
+        const nextRow = allRows[rowIdx + 1];
+        if (nextRow) {
+            const next = nextRow.querySelector(cols[ci]);
+            if (next) next.focus();
+        }
+    }
+}
+
+function attachInventoryTableBehaviors(tbody) {
+    if (!tbody) return;
+    tbody.removeEventListener("input", ghostRowMaybePromote);
+    tbody.addEventListener("input", ghostRowMaybePromote);
+    tbody.removeEventListener("change", ghostRowMaybePromote);
+    tbody.addEventListener("change", ghostRowMaybePromote);
+    tbody.removeEventListener("keydown", onInventoryTableKeydown);
+    tbody.addEventListener("keydown", onInventoryTableKeydown);
 }
 
 function renderTruckInventory() {
@@ -1058,16 +1208,9 @@ function renderTruckInventory() {
     let activeData = getActiveInvData();
     const currentList = currentInvTab === 'tools' ? activeData.invData.tools : activeData.invData.consumables;
 
-    if (currentList.length === 0) {
-        let cols = currentInvTab === 'tools' ? 6 : 9;
-        tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align: center; color: #7f8c8d; padding: 30px;">This ${currentInvTab} list is currently empty.</td></tr>`;
-        return;
-    }
-
-    let rowsHtml = ''; 
+    let rowsHtml = '';
 
     currentList.forEach((item, idx) => {
-        // Apply escapeHTML so quotes in the names do not break the input elements
         let safeName = escapeHTML(item.name);
         let safeCat = escapeHTML(item.category);
         let safeVen = escapeHTML(item.vendor);
@@ -1087,7 +1230,7 @@ function renderTruckInventory() {
                             <a href="${safeUrl || '#'}" target="_blank" title="Test Link" style="text-decoration:none; font-size:16px;">↗️</a>
                         </div>
                     </td>
-                    <td><button class="gen-btn btn-sm" style="background:#e74c3c;" onclick="removeToolFromTruck(${idx})">X</button></td>
+                    <td><button type="button" tabindex="-1" class="gen-btn btn-sm" style="background:#e74c3c;" onclick="removeToolFromTruck(${idx})">X</button></td>
                 </tr>
             `;
         } else {
@@ -1114,13 +1257,51 @@ function renderTruckInventory() {
                             <a href="${safeUrl || '#'}" target="_blank" title="Test Link" style="text-decoration:none; font-size:16px;">↗️</a>
                         </div>
                     </td>
-                    <td><button class="gen-btn btn-sm" style="background:#e74c3c;" onclick="removeToolFromTruck(${idx})">X</button></td>
+                    <td><button type="button" tabindex="-1" class="gen-btn btn-sm" style="background:#e74c3c;" onclick="removeToolFromTruck(${idx})">X</button></td>
                 </tr>
             `;
         }
     });
 
-    tbody.innerHTML = rowsHtml; 
+    if (currentInvTab === 'tools') {
+        rowsHtml += `
+            <tr class="ghost-row" style="opacity:0.92;">
+                <td><input type="text" class="inventory-input p-name" value="" placeholder=""></td>
+                <td><input type="text" class="inventory-input p-cat" value=""></td>
+                <td><input type="text" class="inventory-input p-ven" value=""></td>
+                <td style="text-align: center;"><input type="checkbox" class="p-bun"></td>
+                <td>
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <input type="text" class="inventory-input p-url" value="" placeholder="Paste URL here..." style="width: 100%;">
+                        <span style="opacity:0.35;">↗️</span>
+                    </div>
+                </td>
+                <td></td>
+            </tr>
+        `;
+    } else {
+        rowsHtml += `
+            <tr class="ghost-row" style="opacity:0.92;">
+                <td><input type="text" class="inventory-input p-name" value="" placeholder=""></td>
+                <td><input type="text" class="inventory-input p-cat" value=""></td>
+                <td><input type="number" class="inventory-input p-cost" value="0.00" step="0.01" onchange="liveRecalculateStock()"></td>
+                <td><input type="number" class="inventory-input p-qty" value="0" style="width:100%;" min="0" onchange="liveRecalculateStock()"></td>
+                <td><input type="number" class="inventory-input p-min" value="0" style="width:100%;" min="0" onchange="liveRecalculateStock()"></td>
+                <td><input type="text" class="inventory-input p-ven" value=""></td>
+                <td style="text-align: center; vertical-align: middle; color:#bdc3c7; font-size:11px;">—</td>
+                <td>
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <input type="text" class="inventory-input p-url" value="" placeholder="URL..." style="width: 100%;">
+                        <span style="opacity:0.35;">↗️</span>
+                    </div>
+                </td>
+                <td></td>
+            </tr>
+        `;
+    }
+
+    tbody.innerHTML = rowsHtml;
+    attachInventoryTableBehaviors(tbody);
 }
 
 function liveRecalculateStock() {
@@ -1364,6 +1545,7 @@ function saveAndCloseTruckInventory(silent = false) {
     
     if (rows.length > 0 && !rows[0].innerText.includes('empty')) {
         rows.forEach(row => {
+            if (row.classList && row.classList.contains('ghost-row')) return;
             let nameEl = row.querySelector('.p-name');
             if (nameEl) {
                 if (currentInvTab === 'tools') {
