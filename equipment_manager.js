@@ -1,6 +1,6 @@
 /**
- * Equipment Profile & Grading — isolated module (Dispatcher Portal).
- * Does not modify core invoice / quoting logic; relies on global firebase + firebaseConfig.
+ * Equipment Profile & Grading — shared module (Dispatcher index.html + Field App technician/).
+ * Requires firebase (initialized), firebaseConfig, getGeminiApiKey, GEMINI_GENERATE_MODEL from firebase-config.js.
  */
 (function () {
   "use strict";
