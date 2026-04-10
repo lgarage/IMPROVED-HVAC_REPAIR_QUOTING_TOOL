@@ -80,11 +80,196 @@ body {
 .schedule-day-chip.active {
   border-color: #1e4b85; background: #e8f0fe; color: #1e4b85;
 }
+.schedule-day-chip.schedule-day-chip--past {
+  background: #eef1f4;
+  color: #7f8c8d;
+  border: 1px solid #d8dee6;
+  font-weight: 600;
+}
+.schedule-day-chip.schedule-day-chip--past.active {
+  background: #dfe7f0;
+  color: #34495e;
+  border-color: #1e4b85;
+}
+.schedule-day-chip.schedule-day-chip--future {
+  border: 1px solid #e1e8ed;
+}
+.schedule-day-chip.schedule-day-chip--today-chip:not(.active) {
+  border: 2px solid #c89b53;
+}
+.schedule-day-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.schedule-day-toolbar .schedule-day-hint {
+  margin: 0;
+  flex: 1;
+  line-height: 1.35;
+}
+.schedule-go-today {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: #1e4b85;
+  font-weight: 800;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.schedule-go-today:active {
+  opacity: 0.85;
+}
+.job-card--historical {
+  cursor: default;
+  border-left-color: #95a5a6;
+  opacity: 0.98;
+}
+.job-card--historical:active {
+  transform: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+.job-card-review-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 10px;
+  background: #1e4b85;
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.job-card-review-btn:active {
+  transform: scale(0.99);
+}
 .schedule-day-hint { font-size: 12px; color: #7f8c8d; margin: 0 0 10px 0; }
 .card-customer { font-size: 18px; font-weight: 800; color: #2c3e50; margin-bottom: 4px; }
 .card-address { color: #7f8c8d; font-size: 13px; line-height: 1.4; }
 
 /* --- WORKSPACE (ACTIVE JOB) --- */
+.workspace-historical-banner {
+  background: #fff8e6;
+  border: 1px solid #f0d78c;
+  color: #5d4e1f;
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+#screen-workspace.is-historical-job .workspace-lock-scope {
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.94;
+}
+#screen-workspace.is-historical-job .workspace-original-fab {
+  display: none !important;
+}
+#reportPreviewModal.historical-sync-disabled .report-preview-sync {
+  display: none !important;
+}
+.workspace-addendum-section {
+  background: #fff;
+  border: 2px solid #1e4b85;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  pointer-events: auto;
+}
+.workspace-addendum-section label {
+  margin-top: 12px;
+}
+.workspace-addendum-section label:first-of-type {
+  margin-top: 0;
+}
+.workspace-addendum-title {
+  margin: 0 0 8px 0;
+  font-size: 17px;
+  color: #1e4b85;
+}
+.workspace-addendum-hint {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: #7f8c8d;
+  line-height: 1.4;
+}
+.workspace-addendum-save {
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 800;
+}
+.workspace-addendum-status {
+  margin: 10px 0 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 1.2em;
+}
+.workspace-addendum-timeline-wrap {
+  margin-bottom: 20px;
+  pointer-events: auto;
+}
+.workspace-addendum-timeline-wrap .addendum-timeline-heading {
+  font-size: 15px;
+  font-weight: 800;
+  color: #2c3e50;
+  margin: 0 0 10px 0;
+}
+.addendum-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.addendum-timeline-item {
+  background: #fff;
+  border: 1px solid #e1e8ed;
+  border-radius: 10px;
+  padding: 12px 14px;
+  border-left: 4px solid #1e4b85;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.addendum-timeline-meta {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e4b85;
+  margin-bottom: 8px;
+}
+.addendum-timeline-text {
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.addendum-timeline-files {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #f0f4f8;
+  font-size: 13px;
+}
+.addendum-timeline-files a {
+  display: block;
+  color: #1e4b85;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.addendum-timeline-empty {
+  font-size: 13px;
+  color: #95a5a6;
+  margin: 0;
+  padding: 8px 0;
+}
+
 .workspace-header {
   background: #1e4b85; color: #fff; padding: 20px; border-radius: 12px; margin-bottom: 20px;
   box-shadow: 0 4px 15px rgba(30,75,133,0.2);
@@ -975,13 +1160,16 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 15px;">
     <div>
       <h2 style="margin: 0; color: #2c3e50; font-size: 24px;">Your schedule</h2>
-      <span style="font-size: 12px; color: #7f8c8d;">Next 7 days</span>
+      <span style="font-size: 12px; color: #7f8c8d;">Past 30 days · Today · Next 7 days</span>
     </div>
     <span id="techDisplayLabel" style="font-size: 12px; font-weight: bold; color: #c89b53; background: #fdfaf2; padding: 4px 8px; border-radius: 12px; border: 1px solid #fad7a1; flex-shrink: 0;">Loading...</span>
   </div>
 
   <div class="schedule-day-strip-wrap">
-    <p class="schedule-day-hint">Tap a day to see that day's jobs (next 7 days).</p>
+    <div class="schedule-day-toolbar">
+      <p class="schedule-day-hint">Swipe dates left/right. Past days show history (tap <strong>Update / Review</strong> to add notes). Future days are your active schedule.</p>
+      <button type="button" id="scheduleGoToTodayBtn" class="schedule-go-today" title="Jump to today on the timeline">Today</button>
+    </div>
     <div id="scheduleDayStrip" class="schedule-day-strip" role="tablist" aria-label="Pick a day"></div>
   </div>
   
@@ -993,6 +1181,11 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 </div>
 
 <div id="screen-workspace" class="screen hidden">
+  <div id="workspaceHistoricalBanner" class="workspace-historical-banner hidden" role="status">
+    ⚠️ Historical Record: Viewing Read-Only. Use Addendum section below for updates.
+  </div>
+
+  <div id="workspaceLockScope" class="workspace-lock-scope">
   <div id="successCard" class="alert-card">
     <h3>✓ Ticket Synced</h3>
     <p>Saved successfully. You can return to your schedule.</p>
@@ -1195,7 +1388,22 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     </div>
   </div>
 
-  <div class="fab-container">
+  </div><!-- /workspaceLockScope -->
+
+  <div id="workspaceAddendumSection" class="workspace-addendum-section hidden">
+    <h3 class="workspace-addendum-title">Supplemental update (addendum)</h3>
+    <p class="workspace-addendum-hint">Add notes or files. Original report fields above stay unchanged.</p>
+    <label for="addendumSupplementalNotes">Supplemental notes</label>
+    <textarea id="addendumSupplementalNotes" rows="4" placeholder="Additional context, corrections, or follow-up…"></textarea>
+    <label for="addendumFilesInput">Additional photos / documents</label>
+    <input type="file" id="addendumFilesInput" multiple accept="image/*,.pdf,.doc,.docx,application/pdf">
+    <button type="button" id="saveAddendumBtn" class="btn btn-primary workspace-addendum-save">💾 Save Supplemental Update</button>
+    <p id="addendumSaveStatus" class="workspace-addendum-status" aria-live="polite"></p>
+  </div>
+
+  <div id="workspaceAddendumTimeline" class="workspace-addendum-timeline-wrap" aria-live="polite"></div>
+
+  <div class="fab-container workspace-original-fab">
     <div class="fab-stack">
       <button id="generate" class="fab-btn" type="button">Complete & Sync Ticket</button>
     </div>
@@ -1350,9 +1558,9 @@ function dateFromToday(days) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
 }
 
-/** Inclusive 7-day window: today through 6 days ahead. */
-function scheduleWindowStart() { return dateFromToday(0); }
-function scheduleWindowEnd() { return dateFromToday(6); }
+/** Inclusive window: 30 days back through 7 days ahead (local calendar). */
+function scheduleWindowStart() { return dateFromToday(-30); }
+function scheduleWindowEnd() { return dateFromToday(7); }
 
 function isYmdToday(ymd) { return ymd === today(); }
 
@@ -1371,8 +1579,10 @@ function formatShortScheduleDayLabel(ymd) {
   return d.toLocaleDateString(undefined, { weekday: "short", month: "numeric", day: "numeric" });
 }
 
-/** Selected day for schedule list; must fall within the rolling 7-day window. */
+/** Selected day for schedule list; must fall within the rolling schedule window. */
 let selectedScheduleDayYmd = "";
+/** One-time: after first strip build, scroll so Today is visible (not buried in past days). */
+let scheduleStripDidInitialScrollToToday = false;
 
 function ensureSelectedDayInWindow() {
   const start = scheduleWindowStart();
@@ -1383,28 +1593,64 @@ function ensureSelectedDayInWindow() {
   }
 }
 
+function scrollScheduleStripChipIntoView(ymd, behavior) {
+  const strip = document.getElementById("scheduleDayStrip");
+  if (!strip || !ymd) return;
+  const chip = strip.querySelector('.schedule-day-chip[data-ymd="' + ymd + '"]');
+  if (chip) chip.scrollIntoView({ inline: "center", block: "nearest", behavior: behavior || "smooth" });
+}
+
 function buildScheduleDayStrip() {
   const strip = document.getElementById("scheduleDayStrip");
   if (!strip) return;
   ensureSelectedDayInWindow();
   strip.innerHTML = "";
-  for (let i = 0; i < 7; i++) {
-    const ymd = dateFromToday(i);
+  const todayStr = today();
+  for (let offset = -30; offset <= 7; offset++) {
+    const ymd = dateFromToday(offset);
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "schedule-day-chip" + (ymd === selectedScheduleDayYmd ? " active" : "");
+    let chipClass = "schedule-day-chip";
+    if (ymd < todayStr) chipClass += " schedule-day-chip--past";
+    else if (ymd > todayStr) chipClass += " schedule-day-chip--future";
+    else chipClass += " schedule-day-chip--today-chip";
+    if (ymd === selectedScheduleDayYmd) chipClass += " active";
+    btn.className = chipClass;
     btn.textContent = formatShortScheduleDayLabel(ymd);
     btn.setAttribute("data-ymd", ymd);
     btn.setAttribute("role", "tab");
     btn.setAttribute("aria-selected", ymd === selectedScheduleDayYmd ? "true" : "false");
     btn.onclick = function () {
       selectedScheduleDayYmd = this.getAttribute("data-ymd");
-      buildScheduleDayStrip();
       renderJobListUI();
+      requestAnimationFrame(function () {
+        scrollScheduleStripChipIntoView(selectedScheduleDayYmd, "smooth");
+      });
     };
     strip.appendChild(btn);
   }
+  if (!scheduleStripDidInitialScrollToToday) {
+    scheduleStripDidInitialScrollToToday = true;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        scrollScheduleStripChipIntoView(todayStr, "auto");
+      });
+    });
+  }
 }
+
+(function wireScheduleGoToToday() {
+  const b = document.getElementById("scheduleGoToTodayBtn");
+  if (!b || b.dataset.wired === "1") return;
+  b.dataset.wired = "1";
+  b.addEventListener("click", function () {
+    selectedScheduleDayYmd = today();
+    renderJobListUI();
+    requestAnimationFrame(function () {
+      scrollScheduleStripChipIntoView(today(), "smooth");
+    });
+  });
+})();
 
 const DEFAULT_PM_WORKDONE = "Changed filters/belts and verified operations of equipment";
 const DEFAULT_PM_NOTES = "All units are running good at this time.";
@@ -1474,6 +1720,7 @@ let scheduleFirstSnapshotPending = true;
 /** Set when the schedule listener starts; used to resubscribe after the local calendar day changes. */
 let lastScheduleWindowStart = '';
 let cachedTechnicianRoster = [];
+let workspaceAddendumUnsub = null;
 let autosaveWired = false;
 function ensureWireAutosave() {
   if (autosaveWired) return;
@@ -1483,6 +1730,10 @@ function ensureWireAutosave() {
 
 /* ---------- screen & UI logic ---------- */
 function switchScreen(screenName) {
+  if (screenName !== 'workspace') {
+    teardownWorkspaceAddendums();
+    applyWorkspaceHistoricalMode(false);
+  }
   document.querySelectorAll('.screen').forEach(s => { s.classList.add('hidden'); s.classList.remove('active'); });
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
@@ -1630,6 +1881,7 @@ async function switchUser() {
   localStorage.removeItem('tp_saved_tech');
   currentTechProfile = '';
   selectedScheduleDayYmd = '';
+  scheduleStripDidInitialScrollToToday = false;
   cachedTechnicianRoster = await fetchTechnicianRosterFromCloud();
   showLoginShell(cachedTechnicianRoster);
   switchScreen('schedule');
@@ -1650,6 +1902,8 @@ function renderJobListUI() {
   buildScheduleDayStrip();
   container.innerHTML = '';
   const day = selectedScheduleDayYmd;
+  const todayStr = today();
+  const isHistoricalDay = day < todayStr;
   const forDay = myTickets.filter((d) => d.date === day);
   const sorted = forDay.slice().sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
   if (sorted.length) {
@@ -1658,8 +1912,21 @@ function renderJobListUI() {
   sorted.forEach((data) => {
     let badgeClass = "card-badge";
     if (data.priority === 'Emergency') badgeClass += " badge-emergency";
-    const cardHTML = `
-        <div class="job-card" onclick="openWorkspace('${data.id}')">
+    const safeId = JSON.stringify(data.id);
+    const cardHTML = isHistoricalDay
+      ? `
+        <div class="job-card job-card--historical">
+          <div class="card-header">
+            <span class="card-time">${data.startTime || '8:00 AM'}</span>
+            <span class="${badgeClass}">${data.jobType}</span>
+          </div>
+          <div class="card-customer">${data.customerName}</div>
+          <div class="card-address">📍 ${data.locationAddress}, ${data.custCity || ''}</div>
+          <button type="button" class="job-card-review-btn" onclick="openWorkspace(${safeId})">🛠️ Update / Review This Job</button>
+        </div>
+      `
+      : `
+        <div class="job-card" onclick="openWorkspace(${safeId})">
           <div class="card-header">
             <span class="card-time">${data.startTime || '8:00 AM'}</span>
             <span class="${badgeClass}">${data.jobType}</span>
@@ -1671,12 +1938,16 @@ function renderJobListUI() {
     container.innerHTML += cardHTML;
   });
   if (sorted.length === 0) {
-    container.innerHTML = '<div style="text-align:center; padding: 40px; color:#95a5a6; background:#fff; border-radius:12px;">No released jobs for you on this day. Dispatch must check <strong>Release to Field app</strong> before a job appears here.</div>';
+    const emptyMsg = isHistoricalDay
+      ? 'No jobs on record for this day.'
+      : 'No released jobs for you on this day. Dispatch must check <strong>Release to Field app</strong> before a job appears here.';
+    container.innerHTML = '<div style="text-align:center; padding: 40px; color:#95a5a6; background:#fff; border-radius:12px;">' + emptyMsg + '</div>';
   }
 }
 
 /**
- * Live listener: open jobs for this tech with date in the next 7 days (today + 6). Unsubscribe before resubscribing.
+ * Live listener: jobs for this tech with date in the window (30 days back through 7 ahead).
+ * Past days include completed history; today/future keep active pipeline only (no completed/canceled).
  * @param {function(boolean): void} onFirstSnapshot — called once after the first snapshot (for deep link + init).
  * @param {boolean} runDeepLink — false when switching user so ?ticketId= does not reopen.
  */
@@ -1706,12 +1977,13 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
     container.innerHTML = '<div style="text-align:center; padding: 40px; color:#95a5a6;">Connecting…</div>';
     myTickets = [];
 
-    // Only equality on assignedTech — no composite index required. We filter the 7-day window client-side.
+    // Only equality on assignedTech — no composite index required. We filter the date window client-side.
     // (A server-side date range needs a composite index; see firestore.indexes.json if you prefer fewer reads at scale.)
     const q = db.collection('service_calls')
       .where('assignedTech', '==', currentTechProfile);
 
     lastScheduleWindowStart = scheduleWindowStart();
+    const todayStr = today();
 
     scheduleUnsubscribe = q.onSnapshot(
       (snapshot) => {
@@ -1719,10 +1991,14 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
         snapshot.forEach((doc) => {
           const data = doc.data();
           if (data.archived) return;
-          if (data.status === 'Completed' || data.status === 'Canceled') return;
           if (data.releasedToTech === false) return;
           const d = data.date;
           if (!d || typeof d !== 'string' || d < startStr || d > endStr) return;
+          if (d < todayStr) {
+            if (data.status === 'Canceled') return;
+          } else {
+            if (data.status === 'Completed' || data.status === 'Canceled') return;
+          }
           data.id = doc.id;
           myTickets.push(data);
         });
@@ -1752,6 +2028,173 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
 window.addEventListener('beforeunload', () => { unsubscribeSchedule(); });
 
 /** Opens a ticket from ?ticketId= in the URL (optional bookmark/deep link). */
+function isTicketDateHistorical(ticket) {
+  if (!ticket || !ticket.date || typeof ticket.date !== 'string') return false;
+  return ticket.date < today();
+}
+
+function applyWorkspaceHistoricalMode(isHistorical) {
+  const ws = document.getElementById('screen-workspace');
+  const banner = document.getElementById('workspaceHistoricalBanner');
+  const addSec = document.getElementById('workspaceAddendumSection');
+  const gen = document.getElementById('generate');
+  const syncBtn = document.getElementById('reportPreviewSyncBtn');
+  if (ws) ws.classList.toggle('is-historical-job', !!isHistorical);
+  if (banner) banner.classList.toggle('hidden', !isHistorical);
+  if (addSec) addSec.classList.toggle('hidden', !isHistorical);
+  if (gen) gen.disabled = !!isHistorical;
+  if (syncBtn) syncBtn.disabled = !!isHistorical;
+  if (!isHistorical) {
+    const notes = document.getElementById('addendumSupplementalNotes');
+    const files = document.getElementById('addendumFilesInput');
+    const st = document.getElementById('addendumSaveStatus');
+    if (notes) notes.value = '';
+    if (files) files.value = '';
+    if (st) st.textContent = '';
+  }
+}
+
+function teardownWorkspaceAddendums() {
+  if (workspaceAddendumUnsub) {
+    workspaceAddendumUnsub();
+    workspaceAddendumUnsub = null;
+  }
+  const tl = document.getElementById('workspaceAddendumTimeline');
+  if (tl) tl.innerHTML = '';
+}
+
+function escapeHtmlTimeline(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function formatAddendumTimestamp(ts) {
+  if (!ts) return '—';
+  try {
+    if (typeof ts.toDate === 'function') {
+      return ts.toDate().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    }
+    if (ts.seconds != null) {
+      return new Date(ts.seconds * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    }
+  } catch (e) {}
+  return '—';
+}
+
+function subscribeWorkspaceAddendums(ticketId) {
+  teardownWorkspaceAddendums();
+  if (!ticketId || typeof firebase === 'undefined' || !firebase.apps.length) return;
+  const db = firebase.firestore();
+  const col = db.collection('service_calls').doc(ticketId).collection('addendums');
+  workspaceAddendumUnsub = col.onSnapshot((snapshot) => {
+    const rows = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data() || {};
+      let ms = 0;
+      const ts = data.timestamp;
+      if (ts && typeof ts.toMillis === 'function') ms = ts.toMillis();
+      else if (ts && ts.seconds != null) ms = ts.seconds * 1000;
+      rows.push({
+        id: doc.id,
+        techName: data.techName || '',
+        text: data.text || '',
+        fileUrls: Array.isArray(data.fileUrls) ? data.fileUrls : [],
+        timestamp: ts,
+        _tsMs: ms
+      });
+    });
+    rows.sort((a, b) => (b._tsMs || 0) - (a._tsMs || 0));
+    const el = document.getElementById('workspaceAddendumTimeline');
+    if (!el) return;
+    let inner = '<h4 class="addendum-timeline-heading">Supplemental history</h4>';
+    if (!rows.length) {
+      inner += '<p class="addendum-timeline-empty">No supplemental updates yet.</p>';
+    } else {
+      inner += '<div class="addendum-timeline">';
+      rows.forEach((row) => {
+        const when = formatAddendumTimestamp(row.timestamp);
+        const who = escapeHtmlTimeline(row.techName || 'Technician');
+        const text = row.text ? `<div class="addendum-timeline-text">${escapeHtmlTimeline(row.text)}</div>` : '';
+        let filesHtml = '';
+        if (row.fileUrls && row.fileUrls.length) {
+          filesHtml = '<div class="addendum-timeline-files">';
+          row.fileUrls.forEach((url, i) => {
+            const safeUrl = escapeHtmlTimeline(url);
+            filesHtml += `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">Attachment ${i + 1}</a>`;
+          });
+          filesHtml += '</div>';
+        }
+        inner += `<div class="addendum-timeline-item"><div class="addendum-timeline-meta">${escapeHtmlTimeline(when)} · ${who}</div>${text}${filesHtml}</div>`;
+      });
+      inner += '</div>';
+    }
+    el.innerHTML = inner;
+  }, (err) => {
+    console.error('addendums listener:', err);
+  });
+}
+
+async function saveSupplementalUpdate() {
+  const ticketId = document.getElementById('ticketSelector') && document.getElementById('ticketSelector').value;
+  const st = document.getElementById('addendumSaveStatus');
+  const notesEl = document.getElementById('addendumSupplementalNotes');
+  const filesEl = document.getElementById('addendumFilesInput');
+  if (!ticketId || !notesEl || !filesEl) return;
+  const text = (notesEl.value || '').trim();
+  const files = filesEl.files;
+  if (!text && (!files || !files.length)) {
+    if (st) st.textContent = 'Add notes or choose at least one file.';
+    return;
+  }
+  if (!currentTechProfile) {
+    alert('Sign in first.');
+    return;
+  }
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    alert('Connect to the network to save.');
+    return;
+  }
+  if (st) st.textContent = 'Saving…';
+  try {
+    const storage = firebase.storage();
+    const batchTs = Date.now();
+    const fileUrls = [];
+    if (files && files.length) {
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const safe = (f.name || 'file').replace(/[^\w.\-]+/g, '_');
+        const path = `service_call_addendums/${ticketId}/${batchTs}_${i}_${safe}`;
+        const ref = storage.ref(path);
+        await ref.put(f);
+        fileUrls.push(await ref.getDownloadURL());
+      }
+    }
+    const db = firebase.firestore();
+    await db.collection('service_calls').doc(ticketId).collection('addendums').add({
+      techName: currentTechProfile,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      text: text,
+      fileUrls: fileUrls
+    });
+    notesEl.value = '';
+    filesEl.value = '';
+    if (st) st.textContent = 'Saved.';
+    setTimeout(() => { if (st) st.textContent = ''; }, 4000);
+  } catch (e) {
+    console.error(e);
+    if (st) st.textContent = 'Error: ' + (e.message || 'could not save');
+  }
+}
+
+(function wireSaveAddendumBtn() {
+  const b = document.getElementById('saveAddendumBtn');
+  if (!b || b.dataset.wired === '1') return;
+  b.dataset.wired = '1';
+  b.addEventListener('click', () => saveSupplementalUpdate());
+})();
+
 async function maybeOpenDeepLinkedTicket() {
   const params = new URLSearchParams(window.location.search);
   const tid = params.get("ticketId") || params.get("id");
@@ -1780,6 +2223,7 @@ async function maybeOpenDeepLinkedTicket() {
 }
 
 function openWorkspace(ticketId) {
+  teardownWorkspaceAddendums();
   activeTicket = myTickets.find(t => t.id === ticketId);
   if (!activeTicket) return;
 
@@ -1815,6 +2259,11 @@ function openWorkspace(ticketId) {
   document.getElementById('successCard').style.display = 'none';
   if (typeof hideFormIntentBanner === 'function') hideFormIntentBanner();
   applyMode();
+  const historical = isTicketDateHistorical(activeTicket);
+  applyWorkspaceHistoricalMode(historical);
+  if (historical) {
+    subscribeWorkspaceAddendums(ticketId);
+  }
   switchScreen('workspace');
   saveDraft();
   if (typeof refreshJobLinkedEquipmentDropdown === "function") refreshJobLinkedEquipmentDropdown();
@@ -3384,18 +3833,31 @@ function validateNeedsRepairQuote() {
 }
 
 function closeReportPreview() {
-  document.getElementById("reportPreviewModal").classList.add("hidden");
+  const modal = document.getElementById("reportPreviewModal");
+  modal.classList.add("hidden");
+  modal.classList.remove("historical-sync-disabled");
   document.body.style.overflow = "";
 }
 
 function openReportPreview(text) {
   document.getElementById("reportPreviewBody").textContent = text;
-  document.getElementById("reportPreviewModal").classList.remove("hidden");
+  const modal = document.getElementById("reportPreviewModal");
+  modal.classList.remove("hidden");
+  const ws = document.getElementById("screen-workspace");
+  if (ws && ws.classList.contains("is-historical-job")) {
+    modal.classList.add("historical-sync-disabled");
+  } else {
+    modal.classList.remove("historical-sync-disabled");
+  }
   document.body.style.overflow = "hidden";
 }
 
 /** Opens preview first; sync only happens from the modal confirm button. */
 document.getElementById("generate").onclick = async function(){
+  const wsScreen = document.getElementById("screen-workspace");
+  if (wsScreen && wsScreen.classList.contains("is-historical-job")) {
+    return;
+  }
   const check = validateNeedsRepairQuote();
   if (!check.ok) {
     alert(check.message);
@@ -3408,6 +3870,10 @@ document.getElementById("generate").onclick = async function(){
 };
 
 document.getElementById("reportPreviewSyncBtn").onclick = async function(){
+  const wsScreen = document.getElementById("screen-workspace");
+  if (wsScreen && wsScreen.classList.contains("is-historical-job")) {
+    return;
+  }
   const check = validateNeedsRepairQuote();
   if (!check.ok) {
     alert(check.message);
@@ -3523,8 +3989,8 @@ window.onload = async function(){
   }
   if (!canonical) {
     showLoginShell(cachedTechnicianRoster);
-    document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
-    return;
+  document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
+  return;
   }
 
   const openedFromDispatchLink = await loadUserProfile();

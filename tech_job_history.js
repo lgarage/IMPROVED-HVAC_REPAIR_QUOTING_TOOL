@@ -42,6 +42,25 @@
       .replace(/>/g, "&gt;");
   }
 
+  function formatAddendumTs(ts) {
+    if (!ts) return "—";
+    try {
+      if (typeof ts.toDate === "function") {
+        return ts.toDate().toLocaleString(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        });
+      }
+      if (ts.seconds != null) {
+        return new Date(ts.seconds * 1000).toLocaleString(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        });
+      }
+    } catch (e) {}
+    return "—";
+  }
+
   async function fetchTicketForWorkspace(ticketId) {
     if (typeof firebase === "undefined" || !firebase.apps.length) return null;
     var snap = await firebase
@@ -270,7 +289,80 @@
         "<p style=\"color:#e74c3c;\">Could not load forms.</p>";
     }
 
-    body.innerHTML = head + actions + manualRow + formsHtml;
+    var addendumBlock =
+      "<hr class=\"soft\" style=\"margin:20px 0;\">" +
+      "<h4 style=\"margin:0 0 10px 0;color:#2c3e50;font-size:15px;\">Supplemental addendums</h4>";
+    try {
+      var dbAdd = firebase.firestore();
+      var addSnap = await dbAdd
+        .collection("service_calls")
+        .doc(ticketId)
+        .collection("addendums")
+        .get();
+      var addRows = [];
+      addSnap.forEach(function (d) {
+        var x = d.data() || {};
+        var ms = 0;
+        var ts = x.timestamp;
+        if (ts && typeof ts.toMillis === "function") ms = ts.toMillis();
+        else if (ts && ts.seconds != null) ms = ts.seconds * 1000;
+        addRows.push({ data: x, _tsMs: ms });
+      });
+      addRows.sort(function (a, b) {
+        return b._tsMs - a._tsMs;
+      });
+      if (!addRows.length) {
+        addendumBlock +=
+          "<p style=\"font-size:13px;color:#7f8c8d;margin:0;\">No supplemental updates yet.</p>";
+      } else {
+        addendumBlock +=
+          "<div style=\"display:flex;flex-direction:column;gap:12px;margin-top:4px;\">";
+        addRows.forEach(function (row) {
+          var x = row.data;
+          var when = formatAddendumTs(x.timestamp);
+          var who = escapeHtml(String(x.techName || "Technician"));
+          var textRaw = String(x.text || "");
+          var text = textRaw
+            ? "<div style=\"font-size:14px;white-space:pre-wrap;word-break:break-word;color:#333;\">" +
+              escapeHtml(textRaw) +
+              "</div>"
+            : "";
+          var files = Array.isArray(x.fileUrls) ? x.fileUrls : [];
+          var filesHtml = "";
+          files.forEach(function (url, i) {
+            filesHtml +=
+              "<a href=\"" +
+              escapeHtml(String(url)) +
+              "\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"display:block;color:#1e4b85;font-weight:600;margin-top:4px;font-size:13px;\">Attachment " +
+              (i + 1) +
+              "</a>";
+          });
+          if (filesHtml) {
+            filesHtml =
+              "<div style=\"margin-top:10px;padding-top:10px;border-top:1px solid #f0f4f8;\">" +
+              filesHtml +
+              "</div>";
+          }
+          addendumBlock +=
+            "<div style=\"background:#fff;border:1px solid #e1e8ed;border-radius:10px;padding:12px 14px;border-left:4px solid #1e4b85;\">" +
+            "<div style=\"font-size:12px;font-weight:700;color:#1e4b85;margin-bottom:8px;\">" +
+            escapeHtml(when) +
+            " · " +
+            who +
+            "</div>" +
+            text +
+            filesHtml +
+            "</div>";
+        });
+        addendumBlock += "</div>";
+      }
+    } catch (e) {
+      console.error("addendums", e);
+      addendumBlock +=
+        "<p style=\"color:#e74c3c;font-size:13px;\">Could not load supplemental addendums.</p>";
+    }
+
+    body.innerHTML = head + actions + manualRow + formsHtml + addendumBlock;
 
     var openWs = $("techJobOpenWorkspace");
     if (openWs) {
