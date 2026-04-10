@@ -750,20 +750,26 @@ function getMasterTemplatesDB() {
     }
 }
 
-function syncInventoryTemplatesToFirestore() {
+/**
+ * Global persistence for master inventory templates (JMAN, APPRENTICE, etc.).
+ * Path: collection app_config, document inventory_templates, field templates (object map).
+ */
+async function writeInventoryTemplatesToFirestore(masterDB) {
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
-    try {
-        const masterDB = getMasterTemplatesDB();
-        firebase.firestore().collection("app_config").doc("inventory_templates").set(
-            {
-                templates: masterDB,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            },
-            { merge: true }
-        );
-    } catch (e) {
+    await firebase.firestore().collection("app_config").doc("inventory_templates").set(
+        {
+            templates: masterDB,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        },
+        { merge: true }
+    );
+}
+
+function syncInventoryTemplatesToFirestore() {
+    const masterDB = getMasterTemplatesDB();
+    writeInventoryTemplatesToFirestore(masterDB).catch(function (e) {
         console.error("syncInventoryTemplatesToFirestore", e);
-    }
+    });
 }
 
 /** Writes local cache; syncs master templates to Firestore when key is tp_master_templates. */
@@ -791,7 +797,8 @@ function syncTruckInventoriesToFirestore() {
 }
 
 /**
- * Load master templates from Firestore; if missing, seed defaults and upload once (silent migration).
+ * Silent migration: load app_config/inventory_templates; if absent, seed from built-in
+ * masterJmanTemplate / masterApprenticeTemplate / seedDataConsumables and local cache, then upload once.
  */
 async function hydrateInventoryTemplatesFromFirestore() {
     const defaults = buildDefaultMasterTemplatesDB();
@@ -821,10 +828,7 @@ async function hydrateInventoryTemplatesFromFirestore() {
                 masterDB.jman_consumables = { tools: [], consumables: seedDataConsumables };
             }
             applyLocal(masterDB);
-            await firebase.firestore().collection("app_config").doc("inventory_templates").set({
-                templates: getMasterTemplatesDB(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            await writeInventoryTemplatesToFirestore(getMasterTemplatesDB());
             return;
         }
         const data = snap.data() || {};
@@ -837,10 +841,7 @@ async function hydrateInventoryTemplatesFromFirestore() {
                 merged.jman_consumables = { tools: [], consumables: seedDataConsumables };
             }
             applyLocal(merged);
-            await firebase.firestore().collection("app_config").doc("inventory_templates").set({
-                templates: getMasterTemplatesDB(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            await writeInventoryTemplatesToFirestore(getMasterTemplatesDB());
             return;
         }
         if (!masterDB.jman_consumables) {
@@ -874,7 +875,7 @@ function renderMasterTemplates() {
     renderTemplateLoaders(); 
 }
 
-function createNewTemplate() {
+async function createNewTemplate() {
     let name = prompt("Enter a name for the new template (e.g., 'Install Crew', 'Maintenance'):");
     if(!name || name.trim() === '') return;
     
@@ -886,10 +887,19 @@ function createNewTemplate() {
         return; 
     }
     
+    const backupJson = localStorage.getItem("tp_master_templates") || "{}";
     masterDB[key] = { tools: [], consumables: [] };
-    persistInventoryStorage("tp_master_templates", masterDB);
+    localStorage.setItem("tp_master_templates", JSON.stringify(masterDB));
+    try {
+        await writeInventoryTemplatesToFirestore(masterDB);
+    } catch (e) {
+        console.error("createNewTemplate", e);
+        localStorage.setItem("tp_master_templates", backupJson);
+        alert("Could not save template to the cloud. Check your connection and Firestore rules.");
+        return;
+    }
     renderMasterTemplates();
-    if(typeof showSaveCue === 'function') showSaveCue("✓ Template Created");
+    if(typeof showSaveCue === 'function') showSaveCue("✓ Template saved to cloud");
 }
 
 function deleteCurrentTemplate() {
