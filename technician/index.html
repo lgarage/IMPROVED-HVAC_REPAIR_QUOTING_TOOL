@@ -216,6 +216,130 @@ body {
 .schedule-day-hint { font-size: 12px; color: #7f8c8d; margin: 0 0 10px 0; }
 .card-customer { font-size: 18px; font-weight: 800; color: #2c3e50; margin-bottom: 4px; }
 .card-address { color: #7f8c8d; font-size: 13px; line-height: 1.4; }
+.card-address--empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #95a5a6;
+  font-size: 13px;
+  margin-top: 4px;
+}
+.card-address-nav {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  margin-left: -8px;
+  margin-right: -8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: #1e4b85;
+  border-radius: 8px;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: rgba(30, 75, 133, 0.12);
+}
+.card-address-nav:active { opacity: 0.88; }
+.card-address-nav .card-address-text {
+  flex: 1;
+  min-width: 0;
+  color: #5a6c7d;
+  font-size: 13px;
+  line-height: 1.45;
+  text-decoration: underline;
+  text-decoration-color: rgba(30, 75, 133, 0.35);
+  text-underline-offset: 2px;
+}
+.nav-map-pin {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: #1e4b85;
+  pointer-events: none;
+}
+
+.map-pref-section {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #e1e8ed;
+  margin-top: 16px;
+}
+.map-pref-section h3 {
+  margin: 0 0 8px 0;
+  font-size: 17px;
+  color: #2c3e50;
+  font-weight: 800;
+}
+.map-pref-hint {
+  font-size: 13px;
+  color: #666;
+  margin: 0 0 14px 0;
+  line-height: 1.45;
+}
+.map-pref-options {
+  display: flex;
+  gap: 8px;
+}
+.map-pref-label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 10px;
+  border: 2px solid #e1e8ed;
+  border-radius: 10px;
+  background: #fafbfc;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  margin: 0;
+  font-family: inherit;
+  color: #555;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.map-pref-label input {
+  width: auto;
+  margin: 0;
+  accent-color: #1e4b85;
+}
+.map-pref-label.map-pref-label--checked {
+  border-color: #1e4b85;
+  background: #e8f0fe;
+  color: #1e4b85;
+}
+
+.map-nav-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(120%);
+  max-width: min(92vw, 400px);
+  padding: 12px 16px;
+  background: #2c3e50;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+  z-index: 400;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+}
+.map-nav-toast.map-nav-toast--visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
 
 /* --- WORKSPACE (ACTIVE JOB) --- */
 .workspace-historical-banner {
@@ -969,6 +1093,21 @@ textarea.field-form-input {
   cursor: pointer;
   font-family: inherit;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-sizing: border-box;
+}
+.tech-job-card:focus {
+  outline: 2px solid #1e4b85;
+  outline-offset: 2px;
+}
+.tech-job-card-map-line {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eef1f4;
+  width: 100%;
+}
+.tech-job-card-map-line .card-address-text {
+  text-decoration: underline;
+  text-decoration-color: rgba(30, 75, 133, 0.35);
 }
 .tech-job-card-title { font-weight: 800; color: #1e4b85; font-size: 15px; }
 .tech-job-card-sub { font-size: 13px; color: #555; line-height: 1.35; }
@@ -1575,6 +1714,20 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     <p style="font-size: 13px; color: #666; margin: 14px 0 0 0; line-height: 1.45;">Technician names are managed in the office Dispatch app under <strong>Settings → Technicians</strong>. That list syncs here so your sign-in matches job assignments.</p>
     <button type="button" style="background: #e74c3c; color: #fff; border: none; margin-top: 20px; font-weight: bold;" onclick="switchUser()">Log Out / Switch User</button>
   </div>
+  <div class="map-pref-section">
+    <h3>🗺️ Navigation Preferences</h3>
+    <p class="map-pref-hint">Choose which app opens when you tap a job address. You can change this anytime.</p>
+    <div class="map-pref-options" role="radiogroup" aria-label="Preferred maps app">
+      <label class="map-pref-label map-pref-label--checked" id="mapPrefLabelGoogle">
+        <input type="radio" name="preferred_map_app" value="google" id="mapPrefGoogle" checked>
+        Google Maps
+      </label>
+      <label class="map-pref-label" id="mapPrefLabelApple">
+        <input type="radio" name="preferred_map_app" value="apple" id="mapPrefApple">
+        Apple Maps
+      </label>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1927,12 +2080,104 @@ async function switchUser() {
 }
 
 /* ---------- cloud tickets (real-time; assignments from Dispatch appear immediately) ---------- */
+const PREFERRED_MAP_APP_KEY = 'preferred_map_app';
+
+function getPreferredMapApp() {
+  const v = localStorage.getItem(PREFERRED_MAP_APP_KEY);
+  if (v === 'apple' || v === 'google') return v;
+  return 'google';
+}
+
+function isAndroidDevice() {
+  return /Android/i.test(navigator.userAgent || '');
+}
+
+function buildTicketNavAddress(data) {
+  if (!data) return '';
+  const parts = [data.locationAddress, data.custCity, data.custState]
+    .map(function (p) { return p != null ? String(p).trim() : ''; })
+    .filter(Boolean);
+  return parts.join(', ');
+}
+
+function showMapNavToast(message) {
+  let el = document.getElementById('mapNavToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'mapNavToast';
+    el.className = 'map-nav-toast';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.add('map-nav-toast--visible');
+  if (showMapNavToast._timer) clearTimeout(showMapNavToast._timer);
+  showMapNavToast._timer = setTimeout(function () {
+    el.classList.remove('map-nav-toast--visible');
+  }, 4200);
+}
+
+function launchNavigation(address) {
+  const raw = String(address || '').trim();
+  if (!raw) {
+    showMapNavToast('No address on file.');
+    return;
+  }
+  let pref = getPreferredMapApp();
+  if (pref === 'apple' && isAndroidDevice()) {
+    showMapNavToast('Apple Maps is not available on Android; defaulting to Google Maps.');
+    pref = 'google';
+  }
+  const q = encodeURIComponent(raw);
+  const url = pref === 'apple'
+    ? 'maps://?q=' + q
+    : 'https://www.google.com/maps/search/?api=1&query=' + q;
+  window.location.href = url;
+}
+
+function updateMapPrefLabelHighlight() {
+  const g = document.getElementById('mapPrefGoogle');
+  const a = document.getElementById('mapPrefApple');
+  const lg = document.getElementById('mapPrefLabelGoogle');
+  const la = document.getElementById('mapPrefLabelApple');
+  if (!g || !a || !lg || !la) return;
+  lg.classList.toggle('map-pref-label--checked', !!g.checked);
+  la.classList.toggle('map-pref-label--checked', !!a.checked);
+}
+
+function initMapPreferenceUI() {
+  const g = document.getElementById('mapPrefGoogle');
+  const a = document.getElementById('mapPrefApple');
+  if (!g || !a) return;
+  const pref = getPreferredMapApp();
+  if (pref === 'apple') {
+    a.checked = true;
+    g.checked = false;
+  } else {
+    g.checked = true;
+    a.checked = false;
+  }
+  updateMapPrefLabelHighlight();
+  function sync() {
+    localStorage.setItem(PREFERRED_MAP_APP_KEY, a.checked ? 'apple' : 'google');
+    updateMapPrefLabelHighlight();
+  }
+  g.addEventListener('change', sync);
+  a.addEventListener('change', sync);
+}
+
+window.launchNavigation = launchNavigation;
+window.buildTicketNavAddress = buildTicketNavAddress;
+
 function unsubscribeSchedule() {
   if (scheduleUnsubscribe) {
     scheduleUnsubscribe();
     scheduleUnsubscribe = null;
   }
 }
+
+const JOB_CARD_MAP_PIN_SVG = '<svg class="nav-map-pin" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>';
 
 function renderJobListUI() {
   const container = document.getElementById('jobListContainer');
@@ -1952,6 +2197,17 @@ function renderJobListUI() {
     let badgeClass = "card-badge";
     if (data.priority === 'Emergency') badgeClass += " badge-emergency";
     const safeId = JSON.stringify(data.id);
+    const navAddrStr = buildTicketNavAddress(data);
+    const safeAddr = JSON.stringify(navAddrStr);
+    let addrHtml;
+    if (navAddrStr) {
+      const onNav = isHistoricalDay
+        ? `launchNavigation(${safeAddr})`
+        : `event.stopPropagation();launchNavigation(${safeAddr})`;
+      addrHtml = `<button type="button" class="card-address-nav" onclick='${onNav}' aria-label="Open address in maps">${JOB_CARD_MAP_PIN_SVG}<span class="card-address-text">${escapeHtml(navAddrStr)}</span></button>`;
+    } else {
+      addrHtml = `<div class="card-address card-address--empty" aria-hidden="false"><span aria-hidden="true">📍</span> No address on file</div>`;
+    }
     const cardHTML = isHistoricalDay
       ? `
         <div class="job-card job-card--historical">
@@ -1959,8 +2215,8 @@ function renderJobListUI() {
             <span class="card-time">${data.startTime || '8:00 AM'}</span>
             <span class="${badgeClass}">${data.jobType}</span>
           </div>
-          <div class="card-customer">${data.customerName}</div>
-          <div class="card-address">📍 ${data.locationAddress}, ${data.custCity || ''}</div>
+          <div class="card-customer">${escapeHtml(String(data.customerName || ''))}</div>
+          ${addrHtml}
           <button type="button" class="job-card-review-btn" onclick='openWorkspace(${safeId})'>🛠️ Update / Review This Job</button>
         </div>
       `
@@ -1970,8 +2226,8 @@ function renderJobListUI() {
             <span class="card-time">${data.startTime || '8:00 AM'}</span>
             <span class="${badgeClass}">${data.jobType}</span>
           </div>
-          <div class="card-customer">${data.customerName}</div>
-          <div class="card-address">📍 ${data.locationAddress}, ${data.custCity || ''}</div>
+          <div class="card-customer">${escapeHtml(String(data.customerName || ''))}</div>
+          ${addrHtml}
         </div>
       `;
     container.innerHTML += cardHTML;
@@ -4007,6 +4263,7 @@ function wireAutosave(){
 
 /* ---------- init ---------- */
 window.onload = async function(){
+  initMapPreferenceUI();
   initUnitTagOcr();
   document.getElementById("workdone").value = DEFAULT_PM_WORKDONE;
   applyMode();

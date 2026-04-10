@@ -141,6 +141,9 @@
         return;
       }
 
+      var pinSvg =
+        '<svg class="nav-map-pin" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>';
+
       var html = "";
       rows.forEach(function (job) {
         var id = job._docId;
@@ -150,8 +153,23 @@
           (job.customerName || "—") +
           " · " +
           (job.date || "");
+        var navAddr =
+          typeof window.buildTicketNavAddress === "function"
+            ? window.buildTicketNavAddress(job)
+            : [job.locationAddress, job.custCity, job.custState].filter(Boolean).join(", ");
+        var safeNav = JSON.stringify(navAddr || "");
+        var mapLine = navAddr
+          ? "<button type=\"button\" class=\"card-address-nav tech-job-card-map-line\" onclick='event.stopPropagation();launchNavigation(" +
+            safeNav +
+            ")' aria-label=\"Open address in maps\">" +
+            pinSvg +
+            '<span class="card-address-text">' +
+            escapeHtml(navAddr) +
+            "</span></button>"
+          : "<div class=\"card-address--empty\" style=\"margin-top:8px;padding-top:8px;border-top:1px solid #eef1f4;width:100%;color:#95a5a6;font-size:13px;\">📍 No address on file</div>";
+
         html +=
-          "<button type=\"button\" class=\"tech-job-card\" data-ticket-id=\"" +
+          "<div class=\"tech-job-card\" tabindex=\"0\" role=\"button\" data-ticket-id=\"" +
           escapeHtml(id) +
           "\">" +
           "<span class=\"tech-job-card-title\">" +
@@ -163,13 +181,22 @@
           "<span class=\"tech-job-card-meta\">" +
           escapeHtml(String(job.status || "—")) +
           "</span>" +
-          "</button>";
+          mapLine +
+          "</div>";
       });
       container.innerHTML = html;
 
-      container.querySelectorAll(".tech-job-card").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          var tid = btn.getAttribute("data-ticket-id");
+      container.querySelectorAll(".tech-job-card").forEach(function (card) {
+        card.addEventListener("click", function (e) {
+          if (e.target.closest(".card-address-nav")) return;
+          var tid = card.getAttribute("data-ticket-id");
+          if (tid) showTechJobDetail(tid);
+        });
+        card.addEventListener("keydown", function (e) {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          if (e.target.closest(".card-address-nav")) return;
+          e.preventDefault();
+          var tid = card.getAttribute("data-ticket-id");
           if (tid) showTechJobDetail(tid);
         });
       });
@@ -200,6 +227,24 @@
       return;
     }
 
+    var navAddrDetail =
+      typeof window.buildTicketNavAddress === "function"
+        ? window.buildTicketNavAddress(job)
+        : [job.locationAddress, job.custCity, job.custState].filter(Boolean).join(", ");
+    var safeNavDetail = JSON.stringify(navAddrDetail || "");
+    var pinSvgDetail =
+      '<svg class="nav-map-pin" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>';
+    var addressBlock =
+      navAddrDetail
+        ? "<button type=\"button\" class=\"card-address-nav\" style=\"margin:0 0 10px 0;padding-left:0\" onclick='launchNavigation(" +
+          safeNavDetail +
+          ")' aria-label=\"Open address in maps\">" +
+          pinSvgDetail +
+          '<span class="card-address-text">' +
+          escapeHtml(navAddrDetail) +
+          "</span></button>"
+        : "<p style=\"margin:0 0 10px 0;font-size:13px;color:#95a5a6;\">📍 No address on file</p>";
+
     var head =
       "<h3 style=\"margin:0 0 8px 0;color:#1e4b85;\">" +
       escapeHtml(String(job.ticketNum || ticketId)) +
@@ -207,9 +252,8 @@
       "<p style=\"margin:0 0 6px 0;font-size:14px;\"><strong>" +
       escapeHtml(String(job.customerName || "—")) +
       "</strong></p>" +
-      "<p style=\"margin:0 0 12px 0;font-size:13px;color:#555;\">" +
-      escapeHtml(String(job.locationAddress || "") + ", " + String(job.custCity || "")) +
-      "<br>Date: " +
+      addressBlock +
+      "<p style=\"margin:0 0 12px 0;font-size:13px;color:#555;\">Date: " +
       escapeHtml(String(job.date || "—")) +
       " · Status: " +
       escapeHtml(String(job.status || "—")) +
