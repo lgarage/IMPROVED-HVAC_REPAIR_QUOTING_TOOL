@@ -148,6 +148,18 @@
       "<div class=\"quote-evidence-title\">Required equipment evidence</div>" +
       "<p class=\"quote-evidence-hint\">A repair quote requires an overall unit photo and a data plate photo on file for the selected equipment.</p>" +
       "<div id=\"quoteEvidenceStatus\" class=\"quote-evidence-status\"></div>" +
+      "<div id=\"quoteEvidenceVerifiedPanel\" class=\"quote-evidence-verified-panel hidden\">" +
+      "<div class=\"quote-verified-head\">" +
+      "<span class=\"quote-verified-check\" aria-hidden=\"true\">✓</span>" +
+      "<span id=\"quoteVerifiedUnitLabel\"></span>" +
+      "</div>" +
+      "<p class=\"quote-verified-msg\">Identity Confirmed. No new unit photos required.</p>" +
+      "<div class=\"quote-evidence-ghost-grid\">" +
+      "<div><span class=\"quote-ghost-label\">Overall</span><div id=\"quoteGhostOverall\" class=\"quote-evidence-ghost-wrap\"></div></div>" +
+      "<div><span class=\"quote-ghost-label\">Data plate</span><div id=\"quoteGhostPlate\" class=\"quote-evidence-ghost-wrap\"></div></div>" +
+      "</div>" +
+      "<button type=\"button\" class=\"quote-issue-photo-btn\" id=\"quoteIssuePhotoOptionalBtn\">📸 Add Issue Photo (Optional)</button>" +
+      "</div>" +
       "<div id=\"quoteEvidenceRows\" class=\"quote-evidence-rows\">" +
       "<div class=\"quote-evidence-row\" id=\"quoteEvidenceRowOverall\">" +
       "<label class=\"field-form-label\" for=\"quoteOverallEvidenceInput\">📸 Capture overall unit photo</label>" +
@@ -210,11 +222,14 @@
     }
 
     if (okBadge) {
-      okBadge.classList.toggle("hidden", !ev.ok);
+      okBadge.classList.add("hidden");
     }
-    if (rows) {
-      rows.classList.toggle("hidden", !!ev.ok);
-    }
+
+    var verifiedPanel = document.getElementById("quoteEvidenceVerifiedPanel");
+    var ghostO = document.getElementById("quoteGhostOverall");
+    var ghostP = document.getElementById("quoteGhostPlate");
+    var unitLabelEl = document.getElementById("quoteVerifiedUnitLabel");
+    var issueBtn = document.getElementById("quoteIssuePhotoOptionalBtn");
 
     function showUrlPreview(container, url) {
       if (!container) return;
@@ -232,28 +247,128 @@
       }
     }
 
-    if (ev.overallPhotoUrl) {
-      showUrlPreview(prevO, ev.overallPhotoUrl);
-      if (inpO) inpO.classList.add("hidden");
-    } else {
+    if (ev.ok) {
+      if (rows) rows.classList.add("hidden");
+      if (verifiedPanel) verifiedPanel.classList.remove("hidden");
+      if (ghostO) {
+        ghostO.innerHTML = ev.overallPhotoUrl
+          ? "<img src=\"" +
+            escapeAttr(ev.overallPhotoUrl) +
+            "\" alt=\"\" class=\"quote-evidence-thumb--ghost\"/>"
+          : "";
+      }
+      if (ghostP) {
+        ghostP.innerHTML = ev.dataPlatePhotoUrl
+          ? "<img src=\"" +
+            escapeAttr(ev.dataPlatePhotoUrl) +
+            "\" alt=\"\" class=\"quote-evidence-thumb--ghost\"/>"
+          : "";
+      }
+      var selEq = document.getElementById("fieldFormEquipmentSelect");
+      var optEq = selEq && selEq.options[selEq.selectedIndex];
+      var rawLabel = optEq && optEq.textContent ? String(optEq.textContent) : "Unit";
+      var uname =
+        rawLabel.indexOf("🛡️") >= 0
+          ? rawLabel.split("🛡️")[0].trim()
+          : rawLabel.trim();
+      if (unitLabelEl) unitLabelEl.textContent = uname;
+      if (issueBtn) {
+        issueBtn.onclick = function () {
+          var inp = document.getElementById("quotePhotosInput");
+          if (inp) {
+            try {
+              inp.scrollIntoView({ behavior: "smooth", block: "center" });
+            } catch (e1) {}
+            setTimeout(function () {
+              inp.click();
+            }, 250);
+          }
+        };
+      }
       if (prevO) {
         prevO.innerHTML = "";
         prevO.classList.add("hidden");
       }
-      if (inpO) inpO.classList.remove("hidden");
-    }
-    if (ev.dataPlatePhotoUrl) {
-      showUrlPreview(prevP, ev.dataPlatePhotoUrl);
-      if (inpP) inpP.classList.add("hidden");
-    } else {
       if (prevP) {
         prevP.innerHTML = "";
         prevP.classList.add("hidden");
       }
-      if (inpP) inpP.classList.remove("hidden");
+      if (inpO) inpO.classList.add("hidden");
+      if (inpP) inpP.classList.add("hidden");
+    } else {
+      if (verifiedPanel) verifiedPanel.classList.add("hidden");
+      if (ghostO) ghostO.innerHTML = "";
+      if (ghostP) ghostP.innerHTML = "";
+      if (rows) rows.classList.remove("hidden");
+
+      if (ev.overallPhotoUrl) {
+        showUrlPreview(prevO, ev.overallPhotoUrl);
+        if (inpO) inpO.classList.add("hidden");
+      } else {
+        if (prevO) {
+          prevO.innerHTML = "";
+          prevO.classList.add("hidden");
+        }
+        if (inpO) inpO.classList.remove("hidden");
+      }
+      if (ev.dataPlatePhotoUrl) {
+        showUrlPreview(prevP, ev.dataPlatePhotoUrl);
+        if (inpP) inpP.classList.add("hidden");
+      } else {
+        if (prevP) {
+          prevP.innerHTML = "";
+          prevP.classList.add("hidden");
+        }
+        if (inpP) inpP.classList.remove("hidden");
+      }
     }
 
     setQuoteSaveEnabled(!!ev.ok && currentFormId === "repair_quote");
+  }
+
+  function updateFieldFormEquipmentVerifiedHint() {
+    var row = document.getElementById("fieldFormEquipmentVerifiedRow");
+    var sel = document.getElementById("fieldFormEquipmentSelect");
+    if (!row || !sel) return;
+    var scanVal =
+      typeof window.SCAN_NEW_EQUIPMENT_VALUE !== "undefined"
+        ? window.SCAN_NEW_EQUIPMENT_VALUE
+        : "__TP_SCAN_NEW_EQUIPMENT__";
+    var eid =
+      sel.value && sel.value !== scanVal ? String(sel.value).trim() : "";
+    if (!eid) {
+      row.classList.add("hidden");
+      row.innerHTML = "";
+      return;
+    }
+    verifyEquipmentEvidence(eid).then(function (v) {
+      if (!v.ok) {
+        row.classList.add("hidden");
+        row.innerHTML = "";
+        return;
+      }
+      var opt = sel.options[sel.selectedIndex];
+      var raw = opt && opt.textContent ? String(opt.textContent) : "Unit";
+      var label =
+        raw.indexOf("🛡️") >= 0 ? raw.split("🛡️")[0].trim() : raw.trim();
+      row.innerHTML =
+        "<span class=\"ff-ev-check\" aria-hidden=\"true\">✓</span> " +
+        escapeHtml(label) +
+        " — <span style=\"font-weight:700;color:#1e6b3a\">Identity Verified: Photos & Specs on file.</span>";
+      row.classList.remove("hidden");
+    });
+  }
+
+  function wireFieldFormEquipmentVerifiedHint() {
+    var sel = document.getElementById("fieldFormEquipmentSelect");
+    if (!sel) return;
+    if (sel.dataset.verifiedHintWired === "1") {
+      updateFieldFormEquipmentVerifiedHint();
+      return;
+    }
+    sel.dataset.verifiedHintWired = "1";
+    sel.addEventListener("change", updateFieldFormEquipmentVerifiedHint);
+    updateFieldFormEquipmentVerifiedHint();
   }
 
   async function runQuoteEvidenceCheck() {
@@ -271,6 +386,7 @@
         dataPlatePhotoUrl: null,
         reason: "no_equipment",
       });
+      updateFieldFormEquipmentVerifiedHint();
       return;
     }
     var v = await verifyEquipmentEvidence(eid);
@@ -285,6 +401,7 @@
           : "incomplete",
     };
     applyQuoteEvidenceUi(ev);
+    updateFieldFormEquipmentVerifiedHint();
   }
 
   async function uploadQuoteMandatoryEvidenceAndMerge(equipmentId, file, kind) {
@@ -506,7 +623,8 @@
     var html = "<div class=\"field-form-inner\">";
     html +=
       "<label class=\"field-form-label\">Select Equipment</label>" +
-      "<select id=\"fieldFormEquipmentSelect\" data-smart-equipment=\"true\" class=\"field-form-select\"></select>";
+      "<select id=\"fieldFormEquipmentSelect\" data-smart-equipment=\"true\" class=\"field-form-select\"></select>" +
+      "<div id=\"fieldFormEquipmentVerifiedRow\" class=\"field-form-equipment-verified-row hidden\" role=\"status\" aria-live=\"polite\"></div>";
 
     html += renderEquipmentFlagsHtml();
 
@@ -573,9 +691,13 @@
         if (formTemplateId === "repair_quote") {
           wireRepairQuoteEvidenceUi();
         }
+        wireFieldFormEquipmentVerifiedHint();
       });
-    } else if (formTemplateId === "repair_quote") {
-      wireRepairQuoteEvidenceUi();
+    } else {
+      if (formTemplateId === "repair_quote") {
+        wireRepairQuoteEvidenceUi();
+      }
+      wireFieldFormEquipmentVerifiedHint();
     }
 
     wireEquipmentFieldVisibility(body);
@@ -618,7 +740,8 @@
     var html = "<div class=\"field-form-inner\">";
     html +=
       "<label class=\"field-form-label\">Select Equipment</label>" +
-      "<select id=\"fieldFormEquipmentSelect\" data-smart-equipment=\"true\" class=\"field-form-select\"></select>";
+      "<select id=\"fieldFormEquipmentSelect\" data-smart-equipment=\"true\" class=\"field-form-select\"></select>" +
+      "<div id=\"fieldFormEquipmentVerifiedRow\" class=\"field-form-equipment-verified-row hidden\" role=\"status\" aria-live=\"polite\"></div>";
     html += renderEquipmentFlagsHtml();
 
     fields.forEach(function (f, idx) {
@@ -758,7 +881,10 @@
         if (typeof window.bindSmartEquipmentSelect === "function") {
           window.bindSmartEquipmentSelect(sel);
         }
+        wireFieldFormEquipmentVerifiedHint();
       });
+    } else {
+      wireFieldFormEquipmentVerifiedHint();
     }
 
     wireEquipmentFieldVisibility(body);
@@ -945,9 +1071,12 @@
     if (!el) return;
     var name = templateRow.data.templateName || templateRow.id;
     el.innerHTML =
+      "<div class=\"form-intent-inner\">" +
       "<button type=\"button\" class=\"form-intent-btn\" id=\"formIntentOpenBtn\">📋 Required: Open " +
       escapeHtml(name) +
-      "</button>";
+      "</button>" +
+      "<div id=\"formIntentVerifiedNote\" class=\"form-intent-verified-note hidden\" role=\"status\"></div>" +
+      "</div>";
     el.classList.remove("hidden");
     var btn = document.getElementById("formIntentOpenBtn");
     if (btn) {
@@ -955,6 +1084,23 @@
         renderDynamicForm(templateRow.id);
       };
     }
+    var linked = document.getElementById("linkedEquipmentSelect");
+    var eid = linked && linked.value ? String(linked.value).trim() : "";
+    var note = document.getElementById("formIntentVerifiedNote");
+    if (!eid || !note) return;
+    verifyEquipmentEvidence(eid).then(function (v) {
+      if (!v.ok || !note.parentNode) return;
+      var opt = linked.options[linked.selectedIndex];
+      var raw = opt && opt.textContent ? String(opt.textContent) : "Unit";
+      var unitLabel =
+        raw.indexOf("🛡️") >= 0 ? raw.split("🛡️")[0].trim() : raw.trim();
+      note.innerHTML =
+        "<span class=\"form-intent-verified-check\" aria-hidden=\"true\">✓</span> " +
+        "<span class=\"form-intent-verified-text\">" +
+        escapeHtml(unitLabel) +
+        " — Identity Verified: Photos & Specs on file.</span>";
+      note.classList.remove("hidden");
+    });
   }
 
   function collectNotesForAiScan() {

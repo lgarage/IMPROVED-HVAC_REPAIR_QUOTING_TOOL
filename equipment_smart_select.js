@@ -125,11 +125,25 @@
           var label =
             (d.unitTag || d.brand || doc.id || "Unit") +
             (d.model ? " — " + d.model : "");
+          var verified = !!(
+            String(d.dataPlatePhotoUrl || "").trim() &&
+            String(d.overallPhotoUrl || "").trim()
+          );
+          var optTitle = verified
+            ? "Identity Verified: Photos & Specs on file."
+            : "";
           opts +=
             "<option value=\"" +
             escapeAttr(composite) +
-            "\">" +
+            "\"" +
+            (verified
+              ? " title=\"" +
+                escapeAttr("Identity Verified: Photos & Specs on file.") +
+                "\""
+              : "") +
+            ">" +
             escapeHtml(label) +
+            (verified ? " 🛡️" : "") +
             "</option>";
         });
         selectEl.innerHTML = opts;

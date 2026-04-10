@@ -96,13 +96,46 @@
     if (foot) foot.style.display = "none";
   }
 
+  function isProfileVerified(d) {
+    d = d || {};
+    return !!(
+      String(d.dataPlatePhotoUrl || "").trim() &&
+      String(d.overallPhotoUrl || "").trim()
+    );
+  }
+
   function renderEquipmentList(docs) {
     var container = $("equipmentHubList");
     var meta = $("equipmentHubListMeta");
     if (!container) return;
 
+    var verifiedCount = 0;
+    var total = docs.length;
+    docs.forEach(function (row) {
+      if (isProfileVerified(row.data)) verifiedCount += 1;
+    });
+    var pct = total ? Math.round((verifiedCount / total) * 100) : 0;
+
     if (meta) {
+      var coverageBar =
+        total > 0
+          ? "<div class=\"equipment-hub-coverage-wrap\" role=\"region\" aria-label=\"Verification coverage\">" +
+            "<div class=\"equipment-hub-coverage-label\">Unit Coverage: <strong>" +
+            verifiedCount +
+            "/" +
+            total +
+            "</strong> Units Verified</div>" +
+            "<div class=\"equipment-hub-progress\" role=\"progressbar\" aria-valuenow=\"" +
+            verifiedCount +
+            "\" aria-valuemin=\"0\" aria-valuemax=\"" +
+            total +
+            "\">" +
+            "<div class=\"equipment-hub-progress-fill\" style=\"width:" +
+            pct +
+            "%\"></div></div></div>"
+          : "";
       meta.innerHTML =
+        coverageBar +
         "<p class=\"equipment-hub-meta-line\"><strong>Customer:</strong> " +
         escapeHtml(hubState.customerName) +
         "</p>" +
@@ -131,12 +164,20 @@
         d.healthScore != null && d.healthScore !== ""
           ? "Score " + escapeHtml(String(d.healthScore)) + " (" + escapeHtml(String(d.healthGrade || "—")) + ")"
           : "—";
+      var verified = isProfileVerified(d);
+      var badge =
+        verified
+          ? "<span class=\"equipment-verified-strip\" title=\"Identity Verified: Photos & Specs on file.\" aria-label=\"Identity Verified: Photos & Specs on file.\"><span class=\"equipment-verified-shield\" aria-hidden=\"true\">🛡️</span><span class=\"equipment-verified-pill\">Verified</span></span>"
+          : "";
       html +=
         "<button type=\"button\" class=\"equipment-hub-card\" data-eid=\"" +
         escapeHtml(composite) +
         "\">" +
+        "<span class=\"equipment-hub-card-title-row\">" +
         "<span class=\"equipment-hub-card-title\">" +
         escapeHtml(title) +
+        "</span>" +
+        badge +
         "</span>" +
         "<span class=\"equipment-hub-card-sub\">" +
         escapeHtml(sub) +

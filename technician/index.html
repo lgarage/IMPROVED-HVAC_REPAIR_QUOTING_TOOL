@@ -665,6 +665,64 @@ textarea { min-height: 80px; resize: vertical; }
   margin: 0 0 6px 0;
   line-height: 1.4;
 }
+.equipment-hub-coverage-wrap {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: #f0f9f4;
+  border: 1px solid #b8e0c8;
+  border-radius: 10px;
+}
+.equipment-hub-coverage-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e4b85;
+  margin: 0 0 8px 0;
+}
+.equipment-hub-progress {
+  height: 10px;
+  background: #dfece3;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.equipment-hub-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #27ae60, #2ecc71);
+  border-radius: 6px;
+  transition: width 0.35s ease;
+}
+.equipment-hub-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.equipment-hub-card-title-row .equipment-hub-card-title {
+  flex: 1;
+  min-width: 0;
+}
+.equipment-verified-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #1e4b85;
+}
+.equipment-verified-shield {
+  font-size: 14px;
+  line-height: 1;
+}
+.equipment-verified-pill {
+  background: #e8f8ef;
+  color: #1e6b3a;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
 .equipment-hub-list {
   display: flex;
   flex-direction: column;
@@ -1183,6 +1241,115 @@ textarea.field-form-input {
 .tech-job-card-meta { font-size: 11px; color: #95a5a6; text-transform: uppercase; }
 .tech-job-detail-actions { display: flex; flex-direction: column; gap: 8px; }
 .form-intent-banner { margin-top: 10px; }
+.form-intent-inner { display: flex; flex-direction: column; gap: 8px; }
+.form-intent-verified-note {
+  font-size: 13px;
+  color: #1e6b3a;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 8px 10px;
+  background: #e8f8ef;
+  border-radius: 8px;
+  border: 1px solid #b8e0c8;
+}
+.form-intent-verified-check {
+  color: #27ae60;
+  font-weight: 800;
+  margin-right: 4px;
+}
+.field-form-equipment-verified-row {
+  margin: 8px 0 12px 0;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e6b3a;
+  background: #f0f9f4;
+  border: 1px solid #c8e6d4;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+.field-form-equipment-verified-row .ff-ev-check {
+  color: #27ae60;
+  margin-right: 6px;
+}
+.quote-evidence-verified-panel {
+  margin-top: 10px;
+  padding: 12px;
+  background: #f0f9f4;
+  border: 1px solid #b8e0c8;
+  border-radius: 10px;
+}
+.quote-verified-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 15px;
+  color: #1e4b85;
+  margin-bottom: 6px;
+}
+.quote-verified-check {
+  color: #27ae60;
+  font-size: 18px;
+  line-height: 1;
+}
+.quote-verified-msg {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #2c5530;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.quote-evidence-ghost-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+@media (max-width: 480px) {
+  .quote-evidence-ghost-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.quote-ghost-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #5a6c7d;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.quote-evidence-ghost-wrap {
+  min-height: 72px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px dashed #9cc9ad;
+  background: #fafcfa;
+}
+.quote-evidence-thumb--ghost {
+  opacity: 0.42;
+  width: 100%;
+  max-height: 120px;
+  object-fit: cover;
+  display: block;
+  vertical-align: top;
+}
+.quote-issue-photo-btn {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #1e4b85;
+  background: #fff;
+  color: #1e4b85;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.quote-issue-photo-btn:active {
+  transform: scale(0.99);
+}
 .form-intent-btn {
   width: 100%;
   padding: 14px 16px;
