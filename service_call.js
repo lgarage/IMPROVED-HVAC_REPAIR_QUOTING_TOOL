@@ -137,14 +137,84 @@ function escapeHtmlDispatchMap(s) {
         .replace(/"/g, "&quot;");
 }
 
-/** Same palette order as Gantt tech rows (avatar / row color). */
+/** Same palette order as Gantt tech rows (avatar / row color). Kept in one place for map + legend. */
+var DISPATCH_TECH_GANTT_COLORS = ["#2980b9", "#8e44ad", "#d35400", "#16a085", "#27ae60", "#f39c12", "#c0392b", "#34495e"];
+
 function getTechColorForAssignedTech(assignedTech) {
-    var colorPalette = ["#2980b9", "#8e44ad", "#d35400", "#16a085", "#27ae60", "#f39c12", "#c0392b", "#34495e"];
     if (!assignedTech || assignedTech === "Unassigned") return "#95a5a6";
     var savedTechs = JSON.parse(localStorage.getItem("tp_tech_list") || "[]");
     var idx = savedTechs.indexOf(assignedTech);
-    if (idx >= 0) return colorPalette[idx % colorPalette.length];
+    if (idx >= 0) return DISPATCH_TECH_GANTT_COLORS[idx % DISPATCH_TECH_GANTT_COLORS.length];
     return "#3498db";
+}
+
+/** Matches Gantt chart date visibility (day / week / month vs board date selector). */
+function getGanttDateContextForMap() {
+    var dateInputEl = document.getElementById("boardDateSelector");
+    var dateInput = dateInputEl && dateInputEl.value;
+    var safeDate = dateInput ? new Date(dateInput + "T12:00:00") : new Date();
+    var month = safeDate.getMonth();
+    var year = safeDate.getFullYear();
+    var startOfWeek = new Date(safeDate);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    var weekStrings = [];
+    for (var i = 0; i < 7; i++) {
+        var d = new Date(startOfWeek);
+        d.setDate(d.getDate() + i);
+        var dy = d.getFullYear();
+        var dm = String(d.getMonth() + 1).padStart(2, "0");
+        var dd = String(d.getDate()).padStart(2, "0");
+        weekStrings.push(dy + "-" + dm + "-" + dd);
+    }
+    var monthString = year + "-" + String(month + 1).padStart(2, "0");
+    return { dateInput: dateInput, weekStrings: weekStrings, monthString: monthString };
+}
+
+function isTicketVisibleOnGanttForMap(sc) {
+    if (sc.archived) return false;
+    if (!sc.assignedTech || sc.assignedTech === "Unassigned") return false;
+    if (sc.status === "Completed" || sc.status === "Canceled") return false;
+    if (!sc.date) return false;
+    var ctx = getGanttDateContextForMap();
+    if (currentBoardView === "day" && sc.date === ctx.dateInput) return true;
+    if (currentBoardView === "week" && ctx.weekStrings.indexOf(sc.date) !== -1) return true;
+    if (currentBoardView === "month" && sc.date.indexOf(ctx.monthString) === 0) return true;
+    return false;
+}
+
+/** Dispatched or explicit In Progress — pulse on map for “live” jobs. */
+function shouldPulseMapMarker(sc) {
+    var s = (sc.status && String(sc.status).trim()) || "";
+    if (s === "Dispatched") return true;
+    if (s.toLowerCase() === "in progress") return true;
+    return false;
+}
+
+function renderDispatchMapTechLegend() {
+    var el = document.getElementById("dispatchMapTechLegend");
+    if (!el) return;
+    var savedTechs = JSON.parse(localStorage.getItem("tp_tech_list") || "[]");
+    if (!savedTechs.length) {
+        el.innerHTML = "";
+        el.classList.add("dispatch-map-tech-legend--empty");
+        return;
+    }
+    el.classList.remove("dispatch-map-tech-legend--empty");
+    var html = "";
+    savedTechs.forEach(function (techName, index) {
+        var color = DISPATCH_TECH_GANTT_COLORS[index % DISPATCH_TECH_GANTT_COLORS.length];
+        var shortName = (String(techName).split(" ")[0] || "?").toUpperCase();
+        html +=
+            '<span class="dispatch-map-tech-legend__item">' +
+            '<span class="dispatch-map-tech-legend__swatch" style="background:' +
+            color +
+            '"></span>' +
+            "<span>" +
+            escapeHtmlDispatchMap(shortName) +
+            "</span>" +
+            "</span>";
+    });
+    el.innerHTML = html;
 }
 
 function buildFullAddressFromServiceCall(sc) {
@@ -189,7 +259,13 @@ async function persistServiceCallGeocode(scId, lat, lng) {
 
 function addCustomPin(coords, sc) {
     var techColor = getTechColorForAssignedTech(sc.assignedTech);
-    var markerHtml = '<div style="background-color: ' + techColor + "; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.6);\"></div>";
+    var pulseClass = shouldPulseMapMarker(sc) ? " dispatch-map-marker--pulse" : "";
+    var markerHtml =
+        '<div class="dispatch-map-marker-wrap"><div class="dispatch-map-marker-dot' +
+        pulseClass +
+        '" style="background-color:' +
+        techColor +
+        ';"></div></div>';
     var customIcon = L.divIcon({ html: markerHtml, className: "custom-leaflet-marker", iconSize: [22, 22], iconAnchor: [11, 11] });
     var marker = L.marker(coords, { icon: customIcon }).addTo(markerLayer);
     var popupHtml =
@@ -278,11 +354,11 @@ function centerMapOnTicket(dbId) {
     }
 }
 
-/** Fit the map to all active job markers (same set as the left dispatch list). */
+/** Fit the map to pins for the current Gantt date range (same set as updateMapMarkers). */
 function zoomMapToFitMarkers() {
     if (!dispatchMap) return;
     if (!dispatchMapMarkerCoords.length) {
-        if (typeof showSaveCue === "function") showSaveCue("No active job pins to show on the map.");
+        if (typeof showSaveCue === "function") showSaveCue("No job pins in the current board view to show on the map.");
         return;
     }
     if (dispatchMapMarkerCoords.length === 1) {
@@ -299,11 +375,7 @@ async function updateMapMarkers() {
     dispatchMapMarkerCoords = [];
 
     var db = JSON.parse(localStorage.getItem("twinPillarsServiceDB") || "[]");
-    var active = db.filter(function (sc) {
-        if (sc.archived) return false;
-        if (sc.status === "Completed" || sc.status === "Canceled") return false;
-        return true;
-    });
+    var active = db.filter(isTicketVisibleOnGanttForMap);
 
     for (var i = 0; i < active.length; i++) {
         await placeMarkerForServiceCall(active[i]);
@@ -845,13 +917,11 @@ function renderServiceBoard() {
     // 2. RENDER GANTT ROWS (DYNAMIC FROM SETTINGS)
     let savedTechs = JSON.parse(localStorage.getItem('tp_tech_list') || '[]');
 
-    const colorPalette = ['#2980b9', '#8e44ad', '#d35400', '#16a085', '#27ae60', '#f39c12', '#c0392b', '#34495e'];
-    
     const techs = savedTechs.map((techName, index) => {
         return {
             name: techName.split(' ')[0], 
             full: techName,
-            color: colorPalette[index % colorPalette.length] 
+            color: DISPATCH_TECH_GANTT_COLORS[index % DISPATCH_TECH_GANTT_COLORS.length] 
         };
     });
 
@@ -1012,6 +1082,7 @@ function renderServiceBoard() {
         tContainer.appendChild(block);
     });
     
+    if (typeof renderDispatchMapTechLegend === "function") renderDispatchMapTechLegend();
     if (typeof updateMapMarkers === "function") {
         void updateMapMarkers().catch(function (e) {
             console.warn("updateMapMarkers:", e);

@@ -948,6 +948,74 @@
         z-index: 1;
         border: none;
       }
+      .dispatch-map-tech-legend {
+        position: absolute;
+        left: 10px;
+        top: 10px;
+        z-index: 10;
+        max-width: min(94%, 360px);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+        align-items: center;
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid #e1e8ed;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        font-size: 11px;
+        font-weight: 800;
+        color: #2c3e50;
+        letter-spacing: 0.02em;
+        pointer-events: none;
+        line-height: 1.3;
+      }
+      .dispatch-map-tech-legend--empty {
+        display: none;
+      }
+      .dispatch-map-tech-legend__item {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .dispatch-map-tech-legend__swatch {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
+        flex-shrink: 0;
+      }
+      .dispatch-map-marker-wrap {
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .dispatch-map-marker-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 3px solid #fff;
+        box-shadow: 0 0 6px rgba(0, 0, 0, 0.55);
+      }
+      .dispatch-map-marker-dot.dispatch-map-marker--pulse {
+        animation: dispatchMapMarkerPulse 1.5s ease-in-out infinite;
+      }
+      @keyframes dispatchMapMarkerPulse {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.55),
+            0 0 6px rgba(0, 0, 0, 0.55);
+        }
+        50% {
+          transform: scale(1.28);
+          box-shadow: 0 0 0 7px rgba(255, 255, 255, 0),
+            0 0 10px rgba(0, 0, 0, 0.45);
+        }
+      }
       .glass-card {
         background: #ffffff;
         border-radius: 6px;
@@ -1914,6 +1982,11 @@
             </div>
 
             <div class="dispatch-hero">
+              <div
+                id="dispatchMapTechLegend"
+                class="dispatch-map-tech-legend dispatch-map-tech-legend--empty"
+                aria-label="Technician color legend"
+              ></div>
               <div
                 id="dispatchMapContainer"
                 class="dispatch-map-full"
@@ -5281,7 +5354,7 @@
     <script src="settings.js?v=13"></script>
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
-    <script src="service_call.js?v=48"></script>
+    <script src="service_call.js?v=49"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=39"></script>
 
