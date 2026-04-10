@@ -60,6 +60,292 @@
     });
   }
 
+  var IDB_NAME = "TwinPillarsOfflineDB";
+  var IDB_VERSION = 1;
+  var IDB_STORE = "ocrQueue";
+
+  function openOcrIndexedDb() {
+    return new Promise(function (resolve, reject) {
+      var req = indexedDB.open(IDB_NAME, IDB_VERSION);
+      req.onerror = function () {
+        reject(req.error);
+      };
+      req.onsuccess = function () {
+        resolve(req.result);
+      };
+      req.onupgradeneeded = function (e) {
+        var idb = e.target.result;
+        if (!idb.objectStoreNames.contains(IDB_STORE)) {
+          idb.createObjectStore(IDB_STORE, { keyPath: "id" });
+        }
+      };
+    });
+  }
+
+  function ocrQueueAdd(record) {
+    return openOcrIndexedDb().then(function (idb) {
+      return new Promise(function (resolve, reject) {
+        var tx = idb.transaction(IDB_STORE, "readwrite");
+        var store = tx.objectStore(IDB_STORE);
+        var r = store.add(record);
+        r.onsuccess = function () {
+          resolve();
+        };
+        r.onerror = function () {
+          reject(r.error);
+        };
+        tx.oncomplete = function () {
+          idb.close();
+        };
+        tx.onabort = function () {
+          idb.close();
+        };
+      });
+    });
+  }
+
+  function ocrQueueGetAllPending() {
+    return openOcrIndexedDb().then(function (idb) {
+      return new Promise(function (resolve, reject) {
+        var tx = idb.transaction(IDB_STORE, "readonly");
+        var store = tx.objectStore(IDB_STORE);
+        var req = store.getAll();
+        req.onsuccess = function () {
+          var rows = req.result || [];
+          resolve(rows.filter(function (x) {
+            return x && x.status === "pending";
+          }));
+        };
+        req.onerror = function () {
+          reject(req.error);
+        };
+        tx.oncomplete = function () {
+          idb.close();
+        };
+      });
+    });
+  }
+
+  function ocrQueueDelete(id) {
+    return openOcrIndexedDb().then(function (idb) {
+      return new Promise(function (resolve, reject) {
+        var tx = idb.transaction(IDB_STORE, "readwrite");
+        var store = tx.objectStore(IDB_STORE);
+        var r = store.delete(id);
+        r.onsuccess = function () {
+          resolve();
+        };
+        r.onerror = function () {
+          reject(r.error);
+        };
+        tx.oncomplete = function () {
+          idb.close();
+        };
+      });
+    });
+  }
+
+  function base64ToBlob(base64, mimeType) {
+    var bin = atob(base64);
+    var n = bin.length;
+    var u8 = new Uint8Array(n);
+    for (var i = 0; i < n; i++) {
+      u8[i] = bin.charCodeAt(i);
+    }
+    return new Blob([u8], { type: mimeType || "image/jpeg" });
+  }
+
+  function ensureOfflineQueuedMessageEl() {
+    var el = $("emOcrOfflineMsg");
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = "emOcrOfflineMsg";
+    el.setAttribute("role", "status");
+    el.style.display = "none";
+    el.style.marginTop = "8px";
+    el.style.padding = "10px 12px";
+    el.style.borderRadius = "6px";
+    el.style.background = "#ecfdf5";
+    el.style.border = "1px solid #6ee7b7";
+    el.style.color = "#065f46";
+    el.style.fontSize = "13px";
+    el.style.lineHeight = "1.45";
+    var spin = $("emOcrSpinner");
+    if (spin && spin.parentNode) {
+      spin.parentNode.insertBefore(el, spin.nextSibling);
+    } else {
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function showOfflinePlateQueuedMessage() {
+    var el = ensureOfflineQueuedMessageEl();
+    el.textContent =
+      "✅ Photo Saved Offline. The AI will extract the data plate information in the background once cell service is restored.";
+    el.style.display = "block";
+  }
+
+  function hideOfflinePlateQueuedMessage() {
+    var el = $("emOcrOfflineMsg");
+    if (el) el.style.display = "none";
+  }
+
+  /**
+   * Apply parsed plate JSON to the equipment form (shared by live OCR and optional UI refresh).
+   */
+  function applyPlateDataToForm(data) {
+    if (!data) return;
+    if ($("emBrand") && data.brand != null) $("emBrand").value = String(data.brand);
+    if ($("emModel") && data.model != null) $("emModel").value = String(data.model);
+    if ($("emSerialJob") && data.serial != null) $("emSerialJob").value = String(data.serial);
+    if ($("emVoltage") && data.voltage != null) $("emVoltage").value = String(data.voltage);
+    if ($("emPhase") && data.phase != null) $("emPhase").value = String(data.phase);
+    if ($("emRefrigerant") && data.refrigerant != null)
+      $("emRefrigerant").value = String(data.refrigerant);
+    if ($("emUnitTag") && data.unitTag != null) $("emUnitTag").value = String(data.unitTag);
+
+    var ton = data.tonnageNumeric != null ? Number(data.tonnageNumeric) : NaN;
+    if ($("emTonnage") && isFinite(ton) && ton > 0) {
+      $("emTonnage").value = String(ton);
+      var crvEst = estimateCRV(ton);
+      if ($("emCRV") && crvEst > 0) $("emCRV").value = String(crvEst);
+    }
+
+    if (data.manufactureYear != null && $("emMfgYear")) {
+      $("emMfgYear").value = String(data.manufactureYear);
+    }
+    if (data.ageYears != null && $("emAgeYears") && isFinite(Number(data.ageYears))) {
+      $("emAgeYears").value = String(Math.round(Number(data.ageYears)));
+    } else if (data.manufactureYear != null && $("emAgeYears")) {
+      var y = Number(data.manufactureYear);
+      if (isFinite(y) && y > 1900) {
+        var cy = new Date().getFullYear();
+        $("emAgeYears").value = String(Math.max(0, cy - y));
+      }
+    }
+
+    refreshHealthUi();
+  }
+
+  /**
+   * Build Firestore profile + health from Gemini JSON (no DOM required). Used by background queue sync.
+   */
+  function buildEquipmentProfileFromPlateData(data, context, platePhotoUrl) {
+    var ctx = context || {};
+    var unitTag =
+      data && data.unitTag != null && String(data.unitTag).trim()
+        ? String(data.unitTag).trim()
+        : "unit";
+
+    var ton = data.tonnageNumeric != null ? Number(data.tonnageNumeric) : NaN;
+    var crvVal = 0;
+    if (isFinite(ton) && ton > 0) crvVal = estimateCRV(ton);
+
+    var ageY = 0;
+    if (data.ageYears != null && isFinite(Number(data.ageYears))) {
+      ageY = Math.round(Number(data.ageYears));
+    } else if (data.manufactureYear != null) {
+      var y = Number(data.manufactureYear);
+      if (isFinite(y) && y > 1900) {
+        ageY = Math.max(0, new Date().getFullYear() - y);
+      }
+    }
+
+    var prevRep = 0;
+    var propCost = 0;
+    var health = calculateHealthScore(ageY, prevRep, propCost, crvVal);
+
+    return {
+      brand: data.brand != null ? String(data.brand) : "",
+      model: data.model != null ? String(data.model) : "",
+      serialJob: data.serial != null ? String(data.serial) : "",
+      unitTag: unitTag,
+      voltage: data.voltage != null ? String(data.voltage) : "",
+      phase: data.phase != null ? String(data.phase) : "",
+      refrigerant: data.refrigerant != null ? String(data.refrigerant) : "",
+      tonnage: isFinite(ton) && ton > 0 ? String(ton) : "",
+      manufactureYear: data.manufactureYear != null ? String(data.manufactureYear) : "",
+      ageYears: String(ageY),
+      estimatedCRV: crvVal > 0 ? String(crvVal) : "",
+      totalPreviousRepairs: "0",
+      proposedRepairCost: "0",
+      overallPhotoUrl: "",
+      dataPlatePhotoUrl: platePhotoUrl || "",
+      parentCompany: ctx.parentCompany != null ? String(ctx.parentCompany) : "—",
+      customer: ctx.customer != null ? String(ctx.customer) : "—",
+      location: ctx.location != null ? String(ctx.location) : "—",
+      healthScore: health.score,
+      healthGrade: health.grade,
+      savedAt: new Date().toISOString(),
+      syncedFromOfflineQueue: true,
+    };
+  }
+
+  /**
+   * Process pending IndexedDB plate OCR jobs when online: Gemini → Storage → Firestore → delete queue row.
+   */
+  async function processOcrQueue() {
+    if (!navigator.onLine) return;
+    var pending;
+    try {
+      pending = await ocrQueueGetAllPending();
+    } catch (e) {
+      console.error("[EquipmentManager] processOcrQueue", e);
+      return;
+    }
+    for (var i = 0; i < pending.length; i++) {
+      try {
+        await processOneOcrQueueRecord(pending[i]);
+      } catch (err) {
+        console.error("[EquipmentManager] queue item " + pending[i].id, err);
+      }
+    }
+  }
+
+  async function processOneOcrQueueRecord(rec) {
+    var mime = rec.mimeType || "image/jpeg";
+    var text = await callGeminiVision(rec.imageBase64, mime, buildPlatePrompt());
+    var data = parseGeminiJson(text);
+    if (!data) {
+      throw new Error("Gemini parse failed for queued plate");
+    }
+    var ctx = rec.context || {};
+    var profile = buildEquipmentProfileFromPlateData(data, ctx, "");
+    var parent = sanitizePathSegment(ctx.parentCompany || "—");
+    var cust = sanitizePathSegment(ctx.customer || "—");
+    var loc = sanitizePathSegment(ctx.location || "—");
+    var ut = sanitizePathSegment(profile.unitTag);
+
+    await ensureFirebaseStorage();
+    var storage = firebase.storage();
+    var base = ["equipment_photos", parent, cust, loc, ut].join("/");
+    var ts = Date.now();
+    var plateRef = storage.ref().child(base + "/dataplate_queue_" + ts + ".jpg");
+    var blob = base64ToBlob(rec.imageBase64, mime);
+    await plateRef.put(blob, { contentType: mime });
+    var plateUrl = await plateRef.getDownloadURL();
+    profile.dataPlatePhotoUrl = plateUrl;
+    if (typeof db === "undefined") {
+      throw new Error("Firestore (db) not available.");
+    }
+    var custId = sanitizePathSegment(ctx.customer || "—");
+    var locId =
+      rec.locationId != null && String(rec.locationId).trim()
+        ? String(rec.locationId).trim()
+        : sanitizePathSegment(ctx.location || "—");
+    var unitId = sanitizePathSegment(profile.unitTag);
+    await db
+      .collection("Customers")
+      .doc(custId)
+      .collection("Locations")
+      .doc(locId)
+      .collection("Equipment")
+      .doc(unitId)
+      .set(profile, { merge: true });
+    await ocrQueueDelete(rec.id);
+  }
+
   /**
    * Replacement cost estimate from tonnage (piecewise linear).
    * 5-Ton ≈ $10k, 10-Ton ≈ $15k, 20-Ton ≈ $25k
@@ -314,56 +600,51 @@
     state.plateFile = file;
     var spin = $("emOcrSpinner");
     if (spin) spin.classList.add("em-active");
+    hideOfflinePlateQueuedMessage();
 
     var mime = file.type || "image/jpeg";
     fileToBase64(file)
       .then(function (b64) {
-        return callGeminiVision(b64, mime, buildPlatePrompt());
-      })
-      .then(function (text) {
-        var data = parseGeminiJson(text);
-        if (!data) {
-          console.warn("[EquipmentManager] Gemini parse failed", text);
-          alert(
-            "Could not parse Gemini response. Check console / enable Generative Language API for this key."
-          );
-          return;
+        if (!navigator.onLine) {
+          var qid = Date.now();
+          var locId =
+            state.context && state.context.location
+              ? sanitizePathSegment(state.context.location)
+              : null;
+          var record = {
+            id: qid,
+            imageBase64: b64,
+            mimeType: mime,
+            locationId: locId,
+            context: {
+              parentCompany: state.context.parentCompany,
+              customer: state.context.customer,
+              location: state.context.location,
+            },
+            status: "pending",
+          };
+          return ocrQueueAdd(record).then(function () {
+            showOfflinePlateQueuedMessage();
+          });
         }
-
-        if ($("emBrand") && data.brand != null) $("emBrand").value = String(data.brand);
-        if ($("emModel") && data.model != null) $("emModel").value = String(data.model);
-        if ($("emSerialJob") && data.serial != null) $("emSerialJob").value = String(data.serial);
-        if ($("emVoltage") && data.voltage != null) $("emVoltage").value = String(data.voltage);
-        if ($("emPhase") && data.phase != null) $("emPhase").value = String(data.phase);
-        if ($("emRefrigerant") && data.refrigerant != null)
-          $("emRefrigerant").value = String(data.refrigerant);
-        if ($("emUnitTag") && data.unitTag != null) $("emUnitTag").value = String(data.unitTag);
-
-        var ton = data.tonnageNumeric != null ? Number(data.tonnageNumeric) : NaN;
-        if ($("emTonnage") && isFinite(ton) && ton > 0) {
-          $("emTonnage").value = String(ton);
-          var crvEst = estimateCRV(ton);
-          if ($("emCRV") && crvEst > 0) $("emCRV").value = String(crvEst);
-        }
-
-        if (data.manufactureYear != null && $("emMfgYear")) {
-          $("emMfgYear").value = String(data.manufactureYear);
-        }
-        if (data.ageYears != null && $("emAgeYears") && isFinite(Number(data.ageYears))) {
-          $("emAgeYears").value = String(Math.round(Number(data.ageYears)));
-        } else if (data.manufactureYear != null && $("emAgeYears")) {
-          var y = Number(data.manufactureYear);
-          if (isFinite(y) && y > 1900) {
-            var cy = new Date().getFullYear();
-            $("emAgeYears").value = String(Math.max(0, cy - y));
+        return callGeminiVision(b64, mime, buildPlatePrompt()).then(function (text) {
+          var data = parseGeminiJson(text);
+          if (!data) {
+            console.warn("[EquipmentManager] Gemini parse failed", text);
+            alert(
+              "Could not parse Gemini response. Check console / enable Generative Language API for this key."
+            );
+            return;
           }
-        }
-
-        refreshHealthUi();
+          applyPlateDataToForm(data);
+        });
       })
       .catch(function (err) {
-        console.error("[EquipmentManager] Gemini", err);
-        alert("Gemini OCR failed: " + (err && err.message ? err.message : String(err)));
+        console.error("[EquipmentManager] data plate", err);
+        alert(
+          (err && err.message ? err.message : String(err)) ||
+            "Could not process data plate photo."
+        );
       })
       .finally(function () {
         if (spin) spin.classList.remove("em-active");
@@ -571,6 +852,11 @@
         close();
       }
     });
+
+    window.addEventListener("online", processOcrQueue);
+    setTimeout(function () {
+      void processOcrQueue();
+    }, 0);
   }
 
   if (document.readyState === "loading") {
@@ -578,6 +864,8 @@
   } else {
     init();
   }
+
+  window.processOcrQueue = processOcrQueue;
 
   window.EquipmentManager = {
     open: open,
