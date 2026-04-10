@@ -461,8 +461,77 @@ body {
   box-shadow: 0 4px 15px rgba(30,75,133,0.2);
 }
 .ws-customer { font-size: 22px; font-weight: 800; margin-bottom: 5px; }
-.ws-address { font-size: 14px; opacity: 0.9; margin-bottom: 15px; line-height: 1.4; }
+.ws-address {
+  font-size: 14px;
+  opacity: 0.95;
+  margin-bottom: 15px;
+  line-height: 1.45;
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+button.ws-address.ws-address--link {
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0 0 15px 0;
+  cursor: pointer;
+  color: inherit;
+  -webkit-tap-highlight-color: rgba(255,255,255,0.2);
+  transition: opacity 0.15s, text-decoration-color 0.15s;
+  text-decoration: underline;
+  text-decoration-color: rgba(255,255,255,0.35);
+  text-underline-offset: 3px;
+}
+button.ws-address.ws-address--link:hover {
+  opacity: 1;
+  text-decoration-color: rgba(255,255,255,0.85);
+}
+button.ws-address.ws-address--link:active {
+  opacity: 0.85;
+}
 .ws-ticket { font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold; }
+
+.location-field-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 6px;
+}
+.location-field-row #location {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+}
+.location-map-btn {
+  flex-shrink: 0;
+  width: 48px;
+  min-height: 48px;
+  padding: 0 10px;
+  border: 1px solid #c89b53;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: #1e4b85;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  font-family: inherit;
+}
+.location-map-btn:hover {
+  background: #fdfaf2;
+  border-color: #1e4b85;
+}
+.location-map-btn:active {
+  transform: scale(0.97);
+}
+.location-map-hint {
+  font-size: 11px;
+  color: #7f8c8d;
+  margin: 6px 0 0 0;
+  line-height: 1.35;
+}
 
 /* --- ACCORDIONS --- */
 .accordion {
@@ -1386,7 +1455,9 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 
   <div class="workspace-header">
     <div id="ws-customer" class="ws-customer">Select a Job</div>
-    <div id="ws-address" class="ws-address">Return to Schedule to pick a ticket</div>
+    <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
+      Return to Schedule to pick a ticket
+    </button>
     <div id="ws-ticket" class="ws-ticket">NO TICKET</div>
   </div>
 
@@ -1421,7 +1492,11 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
      <div class="accordion-header" onclick="toggleAccordion('acc-location')">Location Data</div>
      <div class="accordion-body">
        <label style="margin-top:0;">Location</label>
-       <input id="location" placeholder="Example: I'm at the Planet Fitness in Milwaukee on Main Street">
+       <div class="location-field-row">
+         <input id="location" placeholder="Example: I'm at the Planet Fitness in Milwaukee on Main Street" autocomplete="off">
+         <button type="button" id="locationMapBtn" class="location-map-btn" title="Open in maps" aria-label="Open location in maps">🗺</button>
+       </div>
+       <p class="location-map-hint">Tap the map button (or the address in the blue banner) to start navigation.</p>
      </div>
   </div>
 
@@ -2088,8 +2163,31 @@ function getPreferredMapApp() {
   return 'google';
 }
 
-function isAndroidDevice() {
-  return /Android/i.test(navigator.userAgent || '');
+function isIOSDevice() {
+  const ua = navigator.userAgent || '';
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  if (typeof navigator.platform === 'string' && navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) {
+    return true;
+  }
+  return false;
+}
+
+/** Strip dispatch-only tokens and "Customer - …" prefix so maps get a street-level query. */
+function cleanAddressForNavigation(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return '';
+  s = s.replace(/\s*\(?\s*Loc\s*ID\s*:?\s*[^)]*\)?/gi, '');
+  s = s.replace(/\bPO\s*\/\s*Tracking\s*:?\s*[^\n,]+/gi, '');
+  s = s.replace(/\bLocation\s*#\s*:?\s*[^\n,]+/gi, '');
+  s = s.replace(/\s*\[\s*internal[^\]]*]/gi, '');
+  const dashIdx = s.indexOf(' - ');
+  if (dashIdx > 0) {
+    const right = s.slice(dashIdx + 3).trim();
+    if (right.length >= 4) s = right;
+  }
+  s = s.replace(/,{2,}/g, ',').replace(/^\s*,\s*/, '').replace(/\s*,\s*$/, '');
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
 }
 
 function buildTicketNavAddress(data) {
@@ -2119,20 +2217,26 @@ function showMapNavToast(message) {
 }
 
 function launchNavigation(address) {
-  const raw = String(address || '').trim();
-  if (!raw) {
-    showMapNavToast('No address on file.');
+  const cleaned = cleanAddressForNavigation(address);
+  if (!cleaned) {
+    showMapNavToast('No usable address to navigate.');
     return;
   }
-  let pref = getPreferredMapApp();
-  if (pref === 'apple' && isAndroidDevice()) {
-    showMapNavToast('Apple Maps is not available on Android; defaulting to Google Maps.');
-    pref = 'google';
+  const q = encodeURIComponent(cleaned);
+  const pref = getPreferredMapApp();
+  let url;
+  if (isIOSDevice()) {
+    if (pref === 'google') {
+      url = 'https://www.google.com/maps/search/?api=1&query=' + q;
+    } else {
+      url = 'maps://maps.apple.com/?q=' + q;
+    }
+  } else {
+    if (pref === 'apple') {
+      showMapNavToast('Apple Maps is not available on this device; opening Google Maps.');
+    }
+    url = 'https://www.google.com/maps/search/?api=1&query=' + q;
   }
-  const q = encodeURIComponent(raw);
-  const url = pref === 'apple'
-    ? 'maps://?q=' + q
-    : 'https://www.google.com/maps/search/?api=1&query=' + q;
   window.location.href = url;
 }
 
@@ -2169,6 +2273,30 @@ function initMapPreferenceUI() {
 
 window.launchNavigation = launchNavigation;
 window.buildTicketNavAddress = buildTicketNavAddress;
+window.cleanAddressForNavigation = cleanAddressForNavigation;
+
+(function wireWorkspaceMapActions() {
+  const ws = document.getElementById('ws-address');
+  const mapBtn = document.getElementById('locationMapBtn');
+  if (ws && !ws.dataset.mapWired) {
+    ws.dataset.mapWired = '1';
+    ws.addEventListener('click', function () {
+      let addr = activeTicket ? buildTicketNavAddress(activeTicket) : '';
+      if (!addr) {
+        const loc = document.getElementById('location');
+        addr = loc ? cleanAddressForNavigation(loc.value) : '';
+      }
+      launchNavigation(addr);
+    });
+  }
+  if (mapBtn && !mapBtn.dataset.mapWired) {
+    mapBtn.dataset.mapWired = '1';
+    mapBtn.addEventListener('click', function () {
+      const loc = document.getElementById('location');
+      launchNavigation(cleanAddressForNavigation(loc ? loc.value : ''));
+    });
+  }
+})();
 
 function unsubscribeSchedule() {
   if (scheduleUnsubscribe) {
@@ -2523,7 +2651,7 @@ function openWorkspace(ticketId) {
   if (!activeTicket) return;
 
   document.getElementById('ws-customer').innerText = activeTicket.customerName;
-  document.getElementById('ws-address').innerText = `${activeTicket.locationAddress}, ${activeTicket.custCity || ''}`;
+  document.getElementById('ws-address').innerText = buildTicketNavAddress(activeTicket) || '—';
   document.getElementById('ws-ticket').innerText = `${activeTicket.ticketNum} • ${activeTicket.jobType}`;
 
   document.getElementById('ticketSelector').value = ticketId;
