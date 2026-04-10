@@ -2428,6 +2428,36 @@ async function deleteFieldFormTemplateById(id) {
     }
 }
 
+/** Delegated list clicks + Create button — inline onclick is blocked under some CSPs (e.g. GitHub Pages). */
+function initFieldFormBuilderUi() {
+    const container = document.getElementById("fieldFormTemplatesList");
+    if (container && container.dataset.fieldFormDelegation !== "1") {
+        container.dataset.fieldFormDelegation = "1";
+        container.addEventListener("click", function (e) {
+            const editBtn = e.target.closest(".field-form-template-edit");
+            const delBtn = e.target.closest(".field-form-template-delete");
+            if (editBtn) {
+                const id = editBtn.getAttribute("data-template-id");
+                if (id) openFieldFormBuilderEdit(id);
+                e.preventDefault();
+                return;
+            }
+            if (delBtn) {
+                const id = delBtn.getAttribute("data-template-id");
+                if (id) void deleteFieldFormTemplateById(id);
+                e.preventDefault();
+            }
+        });
+    }
+    const createBtn = document.getElementById("btnFieldFormCreateTemplate");
+    if (createBtn && createBtn.dataset.wired !== "1") {
+        createBtn.dataset.wired = "1";
+        createBtn.addEventListener("click", function () {
+            openFieldFormBuilderCreate();
+        });
+    }
+}
+
 async function hydrateFieldFormTemplatesList() {
     const container = document.getElementById("fieldFormTemplatesList");
     if (!container) return;
@@ -2468,14 +2498,24 @@ async function hydrateFieldFormTemplatesList() {
             html += ` · <span style="color:#94a3b8;">id: ${escapeHTML(r.id)}</span>`;
             html += `</div></div>`;
             html += `<div style="display:flex;gap:8px;flex-wrap:wrap;">`;
-            html += `<button type="button" class="gen-btn" style="background:#f39c12;padding:8px 16px;font-size:13px;color:#fff;" onclick="openFieldFormBuilderEdit(${JSON.stringify(r.id)})">Edit</button>`;
-            html += `<button type="button" class="gen-btn" style="background:#e74c3c;padding:8px 16px;font-size:13px;color:#fff;" onclick="deleteFieldFormTemplateById(${JSON.stringify(r.id)})">Delete</button>`;
+            html += `<button type="button" class="gen-btn field-form-template-edit" data-template-id="${escapeHTML(String(r.id))}" style="background:#f39c12;padding:8px 16px;font-size:13px;color:#fff;">Edit</button>`;
+            html += `<button type="button" class="gen-btn field-form-template-delete" data-template-id="${escapeHTML(String(r.id))}" style="background:#e74c3c;padding:8px 16px;font-size:13px;color:#fff;">Delete</button>`;
             html += `</div></div>`;
         });
         container.innerHTML = html;
+        initFieldFormBuilderUi();
     } catch (e) {
         console.error("hydrateFieldFormTemplatesList", e);
         container.innerHTML =
             '<p style="color:#e74c3c;font-size:13px;">Could not load templates. Check Firestore rules.</p>';
     }
+}
+
+window.openFieldFormBuilderCreate = openFieldFormBuilderCreate;
+window.openFieldFormBuilderEdit = openFieldFormBuilderEdit;
+window.deleteFieldFormTemplateById = deleteFieldFormTemplateById;
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initFieldFormBuilderUi);
+} else {
+    initFieldFormBuilderUi();
 }
