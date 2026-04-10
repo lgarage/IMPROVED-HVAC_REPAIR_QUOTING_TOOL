@@ -425,6 +425,7 @@ function openTicketDetails(dbId) {
         <p><strong>Equipment:</strong> ${sc.equip || 'N/A'}</p>
         <p><strong>Dispatch Notes:</strong> ${sc.notes || 'N/A'}</p>
         ${sc.techNotes ? `<p style="margin-top:14px;"><strong>Technician report (Field app):</strong></p><pre style="background:#e8f4fc; padding:12px; border-radius:4px; margin-top:6px; white-space:pre-wrap; font-family:inherit; font-size:13px; line-height:1.45; border:1px solid #b8d4ea; max-height:280px; overflow:auto;">${escapeHtmlServiceArchive(sc.techNotes)}</pre>` : '<p style="font-size:12px; color:#999; margin-top:10px;"><em>No technician report yet (Field app).</em></p>'}
+        <div id="tdFieldQuotesMount" style="margin-top:16px;"></div>
     `;
 
     document.getElementById('tdEditBtn').onclick = async function() {
@@ -467,6 +468,10 @@ function openTicketDetails(dbId) {
     };
 
     document.getElementById('ticketDetailsModal').style.display = 'block';
+
+    if (typeof loadFieldQuotesForTicketIntoModal === 'function') {
+        loadFieldQuotesForTicketIntoModal(sc.id);
+    }
 }
 
 function closeTicketDetails() {
@@ -1984,6 +1989,64 @@ function escapeHtmlServiceArchive(s) {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
+}
+
+/**
+ * Field-app repair quotes (Firestore field_quotes): show data plate thumbnail as source-of-truth for dispatchers.
+ */
+function loadFieldQuotesForTicketIntoModal(ticketId) {
+    const mount = document.getElementById("tdFieldQuotesMount");
+    if (!mount) return;
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+        mount.innerHTML = "";
+        return;
+    }
+    mount.innerHTML = '<p style="font-size:12px;color:#95a5a6;margin:0;">Loading field repair quotes…</p>';
+    firebase.firestore().collection("field_quotes").where("ticketId", "==", ticketId).get()
+        .then((snap) => {
+            if (snap.empty) {
+                mount.innerHTML = '<p style="font-size:12px;color:#999;margin:0;">No field repair quotes saved for this ticket.</p>';
+                return;
+            }
+            const rows = [];
+            snap.forEach((doc) => rows.push({ id: doc.id, data: doc.data() || {} }));
+            rows.sort((a, b) => String(b.data.savedAt || "").localeCompare(String(a.data.savedAt || "")));
+            let html = '<div style="margin-top:4px;padding-top:12px;border-top:1px solid #eaeaea;"><strong style="color:#1e4b85;font-size:14px;">Field repair quotes (from app)</strong></div>';
+            rows.forEach(({ data: q }) => {
+                const plateUrl = q.dataPlatePhotoUrl && String(q.dataPlatePhotoUrl).trim();
+                const overallUrl = q.overallPhotoUrl && String(q.overallPhotoUrl).trim();
+                const desc = escapeHtmlServiceArchive(String(q.description || "").slice(0, 280));
+                const when = escapeHtmlServiceArchive(String(q.date || q.savedAt || "—"));
+                const tech = escapeHtmlServiceArchive(String(q.techName || "—"));
+                html += `<div style="border:1px solid #e8eef4;border-radius:8px;padding:12px;margin-top:10px;background:#fafbfc;">`;
+                html += `<div style="font-size:12px;color:#64748b;margin-bottom:8px;">${when} · ${tech}</div>`;
+                html += `<p style="margin:0 0 10px 0;font-size:13px;line-height:1.45;">${desc.replace(/\n/g, "<br>")}</p>`;
+                html += `<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;">`;
+                if (plateUrl) {
+                    const safeP = escapeHtmlServiceArchive(plateUrl);
+                    html += `<div style="text-align:center;max-width:140px;">`;
+                    html += `<div style="font-size:10px;color:#475569;font-weight:700;margin-bottom:4px;">Data plate (source photo)</div>`;
+                    html += `<a href="${safeP}" target="_blank" rel="noopener" title="Open full size">`;
+                    html += `<img src="${safeP}" alt="Data plate" style="max-width:120px;max-height:120px;border-radius:8px;border:1px solid #cbd5e1;object-fit:cover;cursor:pointer;display:block;"/></a></div>`;
+                }
+                if (overallUrl) {
+                    const safeO = escapeHtmlServiceArchive(overallUrl);
+                    html += `<div style="text-align:center;max-width:140px;">`;
+                    html += `<div style="font-size:10px;color:#475569;font-weight:700;margin-bottom:4px;">Overall unit</div>`;
+                    html += `<a href="${safeO}" target="_blank" rel="noopener" title="Open full size">`;
+                    html += `<img src="${safeO}" alt="Overall" style="max-width:120px;max-height:120px;border-radius:8px;border:1px solid #cbd5e1;object-fit:cover;cursor:pointer;display:block;"/></a></div>`;
+                }
+                if (!plateUrl && !overallUrl) {
+                    html += `<span style="font-size:11px;color:#e74c3c;">No equipment photos stored on this quote record.</span>`;
+                }
+                html += `</div></div>`;
+            });
+            mount.innerHTML = html;
+        })
+        .catch((e) => {
+            console.error("loadFieldQuotesForTicketIntoModal", e);
+            mount.innerHTML = '<p style="font-size:12px;color:#e74c3c;margin:0;">Could not load field repair quotes.</p>';
+        });
 }
 
 function openArchivedServiceModal() {

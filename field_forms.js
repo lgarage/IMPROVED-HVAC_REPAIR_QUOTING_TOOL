@@ -49,6 +49,321 @@
   var currentFormId = null;
   var dynamicTemplateDoc = null;
 
+  /** Repair quote: both mandatory equipment photos must exist before save. */
+  var quoteEvidenceState = {
+    ok: false,
+    overallPhotoUrl: null,
+    dataPlatePhotoUrl: null,
+  };
+
+  function parseEquipmentCompositeId(equipmentId) {
+    var parts = String(equipmentId || "").split("/");
+    if (parts.length < 3) return null;
+    return {
+      customerId: parts[0],
+      locationId: parts[1],
+      unitDocId: parts.slice(2).join("/"),
+    };
+  }
+
+  function getEquipmentDocRef(equipmentId) {
+    var p = parseEquipmentCompositeId(equipmentId);
+    if (!p || typeof firebase === "undefined" || !firebase.apps.length) return null;
+    return firebase
+      .firestore()
+      .collection("Customers")
+      .doc(p.customerId)
+      .collection("Locations")
+      .doc(p.locationId)
+      .collection("Equipment")
+      .doc(p.unitDocId);
+  }
+
+  /**
+   * Returns whether the equipment record has overall + data plate photo URLs.
+   */
+  async function verifyEquipmentEvidence(equipmentId) {
+    var scanVal =
+      typeof window.SCAN_NEW_EQUIPMENT_VALUE !== "undefined"
+        ? window.SCAN_NEW_EQUIPMENT_VALUE
+        : "__TP_SCAN_NEW_EQUIPMENT__";
+    if (!equipmentId || String(equipmentId).trim() === "" || equipmentId === scanVal) {
+      return {
+        ok: false,
+        overallPhotoUrl: null,
+        dataPlatePhotoUrl: null,
+        reason: "no_equipment",
+      };
+    }
+    if (typeof firebase === "undefined" || !firebase.apps.length) {
+      return {
+        ok: false,
+        overallPhotoUrl: null,
+        dataPlatePhotoUrl: null,
+        reason: "offline",
+      };
+    }
+    var ref = getEquipmentDocRef(equipmentId);
+    if (!ref) {
+      return {
+        ok: false,
+        overallPhotoUrl: null,
+        dataPlatePhotoUrl: null,
+        reason: "bad_id",
+      };
+    }
+    try {
+      var snap = await ref.get();
+      if (!snap.exists) {
+        return {
+          ok: false,
+          overallPhotoUrl: null,
+          dataPlatePhotoUrl: null,
+          reason: "missing_doc",
+        };
+      }
+      var d = snap.data() || {};
+      var o = d.overallPhotoUrl && String(d.overallPhotoUrl).trim();
+      var p = d.dataPlatePhotoUrl && String(d.dataPlatePhotoUrl).trim();
+      return {
+        ok: !!(o && p),
+        overallPhotoUrl: o || null,
+        dataPlatePhotoUrl: p || null,
+        reason: o && p ? "ok" : "incomplete",
+      };
+    } catch (e) {
+      console.error("[field_forms] verifyEquipmentEvidence", e);
+      return {
+        ok: false,
+        overallPhotoUrl: null,
+        dataPlatePhotoUrl: null,
+        reason: "error",
+      };
+    }
+  }
+
+  function renderQuoteMandatoryEvidenceHtml() {
+    return (
+      "<div class=\"quote-mandatory-evidence\" id=\"quoteMandatoryEvidenceWrap\">" +
+      "<div class=\"quote-evidence-title\">Required equipment evidence</div>" +
+      "<p class=\"quote-evidence-hint\">A repair quote requires an overall unit photo and a data plate photo on file for the selected equipment.</p>" +
+      "<div id=\"quoteEvidenceStatus\" class=\"quote-evidence-status\"></div>" +
+      "<div id=\"quoteEvidenceRows\" class=\"quote-evidence-rows\">" +
+      "<div class=\"quote-evidence-row\" id=\"quoteEvidenceRowOverall\">" +
+      "<label class=\"field-form-label\" for=\"quoteOverallEvidenceInput\">📸 Capture overall unit photo</label>" +
+      "<input type=\"file\" accept=\"image/*;capture=camera\" id=\"quoteOverallEvidenceInput\" class=\"field-form-file\"/>" +
+      "<div id=\"quoteOverallEvidencePreview\" class=\"quote-evidence-preview hidden\"></div>" +
+      "</div>" +
+      "<div class=\"quote-evidence-row\" id=\"quoteEvidenceRowPlate\">" +
+      "<label class=\"field-form-label\" for=\"quotePlateEvidenceInput\">📸 Capture data plate photo</label>" +
+      "<input type=\"file\" accept=\"image/*;capture=camera\" id=\"quotePlateEvidenceInput\" class=\"field-form-file\"/>" +
+      "<div id=\"quotePlateEvidencePreview\" class=\"quote-evidence-preview hidden\"></div>" +
+      "</div>" +
+      "</div>" +
+      "<div id=\"quoteEvidenceOkBadge\" class=\"quote-evidence-ok hidden\">✓ Overall and data plate photos on file for this unit.</div>" +
+      "</div>"
+    );
+  }
+
+  function setQuoteSaveEnabled(enabled) {
+    var btn = document.getElementById("fieldFormSaveBtn");
+    if (!btn || currentFormId !== "repair_quote") return;
+    btn.disabled = !enabled;
+    btn.setAttribute("aria-disabled", enabled ? "false" : "true");
+  }
+
+  function applyQuoteEvidenceUi(ev) {
+    quoteEvidenceState = {
+      ok: !!ev.ok,
+      overallPhotoUrl: ev.overallPhotoUrl || null,
+      dataPlatePhotoUrl: ev.dataPlatePhotoUrl || null,
+    };
+    var statusEl = document.getElementById("quoteEvidenceStatus");
+    var okBadge = document.getElementById("quoteEvidenceOkBadge");
+    var rows = document.getElementById("quoteEvidenceRows");
+    var rowO = document.getElementById("quoteEvidenceRowOverall");
+    var rowP = document.getElementById("quoteEvidenceRowPlate");
+    var prevO = document.getElementById("quoteOverallEvidencePreview");
+    var prevP = document.getElementById("quotePlateEvidencePreview");
+    var inpO = document.getElementById("quoteOverallEvidenceInput");
+    var inpP = document.getElementById("quotePlateEvidenceInput");
+
+    if (statusEl) {
+      if (ev.reason === "no_equipment") {
+        statusEl.innerHTML =
+          "<span class=\"quote-evidence-warn\">Select equipment above, then add photos if needed.</span>";
+      } else if (ev.reason === "offline") {
+        statusEl.innerHTML =
+          "<span class=\"quote-evidence-warn\">Connect to the internet to verify equipment photos.</span>";
+      } else if (!ev.ok && ev.reason === "missing_doc") {
+        statusEl.innerHTML =
+          "<span class=\"quote-evidence-warn\">Equipment record not found.</span>";
+      } else if (!ev.ok && (ev.reason === "bad_id" || ev.reason === "error")) {
+        statusEl.innerHTML =
+          "<span class=\"quote-evidence-warn\">Could not verify equipment photos. Try again.</span>";
+      } else if (ev.ok) {
+        statusEl.innerHTML = "";
+      } else {
+        statusEl.innerHTML =
+          "<span class=\"quote-evidence-warn\">Capture the missing photo(s) below. They are saved to this equipment profile.</span>";
+      }
+    }
+
+    if (okBadge) {
+      okBadge.classList.toggle("hidden", !ev.ok);
+    }
+    if (rows) {
+      rows.classList.toggle("hidden", !!ev.ok);
+    }
+
+    function showUrlPreview(container, url) {
+      if (!container) return;
+      if (url) {
+        container.innerHTML =
+          "<a href=\"" +
+          escapeAttr(url) +
+          "\" target=\"_blank\" rel=\"noopener\"><img src=\"" +
+          escapeAttr(url) +
+          "\" alt=\"\" class=\"quote-evidence-thumb\"/></a>";
+        container.classList.remove("hidden");
+      } else {
+        container.innerHTML = "";
+        container.classList.add("hidden");
+      }
+    }
+
+    if (ev.overallPhotoUrl) {
+      showUrlPreview(prevO, ev.overallPhotoUrl);
+      if (inpO) inpO.classList.add("hidden");
+    } else {
+      if (prevO) {
+        prevO.innerHTML = "";
+        prevO.classList.add("hidden");
+      }
+      if (inpO) inpO.classList.remove("hidden");
+    }
+    if (ev.dataPlatePhotoUrl) {
+      showUrlPreview(prevP, ev.dataPlatePhotoUrl);
+      if (inpP) inpP.classList.add("hidden");
+    } else {
+      if (prevP) {
+        prevP.innerHTML = "";
+        prevP.classList.add("hidden");
+      }
+      if (inpP) inpP.classList.remove("hidden");
+    }
+
+    setQuoteSaveEnabled(!!ev.ok && currentFormId === "repair_quote");
+  }
+
+  async function runQuoteEvidenceCheck() {
+    if (currentFormId !== "repair_quote") return;
+    var sel = document.getElementById("fieldFormEquipmentSelect");
+    var eid = sel && sel.value ? String(sel.value).trim() : "";
+    var scanVal =
+      typeof window.SCAN_NEW_EQUIPMENT_VALUE !== "undefined"
+        ? window.SCAN_NEW_EQUIPMENT_VALUE
+        : "__TP_SCAN_NEW_EQUIPMENT__";
+    if (!eid || eid === scanVal) {
+      applyQuoteEvidenceUi({
+        ok: false,
+        overallPhotoUrl: null,
+        dataPlatePhotoUrl: null,
+        reason: "no_equipment",
+      });
+      return;
+    }
+    var v = await verifyEquipmentEvidence(eid);
+    var ev = {
+      ok: v.ok,
+      overallPhotoUrl: v.overallPhotoUrl,
+      dataPlatePhotoUrl: v.dataPlatePhotoUrl,
+      reason: v.reason
+        ? v.reason
+        : v.ok
+          ? "ok"
+          : "incomplete",
+    };
+    applyQuoteEvidenceUi(ev);
+  }
+
+  async function uploadQuoteMandatoryEvidenceAndMerge(equipmentId, file, kind) {
+    await loadFirebaseStorageCompat();
+    var storage = firebase.storage();
+    var path =
+      "field_quote_evidence/" +
+      sanitizePathSegment(equipmentId) +
+      "/" +
+      kind +
+      "_" +
+      Date.now() +
+      ".jpg";
+    var ref = storage.ref().child(path);
+    await ref.put(file, { contentType: file.type || "image/jpeg" });
+    var url = await ref.getDownloadURL();
+    var refDoc = getEquipmentDocRef(equipmentId);
+    if (!refDoc) throw new Error("Bad equipment path");
+    var patch =
+      kind === "overall"
+        ? { overallPhotoUrl: url }
+        : { dataPlatePhotoUrl: url };
+    patch.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    await refDoc.set(patch, { merge: true });
+    return url;
+  }
+
+  function wireRepairQuoteEvidenceUi() {
+    var sel = document.getElementById("fieldFormEquipmentSelect");
+    if (sel) {
+      sel.addEventListener("change", function () {
+        runQuoteEvidenceCheck();
+      });
+    }
+    var inpO = document.getElementById("quoteOverallEvidenceInput");
+    var inpP = document.getElementById("quotePlateEvidenceInput");
+    if (inpO) {
+      inpO.addEventListener("change", function () {
+        var f = inpO.files && inpO.files[0];
+        var sel2 = document.getElementById("fieldFormEquipmentSelect");
+        var eid = sel2 && sel2.value ? String(sel2.value).trim() : "";
+        if (!f || !eid) return;
+        inpO.disabled = true;
+        uploadQuoteMandatoryEvidenceAndMerge(eid, f, "overall")
+          .then(function () {
+            inpO.value = "";
+            inpO.disabled = false;
+            return runQuoteEvidenceCheck();
+          })
+          .catch(function (e) {
+            console.error(e);
+            alert("Upload failed: " + (e.message || e));
+            inpO.disabled = false;
+          });
+      });
+    }
+    if (inpP) {
+      inpP.addEventListener("change", function () {
+        var f = inpP.files && inpP.files[0];
+        var sel2 = document.getElementById("fieldFormEquipmentSelect");
+        var eid = sel2 && sel2.value ? String(sel2.value).trim() : "";
+        if (!f || !eid) return;
+        inpP.disabled = true;
+        uploadQuoteMandatoryEvidenceAndMerge(eid, f, "plate")
+          .then(function () {
+            inpP.value = "";
+            inpP.disabled = false;
+            return runQuoteEvidenceCheck();
+          })
+          .catch(function (e) {
+            console.error(e);
+            alert("Upload failed: " + (e.message || e));
+            inpP.disabled = false;
+          });
+      });
+    }
+    runQuoteEvidenceCheck();
+  }
+
   /** Cached rows from form_templates; kept fresh via onSnapshot. */
   var formTemplatesCache = null;
   var formTemplatesUnsubscribe = null;
@@ -115,6 +430,11 @@
     }
     currentFormId = null;
     dynamicTemplateDoc = null;
+    quoteEvidenceState = {
+      ok: false,
+      overallPhotoUrl: null,
+      dataPlatePhotoUrl: null,
+    };
     var body = document.getElementById("fieldFormModalBody");
     if (body) body.innerHTML = "";
   }
@@ -190,6 +510,10 @@
 
     html += renderEquipmentFlagsHtml();
 
+    if (formTemplateId === "repair_quote") {
+      html += renderQuoteMandatoryEvidenceHtml();
+    }
+
     t.fields.forEach(function (f) {
       var inner =
         "<label class=\"field-form-label\" for=\"field_" +
@@ -222,14 +546,20 @@
 
     if (formTemplateId === "repair_quote") {
       html +=
-        "<label class=\"field-form-label\" for=\"quotePhotosInput\">Photo evidence</label>" +
+        "<label class=\"field-form-label\" for=\"quotePhotosInput\">Additional job photos (optional)</label>" +
         "<input type=\"file\" accept=\"image/*;capture=camera\" multiple id=\"quotePhotosInput\" class=\"field-form-file\"/>";
     }
 
+    var saveBtnLabel = formTemplateId === "repair_quote" ? "Save quote" : "Save";
+    var saveBtnDisabledAttr = formTemplateId === "repair_quote" ? " disabled" : "";
     html +=
       "<div class=\"field-form-actions\">" +
       "<button type=\"button\" class=\"field-form-btn field-form-btn-secondary\" id=\"fieldFormCancelBtn\">Cancel</button>" +
-      "<button type=\"button\" class=\"field-form-btn field-form-btn-primary\" id=\"fieldFormSaveBtn\">Save</button>" +
+      "<button type=\"button\" class=\"field-form-btn field-form-btn-primary\" id=\"fieldFormSaveBtn\"" +
+      saveBtnDisabledAttr +
+      ">" +
+      saveBtnLabel +
+      "</button>" +
       "</div></div>";
 
     body.innerHTML = html;
@@ -240,7 +570,12 @@
         if (typeof window.bindSmartEquipmentSelect === "function") {
           window.bindSmartEquipmentSelect(sel);
         }
+        if (formTemplateId === "repair_quote") {
+          wireRepairQuoteEvidenceUi();
+        }
       });
+    } else if (formTemplateId === "repair_quote") {
+      wireRepairQuoteEvidenceUi();
     }
 
     wireEquipmentFieldVisibility(body);
@@ -772,6 +1107,28 @@
     }
 
     if (currentFormId === "repair_quote") {
+      var evidenceCheck = await verifyEquipmentEvidence(equipmentId);
+      if (!evidenceCheck.ok || !quoteEvidenceState.ok) {
+        alert(
+          "Stop! You must provide an overall photo and a data plate photo of the unit so the office can verify parts before ordering."
+        );
+        return;
+      }
+      var overallUrl =
+        evidenceCheck.overallPhotoUrl ||
+        quoteEvidenceState.overallPhotoUrl ||
+        "";
+      var plateUrl =
+        evidenceCheck.dataPlatePhotoUrl ||
+        quoteEvidenceState.dataPlatePhotoUrl ||
+        "";
+      if (!overallUrl || !plateUrl) {
+        alert(
+          "Stop! You must provide an overall photo and a data plate photo of the unit so the office can verify parts before ordering."
+        );
+        return;
+      }
+
       var desc = document.getElementById("field_description");
       var partsEl = document.getElementById("field_partsList");
       var laborEl = document.getElementById("field_laborHours");
@@ -809,6 +1166,8 @@
         partsArray: partsArray,
         laborHours: laborHours,
         evidencePhotoUrls: evidencePhotoUrls,
+        overallPhotoUrl: overallUrl,
+        dataPlatePhotoUrl: plateUrl,
         isDirectDrive: flags.isDirectDrive,
         equipmentType: flags.equipmentType,
         cleanedScreens: flags.cleanedScreens,
@@ -873,4 +1232,5 @@
   window.collectNotesForAiScan = collectNotesForAiScan;
   window.getActiveFormTemplates = fetchActiveFormTemplates;
   window.hideFormIntentBanner = hideFormIntentBanner;
+  window.verifyEquipmentEvidence = verifyEquipmentEvidence;
 })();

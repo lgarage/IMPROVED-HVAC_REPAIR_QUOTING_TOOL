@@ -452,6 +452,20 @@
             "<br>Labor (hrs): " +
             escapeHtml(String(q.laborHours != null ? q.laborHours : "—"));
           var thumbs = "";
+          var dpSrc = q.dataPlatePhotoUrl && String(q.dataPlatePhotoUrl).trim();
+          if (dpSrc) {
+            thumbs += "<div class=\"equipment-hub-dp-wrap\">";
+            thumbs +=
+              "<span class=\"equipment-hub-dp-label\">Data plate (source photo)</span>";
+            thumbs +=
+              "<a href=\"" +
+              escapeAttr(dpSrc) +
+              "\" target=\"_blank\" rel=\"noopener\">" +
+              "<img class=\"equipment-hub-dp-thumb\" src=\"" +
+              escapeAttr(dpSrc) +
+              "\" alt=\"Data plate\"/></a>";
+            thumbs += "</div>";
+          }
           if (q.evidencePhotoUrls && q.evidencePhotoUrls.length) {
             thumbs += "<div class=\"equipment-hub-evidence\">";
             q.evidencePhotoUrls.forEach(function (url) {
