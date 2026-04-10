@@ -802,7 +802,28 @@
   }
 
   function open(opts) {
-    state.context = opts || readContextFromDom();
+    if (
+      opts &&
+      typeof opts === "object" &&
+      (opts.customer != null ||
+        opts.location != null ||
+        opts.locationDisplay != null ||
+        opts.locationId != null)
+    ) {
+      state.context = {
+        parentCompany:
+          opts.parentCompany != null ? String(opts.parentCompany) : "—",
+        customer: opts.customer != null ? String(opts.customer) : "—",
+        location:
+          opts.locationDisplay != null
+            ? String(opts.locationDisplay)
+            : opts.location != null
+              ? String(opts.location)
+              : "—",
+      };
+    } else {
+      state.context = readContextFromDom();
+    }
     applyContextToHeader();
     setModalVisible(true);
     refreshHealthUi();

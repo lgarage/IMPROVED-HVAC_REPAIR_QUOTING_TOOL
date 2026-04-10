@@ -145,6 +145,202 @@ textarea { min-height: 80px; resize: vertical; }
 }
 .fab-btn:active { transform: scale(0.98); }
 
+.btn {
+  display: inline-block;
+  cursor: pointer;
+  border-radius: 10px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.btn.btn-primary {
+  background: #1e4b85;
+  color: #fff;
+  border: none;
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(30, 75, 133, 0.25);
+}
+.btn.btn-primary:active { transform: scale(0.99); opacity: 0.95; }
+
+/* Equipment Hub full-screen modal */
+#equipmentHubModal.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: #f4f7fa;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#equipmentHubModal.modal.hidden {
+  display: none !important;
+}
+.equipment-hub-topbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #1e4b85;
+  color: #fff;
+}
+.equipment-hub-topbar h2 {
+  margin: 0;
+  font-size: 18px;
+  flex: 1;
+}
+.equipment-hub-close {
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.equipment-hub-body {
+  flex: 1;
+  overflow: auto;
+  padding: 0 0 88px;
+  -webkit-overflow-scrolling: touch;
+}
+.equipment-hub-view {
+  padding: 0 14px 16px;
+  min-height: 100%;
+}
+.equipment-hub-view.hidden {
+  display: none !important;
+}
+.equipment-hub-meta {
+  padding: 12px 0;
+  font-size: 13px;
+  color: #555;
+}
+.equipment-hub-meta-line {
+  margin: 0 0 6px 0;
+  line-height: 1.4;
+}
+.equipment-hub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.equipment-hub-card {
+  text-align: left;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #e1e8ed;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.equipment-hub-card-title {
+  display: block;
+  font-weight: 800;
+  font-size: 16px;
+  color: #1e4b85;
+}
+.equipment-hub-card-sub {
+  display: block;
+  font-size: 13px;
+  color: #555;
+  margin-top: 4px;
+}
+.equipment-hub-card-health {
+  display: block;
+  font-size: 12px;
+  color: #27ae60;
+  margin-top: 6px;
+  font-weight: 600;
+}
+.equipment-hub-empty,
+.equipment-hub-loading,
+.equipment-hub-error {
+  font-size: 14px;
+  color: #555;
+  padding: 12px 0;
+  line-height: 1.45;
+}
+.equipment-hub-error {
+  color: #c0392b;
+}
+.equipment-hub-sticky-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, #f4f7fa 25%);
+  z-index: 301;
+  max-width: 560px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+#equipmentHubAddBtn {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 12px;
+  background: #27ae60;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(39, 174, 96, 0.35);
+}
+#equipmentHubBackBtn {
+  margin: 8px 0 14px;
+  padding: 10px 14px;
+  border: 1px solid #d1d9e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e4b85;
+  font-weight: 700;
+  cursor: pointer;
+}
+.equipment-hub-unit-title {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  color: #1e4b85;
+}
+.equipment-hub-unit-specs {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #555;
+  line-height: 1.45;
+}
+.equipment-hub-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.equipment-hub-tl-item {
+  border-left: 3px solid #c89b53;
+  padding: 0 0 16px 14px;
+  margin-left: 6px;
+}
+.equipment-hub-tl-date {
+  font-weight: 800;
+  font-size: 13px;
+  color: #1e4b85;
+}
+.equipment-hub-tl-tech {
+  font-size: 12px;
+  color: #7f8c8d;
+  margin: 4px 0 8px;
+}
+.equipment-hub-tl-body {
+  font-size: 14px;
+  color: #2c3e50;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
 /* Report preview modal */
 .report-preview-modal {
   position: fixed; inset: 0; z-index: 250;
@@ -541,6 +737,10 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     <div id="ws-ticket" class="ws-ticket">NO TICKET</div>
   </div>
 
+  <button type="button" id="btnOpenEquipmentHub" class="btn btn-primary" style="margin-bottom: 16px">
+    🗄️ View Site Equipment
+  </button>
+
   <input type="hidden" id="ticketSelector">
   
   <div class="accordion open" id="acc-location" style="margin-bottom: 15px;">
@@ -690,7 +890,14 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   <div class="accordion" id="acc-status" style="margin-bottom: 20px;">
     <div class="accordion-header" onclick="toggleAccordion('acc-status')">4. Job Status</div>
     <div class="accordion-body">
-      <label style="margin-top:0;">Select Final Status</label>
+      <label style="margin-top:0;">Link repair to equipment (optional)</label>
+      <select id="linkedEquipmentSelect" disabled>
+        <option value="">— None —</option>
+      </select>
+      <p style="font-size: 12px; color: #7f8c8d; margin: 8px 0 0 0; line-height: 1.4">
+        Tie this visit to a unit from the Equipment Hub so future history shows on that unit.
+      </p>
+      <label>Select Final Status</label>
       <select id="finalJobStatus" style="font-weight: bold; border-color: #1e4b85;">
         <option value="Completed">Completed (Ready to Bill)</option>
         <option value="Needs Repair Quote">Needs Repair Quote</option>
@@ -1306,6 +1513,7 @@ function openWorkspace(ticketId) {
   applyMode();
   switchScreen('workspace');
   saveDraft();
+  if (typeof refreshJobLinkedEquipmentDropdown === "function") refreshJobLinkedEquipmentDropdown();
 }
 
 /* ---------- location local formatting fallback ---------- */
@@ -2646,6 +2854,7 @@ function getFields(){
     quoteIssue: document.getElementById("quoteIssue").value || "", quoteRepairs: document.getElementById("quoteRepairs").value || "",
     quoteTesting: document.getElementById("quoteTesting").value || "", quoteRecs: document.getElementById("quoteRecs").value || "",
     historyCustomer: currentHistoryCustomer, historyLocation: currentHistoryLocation, historySelectedIndex: currentHistorySelectedIndex,
+    linkedEquipmentId: (document.getElementById("linkedEquipmentSelect") && document.getElementById("linkedEquipmentSelect").value) || "",
     savedAt: new Date().toISOString()
   };
 }
@@ -2671,6 +2880,8 @@ function setFields(d){
   document.getElementById("recommendations").value = d.recommendations || ""; document.getElementById("quoteEquip").value = d.quoteEquip || "";
   document.getElementById("quoteIssue").value = d.quoteIssue || ""; document.getElementById("quoteRepairs").value = d.quoteRepairs || "";
   document.getElementById("quoteTesting").value = d.quoteTesting || ""; document.getElementById("quoteRecs").value = d.quoteRecs || "";
+  var le = document.getElementById("linkedEquipmentSelect");
+  if (le) le.value = d.linkedEquipmentId || "";
   [ "equipment","notes","used","next", "serviceEquipment","reason","diagnosis","repairsMade","serviceUsed","quoteParts","recommendations", "quoteEquip","quoteIssue","quoteRepairs","quoteTesting","quoteRecs"
   ].forEach(id => autoGrow(document.getElementById(id)));
   populateHistoryCustomers();
@@ -2694,15 +2905,22 @@ function uploadReportToCloud(visitData, fullReportText) {
     const db = firebase.firestore();
     const ticketId = document.getElementById('ticketSelector').value;
     const finalStatus = document.getElementById('finalJobStatus').value;
+    const linkedEquipmentEl = document.getElementById('linkedEquipmentSelect');
+    const linkedEquipmentId = linkedEquipmentEl && linkedEquipmentEl.value ? String(linkedEquipmentEl.value).trim() : '';
 
     const payload = {
         ...visitData, fullReportText: fullReportText, techName: currentTechProfile,
         linkedTicketId: ticketId || "None", status: finalStatus, 
         timestamp: firebase.firestore.FieldValue.serverTimestamp(), deviceSavedAt: new Date().toISOString() 
     };
+    if (linkedEquipmentId) payload.Linked_Equipment_ID = linkedEquipmentId;
 
     db.collection('completed_reports').add(payload).catch(e => console.error("Sync queued."));
-    if (ticketId) { db.collection('service_calls').doc(ticketId).set({ status: finalStatus, techNotes: fullReportText }, { merge: true }).catch(e => console.error("Ticket update queued.")); }
+    if (ticketId) {
+        const ticketUpdate = { status: finalStatus, techNotes: fullReportText };
+        if (linkedEquipmentId) ticketUpdate.Linked_Equipment_ID = linkedEquipmentId;
+        db.collection('service_calls').doc(ticketId).set(ticketUpdate, { merge: true }).catch(e => console.error("Ticket update queued."));
+    }
 
     document.querySelectorAll('.accordion').forEach(a => a.classList.remove('open'));
     const sc = document.getElementById('successCard');
@@ -3155,6 +3373,43 @@ window.onload = async function(){
       </div>
     </div>
 
-    <script src="../equipment_manager.js?v=5"></script>
+    <div
+      id="equipmentHubModal"
+      class="modal equipment-hub-modal hidden"
+      aria-hidden="true"
+      role="dialog"
+      aria-labelledby="equipmentHubTitle"
+    >
+      <div class="equipment-hub-topbar">
+        <h2 id="equipmentHubTitle">Equipment Hub</h2>
+        <button
+          type="button"
+          class="equipment-hub-close"
+          id="equipmentHubCloseBtn"
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </div>
+      <div class="equipment-hub-body">
+        <div id="equipmentHubViewList" class="equipment-hub-view">
+          <div id="equipmentHubListMeta" class="equipment-hub-meta"></div>
+          <div id="equipmentHubList" class="equipment-hub-list"></div>
+        </div>
+        <div id="equipmentHubViewHistory" class="equipment-hub-view hidden">
+          <button type="button" id="equipmentHubBackBtn">← Back to List</button>
+          <div id="equipmentHubUnitHeader"></div>
+          <div id="equipmentHubTimeline"></div>
+        </div>
+      </div>
+      <div class="equipment-hub-sticky-footer" id="equipmentHubStickyFooter">
+        <button type="button" id="equipmentHubAddBtn">
+          + Add New Equipment (AI Scanner)
+        </button>
+      </div>
+    </div>
+
+    <script src="../equipment_manager.js?v=6"></script>
+    <script src="../equipment_hub.js"></script>
 </body>
 </html>
