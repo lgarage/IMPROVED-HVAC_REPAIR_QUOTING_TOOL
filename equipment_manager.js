@@ -344,6 +344,22 @@
       .doc(unitId)
       .set(profile, { merge: true });
     await ocrQueueDelete(rec.id);
+    dispatchEquipmentManagerSaved({
+      customerId: custId,
+      locationId: locId,
+      unitId: unitId,
+      equipmentId: custId + "/" + locId + "/" + unitId,
+    });
+  }
+
+  function dispatchEquipmentManagerSaved(detail) {
+    try {
+      document.dispatchEvent(
+        new CustomEvent("equipmentManagerSaved", { detail: detail })
+      );
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   /**
@@ -738,6 +754,12 @@
           .set(profile, { merge: true })
           .then(function () {
             alert("Equipment profile saved.");
+            dispatchEquipmentManagerSaved({
+              customerId: custId,
+              locationId: locId,
+              unitId: unitId,
+              equipmentId: custId + "/" + locId + "/" + unitId,
+            });
             return profile;
           });
       })

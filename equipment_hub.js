@@ -327,52 +327,159 @@
 
     var db = firebase.firestore();
     try {
-      var snap = await db
+      var snapCalls = await db
         .collection("service_calls")
         .where("Linked_Equipment_ID", "==", equipmentId)
         .get();
 
-      var items = [];
-      snap.forEach(function (doc) {
-        items.push({ id: doc.id, data: doc.data() || {} });
+      var snapPm = await db
+        .collection("pm_records")
+        .where("equipmentId", "==", equipmentId)
+        .get();
+
+      var snapQuotes = await db
+        .collection("field_quotes")
+        .where("equipmentId", "==", equipmentId)
+        .get();
+
+      var merged = [];
+
+      snapCalls.forEach(function (doc) {
+        var data = doc.data() || {};
+        merged.push({
+          kind: "service_call",
+          id: doc.id,
+          data: data,
+          sortKey: formatServiceDate(data) + "_" + doc.id,
+        });
       });
 
-      items.sort(function (a, b) {
-        var da = formatServiceDate(a.data);
-        var db_ = formatServiceDate(b.data);
-        if (da < db_) return 1;
-        if (da > db_) return -1;
+      snapPm.forEach(function (doc) {
+        var data = doc.data() || {};
+        var dk = data.date || (data.savedAt && String(data.savedAt).slice(0, 10)) || "1970-01-01";
+        merged.push({
+          kind: "pm",
+          id: doc.id,
+          data: data,
+          sortKey: dk + "_pm_" + doc.id,
+        });
+      });
+
+      snapQuotes.forEach(function (doc) {
+        var data = doc.data() || {};
+        var dk = data.date || (data.savedAt && String(data.savedAt).slice(0, 10)) || "1970-01-01";
+        merged.push({
+          kind: "quote",
+          id: doc.id,
+          data: data,
+          sortKey: dk + "_q_" + doc.id,
+        });
+      });
+
+      merged.sort(function (a, b) {
+        if (a.sortKey < b.sortKey) return 1;
+        if (a.sortKey > b.sortKey) return -1;
         return 0;
       });
 
-      if (!items.length) {
+      if (!merged.length) {
         timeline.innerHTML =
-          "<p class=\"equipment-hub-empty\">No linked service calls yet. Complete a job with this unit selected in “Link repair to equipment” to build history.</p>";
+          "<p class=\"equipment-hub-empty\">No history for this unit yet. Link service calls, save PM forms, or save repair quotes with this equipment selected.</p>";
         return;
       }
 
       var html = '<ul class="equipment-hub-timeline">';
-      items.forEach(function (row) {
-        var data = row.data;
-        var tech =
-          data.assignedTech ||
-          data.techName ||
-          (data.completedBy && data.completedBy.name) ||
-          "—";
-        var when = formatServiceDate(data);
-        var body = escapeHtml(pickIssueRepairText(data)).replace(/\n/g, "<br>");
-        html +=
-          "<li class=\"equipment-hub-tl-item\">" +
-          "<div class=\"equipment-hub-tl-date\">" +
-          escapeHtml(when) +
-          "</div>" +
-          "<div class=\"equipment-hub-tl-tech\">" +
-          escapeHtml(String(tech)) +
-          "</div>" +
-          "<div class=\"equipment-hub-tl-body\">" +
-          body +
-          "</div>" +
-          "</li>";
+      merged.forEach(function (row) {
+        if (row.kind === "service_call") {
+          var data = row.data;
+          var tech =
+            data.assignedTech ||
+            data.techName ||
+            (data.completedBy && data.completedBy.name) ||
+            "—";
+          var when = formatServiceDate(data);
+          var body = escapeHtml(pickIssueRepairText(data)).replace(/\n/g, "<br>");
+          html +=
+            "<li class=\"equipment-hub-tl-item equipment-hub-tl-service\">" +
+            "<div class=\"equipment-hub-tl-badge\">Service call</div>" +
+            "<div class=\"equipment-hub-tl-date\">" +
+            escapeHtml(when) +
+            "</div>" +
+            "<div class=\"equipment-hub-tl-tech\">" +
+            escapeHtml(String(tech)) +
+            "</div>" +
+            "<div class=\"equipment-hub-tl-body\">" +
+            body +
+            "</div>" +
+            "</li>";
+        } else if (row.kind === "pm") {
+          var pm = row.data;
+          var whenPm = pm.date || (pm.savedAt && String(pm.savedAt).slice(0, 10)) || "—";
+          var techPm = pm.techName || "—";
+          var pmBody =
+            "Filter: " +
+            escapeHtml(String(pm.filterSize || "—")) +
+            "<br>Belt: " +
+            escapeHtml(String(pm.beltSize || "—")) +
+            (pm.notes
+              ? "<br>Notes: " + escapeHtml(String(pm.notes)).replace(/\n/g, "<br>")
+              : "");
+          html +=
+            "<li class=\"equipment-hub-tl-item equipment-hub-tl-pm\">" +
+            "<div class=\"equipment-hub-tl-badge\">PM checklist</div>" +
+            "<div class=\"equipment-hub-tl-date\">" +
+            escapeHtml(String(whenPm)) +
+            "</div>" +
+            "<div class=\"equipment-hub-tl-tech\">" +
+            escapeHtml(String(techPm)) +
+            "</div>" +
+            "<div class=\"equipment-hub-tl-body\">" +
+            pmBody +
+            "</div>" +
+            "</li>";
+        } else if (row.kind === "quote") {
+          var q = row.data;
+          var whenQ = q.date || (q.savedAt && String(q.savedAt).slice(0, 10)) || "—";
+          var techQ = q.techName || "—";
+          var partsStr = Array.isArray(q.partsArray)
+            ? q.partsArray.join(", ")
+            : String(q.partsArray || "—");
+          var qBody =
+            "<strong>Quote</strong><br>" +
+            escapeHtml(String(q.description || "—")).replace(/\n/g, "<br>") +
+            "<br><br>Parts: " +
+            escapeHtml(partsStr) +
+            "<br>Labor (hrs): " +
+            escapeHtml(String(q.laborHours != null ? q.laborHours : "—"));
+          var thumbs = "";
+          if (q.evidencePhotoUrls && q.evidencePhotoUrls.length) {
+            thumbs += "<div class=\"equipment-hub-evidence\">";
+            q.evidencePhotoUrls.forEach(function (url) {
+              thumbs +=
+                "<a href=\"" +
+                escapeAttr(url) +
+                "\" target=\"_blank\" rel=\"noopener\">" +
+                "<img src=\"" +
+                escapeAttr(url) +
+                "\" alt=\"Evidence\"/></a>";
+            });
+            thumbs += "</div>";
+          }
+          html +=
+            "<li class=\"equipment-hub-tl-item equipment-hub-tl-quote\">" +
+            "<div class=\"equipment-hub-tl-badge\">Repair quote</div>" +
+            "<div class=\"equipment-hub-tl-date\">" +
+            escapeHtml(String(whenQ)) +
+            "</div>" +
+            "<div class=\"equipment-hub-tl-tech\">" +
+            escapeHtml(String(techQ)) +
+            "</div>" +
+            "<div class=\"equipment-hub-tl-body\">" +
+            qBody +
+            thumbs +
+            "</div>" +
+            "</li>";
+        }
       });
       html += "</ul>";
       timeline.innerHTML = html;
@@ -383,6 +490,12 @@
         escapeHtml(e.message || String(e)) +
         "</p>";
     }
+  }
+
+  function escapeAttr(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;");
   }
 
   function onAddEquipmentClick() {
@@ -399,74 +512,17 @@
     });
   }
 
-  /** Populate Job Status dropdown with units for the current ticket site (loads from Firestore). */
+  /** Populate Job Status dropdown (smart equipment: scan new + units). */
   function refreshJobLinkedEquipmentDropdown() {
     var sel = $("linkedEquipmentSelect");
     if (!sel) return;
-
-    var locLine = getLocationLineForHub();
-    if (typeof activeTicket === "undefined" || !activeTicket || !locLine) {
-      sel.innerHTML = "<option value=\"\">— None —</option>";
-      sel.disabled = true;
-      return;
-    }
-    sel.disabled = false;
-
-    var customerId = sanitizePathSegment(activeTicket.customerName || "");
-    var locationId = sanitizePathSegment(locLine);
-    var keep = sel.value;
-
-    sel.innerHTML = "<option value=\"\">Loading…</option>";
-
-    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
-      sel.innerHTML = "<option value=\"\">— None —</option>";
-      return;
-    }
-
-    var db = firebase.firestore();
-    db.collection("Customers")
-      .doc(customerId)
-      .collection("Locations")
-      .doc(locationId)
-      .collection("Equipment")
-      .get()
-      .then(function (snap) {
-        var rows = [];
-        snap.forEach(function (doc) {
-          rows.push({ id: doc.id, data: doc.data() || {} });
-        });
-        hubState.customerId = customerId;
-        hubState.locationId = locationId;
-        hubState.equipmentList = rows;
-
-        var options = "<option value=\"\">— None —</option>";
-        rows.forEach(function (row) {
-          var d = row.data || {};
-          var composite = makeEquipmentId(customerId, locationId, row.id);
-          var label =
-            (d.unitTag || d.brand || row.id || "Unit") +
-            (d.model ? " — " + d.model : "");
-          options +=
-            "<option value=\"" +
-            escapeHtml(composite) +
-            "\">" +
-            escapeHtml(label) +
-            "</option>";
-        });
-        sel.innerHTML = options;
-        if (
-          keep &&
-          [].slice.call(sel.options).some(function (o) {
-            return o.value === keep;
-          })
-        ) {
-          sel.value = keep;
+    if (typeof window.refreshSmartEquipmentSelect === "function") {
+      window.refreshSmartEquipmentSelect(sel, sel.value).then(function () {
+        if (typeof window.bindSmartEquipmentSelect === "function") {
+          window.bindSmartEquipmentSelect(sel);
         }
-      })
-      .catch(function (e) {
-        console.error("[EquipmentHub] linked dropdown", e);
-        sel.innerHTML = "<option value=\"\">— None —</option>";
       });
+    }
   }
 
   function initEquipmentHubUi() {
@@ -496,11 +552,6 @@
       hubModal.addEventListener("click", function (e) {
         if (e.target === hubModal) closeEquipmentHub();
       });
-    }
-
-    var linkedSel = $("linkedEquipmentSelect");
-    if (linkedSel && typeof saveDraft === "function") {
-      linkedSel.addEventListener("change", saveDraft);
     }
   }
 

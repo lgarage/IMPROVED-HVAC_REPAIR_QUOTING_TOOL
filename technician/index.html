@@ -8,6 +8,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
 <script src="../firebase-config.js?v=3"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
@@ -339,6 +340,121 @@ textarea { min-height: 80px; resize: vertical; }
   color: #2c3e50;
   line-height: 1.45;
   white-space: pre-wrap;
+}
+.equipment-hub-tl-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #1e4b85;
+  background: #e8f0fe;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+.equipment-hub-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.equipment-hub-evidence a {
+  display: block;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e1e8ed;
+  flex: 0 0 auto;
+}
+.equipment-hub-evidence img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  display: block;
+  vertical-align: top;
+}
+
+/* Field form modal (dynamic PM / quote) */
+#fieldFormModal.field-form-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 280;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+#fieldFormModal.field-form-modal.hidden {
+  display: none !important;
+}
+.field-form-sheet {
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.field-form-sheet h2 {
+  margin: 0 0 14px 0;
+  font-size: 18px;
+  color: #1e4b85;
+}
+.field-form-label {
+  display: block;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.field-form-label:first-of-type {
+  margin-top: 0;
+}
+.field-form-input,
+.field-form-select {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #d1d9e0;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+.field-form-input[type="file"],
+.field-form-file {
+  padding: 10px 0;
+  font-size: 14px;
+}
+textarea.field-form-input {
+  min-height: 88px;
+  resize: vertical;
+}
+.field-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+.field-form-btn {
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+.field-form-btn-primary {
+  background: #27ae60;
+  color: #fff;
+}
+.field-form-btn-secondary {
+  background: #ecf0f1;
+  color: #2c3e50;
 }
 
 /* Report preview modal */
@@ -741,6 +857,23 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     🗄️ View Site Equipment
   </button>
 
+  <div class="accordion" id="acc-field-forms" style="margin-bottom: 15px">
+    <div class="accordion-header" onclick="toggleAccordion('acc-field-forms')">Work Order Forms</div>
+    <div class="accordion-body">
+      <p style="font-size: 12px; color: #7f8c8d; margin: 0 0 12px 0; line-height: 1.45">
+        Custom checklists and repair quotes with optional photo evidence. Saved to the cloud and linked to the selected equipment.
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <button type="button" id="btnLaunchStandardPm" class="btn btn-primary" style="margin: 0">
+          Standard PM
+        </button>
+        <button type="button" id="btnLaunchRepairQuote" class="btn btn-primary" style="margin: 0; background: #16a085">
+          Repair Quote
+        </button>
+      </div>
+    </div>
+  </div>
+
   <input type="hidden" id="ticketSelector">
   
   <div class="accordion open" id="acc-location" style="margin-bottom: 15px;">
@@ -891,7 +1024,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     <div class="accordion-header" onclick="toggleAccordion('acc-status')">4. Job Status</div>
     <div class="accordion-body">
       <label style="margin-top:0;">Link repair to equipment (optional)</label>
-      <select id="linkedEquipmentSelect" disabled>
+      <select id="linkedEquipmentSelect" data-smart-equipment="true" disabled>
         <option value="">— None —</option>
       </select>
       <p style="font-size: 12px; color: #7f8c8d; margin: 8px 0 0 0; line-height: 1.4">
@@ -3246,6 +3379,19 @@ window.onload = async function(){
 </script>
 
     <div
+      id="fieldFormModal"
+      class="field-form-modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="fieldFormModalTitle"
+    >
+      <div class="field-form-sheet" onclick="event.stopPropagation()">
+        <h2 id="fieldFormModalTitle">Work order form</h2>
+        <div id="fieldFormModalBody"></div>
+      </div>
+    </div>
+
+    <div
       id="equipmentManagerModal"
       class="modal em-modal-hidden"
       aria-hidden="true"
@@ -3409,7 +3555,9 @@ window.onload = async function(){
       </div>
     </div>
 
-    <script src="../equipment_manager.js?v=6"></script>
+    <script src="../equipment_manager.js?v=7"></script>
+    <script src="../equipment_smart_select.js"></script>
     <script src="../equipment_hub.js"></script>
+    <script src="../field_forms.js"></script>
 </body>
 </html>
