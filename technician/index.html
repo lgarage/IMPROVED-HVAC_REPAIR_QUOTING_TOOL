@@ -340,6 +340,12 @@ body {
   transform: translateX(-50%) translateY(0);
   pointer-events: auto;
 }
+.map-nav-toast.map-nav-toast--success {
+  background: #1e8449;
+}
+.map-nav-toast.map-nav-toast--error {
+  background: #c0392b;
+}
 
 /* --- WORKSPACE (ACTIVE JOB) --- */
 .workspace-historical-banner {
@@ -492,6 +498,81 @@ button.ws-address.ws-address--link:active {
   opacity: 0.85;
 }
 .ws-ticket { font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold; }
+
+#workspaceCustomerEvidence.hidden { display: none !important; }
+#workspaceFieldEvidence.hidden { display: none !important; }
+.customer-evidence-panel {
+  background: linear-gradient(180deg, #fff9e6 0%, #fff4dc 100%);
+  border: 2px solid #e67e22;
+  border-radius: 12px;
+  padding: 14px 14px 16px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 14px rgba(230, 126, 34, 0.15);
+}
+.customer-evidence-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #7d4a0f;
+  margin: 0 0 12px 0;
+  line-height: 1.35;
+}
+.customer-evidence-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+}
+.customer-evidence-thumb-link {
+  display: block;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid #f0b85a;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  max-width: 140px;
+  flex: 0 0 auto;
+}
+.customer-evidence-thumb {
+  display: block;
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  vertical-align: top;
+}
+.customer-evidence-doc-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid #e1e8ed;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e4b85;
+  text-decoration: none;
+}
+.customer-evidence-panel--field {
+  background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 2px solid #22c55e;
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.12);
+}
+.customer-evidence-panel--field .customer-evidence-title {
+  color: #166534;
+}
+.customer-evidence-panel--field .customer-evidence-thumb-link {
+  border-color: #86efac;
+}
+.job-card-ce-badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: #fff4e0;
+  border: 1px solid #f0b85a;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
 
 .location-field-row {
   display: flex;
@@ -1628,6 +1709,9 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     <div id="ws-ticket" class="ws-ticket">NO TICKET</div>
   </div>
 
+  <div id="workspaceCustomerEvidence" class="hidden" aria-live="polite"></div>
+  <div id="workspaceFieldEvidence" class="hidden" aria-live="polite"></div>
+
   <button type="button" id="btnOpenEquipmentHub" class="btn btn-primary" style="margin-bottom: 16px">
     🗄️ View Site Equipment
   </button>
@@ -2365,7 +2449,7 @@ function buildTicketNavAddress(data) {
   return parts.join(', ');
 }
 
-function showMapNavToast(message) {
+function showMapNavToast(message, kind) {
   let el = document.getElementById('mapNavToast');
   if (!el) {
     el = document.createElement('div');
@@ -2376,11 +2460,14 @@ function showMapNavToast(message) {
     document.body.appendChild(el);
   }
   el.textContent = message;
+  el.classList.remove('map-nav-toast--success', 'map-nav-toast--error');
+  if (kind === 'success') el.classList.add('map-nav-toast--success');
+  else if (kind === 'error') el.classList.add('map-nav-toast--error');
   el.classList.add('map-nav-toast--visible');
   if (showMapNavToast._timer) clearTimeout(showMapNavToast._timer);
   showMapNavToast._timer = setTimeout(function () {
-    el.classList.remove('map-nav-toast--visible');
-  }, 4200);
+    el.classList.remove('map-nav-toast--visible', 'map-nav-toast--success', 'map-nav-toast--error');
+  }, kind === 'error' ? 5200 : 4200);
 }
 
 function launchNavigation(address) {
@@ -2503,6 +2590,11 @@ function renderJobListUI() {
     } else {
       addrHtml = `<div class="card-address card-address--empty" aria-hidden="false"><span aria-hidden="true">📍</span> No address on file</div>`;
     }
+    const ceList = Array.isArray(data.customerEvidenceUrls) ? data.customerEvidenceUrls.filter(Boolean) : [];
+    const ceN = ceList.length;
+    const ceBadge = ceN
+      ? `<div class="job-card-ce-wrap">${ceN === 1 ? '<span class="job-card-ce-badge">📷 1 Photo Attached</span>' : `<span class="job-card-ce-badge">📷 ${ceN} Photos Attached</span>`}</div>`
+      : '';
     const cardHTML = isHistoricalDay
       ? `
         <div class="job-card job-card--historical">
@@ -2511,6 +2603,7 @@ function renderJobListUI() {
             <span class="${badgeClass}">${data.jobType}</span>
           </div>
           <div class="card-customer">${escapeHtml(String(data.customerName || ''))}</div>
+          ${ceBadge}
           ${addrHtml}
           <button type="button" class="job-card-review-btn" onclick='openWorkspace(${safeId})'>🛠️ Update / Review This Job</button>
         </div>
@@ -2522,6 +2615,7 @@ function renderJobListUI() {
             <span class="${badgeClass}">${data.jobType}</span>
           </div>
           <div class="card-customer">${escapeHtml(String(data.customerName || ''))}</div>
+          ${ceBadge}
           ${addrHtml}
         </div>
       `;
@@ -2812,6 +2906,145 @@ async function maybeOpenDeepLinkedTicket() {
   }
 }
 
+function escapeAttrForUrl(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
+function renderWorkspaceCustomerEvidence(ticket) {
+  const el = document.getElementById('workspaceCustomerEvidence');
+  if (!el) return;
+  const urls = Array.isArray(ticket.customerEvidenceUrls)
+    ? ticket.customerEvidenceUrls.filter(Boolean)
+    : [];
+  if (!urls.length) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  el.classList.remove('hidden');
+  let html = '<div class="customer-evidence-panel"><div class="customer-evidence-title">⚠️ Customer Reported Issue (Photos)</div><div class="customer-evidence-grid">';
+  urls.forEach((url, idx) => {
+    const u = String(url);
+    const safe = escapeAttrForUrl(u);
+    const isImg = /\.(png|jpe?g|gif|webp)(\?|#|$)/i.test(u);
+    if (isImg) {
+      html += `<a class="customer-evidence-thumb-link" href="${safe}" target="_blank" rel="noopener" title="View full size"><img class="customer-evidence-thumb" src="${safe}" alt="Customer evidence ${idx + 1}"></a>`;
+    } else {
+      html += `<a class="customer-evidence-doc-link" href="${safe}" target="_blank" rel="noopener">📎 Document ${idx + 1}</a>`;
+    }
+  });
+  html += '</div></div>';
+  el.innerHTML = html;
+}
+
+function getClipboardImageBlobFromData(clipboardData) {
+  if (!clipboardData) return null;
+  if (clipboardData.items && clipboardData.items.length) {
+    for (let i = 0; i < clipboardData.items.length; i++) {
+      const it = clipboardData.items[i];
+      if (it.type && it.type.indexOf('image') === 0) {
+        const f = it.getAsFile();
+        if (f) return f;
+      }
+    }
+  }
+  if (clipboardData.files && clipboardData.files.length) {
+    const f = clipboardData.files[0];
+    if (f && f.type && f.type.indexOf('image') === 0) return f;
+  }
+  return null;
+}
+
+async function uploadFieldEvidencePastedBlob(ticketId, blob) {
+  if (typeof firebase === 'undefined' || !firebase.storage) {
+    throw new Error('Cloud storage is not available.');
+  }
+  const ts = Date.now();
+  const path = 'field_evidence/' + ticketId + '/pasted_' + ts + '.png';
+  const ref = firebase.storage().ref(path);
+  await ref.put(blob, { contentType: (blob && blob.type) || 'image/png' });
+  return ref.getDownloadURL();
+}
+
+async function persistFieldEvidencePhotoUrlToFirestore(ticketId, url) {
+  if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
+    throw new Error('Not connected.');
+  }
+  await firebase.firestore().collection('service_calls').doc(ticketId).update({
+    evidencePhotoUrls: firebase.firestore.FieldValue.arrayUnion(url)
+  });
+}
+
+function renderWorkspaceFieldEvidence(ticket) {
+  const el = document.getElementById('workspaceFieldEvidence');
+  if (!el) return;
+  const urls = Array.isArray(ticket.evidencePhotoUrls)
+    ? ticket.evidencePhotoUrls.filter(Boolean)
+    : [];
+  if (!urls.length) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  el.classList.remove('hidden');
+  let html = '<div class="customer-evidence-panel customer-evidence-panel--field"><div class="customer-evidence-title">📷 Field Evidence (Pasted)</div><div class="customer-evidence-grid">';
+  urls.forEach((url, idx) => {
+    const u = String(url);
+    const safe = escapeAttrForUrl(u);
+    const isImg = /\.(png|jpe?g|gif|webp)(\?|#|$)/i.test(u);
+    if (isImg) {
+      html += `<a class="customer-evidence-thumb-link" href="${safe}" target="_blank" rel="noopener" title="View full size"><img class="customer-evidence-thumb" src="${safe}" alt="Field evidence ${idx + 1}"></a>`;
+    } else {
+      html += `<a class="customer-evidence-doc-link" href="${safe}" target="_blank" rel="noopener">📎 Attachment ${idx + 1}</a>`;
+    }
+  });
+  html += '</div></div>';
+  el.innerHTML = html;
+}
+
+async function onWorkspaceImagePasteCapture(e) {
+  const ws = document.getElementById('screen-workspace');
+  if (!ws || !ws.classList.contains('active')) return;
+  const ae = document.activeElement;
+  const inWorkspace = (node) => node && (ws === node || (typeof node.closest === 'function' && node.closest('#screen-workspace')));
+  if (!inWorkspace(ae) && !inWorkspace(e.target)) return;
+  const blob = getClipboardImageBlobFromData(e.clipboardData);
+  if (!blob) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const ticketId = document.getElementById('ticketSelector') && document.getElementById('ticketSelector').value;
+  if (!ticketId || !activeTicket || activeTicket.id !== ticketId) return;
+  if (isTicketDateHistorical(activeTicket)) {
+    showMapNavToast('Historical record: use Addendum below to attach files.', 'error');
+    return;
+  }
+  if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
+    showMapNavToast('Connect to the network to upload.', 'error');
+    return;
+  }
+  showMapNavToast('Uploading pasted image…');
+  try {
+    const url = await uploadFieldEvidencePastedBlob(ticketId, blob);
+    await persistFieldEvidencePhotoUrlToFirestore(ticketId, url);
+    const prev = Array.isArray(activeTicket.evidencePhotoUrls) ? activeTicket.evidencePhotoUrls.filter(Boolean) : [];
+    activeTicket.evidencePhotoUrls = prev.concat([url]);
+    renderWorkspaceFieldEvidence(activeTicket);
+    showMapNavToast('✓ Upload complete', 'success');
+  } catch (err) {
+    console.error(err);
+    showMapNavToast(err && err.message ? err.message : 'Upload failed', 'error');
+  }
+}
+
+(function wireWorkspaceImagePaste() {
+  if (typeof document === 'undefined' || document.documentElement.dataset.workspacePasteWired === '1') return;
+  document.documentElement.dataset.workspacePasteWired = '1';
+  document.addEventListener('paste', onWorkspaceImagePasteCapture, true);
+})();
+
 function openWorkspace(ticketId) {
   teardownWorkspaceAddendums();
   activeTicket = myTickets.find(t => t.id === ticketId);
@@ -2848,6 +3081,8 @@ function openWorkspace(ticketId) {
 
   document.getElementById('successCard').style.display = 'none';
   if (typeof hideFormIntentBanner === 'function') hideFormIntentBanner();
+  renderWorkspaceCustomerEvidence(activeTicket);
+  renderWorkspaceFieldEvidence(activeTicket);
   applyMode();
   const historical = isTicketDateHistorical(activeTicket);
   applyWorkspaceHistoricalMode(historical);

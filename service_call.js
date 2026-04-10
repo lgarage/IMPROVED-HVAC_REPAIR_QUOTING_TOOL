@@ -424,6 +424,14 @@ function openTicketDetails(dbId) {
         <p><strong>Reported Issue:</strong><br><span style="background:#f4f7f6; padding:10px; display:block; border-radius:4px; margin-top:5px; white-space: pre-wrap;">${sc.issue}</span></p>
         <p><strong>Equipment:</strong> ${sc.equip || 'N/A'}</p>
         <p><strong>Dispatch Notes:</strong> ${sc.notes || 'N/A'}</p>
+        <hr style="border:0; border-top:1px solid #eaeaea; margin: 18px 0;">
+        <div style="background:#fffbeb; border:1px solid #f0d78c; border-radius:6px; padding:14px; margin-bottom:14px;">
+            <p style="margin:0 0 10px 0; font-weight:bold; color:#92400e;">📸 Customer-Provided Evidence</p>
+            <p style="margin:0 0 10px 0; font-size:12px; color:#78350f; line-height:1.45;">Attach photos or documents supplied by the customer, or <strong>paste an image</strong> (Ctrl+V or long-press → Paste on mobile). Files are stored on this ticket and appear immediately in the technician Field app.</p>
+            <input type="file" id="tdCustomerEvidenceInput" multiple accept="image/*,.pdf,.doc,.docx,application/pdf" style="width:100%; font-size:13px; margin-bottom:8px;">
+            <p id="tdCustomerEvidenceStatus" style="margin:0; font-size:12px; color:#666; min-height:1.2em;"></p>
+            <div id="tdCustomerEvidenceList" style="margin-top:10px;"></div>
+        </div>
         ${sc.techNotes ? `<p style="margin-top:14px;"><strong>Technician report (Field app):</strong></p><pre style="background:#e8f4fc; padding:12px; border-radius:4px; margin-top:6px; white-space:pre-wrap; font-family:inherit; font-size:13px; line-height:1.45; border:1px solid #b8d4ea; max-height:280px; overflow:auto;">${escapeHtmlServiceArchive(sc.techNotes)}</pre>` : '<p style="font-size:12px; color:#999; margin-top:10px;"><em>No technician report yet (Field app).</em></p>'}
         <div id="tdFieldQuotesMount" style="margin-top:16px;"></div>
     `;
@@ -468,6 +476,10 @@ function openTicketDetails(dbId) {
     };
 
     document.getElementById('ticketDetailsModal').style.display = 'block';
+
+    if (typeof setupTicketDetailsCustomerEvidence === 'function') {
+        setupTicketDetailsCustomerEvidence(sc.id);
+    }
 
     if (typeof loadFieldQuotesForTicketIntoModal === 'function') {
         loadFieldQuotesForTicketIntoModal(sc.id);
@@ -1982,6 +1994,164 @@ function convertToInvoice(ticketId) {
     }, 150);
 }
 
+async function ensureFirebaseStorageForEvidence() {
+    if (typeof firebase !== "undefined" && firebase.storage) return;
+    await new Promise(function (resolve, reject) {
+        const s = document.createElement("script");
+        s.src = "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js";
+        s.onload = function () {
+            resolve();
+        };
+        s.onerror = function () {
+            reject(new Error("Could not load Firebase Storage."));
+        };
+        document.head.appendChild(s);
+    });
+}
+
+function sanitizeCustomerEvidenceFilename(name) {
+    const n = String(name || "file")
+        .replace(/[/\\]+/g, "_")
+        .replace(/[<>:"|?*]/g, "_");
+    return n.slice(0, 180) || "file";
+}
+
+async function uploadCustomerEvidenceFile(ticketId, file) {
+    await ensureFirebaseStorageForEvidence();
+    if (typeof firebase === "undefined" || !firebase.storage) {
+        throw new Error("Firebase Storage is not available.");
+    }
+    const storage = firebase.storage();
+    const orig = file && file.name ? file.name : "upload";
+    const dot = orig.lastIndexOf(".");
+    const ext = dot >= 0 ? orig.slice(dot) : "";
+    const base = sanitizeCustomerEvidenceFilename(dot >= 0 ? orig.slice(0, dot) : orig);
+    const path = "customer_evidence/" + ticketId + "/" + Date.now() + "_" + base + ext;
+    const ref = storage.ref().child(path);
+    await ref.put(file, { contentType: file.type || "application/octet-stream" });
+    return await ref.getDownloadURL();
+}
+
+async function uploadPastedCustomerEvidenceFile(ticketId, blob) {
+    await ensureFirebaseStorageForEvidence();
+    if (typeof firebase === "undefined" || !firebase.storage) {
+        throw new Error("Firebase Storage is not available.");
+    }
+    const storage = firebase.storage();
+    const ts = Date.now();
+    const path = "customer_evidence/" + ticketId + "/pasted_" + ts + ".png";
+    const ref = storage.ref().child(path);
+    await ref.put(blob, { contentType: blob.type || "image/png" });
+    return await ref.getDownloadURL();
+}
+
+function getClipboardImageBlobForPaste(clipboardData) {
+    if (!clipboardData) return null;
+    if (clipboardData.items && clipboardData.items.length) {
+        for (let i = 0; i < clipboardData.items.length; i++) {
+            const it = clipboardData.items[i];
+            if (it.type && it.type.indexOf("image") === 0) {
+                const f = it.getAsFile();
+                if (f) return f;
+            }
+        }
+    }
+    if (clipboardData.files && clipboardData.files.length) {
+        const f = clipboardData.files[0];
+        if (f && f.type && f.type.indexOf("image") === 0) return f;
+    }
+    return null;
+}
+
+function persistTicketCustomerEvidenceUrls(ticketId, urls) {
+    let db = JSON.parse(localStorage.getItem("twinPillarsServiceDB") || "[]");
+    const idx = db.findIndex((s) => s.id === ticketId);
+    if (idx === -1) return;
+    db[idx].customerEvidenceUrls = urls;
+    localStorage.setItem("twinPillarsServiceDB", JSON.stringify(db));
+    if (typeof syncSingleServiceCallToCloud === "function") {
+        syncSingleServiceCallToCloud(ticketId, db[idx]);
+    }
+    if (typeof renderServiceBoard === "function") renderServiceBoard();
+}
+
+function setupTicketDetailsCustomerEvidence(ticketId) {
+    const input = document.getElementById("tdCustomerEvidenceInput");
+    const list = document.getElementById("tdCustomerEvidenceList");
+    const statusEl = document.getElementById("tdCustomerEvidenceStatus");
+    if (!input || !list) return;
+
+    function getUrlsFromDb() {
+        const db = JSON.parse(localStorage.getItem("twinPillarsServiceDB") || "[]");
+        const sc = db.find((s) => s.id === ticketId);
+        const raw = sc && sc.customerEvidenceUrls;
+        return Array.isArray(raw) ? raw.filter(Boolean) : [];
+    }
+
+    let urls = getUrlsFromDb();
+
+    function renderList() {
+        if (!urls.length) {
+            list.innerHTML =
+                '<p style="margin:0; font-size:12px; color:#999;">No files attached yet.</p>';
+            return;
+        }
+        list.innerHTML = urls
+            .map((url, i) => {
+                const safe = escapeHtmlServiceArchive(url);
+                const isImg = /\.(png|jpe?g|gif|webp)(\?|#|$)/i.test(String(url));
+                const thumb = isImg
+                    ? `<img src="${safe}" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:4px;border:1px solid #ddd;">`
+                    : '<span style="font-size:22px;">📄</span>';
+                return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:8px;background:#fafafa;border:1px solid #e5e5e5;border-radius:4px;">
+                    ${thumb}
+                    <a href="${safe}" target="_blank" rel="noopener" style="flex:1;word-break:break-all;font-size:12px;color:#1e4b85;">Open file</a>
+                    <button type="button" class="gen-btn" style="padding:6px 10px;background:#e74c3c;font-size:12px;" data-td-ev-i="${i}">Remove</button>
+                </div>`;
+            })
+            .join("");
+        list.querySelectorAll("[data-td-ev-i]").forEach((btn) => {
+            btn.onclick = function () {
+                const i = parseInt(btn.getAttribute("data-td-ev-i"), 10);
+                if (isNaN(i)) return;
+                urls.splice(i, 1);
+                persistTicketCustomerEvidenceUrls(ticketId, urls);
+                urls = getUrlsFromDb();
+                renderList();
+            };
+        });
+    }
+
+    input.onchange = async function () {
+        const files = input.files;
+        if (!files || !files.length) return;
+        if (statusEl) statusEl.textContent = "Uploading…";
+        input.disabled = true;
+        const next = [...urls];
+        try {
+            for (let fi = 0; fi < files.length; fi++) {
+                const url = await uploadCustomerEvidenceFile(ticketId, files[fi]);
+                next.push(url);
+            }
+            persistTicketCustomerEvidenceUrls(ticketId, next);
+            urls = getUrlsFromDb();
+            renderList();
+            if (statusEl) statusEl.textContent = "Saved.";
+            setTimeout(function () {
+                if (statusEl) statusEl.textContent = "";
+            }, 2500);
+        } catch (e) {
+            console.error(e);
+            alert("Upload failed: " + (e.message || e));
+            if (statusEl) statusEl.textContent = "";
+        }
+        input.value = "";
+        input.disabled = false;
+    };
+
+    renderList();
+}
+
 function escapeHtmlServiceArchive(s) {
     if (s == null) return "";
     return String(s)
@@ -2082,3 +2252,54 @@ function openArchivedServiceModal() {
     }
     modal.style.display = "block";
 }
+
+document.addEventListener(
+    "paste",
+    function ticketDetailsModalPasteCapture(e) {
+        const modal = document.getElementById("ticketDetailsModal");
+        if (!modal || modal.style.display !== "block" || typeof currentOpenDetailsId === "undefined" || !currentOpenDetailsId) {
+            return;
+        }
+        const ae = document.activeElement;
+        if (!modal.contains(e.target) && !(ae && modal.contains(ae))) return;
+        const blob = getClipboardImageBlobForPaste(e.clipboardData);
+        if (!blob) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const ticketId = currentOpenDetailsId;
+        const statusEl = document.getElementById("tdCustomerEvidenceStatus");
+        if (statusEl) {
+            statusEl.style.color = "#666";
+            statusEl.textContent = "Uploading pasted image…";
+        }
+        (async function () {
+            try {
+                const url = await uploadPastedCustomerEvidenceFile(ticketId, blob);
+                let db = JSON.parse(localStorage.getItem("twinPillarsServiceDB") || "[]");
+                const idx = db.findIndex((s) => s.id === ticketId);
+                if (idx === -1) throw new Error("Ticket not found in local data.");
+                const cur = Array.isArray(db[idx].customerEvidenceUrls) ? db[idx].customerEvidenceUrls.filter(Boolean) : [];
+                const next = cur.concat([url]);
+                persistTicketCustomerEvidenceUrls(ticketId, next);
+                setupTicketDetailsCustomerEvidence(ticketId);
+                if (statusEl) {
+                    statusEl.style.color = "#1e8449";
+                    statusEl.textContent = "✓ Upload complete";
+                    setTimeout(function () {
+                        if (statusEl && statusEl.textContent === "✓ Upload complete") {
+                            statusEl.textContent = "";
+                            statusEl.style.color = "";
+                        }
+                    }, 3200);
+                }
+            } catch (err) {
+                console.error(err);
+                if (statusEl) {
+                    statusEl.style.color = "#e74c3c";
+                    statusEl.textContent = "Upload failed: " + (err.message || err);
+                }
+            }
+        })();
+    },
+    true
+);
