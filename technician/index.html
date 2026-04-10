@@ -1922,11 +1922,11 @@ function renderJobListUI() {
           </div>
           <div class="card-customer">${data.customerName}</div>
           <div class="card-address">📍 ${data.locationAddress}, ${data.custCity || ''}</div>
-          <button type="button" class="job-card-review-btn" onclick="openWorkspace(${safeId})">🛠️ Update / Review This Job</button>
+          <button type="button" class="job-card-review-btn" onclick='openWorkspace(${safeId})'>🛠️ Update / Review This Job</button>
         </div>
       `
       : `
-        <div class="job-card" onclick="openWorkspace(${safeId})">
+        <div class="job-card" onclick='openWorkspace(${safeId})'>
           <div class="card-header">
             <span class="card-time">${data.startTime || '8:00 AM'}</span>
             <span class="${badgeClass}">${data.jobType}</span>
