@@ -2233,7 +2233,8 @@ let currentHistorySelectedIndex = 0;
 let currentTechProfile = "";
 let myTickets = [];
 let activeTicket = null;
-let scheduleUnsubscribe = null;
+/** Unsubscribe fns for Firestore listeners (multi-tech + legacy assignedTech). */
+let scheduleUnsubscribeFns = [];
 let scheduleFirstSnapshotPending = true;
 /** Set when the schedule listener starts; used to resubscribe after the local calendar day changes. */
 let lastScheduleWindowStart = '';
@@ -2302,7 +2303,7 @@ async function fetchTechnicianRosterFromCloud() {
   }
 }
 
-/** Map a saved or typed name to the roster string used in Firestore assignedTech. */
+/** Map a saved or typed name to the roster string used in Firestore assignedTechs (array-contains). */
 function resolveCanonicalTechName(saved, roster) {
   if (!saved || !String(saved).trim()) return null;
   const s = String(saved).trim();
@@ -2553,10 +2554,10 @@ window.cleanAddressForNavigation = cleanAddressForNavigation;
 })();
 
 function unsubscribeSchedule() {
-  if (scheduleUnsubscribe) {
-    scheduleUnsubscribe();
-    scheduleUnsubscribe = null;
-  }
+  scheduleUnsubscribeFns.forEach(function (fn) {
+    try { fn(); } catch (e) {}
+  });
+  scheduleUnsubscribeFns = [];
 }
 
 const JOB_CARD_MAP_PIN_SVG = '<svg class="nav-map-pin" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>';
@@ -2661,46 +2662,72 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
     container.innerHTML = '<div style="text-align:center; padding: 40px; color:#95a5a6;">Connecting…</div>';
     myTickets = [];
 
-    // Only equality on assignedTech — no composite index required. We filter the date window client-side.
-    // (A server-side date range needs a composite index; see firestore.indexes.json if you prefer fewer reads at scale.)
-    const q = db.collection('service_calls')
-      .where('assignedTech', '==', currentTechProfile);
-
-    lastScheduleWindowStart = scheduleWindowStart();
+    const q1Docs = new Map();
+    const q2Docs = new Map();
     const todayStr = today();
 
-    scheduleUnsubscribe = q.onSnapshot(
-      (snapshot) => {
-        myTickets = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.archived) return;
-          if (data.releasedToTech === false) return;
-          const d = data.date;
-          if (!d || typeof d !== 'string' || d < startStr || d > endStr) return;
-          if (d < todayStr) {
-            if (data.status === 'Canceled') return;
-          } else {
-            if (data.status === 'Completed' || data.status === 'Canceled') return;
-          }
-          data.id = doc.id;
-          myTickets.push(data);
-        });
-        renderJobListUI();
-        if (scheduleFirstSnapshotPending) {
-          if (runDeepLink) maybeOpenDeepLinkedTicket().then(finishFirst);
-          else finishFirst(false);
-        }
-      },
-      (error) => {
-        console.error("Schedule listener error:", error);
-        container.innerHTML = '<div style="text-align:center; padding: 40px; color:#e74c3c;">Error connecting to dispatch board.</div>';
-        if (scheduleFirstSnapshotPending) {
-          if (runDeepLink) maybeOpenDeepLinkedTicket().then(finishFirst);
-          else finishFirst(false);
-        }
+    function applyScheduleFilters(data, docId) {
+      const row = Object.assign({}, data);
+      row.id = docId;
+      if (row.archived) return null;
+      if (row.releasedToTech === false) return null;
+      const d = row.date;
+      if (!d || typeof d !== 'string' || d < startStr || d > endStr) return null;
+      if (d < todayStr) {
+        if (row.status === 'Canceled') return null;
+      } else {
+        if (row.status === 'Completed' || row.status === 'Canceled') return null;
       }
-    );
+      return row;
+    }
+
+    function runScheduleMergeAndRender() {
+      const byId = new Map();
+      q1Docs.forEach((data, id) => {
+        const row = applyScheduleFilters(data, id);
+        if (row) byId.set(id, row);
+      });
+      q2Docs.forEach((data, id) => {
+        if (byId.has(id)) return;
+        const row = applyScheduleFilters(data, id);
+        if (row) byId.set(id, row);
+      });
+      myTickets = Array.from(byId.values());
+      renderJobListUI();
+      if (scheduleFirstSnapshotPending) {
+        if (runDeepLink) maybeOpenDeepLinkedTicket().then(finishFirst);
+        else finishFirst(false);
+      }
+    }
+
+    lastScheduleWindowStart = scheduleWindowStart();
+
+    const onSchedErr = (error) => {
+      console.error("Schedule listener error:", error);
+      container.innerHTML = '<div style="text-align:center; padding: 40px; color:#e74c3c;">Error connecting to dispatch board.</div>';
+      if (scheduleFirstSnapshotPending) {
+        if (runDeepLink) maybeOpenDeepLinkedTicket().then(finishFirst);
+        else finishFirst(false);
+      }
+    };
+
+    const u1 = db.collection('service_calls')
+      .where('assignedTechs', 'array-contains', currentTechProfile)
+      .onSnapshot((snapshot) => {
+        q1Docs.clear();
+        snapshot.forEach((doc) => q1Docs.set(doc.id, doc.data()));
+        runScheduleMergeAndRender();
+      }, onSchedErr);
+
+    const u2 = db.collection('service_calls')
+      .where('assignedTech', '==', currentTechProfile)
+      .onSnapshot((snapshot) => {
+        q2Docs.clear();
+        snapshot.forEach((doc) => q2Docs.set(doc.id, doc.data()));
+        runScheduleMergeAndRender();
+      }, onSchedErr);
+
+    scheduleUnsubscribeFns.push(u1, u2);
   } catch (error) {
     console.error("Error subscribing to tickets:", error);
     container.innerHTML = '<div style="text-align:center; padding: 40px; color:#e74c3c;">Error connecting to dispatch board.</div>';

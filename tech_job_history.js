@@ -113,19 +113,28 @@
     var maxD = todayYmd();
 
     try {
-      var snap = await firebase
-        .firestore()
-        .collection("service_calls")
+      var col = firebase.firestore().collection("service_calls");
+      var snapNew = await col
+        .where("assignedTechs", "array-contains", currentTechProfile)
+        .get();
+      var snapLegacy = await col
         .where("assignedTech", "==", currentTechProfile)
         .get();
 
+      var byId = new Map();
+      snapNew.forEach(function (doc) {
+        byId.set(doc.id, doc.data() || {});
+      });
+      snapLegacy.forEach(function (doc) {
+        if (!byId.has(doc.id)) byId.set(doc.id, doc.data() || {});
+      });
+
       var rows = [];
-      snap.forEach(function (doc) {
-        var data = doc.data() || {};
+      byId.forEach(function (data, docId) {
         var d = data.date;
         if (!d || typeof d !== "string") return;
         if (d < minD || d > maxD) return;
-        data._docId = doc.id;
+        data._docId = docId;
         rows.push(data);
       });
 

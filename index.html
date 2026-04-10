@@ -1003,6 +1003,26 @@
       .dispatch-map-marker-dot.dispatch-map-marker--pulse {
         animation: dispatchMapMarkerPulse 1.5s ease-in-out infinite;
       }
+      .dispatch-map-marker-wrap--crew {
+        width: 30px;
+        height: 30px;
+      }
+      .dispatch-map-marker-dot--crew {
+        position: relative;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+      }
+      .dispatch-map-marker-count {
+        font-size: 11px;
+        font-weight: 900;
+        color: #fff;
+        line-height: 1;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+      }
       @keyframes dispatchMapMarkerPulse {
         0%,
         100% {
@@ -1039,6 +1059,57 @@
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
         transform: scale(1.02);
         z-index: 10;
+      }
+      .sc-tech-checkboxes {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 200px;
+        overflow: auto;
+        padding: 6px 8px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 13px;
+      }
+      .sc-tech-checkbox-label {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        cursor: pointer;
+        line-height: 1.35;
+      }
+      .sc-tech-checkbox-label input {
+        margin-top: 3px;
+        flex-shrink: 0;
+      }
+      .tc-tech-strip {
+        margin: 6px 0 4px 0;
+      }
+      .glass-card-tech-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+      }
+      .glass-card-tech-avatar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        font-size: 11px;
+        font-weight: 800;
+        color: #fff;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+      }
+      .glass-card-tech-more {
+        font-size: 10px;
+        font-weight: 800;
+        color: #64748b;
+        padding: 2px 4px;
       }
       .glass-card.priority-Emergency {
         border-left-color: #e74c3c;
@@ -2484,10 +2555,17 @@
                   </option>
                 </select>
               </div>
-              <div class="input-group">
-                <label>Assigned Technician</label>
-                <select id="scAssignedTechInput">
-                  <option value="Unassigned">Unassigned</option>
+              <div class="input-group" style="min-width: 260px">
+                <label>Assigned technicians</label>
+                <div
+                  id="scAssignedTechsContainer"
+                  class="sc-tech-checkboxes"
+                ></div>
+                <label style="margin-top: 10px; display: block"
+                  >Lead technician</label
+                >
+                <select id="scPrimaryTechInput" style="width: 100%">
+                  <option value="">— None —</option>
                 </select>
               </div>
               <div class="input-group">
@@ -5354,7 +5432,7 @@
     <script src="settings.js?v=13"></script>
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
-    <script src="service_call.js?v=49"></script>
+    <script src="service_call.js?v=50"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=39"></script>
 

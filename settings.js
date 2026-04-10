@@ -768,23 +768,9 @@ function removeTechnician(index) {
 }
 
 function populateTechDropdowns() {
-    const scTechSelect = document.getElementById('scAssignedTechInput');
-    if (!scTechSelect) return;
-    
-    const currentVal = scTechSelect.value;
-    scTechSelect.innerHTML = '<option value="Unassigned">Unassigned</option>';
-    
-    appTechList.forEach(tech => {
-        const opt = document.createElement('option');
-        opt.value = tech;
-        opt.textContent = tech;
-        scTechSelect.appendChild(opt);
-    });
-
-    if (appTechList.includes(currentVal) || currentVal === 'Unassigned') {
-        scTechSelect.value = currentVal;
+    if (typeof buildServiceAssignedTechForm === "function") {
+        buildServiceAssignedTechForm(appTechList);
     }
-    
     if (typeof renderGanttHeaders === 'function') {
         try { renderGanttHeaders(); renderServiceBoard(); } catch(e) {}
     }

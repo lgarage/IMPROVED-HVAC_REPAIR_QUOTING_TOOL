@@ -434,6 +434,9 @@
         if (row.kind === "service_call") {
           var data = row.data;
           var tech =
+            (Array.isArray(data.assignedTechs) && data.assignedTechs.length
+              ? data.assignedTechs.join(", ")
+              : "") ||
             data.assignedTech ||
             data.techName ||
             (data.completedBy && data.completedBy.name) ||

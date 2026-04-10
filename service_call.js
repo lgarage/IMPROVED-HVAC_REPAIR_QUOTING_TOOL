@@ -137,8 +137,123 @@ function escapeHtmlDispatchMap(s) {
         .replace(/"/g, "&quot;");
 }
 
+function escapeAttrModal(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
+/** Multi-tech crew: prefer assignedTechs[]; migrate legacy assignedTech string. */
+function getAssignedTechsArray(sc) {
+    if (!sc) return [];
+    if (Array.isArray(sc.assignedTechs) && sc.assignedTechs.length) {
+        return sc.assignedTechs.filter(function (t) {
+            return t && t !== "Unassigned";
+        });
+    }
+    if (sc.assignedTech && sc.assignedTech !== "Unassigned") {
+        return [sc.assignedTech];
+    }
+    return [];
+}
+
+function getPrimaryTechFromTicket(sc) {
+    if (!sc) return "";
+    if (sc.primaryTech && sc.primaryTech !== "Unassigned") return sc.primaryTech;
+    var a = getAssignedTechsArray(sc);
+    return a.length ? a[0] : "";
+}
+
 /** Same palette order as Gantt tech rows (avatar / row color). Kept in one place for map + legend. */
 var DISPATCH_TECH_GANTT_COLORS = ["#2980b9", "#8e44ad", "#d35400", "#16a085", "#27ae60", "#f39c12", "#c0392b", "#34495e"];
+
+function gatherAssignedTechsFromServiceForm() {
+    var container = document.getElementById("scAssignedTechsContainer");
+    if (!container) return [];
+    var out = [];
+    container.querySelectorAll('input[type="checkbox"][data-tech-full]').forEach(function (cb) {
+        if (cb.checked) {
+            var v = cb.getAttribute("data-tech-full");
+            if (v) out.push(v);
+        }
+    });
+    return out;
+}
+
+function buildServiceAssignedTechForm(techList) {
+    var box = document.getElementById("scAssignedTechsContainer");
+    var primarySel = document.getElementById("scPrimaryTechInput");
+    if (!box || !primarySel) return;
+    box.innerHTML = "";
+    (techList || []).forEach(function (tech) {
+        var id = "scTechChk_" + String(tech).replace(/[^a-z0-9]+/gi, "_");
+        var lab = document.createElement("label");
+        lab.className = "sc-tech-checkbox-label";
+        lab.setAttribute("for", id);
+        var cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.id = id;
+        cb.setAttribute("data-tech-full", tech);
+        lab.appendChild(cb);
+        lab.appendChild(document.createTextNode(" " + tech));
+        box.appendChild(lab);
+    });
+    var curPri = primarySel.value;
+    primarySel.innerHTML = '<option value="">— None —</option>';
+    (techList || []).forEach(function (tech) {
+        var o = document.createElement("option");
+        o.value = tech;
+        o.textContent = tech;
+        primarySel.appendChild(o);
+    });
+    if (curPri && (techList || []).indexOf(curPri) !== -1) primarySel.value = curPri;
+}
+
+function applyServiceAssignedTechFormFromTicket(data) {
+    var crew = getAssignedTechsArray(data);
+    var primary = getPrimaryTechFromTicket(data);
+    var box = document.getElementById("scAssignedTechsContainer");
+    if (box) {
+        box.querySelectorAll('input[type="checkbox"][data-tech-full]').forEach(function (cb) {
+            var full = cb.getAttribute("data-tech-full");
+            cb.checked = crew.indexOf(full) !== -1;
+        });
+    }
+    var primarySel = document.getElementById("scPrimaryTechInput");
+    if (primarySel) {
+        if (primary && crew.indexOf(primary) !== -1) primarySel.value = primary;
+        else if (crew.length) primarySel.value = crew[0];
+        else primarySel.value = "";
+    }
+}
+
+function buildSidebarTechAvatarsHtml(sc) {
+    var crew = getAssignedTechsArray(sc);
+    if (!crew.length) {
+        return '<span style="color:#e74c3c;font-weight:bold;font-size:11px;">Unassigned</span>';
+    }
+    var savedTechs = JSON.parse(localStorage.getItem("tp_tech_list") || "[]");
+    var parts = [];
+    for (var i = 0; i < Math.min(crew.length, 4); i++) {
+        var full = crew[i];
+        var idx = savedTechs.indexOf(full);
+        var color =
+            idx >= 0
+                ? DISPATCH_TECH_GANTT_COLORS[idx % DISPATCH_TECH_GANTT_COLORS.length]
+                : "#3498db";
+        var initial = (full.split(" ")[0] || "?").charAt(0).toUpperCase();
+        parts.push(
+            '<span class="glass-card-tech-avatar" style="background:' +
+                color +
+                '" title="' +
+                escapeHtmlDispatchMap(full) +
+                '">' +
+                escapeHtmlDispatchMap(initial) +
+                "</span>"
+        );
+    }
+    var html =
+        '<div class="glass-card-tech-row">' + parts.join("") + (crew.length > 4 ? '<span class="glass-card-tech-more">+' + (crew.length - 4) + "</span>" : "") + "</div>";
+    return html;
+}
 
 function getTechColorForAssignedTech(assignedTech) {
     if (!assignedTech || assignedTech === "Unassigned") return "#95a5a6";
@@ -172,7 +287,7 @@ function getGanttDateContextForMap() {
 
 function isTicketVisibleOnGanttForMap(sc) {
     if (sc.archived) return false;
-    if (!sc.assignedTech || sc.assignedTech === "Unassigned") return false;
+    if (!getAssignedTechsArray(sc).length) return false;
     if (sc.status === "Completed" || sc.status === "Canceled") return false;
     if (!sc.date) return false;
     var ctx = getGanttDateContextForMap();
@@ -258,16 +373,50 @@ async function persistServiceCallGeocode(scId, lat, lng) {
 }
 
 function addCustomPin(coords, sc) {
-    var techColor = getTechColorForAssignedTech(sc.assignedTech);
+    var crew = getAssignedTechsArray(sc);
+    var lead = getPrimaryTechFromTicket(sc) || (crew[0] || "");
+    var techColor = getTechColorForAssignedTech(lead);
     var pulseClass = shouldPulseMapMarker(sc) ? " dispatch-map-marker--pulse" : "";
-    var markerHtml =
-        '<div class="dispatch-map-marker-wrap"><div class="dispatch-map-marker-dot' +
-        pulseClass +
-        '" style="background-color:' +
-        techColor +
-        ';"></div></div>';
-    var customIcon = L.divIcon({ html: markerHtml, className: "custom-leaflet-marker", iconSize: [22, 22], iconAnchor: [11, 11] });
+    var n = crew.length;
+    var markerHtml;
+    var iconSize = [22, 22];
+    var iconAnchor = [11, 11];
+    if (n > 1) {
+        iconSize = [30, 30];
+        iconAnchor = [15, 15];
+        markerHtml =
+            '<div class="dispatch-map-marker-wrap dispatch-map-marker-wrap--crew">' +
+            '<div class="dispatch-map-marker-dot dispatch-map-marker-dot--crew' +
+            pulseClass +
+            '" style="background-color:' +
+            techColor +
+            '"><span class="dispatch-map-marker-count">' +
+            n +
+            "</span></div></div>";
+    } else {
+        markerHtml =
+            '<div class="dispatch-map-marker-wrap"><div class="dispatch-map-marker-dot' +
+            pulseClass +
+            '" style="background-color:' +
+            techColor +
+            ';"></div></div>';
+    }
+    var customIcon = L.divIcon({
+        html: markerHtml,
+        className: "custom-leaflet-marker",
+        iconSize: iconSize,
+        iconAnchor: iconAnchor
+    });
     var marker = L.marker(coords, { icon: customIcon }).addTo(markerLayer);
+    var techPopup =
+        crew.length > 0
+            ? "<strong style=\"font-size:11px;color:#64748b;\">Technicians</strong><br>" +
+              crew
+                  .map(function (t) {
+                      return escapeHtmlDispatchMap(t);
+                  })
+                  .join("<br>")
+            : escapeHtmlDispatchMap("Unassigned");
     var popupHtml =
         "<div style=\"min-width:190px;\">" +
         "<strong style=\"color:#1e4b85;\">" +
@@ -276,8 +425,8 @@ function addCustomPin(coords, sc) {
         "<span style=\"font-size:12px;color:#444;\">Status: " +
         escapeHtmlDispatchMap(sc.status || "—") +
         "</span><br>" +
-        "<span style=\"font-size:12px;color:#444;\">Tech: " +
-        escapeHtmlDispatchMap(sc.assignedTech || "Unassigned") +
+        "<span style=\"font-size:12px;color:#444;line-height:1.35;\">" +
+        techPopup +
         "</span><br>" +
         "<button type=\"button\" class=\"gen-btn dispatch-map-view-ticket-btn\" style=\"margin-top:10px;padding:8px 10px;font-size:12px;width:100%;background:#1e4b85;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;\">🔍 View Ticket</button>" +
         "</div>";
@@ -442,7 +591,21 @@ function gatherServiceData() {
         locationNum: document.getElementById('scLocNumInput').value || "N/A",
         jobType: document.getElementById('scJobTypeInput').value,
         priority: document.getElementById('scPriorityInput').value,
-        assignedTech: document.getElementById('scAssignedTechInput').value,
+        assignedTechs: gatherAssignedTechsFromServiceForm(),
+        primaryTech: (function () {
+            var techs = gatherAssignedTechsFromServiceForm();
+            var pEl = document.getElementById("scPrimaryTechInput");
+            var p = pEl && pEl.value ? pEl.value : "";
+            if (p && techs.indexOf(p) !== -1) return p;
+            return techs.length ? techs[0] : "";
+        })(),
+        assignedTech: (function () {
+            var techs = gatherAssignedTechsFromServiceForm();
+            var pEl = document.getElementById("scPrimaryTechInput");
+            var p = pEl && pEl.value ? pEl.value : "";
+            if (p && techs.indexOf(p) !== -1) return p;
+            return techs.length ? techs[0] : "";
+        })(),
         status: document.getElementById('scStatusInput').value,
         issue: document.getElementById('scIssueInput').value.trim(),
         equip: document.getElementById('scEquipInput').value.trim().toUpperCase(),
@@ -474,7 +637,10 @@ function clearServiceForm() {
     document.getElementById('scLocNumInput').value = "";
     document.getElementById('scJobTypeInput').value = "Service Call";
     document.getElementById('scPriorityInput').value = "Standard";
-    document.getElementById('scAssignedTechInput').value = "Unassigned";
+    var scBox = document.getElementById("scAssignedTechsContainer");
+    if (scBox) scBox.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+    var scPri = document.getElementById("scPrimaryTechInput");
+    if (scPri) scPri.value = "";
     document.getElementById('scStatusInput').value = "Unassigned";
     document.getElementById('scIssueInput').value = "";
     document.getElementById('scEquipInput').value = "";
@@ -584,12 +750,35 @@ function openTicketDetails(dbId) {
     const sc = db.find(s => s.id === dbId);
     if (!sc) return;
 
-    // --- DYNAMICALLY GENERATE TECH DROPDOWN OPTIONS ---
     let savedTechs = JSON.parse(localStorage.getItem('tp_tech_list') || '[]');
-    let techOptionsHtml = `<option value="Unassigned" ${sc.assignedTech === 'Unassigned' || !sc.assignedTech ? 'selected' : ''}>Unassigned</option>`;
-    
-    savedTechs.forEach(tech => {
-        techOptionsHtml += `<option value="${tech}" ${sc.assignedTech === tech ? 'selected' : ''}>${tech}</option>`;
+    const crewModal = getAssignedTechsArray(sc);
+    const primaryModal = getPrimaryTechFromTicket(sc);
+    let techCrewHtml =
+        '<div id="tdTechCrewChecks" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow:auto;padding:4px 0;">';
+    savedTechs.forEach(function (tech) {
+        const chk = crewModal.indexOf(tech) !== -1 ? " checked" : "";
+        techCrewHtml +=
+            '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">' +
+            '<input type="checkbox" class="td-tech-ck"' +
+            chk +
+            ' data-tech-full="' +
+            escapeAttrModal(tech) +
+            '"> ' +
+            escapeHtmlDispatchMap(tech) +
+            "</label>";
+    });
+    techCrewHtml += "</div>";
+    let primaryOpts = '<option value="">— Lead —</option>';
+    savedTechs.forEach(function (tech) {
+        const sel = primaryModal === tech ? " selected" : "";
+        primaryOpts +=
+            "<option value=\"" +
+            escapeAttrModal(tech) +
+            "\"" +
+            sel +
+            ">" +
+            escapeHtmlDispatchMap(tech) +
+            "</option>";
     });
 
     let custNumStr = sc.customerNum ? ` <span style="font-size: 14px; color: #7f8c8d; font-weight: normal;">(${sc.customerNum})</span>` : '';
@@ -619,9 +808,11 @@ function openTicketDetails(dbId) {
 
             <div style="background: #fcfdfe; padding: 15px; border: 1px solid #eaeaea; border-radius: 4px; margin-bottom: 15px;">
             <div style="margin-bottom: 15px;">
-                <p style="margin-top:0; margin-bottom: 5px;"><strong>Assign Technician:</strong></p>
-                <select id="tdTechSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;">
-                    ${techOptionsHtml}
+                <p style="margin-top:0; margin-bottom: 8px;"><strong>Assigned technicians:</strong></p>
+                ${techCrewHtml}
+                <label style="display:block;margin-top:12px;font-size:12px;font-weight:bold;color:#555;">Lead technician</label>
+                <select id="tdPrimaryTechSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; margin-top:4px;">
+                    ${primaryOpts}
                 </select>
             </div>
             <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:12px; font-size:13px; line-height:1.35;">
@@ -730,20 +921,31 @@ function closeTicketDetails() {
         if (scIndex !== -1) {
             
             // Capture updated data from modal
-            const techSelect = document.getElementById('tdTechSelect');
             const dateInput = document.getElementById('tdDate');
             const timeInput = document.getElementById('tdStartTime');
             const durInput = document.getElementById('tdDuration');
 
-            if (techSelect) {
-                const selectedTech = techSelect.value;
-                db[scIndex].assignedTech = selectedTech;
-                
-                if (selectedTech !== 'Unassigned' && db[scIndex].status === 'Unassigned') {
-                    db[scIndex].status = 'Dispatched';
-                } else if (selectedTech === 'Unassigned' && db[scIndex].status === 'Dispatched') {
-                    db[scIndex].status = 'Unassigned';
-                }
+            var crewChk = document.querySelectorAll(".td-tech-ck:checked");
+            var newCrew = [];
+            crewChk.forEach(function (c) {
+                var v = c.getAttribute("data-tech-full");
+                if (v) newCrew.push(v);
+            });
+            db[scIndex].assignedTechs = newCrew;
+            var pSel = document.getElementById("tdPrimaryTechSelect");
+            var newPrimary =
+                pSel && pSel.value && newCrew.indexOf(pSel.value) !== -1
+                    ? pSel.value
+                    : newCrew.length
+                      ? newCrew[0]
+                      : "";
+            db[scIndex].primaryTech = newPrimary;
+            db[scIndex].assignedTech = newPrimary || "";
+
+            if (newCrew.length && db[scIndex].status === "Unassigned") {
+                db[scIndex].status = "Dispatched";
+            } else if (!newCrew.length && db[scIndex].status === "Dispatched") {
+                db[scIndex].status = "Unassigned";
             }
             
             // Save the new date/time fields
@@ -796,7 +998,9 @@ async function loadServiceCall(dbId) {
     document.getElementById('scLocNumInput').value = data.locationNum;
     document.getElementById('scJobTypeInput').value = data.jobType;
     document.getElementById('scPriorityInput').value = data.priority;
-    document.getElementById('scAssignedTechInput').value = data.assignedTech;
+    var roster = JSON.parse(localStorage.getItem("tp_tech_list") || "[]");
+    if (typeof buildServiceAssignedTechForm === "function") buildServiceAssignedTechForm(roster);
+    applyServiceAssignedTechFormFromTicket(data);
     document.getElementById('scStatusInput').value = data.status;
     document.getElementById('scIssueInput').value = data.issue;
     document.getElementById('scEquipInput').value = data.equip;
@@ -886,8 +1090,8 @@ function renderServiceBoard() {
         if (sc.priority === 'Urgent') colorClass = 'priority-Urgent';
         if (sc.priority === 'Routine') colorClass = 'priority-Routine';
 
-        let techAssignStr = sc.assignedTech === 'Unassigned' || !sc.assignedTech ? `<span style="color:#e74c3c; font-weight:bold;">Unassigned</span>` : `<span style="color:#27ae60;"><i class="fas fa-user"></i> ${sc.assignedTech.split(' ')[0]}</span>`;
         const releaseBadge = sc.releasedToTech === false ? `<span style="font-size:9px; background:#fdebd0; color:#ca6f1e; padding:2px 6px; border-radius:4px; font-weight:700; margin-left:4px;">Field: hold</span>` : '';
+        const techAvatarsRow = buildSidebarTechAvatarsHtml(sc);
 
         let cardHTML = `
             <div class="glass-card ${colorClass}" draggable="true" ondragstart="drag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')">
@@ -896,6 +1100,7 @@ function renderServiceBoard() {
                     <span style="font-size:10px; color:#aaa;">${sc.ticketNum}${releaseBadge}</span>
                 </div>
                 <div class="tc-loc"><i class="fas fa-map-marker-alt" style="color:#c89b53;"></i> ${sc.locationAddress} | ${sc.custCity}, ${sc.custState}</div>
+                <div class="tc-tech-strip">${techAvatarsRow}</div>
                 <div class="tc-footer">
                     <select class="status-quick-select status-${sc.status.replace(/ /g, '')}" onchange="quickUpdateStatus(event, '${sc.id}', this.value)">
                         <option value="Unassigned" ${sc.status === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
@@ -904,7 +1109,6 @@ function renderServiceBoard() {
                         <option value="Parts on Order" ${sc.status === 'Parts on Order' ? 'selected' : ''}>Parts on Order</option>
                         <option value="Completed" ${sc.status === 'Completed' ? 'selected' : ''}>Completed</option>
                     </select>
-                    <div style="font-size:11px;">${techAssignStr}</div>
                 </div>
             </div>
         `;
@@ -974,7 +1178,6 @@ function renderServiceBoard() {
 
     db.forEach(sc => {
         if (sc.archived) return;
-        if (!sc.assignedTech || sc.assignedTech === 'Unassigned') return;
         if (sc.status === 'Completed' || sc.status === 'Canceled') return;
         if (!sc.date) return;
 
@@ -986,7 +1189,11 @@ function renderServiceBoard() {
 
         if (!isVisible) return;
 
-        let techObj = techs.find(t => t.full === sc.assignedTech);
+        const crew = getAssignedTechsArray(sc);
+        if (!crew.length) return;
+
+        crew.forEach(function (assignedFullName) {
+        let techObj = techs.find(t => t.full === assignedFullName);
         if (!techObj) return;
 
         let tContainer = document.getElementById('timeline-' + techObj.name);
@@ -1080,6 +1287,7 @@ function renderServiceBoard() {
         block.setAttribute("title", buildGanttEventTooltip(sc, displayTime));
 
         tContainer.appendChild(block);
+        });
     });
     
     if (typeof renderDispatchMapTechLegend === "function") renderDispatchMapTechLegend();
@@ -1319,7 +1527,16 @@ function handleTimelineDrop(e) {
     let index = db.findIndex(sc => sc.id === ticketId);
     
     if (index !== -1) {
-        db[index].assignedTech = techId;
+        var prevLead = getPrimaryTechFromTicket(db[index]);
+        var crewDrop = getAssignedTechsArray(db[index]).slice();
+        if (crewDrop.indexOf(techId) === -1) crewDrop.push(techId);
+        db[index].assignedTechs = crewDrop;
+        if (!prevLead || crewDrop.indexOf(prevLead) === -1) {
+            db[index].primaryTech = techId;
+        } else {
+            db[index].primaryTech = prevLead;
+        }
+        db[index].assignedTech = db[index].primaryTech || crewDrop[0] || "";
         db[index].startTime = timeStr;
         if(newDateStr) db[index].date = newDateStr;
         
