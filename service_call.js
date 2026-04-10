@@ -1703,8 +1703,13 @@ async function improveIssueTextWithAI() {
         return;
     }
 
-    if (typeof getGeminiApiKey !== "function" || !getGeminiApiKey()) {
-        alert("Gemini API key is not available. Set firebaseConfig.geminiApiKey or apiKey in firebase-config.js.");
+    if (typeof getGeminiApiKey !== "function") {
+        alert("Gemini API key is not available. Add it under Settings → Integrations & API Keys.");
+        return;
+    }
+    const geminiKey = await getGeminiApiKey();
+    if (!geminiKey) {
+        alert("Gemini API key is not available. Add it under Settings → Integrations & API Keys.");
         return;
     }
 
@@ -1735,7 +1740,7 @@ async function improveIssueTextWithAI() {
             "https://generativelanguage.googleapis.com/v1beta/models/" +
                 (typeof GEMINI_GENERATE_MODEL !== "undefined" ? GEMINI_GENERATE_MODEL : "gemini-2.5-flash") +
                 ":generateContent?key=" +
-                encodeURIComponent(getGeminiApiKey()),
+                encodeURIComponent(geminiKey),
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

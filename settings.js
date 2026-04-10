@@ -145,6 +145,64 @@ let editingTemplateType = null;
 let currentInvTab = "tools";
 let ptoModalTechIndex = -1;
 
+/** Shown in Settings when a Gemini key exists in Firestore (not the real secret). */
+const GEMINI_SETTINGS_MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
+
+function onGeminiKeySettingsFocus(el) {
+    if (el && el.dataset.maskedPlaceholder) {
+        el.value = "";
+        delete el.dataset.maskedPlaceholder;
+    }
+}
+
+async function hydrateGeminiKeySettingsUi() {
+    const el = document.getElementById("settingsGeminiKeyInput");
+    if (!el || typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+    try {
+        const snap = await firebase.firestore().collection("app_config").doc("api_keys").get();
+        const g = snap.exists && snap.data().gemini ? String(snap.data().gemini).trim() : "";
+        if (g) {
+            el.value = GEMINI_SETTINGS_MASK;
+            el.dataset.maskedPlaceholder = "1";
+        } else {
+            el.value = "";
+            delete el.dataset.maskedPlaceholder;
+        }
+    } catch (e) {
+        console.error("hydrateGeminiKeySettingsUi", e);
+    }
+}
+
+async function saveGeminiApiKeyFromSettings() {
+    const el = document.getElementById("settingsGeminiKeyInput");
+    if (!el) return;
+    const v = el.value.trim();
+    if (el.dataset.maskedPlaceholder && (!v || v === GEMINI_SETTINGS_MASK)) {
+        alert("A key is already saved. Focus the field and type a new key to replace it.");
+        return;
+    }
+    if (!v) {
+        alert("Enter a Gemini API key.");
+        return;
+    }
+    try {
+        await firebase.firestore().collection("app_config").doc("api_keys").set(
+            { gemini: v },
+            { merge: true }
+        );
+        if (typeof invalidateGeminiApiKeyCache === "function") {
+            invalidateGeminiApiKeyCache();
+        }
+        el.value = GEMINI_SETTINGS_MASK;
+        el.dataset.maskedPlaceholder = "1";
+        if (typeof showSaveCue === "function") showSaveCue("✓ Gemini API key saved");
+        else alert("Saved.");
+    } catch (e) {
+        console.error(e);
+        alert("Could not save: " + (e.message || e));
+    }
+}
+
 const ROTATION_ANCHOR_MONDAY = new Date(2024, 0, 1, 12, 0, 0);
 
 function persistTechProfilesLocal() {
@@ -407,6 +465,7 @@ async function hydrateOnCallStateFromCloud() {
 async function refreshTechnicianRosterFromCloud() {
     await hydrateTechnicianRosterFromCloud();
     await hydrateOnCallStateFromCloud();
+    await hydrateGeminiKeySettingsUi();
     renderTechSettings();
     renderOnCallPanel();
     populateTechDropdowns();
@@ -416,6 +475,7 @@ async function loadAppTechs() {
     await hydrateTechnicianRosterFromCloud();
     await hydrateOnCallStateFromCloud();
     await hydrateInventoryTemplatesFromFirestore();
+    await hydrateGeminiKeySettingsUi();
 
     let masterDB = getMasterTemplatesDB();
     if (!masterDB["jman_consumables"]) {

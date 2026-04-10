@@ -16,7 +16,7 @@
     />
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
-    <script src="firebase-config.js?v=2"></script>
+    <script src="firebase-config.js?v=3"></script>
     <script>
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
@@ -3876,6 +3876,55 @@
           </div>
 
           <div class="form-section">
+            <h4>Integrations &amp; API Keys</h4>
+            <p style="font-size: 13px; color: #666">
+              Store your Gemini API key in Firestore (not in source code). The key is used for
+              AI features in Dispatch, invoicing, equipment grading, and the Field App. Restrict
+              the key by HTTP referrer in Google Cloud.
+            </p>
+            <div
+              style="
+                max-width: 520px;
+                margin-bottom: 8px;
+                padding: 16px;
+                background: #f8fafc;
+                border: 1px solid #dce4ec;
+                border-radius: 8px;
+              "
+            >
+              <label
+                for="settingsGeminiKeyInput"
+                style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #334155"
+                >Gemini API Key</label>
+              <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+                <input
+                  type="password"
+                  id="settingsGeminiKeyInput"
+                  autocomplete="off"
+                  placeholder="Paste key here"
+                  style="
+                    flex: 1;
+                    min-width: 200px;
+                    padding: 10px 12px;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 6px;
+                    font-size: 14px;
+                  "
+                  onfocus="onGeminiKeySettingsFocus(this)"
+                />
+                <button
+                  type="button"
+                  class="gen-btn"
+                  style="background: #1e4b85; padding: 10px 20px; font-size: 14px; color: #fff"
+                  onclick="saveGeminiApiKeyFromSettings()"
+                >
+                  Save Key
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
             <h4>Manage Technicians & Truck Inventory</h4>
             <p style="font-size: 13px; color: #666">
               Add, edit, or remove technicians from your active roster. This
@@ -4975,11 +5024,11 @@
       }
     </script>
 
-    <script src="settings.js?v=10"></script>
+    <script src="settings.js?v=11"></script>
     <script src="customer_directory.js?v=25"></script>
-    <script src="service_call.js?v=46"></script>
+    <script src="service_call.js?v=47"></script>
     <script src="quoting.js?v=6"></script>
-    <script src="invoice.js?v=38"></script>
+    <script src="invoice.js?v=39"></script>
 
     <div
       id="equipmentManagerModal"
@@ -5109,6 +5158,6 @@
       </div>
     </div>
 
-    <script src="equipment_manager.js?v=3"></script>
+    <script src="equipment_manager.js?v=4"></script>
   </body>
 </html>

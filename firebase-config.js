@@ -9,20 +9,7 @@ const firebaseConfig = {
   messagingSenderId: "845074873991",
   appId: "1:845074873991:web:1e5e404570ca09f6690222",
   measurementId: "G-8V6PXJJFW8",
-  /**
-   * Paste your rotated Gemini browser key here (Generative Language API).
-   * Leave "" to use apiKey for Gemini too. Restrict the key by HTTP referrer in Google Cloud.
-   */
-  geminiApiKey: "AIzaSyDUrLMmvEREFGOJRn3oXKk5Cs06yYpfSnk",
 };
-
-/** Key used for all Gemini HTTP calls (dispatcher, technician, invoice, equipment manager). */
-function getGeminiApiKey() {
-  if (typeof firebaseConfig === "undefined") return "";
-  const g = firebaseConfig.geminiApiKey;
-  if (g != null && String(g).trim() !== "") return String(g).trim();
-  return firebaseConfig.apiKey || "";
-}
 
 /**
  * Model id for generativelanguage.googleapis.com .../models/MODEL:generateContent
@@ -30,7 +17,7 @@ function getGeminiApiKey() {
  */
 var GEMINI_GENERATE_MODEL = "gemini-2.5-flash";
 
-// Initialize Firebase (only official fields; geminiApiKey is app-only)
+// Initialize Firebase
 firebase.initializeApp({
   apiKey: firebaseConfig.apiKey,
   authDomain: firebaseConfig.authDomain,
@@ -43,3 +30,43 @@ firebase.initializeApp({
 
 // Initialize Firestore Database (we will use this 'db' variable in our other files)
 const db = firebase.firestore();
+
+/** Cached Gemini key from Firestore app_config/api_keys field gemini (null = not loaded yet). */
+let _geminiKeyCache = null;
+let _geminiKeyLoadPromise = null;
+
+/**
+ * Gemini API key from Firestore: collection app_config, document api_keys, field gemini.
+ * @returns {Promise<string>}
+ */
+async function getGeminiApiKey() {
+  if (_geminiKeyCache !== null) {
+    return _geminiKeyCache;
+  }
+  if (_geminiKeyLoadPromise) {
+    return _geminiKeyLoadPromise;
+  }
+  _geminiKeyLoadPromise = (async function () {
+    try {
+      const snap = await db.collection("app_config").doc("api_keys").get();
+      const data = snap.exists ? snap.data() : {};
+      const g =
+        data && data.gemini != null ? String(data.gemini).trim() : "";
+      _geminiKeyCache = g;
+      return g;
+    } catch (e) {
+      console.error("getGeminiApiKey:", e);
+      _geminiKeyCache = "";
+      return "";
+    } finally {
+      _geminiKeyLoadPromise = null;
+    }
+  })();
+  return _geminiKeyLoadPromise;
+}
+
+/** Call after updating api_keys in Firestore so the next getGeminiApiKey() refetches. */
+function invalidateGeminiApiKeyCache() {
+  _geminiKeyCache = null;
+  _geminiKeyLoadPromise = null;
+}

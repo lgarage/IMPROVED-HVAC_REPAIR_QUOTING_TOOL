@@ -1,6 +1,6 @@
 /**
  * Equipment Profile & Grading — shared module (Dispatcher index.html + Field App technician/).
- * Requires firebase (initialized), firebaseConfig, getGeminiApiKey, GEMINI_GENERATE_MODEL from firebase-config.js.
+ * Requires firebase (initialized), getGeminiApiKey (async), GEMINI_GENERATE_MODEL from firebase-config.js.
  */
 (function () {
   "use strict";
@@ -34,17 +34,6 @@
     return loadScript(
       "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"
     );
-  }
-
-  function getApiKey() {
-    if (typeof getGeminiApiKey === "function") {
-      var k = getGeminiApiKey();
-      if (k) return k;
-    }
-    if (typeof firebaseConfig !== "undefined" && firebaseConfig.apiKey) {
-      return firebaseConfig.apiKey;
-    }
-    return "";
   }
 
   /** Safe Storage / Firestore path segment (no slashes). */
@@ -142,68 +131,76 @@
   }
 
   function callGeminiVision(base64Data, mimeType, promptText) {
-    var key = getApiKey();
-    if (!key) {
-      return Promise.reject(new Error("No Gemini API key (set geminiApiKey or apiKey in firebase-config.js)."));
+    if (typeof getGeminiApiKey !== "function") {
+      return Promise.reject(
+        new Error("No Gemini API key (configure app_config/api_keys in Firestore or Settings).")
+      );
     }
-    var url =
-      "https://generativelanguage.googleapis.com/v1beta/models/" +
-      geminiModelId() +
-      ":generateContent?key=" +
-      encodeURIComponent(key);
+    return getGeminiApiKey().then(function (key) {
+      if (!key) {
+        return Promise.reject(
+          new Error("No Gemini API key (configure app_config/api_keys in Firestore or Settings).")
+        );
+      }
+      var url =
+        "https://generativelanguage.googleapis.com/v1beta/models/" +
+        geminiModelId() +
+        ":generateContent?key=" +
+        encodeURIComponent(key);
 
-    var body = {
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: promptText },
-            {
-              inlineData: {
-                mimeType: mimeType || "image/jpeg",
-                data: base64Data,
+      var body = {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: promptText },
+              {
+                inlineData: {
+                  mimeType: mimeType || "image/jpeg",
+                  data: base64Data,
+                },
               },
-            },
-          ],
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 2048,
         },
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 2048,
-      },
-    };
+      };
 
-    return fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-      .then(function (res) {
-        return res.json().then(function (data) {
-          if (!res.ok) {
-            var msg =
-              (data && data.error && data.error.message) ||
-              res.statusText ||
-              "Gemini request failed";
-            throw new Error(msg);
-          }
-          return data;
-        });
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       })
-      .then(function (data) {
-        var parts =
-          data &&
-          data.candidates &&
-          data.candidates[0] &&
-          data.candidates[0].content &&
-          data.candidates[0].content.parts;
-        if (!parts || !parts.length) return "";
-        return parts
-          .map(function (p) {
-            return p.text || "";
-          })
-          .join("\n");
-      });
+        .then(function (res) {
+          return res.json().then(function (data) {
+            if (!res.ok) {
+              var msg =
+                (data && data.error && data.error.message) ||
+                res.statusText ||
+                "Gemini request failed";
+              throw new Error(msg);
+            }
+            return data;
+          });
+        })
+        .then(function (data) {
+          var parts =
+            data &&
+            data.candidates &&
+            data.candidates[0] &&
+            data.candidates[0].content &&
+            data.candidates[0].content.parts;
+          if (!parts || !parts.length) return "";
+          return parts
+            .map(function (p) {
+              return p.text || "";
+            })
+            .join("\n");
+        });
+    });
   }
 
   function buildPlatePrompt() {

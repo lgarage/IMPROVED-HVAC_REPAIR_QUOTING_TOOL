@@ -230,7 +230,7 @@ async function parsePastedNotes() {
     calcInvoice();
 
     const rawForAi = document.getElementById("invPasteArea") && document.getElementById("invPasteArea").value;
-    if (shouldAutoRunGeminiInvoice(rawForAi, parseSource)) {
+    if (await shouldAutoRunGeminiInvoice(rawForAi, parseSource)) {
         await parseInvoicePasteWithGemini({ merge: true, silent: true });
     }
 }
@@ -268,8 +268,9 @@ function hasRecognizableInvoiceTemplate(src, rawOpt) {
 }
 
 /** After local parse: run Gemini only when notes look unstructured or important fields stayed empty. */
-function shouldAutoRunGeminiInvoice(rawText, parseSource) {
-    if (typeof getGeminiApiKey !== "function" || !getGeminiApiKey()) return false;
+async function shouldAutoRunGeminiInvoice(rawText, parseSource) {
+    if (typeof getGeminiApiKey !== "function") return false;
+    if (!(await getGeminiApiKey())) return false;
     const t = (rawText || "").trim();
     if (t.length < 50) return false;
 
@@ -300,9 +301,16 @@ async function parseInvoicePasteWithGemini(opts) {
         if (!silent) alert("Paste technician notes first.");
         return;
     }
-    if (typeof getGeminiApiKey !== "function" || !getGeminiApiKey()) {
+    if (typeof getGeminiApiKey !== "function") {
         if (!silent) {
-            alert("Add geminiApiKey (or apiKey) in firebase-config.js. Enable the Generative Language API in Google Cloud if requests fail.");
+            alert("Add the Gemini API key under Settings → Integrations & API Keys. Enable the Generative Language API in Google Cloud if requests fail.");
+        }
+        return;
+    }
+    const geminiKey = await getGeminiApiKey();
+    if (!geminiKey) {
+        if (!silent) {
+            alert("Add the Gemini API key under Settings → Integrations & API Keys. Enable the Generative Language API in Google Cloud if requests fail.");
         }
         return;
     }
@@ -328,7 +336,7 @@ ${safeBody}
 
     try {
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${typeof GEMINI_GENERATE_MODEL !== "undefined" ? GEMINI_GENERATE_MODEL : "gemini-2.5-flash"}:generateContent?key=${encodeURIComponent(getGeminiApiKey())}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/${typeof GEMINI_GENERATE_MODEL !== "undefined" ? GEMINI_GENERATE_MODEL : "gemini-2.5-flash"}:generateContent?key=${encodeURIComponent(geminiKey)}`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
