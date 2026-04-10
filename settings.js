@@ -2042,14 +2042,26 @@ function fieldFormSlugFromLabel(label, index) {
     return s + "_" + index;
 }
 
+/** Parse "Yes, No, N/A" → ["Yes","No","N/A"] */
+function parseCommaSeparatedOptions(str) {
+    if (!str || !String(str).trim()) return [];
+    return String(str)
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+}
+
 function mapUiTypeToFirestoreField(row, index) {
     const label = String(row.label || "").trim();
     const name = fieldFormSlugFromLabel(label, index);
     const base = { name, label, required: !!row.required };
     const u = String(row.uiType || "TEXT").toUpperCase();
+    const optList = parseCommaSeparatedOptions(row.optionsStr);
     if (u === "NUMBER") return { ...base, type: "number" };
     if (u === "PHOTO") return { ...base, type: "photo" };
     if (u === "CHECKBOX") return { ...base, type: "checkbox" };
+    if (u === "DROPDOWN") return { ...base, type: "dropdown", options: optList };
+    if (u === "MULTI_CHECK") return { ...base, type: "multi_check", options: optList };
     if (u === "BELT") return { ...base, type: "text", group: "belt" };
     if (u === "FILTER") return { ...base, type: "text", group: "filter" };
     return { ...base, type: "text" };
@@ -2063,6 +2075,8 @@ function mapFirestoreFieldToUiType(f) {
     if (t === "number") return "NUMBER";
     if (t === "photo") return "PHOTO";
     if (t === "checkbox") return "CHECKBOX";
+    if (t === "dropdown") return "DROPDOWN";
+    if (t === "multi_check") return "MULTI_CHECK";
     return "TEXT";
 }
 
@@ -2093,15 +2107,29 @@ function collectFieldFormBuilderRows() {
         const label = r.querySelector(".ffb-label");
         const uiType = r.querySelector(".ffb-type");
         const req = r.querySelector(".ffb-req");
+        const optIn = r.querySelector(".ffb-options");
         const lv = label && label.value ? String(label.value).trim() : "";
         if (!lv) return;
         out.push({
             label: lv,
             uiType: uiType && uiType.value ? uiType.value : "TEXT",
             required: !!(req && req.checked),
+            optionsStr: optIn && optIn.value ? String(optIn.value) : "",
         });
     });
     return out;
+}
+
+function wireFfbRowOptionsVisibility(row) {
+    const typeSel = row.querySelector(".ffb-type");
+    const wrap = row.querySelector(".ffb-options-wrap");
+    function apply() {
+        const v = typeSel && typeSel.value;
+        const show = v === "DROPDOWN" || v === "MULTI_CHECK";
+        if (wrap) wrap.style.display = show ? "block" : "none";
+    }
+    if (typeSel) typeSel.addEventListener("change", apply);
+    apply();
 }
 
 function addFieldFormBuilderRow(prefill) {
@@ -2116,11 +2144,14 @@ function addFieldFormBuilderRow(prefill) {
         ["NUMBER", "Number"],
         ["PHOTO", "Photo"],
         ["CHECKBOX", "Checkbox"],
+        ["DROPDOWN", "Dropdown"],
+        ["MULTI_CHECK", "Multi-Check"],
         ["BELT", "Belt-Group"],
         ["FILTER", "Filter-Group"],
     ];
     const opts = types.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
     const p = prefill || {};
+    const optionsPreset = Array.isArray(p.options) ? p.options.join(", ") : p.optionsStr || "";
     row.innerHTML = `
         <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
             <div style="flex:1;min-width:180px;">
@@ -2131,6 +2162,10 @@ function addFieldFormBuilderRow(prefill) {
                 <label style="font-size:11px;font-weight:600;color:#64748b;">Type</label>
                 <select class="ffb-type" style="width:100%;padding:8px;border-radius:6px;border:1px solid #cbd5e1;font-size:13px;">${opts}</select>
             </div>
+        </div>
+        <div class="ffb-options-wrap" style="display:none;">
+            <label style="display:block;font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;">Options (comma-separated)</label>
+            <input type="text" class="ffb-options" placeholder="e.g. Yes, No, N/A" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;" value="${escapeHTML(optionsPreset)}" />
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <label style="font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
@@ -2144,6 +2179,7 @@ function addFieldFormBuilderRow(prefill) {
         const sel = row.querySelector(".ffb-type");
         if (sel) sel.value = p.uiType;
     }
+    wireFfbRowOptionsVisibility(row);
 }
 
 function closeFieldFormBuilderModal() {
@@ -2209,6 +2245,7 @@ function openFieldFormBuilderEdit(docId) {
                         label: f.label || "",
                         uiType: mapFirestoreFieldToUiType(f),
                         required: !!f.required,
+                        options: Array.isArray(f.options) ? f.options : [],
                     });
                 });
             }
@@ -2243,6 +2280,18 @@ async function saveFieldFormTemplate() {
     const collected = collectFieldFormBuilderRows();
     if (collected.length === 0) {
         if (!confirm("This template has no fields. Save anyway?")) return;
+    }
+    for (const row of collected) {
+        const u = String(row.uiType || "TEXT").toUpperCase();
+        if (
+            (u === "DROPDOWN" || u === "MULTI_CHECK") &&
+            parseCommaSeparatedOptions(row.optionsStr).length === 0
+        ) {
+            alert(
+                `Field "${row.label}" needs at least one option (comma-separated) for Dropdown / Multi-Check.`
+            );
+            return;
+        }
     }
     const fields = collected.map((row, i) => mapUiTypeToFirestoreField(row, i));
     let docId = fieldFormBuilderEditingId;
@@ -2315,6 +2364,22 @@ function buildFieldFormPreviewHtml(doc) {
             html += `<label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">${label}${req}</label>`;
             html +=
                 '<div style="padding:10px;border:1px dashed #cbd5e1;border-radius:8px;color:#95a5a6;font-size:13px;">📷 Photo capture</div>';
+        } else if (t === "dropdown") {
+            const opts = Array.isArray(f.options) ? f.options : [];
+            html += `<label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">${label}${req}</label>`;
+            html +=
+                '<select disabled style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d1d9e0;border-radius:8px;font-size:16px;background:#fff;">';
+            html += '<option>Select...</option>';
+            opts.forEach((o) => {
+                html += `<option>${escapeHTML(String(o))}</option>`;
+            });
+            html += "</select>";
+        } else if (t === "multi_check") {
+            const opts = Array.isArray(f.options) ? f.options : [];
+            html += `<div style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:6px;">${label}${req}</div>`;
+            opts.forEach((o) => {
+                html += `<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#333;margin-bottom:6px;"><input type="checkbox" disabled /> ${escapeHTML(String(o))}</label>`;
+            });
         } else {
             html += `<label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">${label}${req}`;
             if (g === "belt") html += ' <span style="font-size:10px;color:#7f8c8d;">(Belt group)</span>';

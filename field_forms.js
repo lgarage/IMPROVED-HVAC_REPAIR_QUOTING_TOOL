@@ -657,6 +657,61 @@
         return;
       }
 
+      if (typ === "dropdown") {
+        var dopts = Array.isArray(f.options) ? f.options : [];
+        inner =
+          "<label class=\"field-form-label\" for=\"dynfield_" +
+          name +
+          "\">" +
+          escapeHtml(label) +
+          req +
+          "</label>" +
+          "<select id=\"dynfield_" +
+          name +
+          "\" class=\"field-form-input field-form-select\">" +
+          "<option value=\"\">Select...</option>";
+        dopts.forEach(function (opt) {
+          var o = String(opt);
+          inner +=
+            "<option value=\"" +
+            escapeAttr(o) +
+            "\">" +
+            escapeHtml(o) +
+            "</option>";
+        });
+        inner += "</select>";
+        html += wrapFieldRow(inner, f);
+        return;
+      }
+
+      if (typ === "multi_check") {
+        var mopts = Array.isArray(f.options) ? f.options : [];
+        inner =
+          "<div class=\"field-form-label\">" +
+          escapeHtml(label) +
+          req +
+          "</div>" +
+          "<div class=\"dyn-multi-wrap\" id=\"dynmulti_wrap_" +
+          name +
+          "\">";
+        mopts.forEach(function (opt, mi) {
+          var o = String(opt);
+          var cid = "dynmulti_" + name + "_" + mi;
+          inner +=
+            "<label class=\"field-form-label field-checkbox-label\">" +
+            "<input type=\"checkbox\" class=\"dynmulti-item\" id=\"" +
+            cid +
+            "\" value=\"" +
+            escapeAttr(o) +
+            "\"/> <span>" +
+            escapeHtml(o) +
+            "</span></label>";
+        });
+        inner += "</div>";
+        html += wrapFieldRow(inner, f);
+        return;
+      }
+
       inner =
         "<label class=\"field-form-label\" for=\"dynfield_" +
         name +
@@ -1029,6 +1084,31 @@
           } else {
             fieldValues[name] = "";
           }
+          continue;
+        }
+        if (typ === "dropdown") {
+          var dsel = document.getElementById("dynfield_" + name);
+          var dval = dsel && dsel.value != null ? String(dsel.value).trim() : "";
+          if (f.required && !dval) {
+            alert("Required: choose an option for " + (f.label || name));
+            return;
+          }
+          fieldValues[name] = dval;
+          continue;
+        }
+        if (typ === "multi_check") {
+          var mwrap = document.getElementById("dynmulti_wrap_" + name);
+          var mvals = [];
+          if (mwrap) {
+            mwrap.querySelectorAll(".dynmulti-item:checked").forEach(function (cb) {
+              mvals.push(cb.value);
+            });
+          }
+          if (f.required && mvals.length === 0) {
+            alert("Required: select at least one option for " + (f.label || name));
+            return;
+          }
+          fieldValues[name] = mvals;
           continue;
         }
         var el = document.getElementById("dynfield_" + name);
