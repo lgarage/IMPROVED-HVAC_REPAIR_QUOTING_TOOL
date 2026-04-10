@@ -1,6 +1,6 @@
 /**
- * Dynamic work order forms (Standard PM, Repair Quote) for technician app.
- * Depends on: firebase, db, activeTicket, currentTechProfile, ensureFirebaseStorage pattern.
+ * Work order forms — static (Standard PM, Repair Quote), Firestore form_templates,
+ * Gemini keyword intent, equipment flags (direct drive, mini-split).
  */
 (function () {
   "use strict";
@@ -30,9 +30,9 @@
       id: "standard_pm",
       title: "Standard PM",
       fields: [
-        { name: "filterSize", label: "Filter Size", type: "text", placeholder: "e.g. 20x25x2" },
-        { name: "beltSize", label: "Belt Size", type: "text", placeholder: "e.g. A44" },
-        { name: "notes", label: "Notes", type: "textarea", placeholder: "PM observations" },
+        { name: "filterSize", label: "Filter Size", type: "text", placeholder: "e.g. 20x25x2", group: "filter" },
+        { name: "beltSize", label: "Belt Size", type: "text", placeholder: "e.g. A44", group: "belt" },
+        { name: "notes", label: "Notes", type: "textarea", placeholder: "PM observations", group: "notes" },
       ],
     },
     repair_quote: {
@@ -47,6 +47,7 @@
   };
 
   var currentFormId = null;
+  var dynamicTemplateDoc = null;
 
   function loadFirebaseStorageCompat() {
     if (typeof firebase !== "undefined" && firebase.storage) {
@@ -81,8 +82,60 @@
       m.setAttribute("aria-hidden", "true");
     }
     currentFormId = null;
+    dynamicTemplateDoc = null;
     var body = document.getElementById("fieldFormModalBody");
     if (body) body.innerHTML = "";
+  }
+
+  /** Shared equipment options row for all equipment-related forms */
+  function renderEquipmentFlagsHtml() {
+    return (
+      "<div class=\"field-equipment-flags\" id=\"fieldEquipmentFlags\">" +
+      "<label class=\"field-form-label field-checkbox-label\">" +
+      "<input type=\"checkbox\" id=\"field_isDirectDrive\"/> Direct drive (no belt)</label>" +
+      "<label class=\"field-form-label\" for=\"field_equipmentType\">Equipment type</label>" +
+      "<select id=\"field_equipmentType\" class=\"field-form-input\">" +
+      "<option value=\"\">— Select —</option>" +
+      "<option value=\"Standard\">Standard / RTU</option>" +
+      "<option value=\"Mini-Split\">Mini-Split</option>" +
+      "<option value=\"Other\">Other</option>" +
+      "</select>" +
+      "<div id=\"field_cleanedScreensWrap\" class=\"hidden\">" +
+      "<label class=\"field-form-label field-checkbox-label\">" +
+      "<input type=\"checkbox\" id=\"field_cleanedScreens\"/> Cleaned screens</label>" +
+      "</div></div>"
+    );
+  }
+
+  function wireEquipmentFieldVisibility(root) {
+    root = root || document;
+    var dd = root.querySelector("#field_isDirectDrive");
+    var et = root.querySelector("#field_equipmentType");
+    var csWrap = root.querySelector("#field_cleanedScreensWrap");
+    function apply() {
+      var direct = dd && dd.checked;
+      var mini = et && et.value === "Mini-Split";
+      root.querySelectorAll("[data-belt-group]").forEach(function (el) {
+        el.style.display = direct || mini ? "none" : "";
+      });
+      root.querySelectorAll("[data-filter-group]").forEach(function (el) {
+        el.style.display = mini ? "none" : "";
+      });
+      if (csWrap) {
+        csWrap.classList.toggle("hidden", !mini);
+      }
+    }
+    if (dd) dd.addEventListener("change", apply);
+    if (et) et.addEventListener("change", apply);
+    apply();
+  }
+
+  function wrapFieldRow(html, fieldMeta) {
+    var g = fieldMeta && fieldMeta.group;
+    var attrs = "";
+    if (g === "belt") attrs = " data-belt-group=\"1\"";
+    if (g === "filter") attrs = " data-filter-group=\"1\"";
+    return "<div class=\"field-form-fieldwrap\"" + attrs + ">" + html + "</div>";
   }
 
   function renderForm(formTemplateId) {
@@ -92,6 +145,7 @@
       return;
     }
     currentFormId = formTemplateId;
+    dynamicTemplateDoc = null;
     var body = document.getElementById("fieldFormModalBody");
     var titleEl = document.getElementById("fieldFormModalTitle");
     if (!body) return;
@@ -102,17 +156,24 @@
       "<label class=\"field-form-label\">Select Equipment</label>" +
       "<select id=\"fieldFormEquipmentSelect\" data-smart-equipment=\"true\" class=\"field-form-select\"></select>";
 
+    html += renderEquipmentFlagsHtml();
+
     t.fields.forEach(function (f) {
-      html += "<label class=\"field-form-label\" for=\"field_" + f.name + "\">" + escapeHtml(f.label) + "</label>";
+      var inner =
+        "<label class=\"field-form-label\" for=\"field_" +
+        f.name +
+        "\">" +
+        escapeHtml(f.label) +
+        "</label>";
       if (f.type === "textarea") {
-        html +=
+        inner +=
           "<textarea id=\"field_" +
           f.name +
           "\" class=\"field-form-input\" placeholder=\"" +
           escapeAttr(f.placeholder || "") +
           "\"></textarea>";
       } else {
-        html +=
+        inner +=
           "<input type=\"" +
           (f.type || "text") +
           "\" id=\"field_" +
@@ -124,6 +185,7 @@
           escapeAttr(f.placeholder || "") +
           "\"/>";
       }
+      html += wrapFieldRow(inner, f);
     });
 
     if (formTemplateId === "repair_quote") {
@@ -149,6 +211,98 @@
       });
     }
 
+    wireEquipmentFieldVisibility(body);
+
+    var cancel = document.getElementById("fieldFormCancelBtn");
+    if (cancel) cancel.addEventListener("click", closeFieldFormModal);
+    var save = document.getElementById("fieldFormSaveBtn");
+    if (save) save.addEventListener("click", saveCurrentFieldForm);
+
+    showModal();
+  }
+
+  /**
+   * Firestore form_templates/{templateId}: templateName, targetKeyword, fields[], active.
+   */
+  async function renderDynamicForm(templateId) {
+    if (typeof firebase === "undefined" || !firebase.apps.length) {
+      alert("Firebase is not available.");
+      return;
+    }
+    var snap = await firebase
+      .firestore()
+      .collection("form_templates")
+      .doc(templateId)
+      .get();
+    if (!snap.exists) {
+      alert("Form template not found: " + templateId);
+      return;
+    }
+    var data = snap.data() || {};
+    var fields = Array.isArray(data.fields) ? data.fields : [];
+    dynamicTemplateDoc = { id: templateId, doc: data };
+    currentFormId = "dynamic:" + templateId;
+
+    var body = document.getElementById("fieldFormModalBody");
+    var titleEl = document.getElementById("fieldFormModalTitle");
+    if (!body) return;
+    if (titleEl) titleEl.textContent = data.templateName || "Custom form";
+
+    var html = "<div class=\"field-form-inner\">";
+    html +=
+      "<label class=\"field-form-label\">Select Equipment</label>" +
+      "<select id=\"fieldFormEquipmentSelect\" data-smart-equipment=\"true\" class=\"field-form-select\"></select>";
+    html += renderEquipmentFlagsHtml();
+
+    fields.forEach(function (f, idx) {
+      var name = f.name || "field_" + idx;
+      var label = f.label || name;
+      var typ = f.type || "text";
+      var inner =
+        "<label class=\"field-form-label\" for=\"dynfield_" +
+        name +
+        "\">" +
+        escapeHtml(label) +
+        "</label>";
+      if (typ === "textarea") {
+        inner +=
+          "<textarea id=\"dynfield_" +
+          name +
+          "\" class=\"field-form-input\" placeholder=\"" +
+          escapeAttr(f.placeholder || "") +
+          "\"></textarea>";
+      } else {
+        inner +=
+          "<input type=\"" +
+          typ +
+          "\" id=\"dynfield_" +
+          name +
+          "\" class=\"field-form-input\" placeholder=\"" +
+          escapeAttr(f.placeholder || "") +
+          "\"/>";
+      }
+      html += wrapFieldRow(inner, f);
+    });
+
+    html +=
+      "<div class=\"field-form-actions\">" +
+      "<button type=\"button\" class=\"field-form-btn field-form-btn-secondary\" id=\"fieldFormCancelBtn\">Cancel</button>" +
+      "<button type=\"button\" class=\"field-form-btn field-form-btn-primary\" id=\"fieldFormSaveBtn\">Save</button>" +
+      "</div></div>";
+
+    body.innerHTML = html;
+
+    var sel = document.getElementById("fieldFormEquipmentSelect");
+    if (sel && typeof window.refreshSmartEquipmentSelect === "function") {
+      window.refreshSmartEquipmentSelect(sel, "").then(function () {
+        if (typeof window.bindSmartEquipmentSelect === "function") {
+          window.bindSmartEquipmentSelect(sel);
+        }
+      });
+    }
+
+    wireEquipmentFieldVisibility(body);
+
     var cancel = document.getElementById("fieldFormCancelBtn");
     if (cancel) cancel.addEventListener("click", closeFieldFormModal);
     var save = document.getElementById("fieldFormSaveBtn");
@@ -173,6 +327,190 @@
   function getTicketId() {
     var el = document.getElementById("ticketSelector");
     return el && el.value ? String(el.value).trim() : "";
+  }
+
+  function collectEquipmentFlags() {
+    var dd = document.getElementById("field_isDirectDrive");
+    var et = document.getElementById("field_equipmentType");
+    var cs = document.getElementById("field_cleanedScreens");
+    return {
+      isDirectDrive: !!(dd && dd.checked),
+      equipmentType: et && et.value ? String(et.value) : "",
+      cleanedScreens: !!(cs && cs.checked),
+    };
+  }
+
+  function parseGeminiText(text) {
+    if (!text) return "";
+    var t = String(text).trim();
+    var fence = t.match(/```(?:\w*)?\s*([\s\S]*?)```/);
+    if (fence) t = fence[1].trim();
+    return t.split("\n")[0].trim();
+  }
+
+  async function fetchActiveFormTemplates() {
+    if (typeof firebase === "undefined" || !firebase.apps.length) return [];
+    var db = firebase.firestore();
+    var out = [];
+    try {
+      var snap = await db.collection("form_templates").get();
+      snap.forEach(function (doc) {
+        var d = doc.data() || {};
+        if (d.active === false) return;
+        out.push({ id: doc.id, data: d });
+      });
+    } catch (e) {
+      console.error("[field_forms] form_templates", e);
+    }
+    return out;
+  }
+
+  /**
+   * AI: if notes indicate major repair/replace of a keyword item, return template id.
+   */
+  async function scanNotesForFormRequirements(techNotes) {
+    var notes = String(techNotes || "").trim();
+    if (!notes) {
+      hideFormIntentBanner();
+      return null;
+    }
+
+    var templates = await fetchActiveFormTemplates();
+    var keywords = templates
+      .map(function (t) {
+        return String(t.data.targetKeyword || "").trim();
+      })
+      .filter(Boolean);
+
+    if (!keywords.length) {
+      hideFormIntentBanner();
+      return null;
+    }
+
+    if (typeof getGeminiApiKey !== "function") {
+      console.warn("[field_forms] getGeminiApiKey missing");
+      hideFormIntentBanner();
+      return null;
+    }
+
+    var key = await getGeminiApiKey();
+    if (!key) {
+      hideFormIntentBanner();
+      return null;
+    }
+
+    var listStr = keywords.join(", ");
+    var prompt =
+      "Based on these tech notes: " +
+      JSON.stringify(notes) +
+      ", is the technician intending to REPAIR or REPLACE any of these specific items: [" +
+      listStr +
+      "]? Only return the Keyword if they are performing a major action. If they are just mentioning it (e.g., 'checked belt on motor'), return 'NONE'.\n" +
+      "Reply with exactly one word or phrase: the matching keyword from the list, or NONE.";
+
+    var model =
+      typeof GEMINI_GENERATE_MODEL !== "undefined"
+        ? GEMINI_GENERATE_MODEL
+        : "gemini-2.5-flash";
+    var url =
+      "https://generativelanguage.googleapis.com/v1beta/models/" +
+      model +
+      ":generateContent?key=" +
+      encodeURIComponent(key);
+
+    try {
+      var res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 128 },
+        }),
+      });
+      var data = await res.json();
+      if (data.error) {
+        console.error(data.error);
+        hideFormIntentBanner();
+        return null;
+      }
+      var part =
+        data.candidates &&
+        data.candidates[0] &&
+        data.candidates[0].content &&
+        data.candidates[0].content.parts &&
+        data.candidates[0].content.parts[0];
+      var raw = part && part.text ? String(part.text) : "";
+      var answer = parseGeminiText(raw);
+      var upper = answer.toUpperCase();
+      if (upper === "NONE" || !answer) {
+        hideFormIntentBanner();
+        return null;
+      }
+
+      var matched = null;
+      templates.forEach(function (t) {
+        var kw = String(t.data.targetKeyword || "").trim();
+        if (!kw) return;
+        if (answer.toLowerCase() === kw.toLowerCase()) matched = t;
+        if (answer.toLowerCase().indexOf(kw.toLowerCase()) >= 0) matched = t;
+      });
+
+      if (!matched) {
+        hideFormIntentBanner();
+        return null;
+      }
+
+      showFormIntentBanner(matched);
+      return matched.id;
+    } catch (e) {
+      console.error("[field_forms] scanNotesForFormRequirements", e);
+      hideFormIntentBanner();
+      return null;
+    }
+  }
+
+  function hideFormIntentBanner() {
+    var el = document.getElementById("formIntentBanner");
+    if (el) {
+      el.classList.add("hidden");
+      el.innerHTML = "";
+    }
+  }
+
+  function showFormIntentBanner(templateRow) {
+    var el = document.getElementById("formIntentBanner");
+    if (!el) return;
+    var name = templateRow.data.templateName || templateRow.id;
+    el.innerHTML =
+      "<button type=\"button\" class=\"form-intent-btn\" id=\"formIntentOpenBtn\">📋 Required: Open " +
+      escapeHtml(name) +
+      "</button>";
+    el.classList.remove("hidden");
+    var btn = document.getElementById("formIntentOpenBtn");
+    if (btn) {
+      btn.onclick = function () {
+        renderDynamicForm(templateRow.id);
+      };
+    }
+  }
+
+  function collectNotesForAiScan() {
+    var parts = [];
+    if (currentMode === "PM") {
+      var n = document.getElementById("notes");
+      if (n && n.value) parts.push(n.value);
+    } else if (currentMode === "SERVICE") {
+      ["reason", "diagnosis", "repairsMade", "recommendations"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && el.value) parts.push(el.value);
+      });
+    } else {
+      ["quoteIssue", "quoteRepairs", "quoteTesting", "quoteRecs"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && el.value) parts.push(el.value);
+      });
+    }
+    return parts.join("\n\n");
   }
 
   async function uploadQuotePhotos(files, ticketId) {
@@ -219,6 +557,42 @@
     var ticketId = getTicketId();
     var tech =
       typeof currentTechProfile !== "undefined" ? currentTechProfile : "";
+    var flags = collectEquipmentFlags();
+
+    if (currentFormId && String(currentFormId).indexOf("dynamic:") === 0) {
+      var tid = String(currentFormId).replace(/^dynamic:/, "");
+      var fields = (dynamicTemplateDoc && dynamicTemplateDoc.doc.fields) || [];
+      var fieldValues = {};
+      fields.forEach(function (f, idx) {
+        var name = f.name || "field_" + idx;
+        var el = document.getElementById("dynfield_" + name);
+        fieldValues[name] = el && el.value != null ? String(el.value) : "";
+      });
+      var payload = {
+        templateId: tid,
+        templateName: dynamicTemplateDoc.doc.templateName || tid,
+        targetKeyword: dynamicTemplateDoc.doc.targetKeyword || "",
+        equipmentId: equipmentId,
+        ticketId: ticketId || null,
+        techName: tech || null,
+        fieldValues: fieldValues,
+        isDirectDrive: flags.isDirectDrive,
+        equipmentType: flags.equipmentType,
+        cleanedScreens: flags.cleanedScreens,
+        date: todayYmd(),
+        savedAt: new Date().toISOString(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      try {
+        await db.collection("field_form_submissions").add(payload);
+        alert("Form saved.");
+        closeFieldFormModal();
+      } catch (e) {
+        console.error(e);
+        alert("Save failed: " + (e.message || e));
+      }
+      return;
+    }
 
     if (currentFormId === "standard_pm") {
       var fs = document.getElementById("field_filterSize");
@@ -230,9 +604,22 @@
         equipmentId: equipmentId,
         ticketId: ticketId || null,
         techName: tech || null,
-        filterSize: fs && fs.value ? String(fs.value).trim() : "",
-        beltSize: bs && bs.value ? String(bs.value).trim() : "",
+        filterSize:
+          flags.equipmentType === "Mini-Split"
+            ? ""
+            : fs && fs.value
+              ? String(fs.value).trim()
+              : "",
+        beltSize:
+          flags.isDirectDrive || flags.equipmentType === "Mini-Split"
+            ? ""
+            : bs && bs.value
+              ? String(bs.value).trim()
+              : "",
         notes: n && n.value ? String(n.value).trim() : "",
+        isDirectDrive: flags.isDirectDrive,
+        equipmentType: flags.equipmentType,
+        cleanedScreens: flags.cleanedScreens,
         date: todayYmd(),
         savedAt: new Date().toISOString(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -286,6 +673,9 @@
         partsArray: partsArray,
         laborHours: laborHours,
         evidencePhotoUrls: evidencePhotoUrls,
+        isDirectDrive: flags.isDirectDrive,
+        equipmentType: flags.equipmentType,
+        cleanedScreens: flags.cleanedScreens,
         date: todayYmd(),
         savedAt: new Date().toISOString(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -321,6 +711,14 @@
         if (e.target === modal) closeFieldFormModal();
       });
     }
+
+    var aiBtn = document.getElementById("btnScanNotesForForms");
+    if (aiBtn) {
+      aiBtn.addEventListener("click", function () {
+        var text = collectNotesForAiScan();
+        scanNotesForFormRequirements(text);
+      });
+    }
   }
 
   if (document.readyState === "loading") {
@@ -330,6 +728,11 @@
   }
 
   window.renderForm = renderForm;
+  window.renderDynamicForm = renderDynamicForm;
   window.closeFieldFormModal = closeFieldFormModal;
   window.FORM_TEMPLATES = FORM_TEMPLATES;
+  window.scanNotesForFormRequirements = scanNotesForFormRequirements;
+  window.collectNotesForAiScan = collectNotesForAiScan;
+  window.getActiveFormTemplates = fetchActiveFormTemplates;
+  window.hideFormIntentBanner = hideFormIntentBanner;
 })();

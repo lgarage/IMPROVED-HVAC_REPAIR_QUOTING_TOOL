@@ -606,6 +606,79 @@ textarea.field-form-input {
 .history-item.active { border-color: #c89b53; background: #fdfaf2; }
 .history-title { font-weight: 700; color: #1e4b85; }
 .history-sub { font-size: 14px; opacity: .8; margin-top: 6px; }
+
+.history-mode-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.history-mode-tab {
+  flex: 1;
+  padding: 12px 10px;
+  border: 2px solid #e1e8ed;
+  border-radius: 10px;
+  background: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  color: #555;
+  cursor: pointer;
+  font-family: inherit;
+}
+.history-mode-tab.active {
+  border-color: #1e4b85;
+  background: #e8f0fe;
+  color: #1e4b85;
+}
+.tech-job-back-btn {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #e1e8ed;
+  background: #fff;
+  font-weight: 700;
+  color: #1e4b85;
+  cursor: pointer;
+  font-family: inherit;
+}
+.tech-jobs-list { min-height: 40px; }
+.tech-job-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #e1e8ed;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.tech-job-card-title { font-weight: 800; color: #1e4b85; font-size: 15px; }
+.tech-job-card-sub { font-size: 13px; color: #555; line-height: 1.35; }
+.tech-job-card-meta { font-size: 11px; color: #95a5a6; text-transform: uppercase; }
+.tech-job-detail-actions { display: flex; flex-direction: column; gap: 8px; }
+.form-intent-banner { margin-top: 10px; }
+.form-intent-btn {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #c89b53 0%, #a67c3d 100%);
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 4px 12px rgba(200,155,83,0.35);
+}
+.field-equipment-flags { margin: 12px 0; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e8eef4; }
+.field-checkbox-label { text-transform: none; letter-spacing: normal; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.field-checkbox-label input { width: auto; margin: 0; }
 .summary-card { border: 1px solid #e1e8ed; border-radius: 10px; background: #fafbfc; padding: 20px; margin-top: 15px; }
 .summary-card h3 { margin: 0 0 15px 0; font-size: 18px; color: #1e4b85; border-bottom: 2px solid #e1e8ed; padding-bottom: 10px; }
 .summary-row { margin-top: 10px; font-size: 15px; }
@@ -870,6 +943,10 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
         <button type="button" id="btnLaunchRepairQuote" class="btn btn-primary" style="margin: 0; background: #16a085">
           Repair Quote
         </button>
+        <div id="formIntentBanner" class="form-intent-banner hidden"></div>
+        <button type="button" id="btnScanNotesForForms" class="btn btn-primary" style="margin: 0; background: #34495e">
+          Check notes for required forms (AI)
+        </button>
       </div>
     </div>
   </div>
@@ -1103,34 +1180,49 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 </div>
 
 <div id="screen-history" class="screen hidden">
-  <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Site History</h2>
-  <div class="history-box">
-    <label style="margin-top:0;">Customer</label>
-    <select id="historyCustomer"><option value="">Select customer</option></select>
-    <label>Location</label>
-    <select id="historyLocation"><option value="">Select location</option></select>
+  <h2 style="margin: 0 0 16px 0; color: #2c3e50; font-size: 24px;">History</h2>
+  <div class="history-mode-tabs" role="tablist">
+    <button type="button" class="history-mode-tab active" id="historyTabSite" role="tab" aria-selected="true">Site history</button>
+    <button type="button" class="history-mode-tab" id="historyTabMyJobs" role="tab" aria-selected="false">My jobs (30 days)</button>
+  </div>
+  <button type="button" id="techJobDetailBack" class="tech-job-back-btn hidden" aria-label="Back to job list">← Back to list</button>
 
-    <div id="historyLatestWrap" class="hidden">
-      <div class="summary-card">
-        <h3>Last Time We Were On Site</h3>
-        <div id="historyLatest"></div>
+  <div id="historySitePanel" class="history-panel">
+    <div class="history-box">
+      <label style="margin-top:0;">Customer</label>
+      <select id="historyCustomer"><option value="">Select customer</option></select>
+      <label>Location</label>
+      <select id="historyLocation"><option value="">Select location</option></select>
+
+      <div id="historyLatestWrap" class="hidden">
+        <div class="summary-card">
+          <h3>Last Time We Were On Site</h3>
+          <div id="historyLatest"></div>
+        </div>
+      </div>
+
+      <div id="historyOlderWrap" class="hidden">
+        <hr class="soft">
+        <div class="summary-card">
+          <h3>Older Visits</h3>
+          <div id="historyOlderList" class="history-list"></div>
+        </div>
+      </div>
+
+      <div id="historyFullWrap" class="hidden">
+        <hr class="soft">
+        <div class="summary-card">
+          <h3>Selected Visit</h3>
+          <pre id="historyFullReport"></pre>
+        </div>
       </div>
     </div>
+  </div>
 
-    <div id="historyOlderWrap" class="hidden">
-      <hr class="soft">
-      <div class="summary-card">
-        <h3>Older Visits</h3>
-        <div id="historyOlderList" class="history-list"></div>
-      </div>
-    </div>
-
-    <div id="historyFullWrap" class="hidden">
-      <hr class="soft">
-      <div class="summary-card">
-        <h3>Selected Visit</h3>
-        <pre id="historyFullReport"></pre>
-      </div>
+  <div id="historyTechJobsPanel" class="history-panel hidden">
+    <div id="techJobs30List" class="tech-jobs-list"></div>
+    <div id="techJobDetailView" class="hidden">
+      <div id="techJobDetailBody"></div>
     </div>
   </div>
 </div>
@@ -1643,6 +1735,7 @@ function openWorkspace(ticketId) {
   }
 
   document.getElementById('successCard').style.display = 'none';
+  if (typeof hideFormIntentBanner === 'function') hideFormIntentBanner();
   applyMode();
   switchScreen('workspace');
   saveDraft();
@@ -3559,5 +3652,6 @@ window.onload = async function(){
     <script src="../equipment_smart_select.js"></script>
     <script src="../equipment_hub.js"></script>
     <script src="../field_forms.js"></script>
+    <script src="../tech_job_history.js"></script>
 </body>
 </html>
