@@ -49,6 +49,38 @@
   var currentFormId = null;
   var dynamicTemplateDoc = null;
 
+  /** Cached rows from form_templates; kept fresh via onSnapshot. */
+  var formTemplatesCache = null;
+  var formTemplatesUnsubscribe = null;
+
+  function applyFormTemplatesSnapshot(snap) {
+    var out = [];
+    snap.forEach(function (doc) {
+      out.push({ id: doc.id, data: doc.data() || {} });
+    });
+    formTemplatesCache = out;
+  }
+
+  function startFormTemplatesListener() {
+    if (typeof firebase === "undefined" || !firebase.apps.length) return;
+    if (formTemplatesUnsubscribe) return;
+    try {
+      formTemplatesUnsubscribe = firebase
+        .firestore()
+        .collection("form_templates")
+        .onSnapshot(
+          function (snap) {
+            applyFormTemplatesSnapshot(snap);
+          },
+          function (err) {
+            console.error("[field_forms] form_templates listener", err);
+          }
+        );
+    } catch (e) {
+      console.error("[field_forms] startFormTemplatesListener", e);
+    }
+  }
+
   function loadFirebaseStorageCompat() {
     if (typeof firebase !== "undefined" && firebase.storage) {
       return Promise.resolve();
@@ -257,12 +289,45 @@
     fields.forEach(function (f, idx) {
       var name = f.name || "field_" + idx;
       var label = f.label || name;
-      var typ = f.type || "text";
-      var inner =
+      var typ = String(f.type || "text").toLowerCase();
+      var req = f.required ? " <span style=\"color:#e74c3c\">*</span>" : "";
+      var inner = "";
+
+      if (typ === "checkbox") {
+        inner =
+          "<label class=\"field-form-label field-checkbox-label\">" +
+          "<input type=\"checkbox\" id=\"dynfield_" +
+          name +
+          "\"/> <span>" +
+          escapeHtml(label) +
+          "</span>" +
+          req +
+          "</label>";
+        html += wrapFieldRow(inner, f);
+        return;
+      }
+
+      if (typ === "photo") {
+        inner =
+          "<label class=\"field-form-label\" for=\"dynphoto_" +
+          name +
+          "\">" +
+          escapeHtml(label) +
+          req +
+          "</label>" +
+          "<input type=\"file\" accept=\"image/*;capture=camera\" id=\"dynphoto_" +
+          name +
+          "\" class=\"field-form-file\" data-dyn-photo=\"1\"/>";
+        html += wrapFieldRow(inner, f);
+        return;
+      }
+
+      inner =
         "<label class=\"field-form-label\" for=\"dynfield_" +
         name +
         "\">" +
         escapeHtml(label) +
+        req +
         "</label>";
       if (typ === "textarea") {
         inner +=
@@ -271,11 +336,16 @@
           "\" class=\"field-form-input\" placeholder=\"" +
           escapeAttr(f.placeholder || "") +
           "\"></textarea>";
+      } else if (typ === "number") {
+        inner +=
+          "<input type=\"number\" step=\"any\" id=\"dynfield_" +
+          name +
+          "\" class=\"field-form-input\" placeholder=\"" +
+          escapeAttr(f.placeholder || "") +
+          "\"/>";
       } else {
         inner +=
-          "<input type=\"" +
-          typ +
-          "\" id=\"dynfield_" +
+          "<input type=\"text\" id=\"dynfield_" +
           name +
           "\" class=\"field-form-input\" placeholder=\"" +
           escapeAttr(f.placeholder || "") +
@@ -350,19 +420,22 @@
 
   async function fetchActiveFormTemplates() {
     if (typeof firebase === "undefined" || !firebase.apps.length) return [];
+    if (formTemplatesCache !== null) {
+      return formTemplatesCache.filter(function (t) {
+        return t.data.active !== false;
+      });
+    }
     var db = firebase.firestore();
-    var out = [];
     try {
       var snap = await db.collection("form_templates").get();
-      snap.forEach(function (doc) {
-        var d = doc.data() || {};
-        if (d.active === false) return;
-        out.push({ id: doc.id, data: d });
+      applyFormTemplatesSnapshot(snap);
+      return formTemplatesCache.filter(function (t) {
+        return t.data.active !== false;
       });
     } catch (e) {
       console.error("[field_forms] form_templates", e);
     }
-    return out;
+    return [];
   }
 
   /**
@@ -513,6 +586,32 @@
     return parts.join("\n\n");
   }
 
+  async function uploadFieldFormPhotos(files, ticketId, fieldName) {
+    await loadFirebaseStorageCompat();
+    var storage = firebase.storage();
+    var urls = [];
+    var baseTs = Date.now();
+    var safeField = sanitizePathSegment(fieldName || "photo");
+    for (var i = 0; i < files.length; i++) {
+      var file = files[i];
+      if (!file || !file.size) continue;
+      var path =
+        "field_form_evidence/" +
+        sanitizePathSegment(ticketId || "no_ticket") +
+        "/" +
+        safeField +
+        "_" +
+        baseTs +
+        "_" +
+        i +
+        ".jpg";
+      var ref = storage.ref().child(path);
+      await ref.put(file, { contentType: file.type || "image/jpeg" });
+      urls.push(await ref.getDownloadURL());
+    }
+    return urls;
+  }
+
   async function uploadQuotePhotos(files, ticketId) {
     await loadFirebaseStorageCompat();
     var storage = firebase.storage();
@@ -563,11 +662,48 @@
       var tid = String(currentFormId).replace(/^dynamic:/, "");
       var fields = (dynamicTemplateDoc && dynamicTemplateDoc.doc.fields) || [];
       var fieldValues = {};
-      fields.forEach(function (f, idx) {
+      for (var idx = 0; idx < fields.length; idx++) {
+        var f = fields[idx];
         var name = f.name || "field_" + idx;
+        var typ = String(f.type || "text").toLowerCase();
+        if (typ === "checkbox") {
+          var ch = document.getElementById("dynfield_" + name);
+          var ok = ch && ch.checked;
+          if (f.required && !ok) {
+            alert("Required: " + (f.label || name));
+            return;
+          }
+          fieldValues[name] = ok ? "yes" : "no";
+          continue;
+        }
+        if (typ === "photo") {
+          var fin = document.getElementById("dynphoto_" + name);
+          if (f.required && (!fin || !fin.files || !fin.files.length)) {
+            alert("Required photo: " + (f.label || name));
+            return;
+          }
+          if (fin && fin.files && fin.files.length) {
+            try {
+              var purls = await uploadFieldFormPhotos(fin.files, ticketId, name);
+              fieldValues[name] = purls.length ? JSON.stringify(purls) : "";
+            } catch (pe) {
+              console.error(pe);
+              alert("Photo upload failed: " + (pe.message || pe));
+              return;
+            }
+          } else {
+            fieldValues[name] = "";
+          }
+          continue;
+        }
         var el = document.getElementById("dynfield_" + name);
+        var val = el && el.value != null ? String(el.value).trim() : "";
+        if (f.required && !val) {
+          alert("Required: " + (f.label || name));
+          return;
+        }
         fieldValues[name] = el && el.value != null ? String(el.value) : "";
-      });
+      }
       var payload = {
         templateId: tid,
         templateName: dynamicTemplateDoc.doc.templateName || tid,
@@ -719,6 +855,8 @@
         scanNotesForFormRequirements(text);
       });
     }
+
+    startFormTemplatesListener();
   }
 
   if (document.readyState === "loading") {

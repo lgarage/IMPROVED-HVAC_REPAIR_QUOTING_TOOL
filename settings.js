@@ -2019,3 +2019,398 @@ function printVMIReport() {
     document.body.innerHTML = originalContents;
     location.reload(); 
 }
+
+// ====================================================================
+// --- FIELD FORM TEMPLATES (Firestore form_templates) — Dispatcher UI ---
+// ====================================================================
+
+let fieldFormBuilderEditingId = null;
+
+function slugifyFieldFormTemplateId(rawName) {
+    let s = String(rawName || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    if (!s) s = "template";
+    return s.slice(0, 72);
+}
+
+function fieldFormSlugFromLabel(label, index) {
+    let s = slugifyFieldFormTemplateId(label).replace(/_/g, "");
+    if (!s) s = "field";
+    return s + "_" + index;
+}
+
+function mapUiTypeToFirestoreField(row, index) {
+    const label = String(row.label || "").trim();
+    const name = fieldFormSlugFromLabel(label, index);
+    const base = { name, label, required: !!row.required };
+    const u = String(row.uiType || "TEXT").toUpperCase();
+    if (u === "NUMBER") return { ...base, type: "number" };
+    if (u === "PHOTO") return { ...base, type: "photo" };
+    if (u === "CHECKBOX") return { ...base, type: "checkbox" };
+    if (u === "BELT") return { ...base, type: "text", group: "belt" };
+    if (u === "FILTER") return { ...base, type: "text", group: "filter" };
+    return { ...base, type: "text" };
+}
+
+function mapFirestoreFieldToUiType(f) {
+    const g = f.group;
+    if (g === "belt") return "BELT";
+    if (g === "filter") return "FILTER";
+    const t = String(f.type || "text").toLowerCase();
+    if (t === "number") return "NUMBER";
+    if (t === "photo") return "PHOTO";
+    if (t === "checkbox") return "CHECKBOX";
+    return "TEXT";
+}
+
+async function ensureUniqueFieldFormDocId(baseSlug) {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+        return baseSlug + "_" + Date.now();
+    }
+    const db = firebase.firestore();
+    let id = baseSlug;
+    let n = 0;
+    while (n < 200) {
+        const snap = await db.collection("form_templates").doc(id).get();
+        if (!fieldFormBuilderEditingId || id !== fieldFormBuilderEditingId) {
+            if (!snap.exists) return id;
+        } else {
+            return id;
+        }
+        n++;
+        id = baseSlug + "_" + n;
+    }
+    return baseSlug + "_" + Date.now();
+}
+
+function collectFieldFormBuilderRows() {
+    const rows = document.querySelectorAll("#fieldFormBuilderRows .ffb-row");
+    const out = [];
+    rows.forEach((r) => {
+        const label = r.querySelector(".ffb-label");
+        const uiType = r.querySelector(".ffb-type");
+        const req = r.querySelector(".ffb-req");
+        const lv = label && label.value ? String(label.value).trim() : "";
+        if (!lv) return;
+        out.push({
+            label: lv,
+            uiType: uiType && uiType.value ? uiType.value : "TEXT",
+            required: !!(req && req.checked),
+        });
+    });
+    return out;
+}
+
+function addFieldFormBuilderRow(prefill) {
+    const container = document.getElementById("fieldFormBuilderRows");
+    if (!container) return;
+    const row = document.createElement("div");
+    row.className = "ffb-row";
+    row.style.cssText =
+        "border:1px solid #e2e8f0;border-radius:8px;padding:12px;background:#fafbfc;display:flex;flex-direction:column;gap:8px;";
+    const types = [
+        ["TEXT", "Text"],
+        ["NUMBER", "Number"],
+        ["PHOTO", "Photo"],
+        ["CHECKBOX", "Checkbox"],
+        ["BELT", "Belt-Group"],
+        ["FILTER", "Filter-Group"],
+    ];
+    const opts = types.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+    const p = prefill || {};
+    row.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+            <div style="flex:1;min-width:180px;">
+                <label style="font-size:11px;font-weight:600;color:#64748b;">Field label</label>
+                <input type="text" class="ffb-label" placeholder="e.g. Gas pressure" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;" value="${escapeHTML(p.label || "")}" />
+            </div>
+            <div style="width:168px;">
+                <label style="font-size:11px;font-weight:600;color:#64748b;">Type</label>
+                <select class="ffb-type" style="width:100%;padding:8px;border-radius:6px;border:1px solid #cbd5e1;font-size:13px;">${opts}</select>
+            </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <label style="font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <input type="checkbox" class="ffb-req" ${p.required ? "checked" : ""} /> Required
+            </label>
+            <button type="button" class="gen-btn" style="background:#bdc3c7;padding:6px 12px;font-size:12px;color:#333;" onclick="this.closest('.ffb-row').remove()">Remove</button>
+        </div>
+    `;
+    container.appendChild(row);
+    if (p.uiType) {
+        const sel = row.querySelector(".ffb-type");
+        if (sel) sel.value = p.uiType;
+    }
+}
+
+function closeFieldFormBuilderModal() {
+    const m = document.getElementById("fieldFormBuilderModal");
+    if (m) m.style.display = "none";
+}
+
+function closeFieldFormPreviewModal() {
+    const m = document.getElementById("fieldFormPreviewModal");
+    if (m) m.style.display = "none";
+}
+
+function openFieldFormBuilderCreate() {
+    fieldFormBuilderEditingId = null;
+    const title = document.getElementById("fieldFormBuilderModalTitle");
+    if (title) title.textContent = "New field form template";
+    const nameEl = document.getElementById("ffbTemplateName");
+    const kwEl = document.getElementById("ffbTargetKeyword");
+    const act = document.getElementById("ffbActive");
+    const rows = document.getElementById("fieldFormBuilderRows");
+    const del = document.getElementById("fieldFormBuilderDeleteBtn");
+    if (nameEl) nameEl.value = "";
+    if (kwEl) kwEl.value = "";
+    if (act) act.checked = true;
+    if (rows) rows.innerHTML = "";
+    addFieldFormBuilderRow();
+    if (del) del.style.display = "none";
+    const m = document.getElementById("fieldFormBuilderModal");
+    if (m) m.style.display = "flex";
+}
+
+function openFieldFormBuilderEdit(docId) {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+    fieldFormBuilderEditingId = docId;
+    firebase
+        .firestore()
+        .collection("form_templates")
+        .doc(docId)
+        .get()
+        .then((snap) => {
+            if (!snap.exists) {
+                alert("Template not found.");
+                return;
+            }
+            const d = snap.data() || {};
+            const title = document.getElementById("fieldFormBuilderModalTitle");
+            if (title) title.textContent = "Edit field form template";
+            const nameEl = document.getElementById("ffbTemplateName");
+            const kwEl = document.getElementById("ffbTargetKeyword");
+            const act = document.getElementById("ffbActive");
+            const rows = document.getElementById("fieldFormBuilderRows");
+            const del = document.getElementById("fieldFormBuilderDeleteBtn");
+            if (nameEl) nameEl.value = d.templateName || "";
+            if (kwEl) kwEl.value = d.targetKeyword || "";
+            if (act) act.checked = d.active !== false;
+            if (rows) rows.innerHTML = "";
+            const fields = Array.isArray(d.fields) ? d.fields : [];
+            if (fields.length === 0) {
+                addFieldFormBuilderRow();
+            } else {
+                fields.forEach((f) => {
+                    addFieldFormBuilderRow({
+                        label: f.label || "",
+                        uiType: mapFirestoreFieldToUiType(f),
+                        required: !!f.required,
+                    });
+                });
+            }
+            if (del) del.style.display = "inline-block";
+            const m = document.getElementById("fieldFormBuilderModal");
+            if (m) m.style.display = "flex";
+        })
+        .catch((e) => {
+            console.error("openFieldFormBuilderEdit", e);
+            alert("Could not load template.");
+        });
+}
+
+async function saveFieldFormTemplate() {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+        alert("Firebase is not available.");
+        return;
+    }
+    const nameEl = document.getElementById("ffbTemplateName");
+    const kwEl = document.getElementById("ffbTargetKeyword");
+    const act = document.getElementById("ffbActive");
+    const name = nameEl && nameEl.value ? nameEl.value.trim() : "";
+    const kw = kwEl && kwEl.value ? kwEl.value.trim() : "";
+    if (!name) {
+        alert("Enter a template name.");
+        return;
+    }
+    if (!kw) {
+        alert("Enter the AI Trigger Word (target keyword) for Gemini.");
+        return;
+    }
+    const collected = collectFieldFormBuilderRows();
+    if (collected.length === 0) {
+        if (!confirm("This template has no fields. Save anyway?")) return;
+    }
+    const fields = collected.map((row, i) => mapUiTypeToFirestoreField(row, i));
+    let docId = fieldFormBuilderEditingId;
+    if (!docId) {
+        const base = slugifyFieldFormTemplateId(name);
+        docId = await ensureUniqueFieldFormDocId(base);
+    }
+    const payload = {
+        templateName: name,
+        targetKeyword: kw,
+        active: !!(act && act.checked),
+        fields,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    try {
+        await firebase.firestore().collection("form_templates").doc(docId).set(payload, { merge: true });
+        closeFieldFormBuilderModal();
+        await hydrateFieldFormTemplatesList();
+        if (typeof showSaveCue === "function") showSaveCue("✓ Field form template saved");
+        else alert("Saved.");
+    } catch (e) {
+        console.error("saveFieldFormTemplate", e);
+        alert("Save failed: " + (e.message || e));
+    }
+}
+
+async function deleteFieldFormTemplateFromBuilder() {
+    if (!fieldFormBuilderEditingId) return;
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+    if (!confirm("Delete this template permanently? The Field App will no longer show it.")) return;
+    try {
+        await firebase.firestore().collection("form_templates").doc(fieldFormBuilderEditingId).delete();
+        closeFieldFormBuilderModal();
+        fieldFormBuilderEditingId = null;
+        await hydrateFieldFormTemplatesList();
+        if (typeof showSaveCue === "function") showSaveCue("✓ Template deleted");
+    } catch (e) {
+        console.error("deleteFieldFormTemplateFromBuilder", e);
+        alert("Delete failed: " + (e.message || e));
+    }
+}
+
+function buildFieldFormPreviewHtml(doc) {
+    const name = escapeHTML(doc.templateName || "Form");
+    const fields = Array.isArray(doc.fields) ? doc.fields : [];
+    let html =
+        '<div style="background:#f4f7fa;border-radius:16px;padding:12px;max-width:390px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">';
+    html += '<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);">';
+    html += `<h3 style="margin:0 0 12px 0;font-size:17px;color:#1e4b85;">${name}</h3>`;
+    html +=
+        '<label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Equipment</label>';
+    html +=
+        '<div style="padding:12px;border:1px solid #d1d9e0;border-radius:8px;background:#fafbfc;color:#95a5a6;font-size:14px;">Select equipment…</div>';
+    html += '<div style="margin-top:12px;padding:10px;background:#f8fafc;border-radius:8px;border:1px solid #e8eef4;font-size:13px;">';
+    html +=
+        '<label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:default;"><input type="checkbox" disabled /> Direct drive (no belt)</label>';
+    html += '<label style="display:block;font-size:11px;font-weight:600;color:#555;margin-bottom:4px;">Equipment type</label>';
+    html +=
+        '<div style="padding:8px;border:1px solid #d1d9e0;border-radius:8px;background:#fff;">Standard / RTU</div>';
+    html += "</div>";
+    fields.forEach((f, idx) => {
+        const label = escapeHTML(f.label || "Field");
+        const req = f.required ? ' <span style="color:#e74c3c">*</span>' : "";
+        const t = String(f.type || "text").toLowerCase();
+        const g = f.group;
+        html += '<div style="margin-top:14px;">';
+        if (t === "checkbox") {
+            html += `<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#333;"><input type="checkbox" disabled /> ${label}${req}</label>`;
+        } else if (t === "photo") {
+            html += `<label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">${label}${req}</label>`;
+            html +=
+                '<div style="padding:10px;border:1px dashed #cbd5e1;border-radius:8px;color:#95a5a6;font-size:13px;">📷 Photo capture</div>';
+        } else {
+            html += `<label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">${label}${req}`;
+            if (g === "belt") html += ' <span style="font-size:10px;color:#7f8c8d;">(Belt group)</span>';
+            if (g === "filter") html += ' <span style="font-size:10px;color:#7f8c8d;">(Filter group)</span>';
+            html += "</label>";
+            const inputType = t === "number" ? "number" : "text";
+            html += `<input disabled type="${inputType}" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d1d9e0;border-radius:8px;font-size:16px;" placeholder="…" />`;
+        }
+        html += "</div>";
+    });
+    html += '<div style="display:flex;gap:10px;margin-top:18px;">';
+    html +=
+        '<button type="button" disabled style="flex:1;padding:12px;border:1px solid #ccc;border-radius:8px;background:#f4f4f4;color:#999;">Cancel</button>';
+    html +=
+        '<button type="button" disabled style="flex:1;padding:12px;border:none;border-radius:8px;background:#1e4b85;color:#fff;">Save</button>';
+    html += "</div>";
+    html += "</div></div>";
+    return html;
+}
+
+function openFieldFormPreviewFromBuilder() {
+    const nameEl = document.getElementById("ffbTemplateName");
+    const collected = collectFieldFormBuilderRows();
+    const name = nameEl && nameEl.value ? nameEl.value.trim() : "Untitled";
+    if (collected.length === 0) {
+        alert("Add at least one field with a label to preview.");
+        return;
+    }
+    const fields = collected.map((row, i) => mapUiTypeToFirestoreField(row, i));
+    const body = document.getElementById("fieldFormPreviewBody");
+    if (body) body.innerHTML = buildFieldFormPreviewHtml({ templateName: name, fields });
+    const m = document.getElementById("fieldFormPreviewModal");
+    if (m) m.style.display = "flex";
+}
+
+async function deleteFieldFormTemplateById(id) {
+    if (!id || typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+    if (!confirm("Delete this field form template? The Field App will stop offering it.")) return;
+    try {
+        await firebase.firestore().collection("form_templates").doc(id).delete();
+        await hydrateFieldFormTemplatesList();
+        if (typeof showSaveCue === "function") showSaveCue("✓ Template deleted");
+    } catch (e) {
+        console.error("deleteFieldFormTemplateById", e);
+        alert("Delete failed: " + (e.message || e));
+    }
+}
+
+async function hydrateFieldFormTemplatesList() {
+    const container = document.getElementById("fieldFormTemplatesList");
+    if (!container) return;
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+        container.innerHTML =
+            '<p style="color:#e74c3c;font-size:13px;">Connect to Firebase to manage field form templates.</p>';
+        return;
+    }
+    container.innerHTML =
+        '<p style="color:#7f8c8d;font-size:13px;">Loading templates…</p>';
+    try {
+        const snap = await firebase.firestore().collection("form_templates").get();
+        const rows = [];
+        snap.forEach((doc) => {
+            rows.push({ id: doc.id, ...doc.data() });
+        });
+        rows.sort((a, b) =>
+            String(a.templateName || a.id || "").localeCompare(String(b.templateName || b.id || ""))
+        );
+        if (rows.length === 0) {
+            container.innerHTML =
+                '<p style="color:#7f8c8d;font-size:13px;">No templates yet. Create one to use in the Field App.</p>';
+            return;
+        }
+        let html = "";
+        rows.forEach((r) => {
+            const active = r.active !== false;
+            const kw = escapeHTML(String(r.targetKeyword || "—"));
+            const nm = escapeHTML(String(r.templateName || r.id));
+            const nf = Array.isArray(r.fields) ? r.fields.length : 0;
+            html += `<div style="background:#fff;border:1px solid #e1e8ed;border-radius:10px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.04);">`;
+            html += `<div style="min-width:200px;flex:1;">`;
+            html += `<div style="font-weight:800;color:#1e4b85;font-size:15px;">${nm}</div>`;
+            html += `<div style="font-size:12px;color:#64748b;margin-top:4px;">AI trigger: <strong style="color:#334155;">${kw}</strong> · ${nf} field(s) · `;
+            html += active
+                ? '<span style="color:#16a085;font-weight:700;">Active</span>'
+                : '<span style="color:#95a5a6;font-weight:700;">Inactive</span>';
+            html += ` · <span style="color:#94a3b8;">id: ${escapeHTML(r.id)}</span>`;
+            html += `</div></div>`;
+            html += `<div style="display:flex;gap:8px;flex-wrap:wrap;">`;
+            html += `<button type="button" class="gen-btn" style="background:#f39c12;padding:8px 16px;font-size:13px;color:#fff;" onclick="openFieldFormBuilderEdit(${JSON.stringify(r.id)})">Edit</button>`;
+            html += `<button type="button" class="gen-btn" style="background:#e74c3c;padding:8px 16px;font-size:13px;color:#fff;" onclick="deleteFieldFormTemplateById(${JSON.stringify(r.id)})">Delete</button>`;
+            html += `</div></div>`;
+        });
+        container.innerHTML = html;
+    } catch (e) {
+        console.error("hydrateFieldFormTemplatesList", e);
+        container.innerHTML =
+            '<p style="color:#e74c3c;font-size:13px;">Could not load templates. Check Firestore rules.</p>';
+    }
+}
