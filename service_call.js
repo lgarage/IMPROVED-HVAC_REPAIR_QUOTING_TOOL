@@ -30,8 +30,45 @@ function updateTicketPrefix() {
     }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-    loadServiceCallsFromCloud(); 
+var _serviceCallsBoardUnsub = null;
+
+function subscribeServiceCallsFromCloud() {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+        void loadServiceCallsFromCloud();
+        return;
+    }
+    try {
+        if (_serviceCallsBoardUnsub) {
+            _serviceCallsBoardUnsub();
+            _serviceCallsBoardUnsub = null;
+        }
+        _serviceCallsBoardUnsub = firebase
+            .firestore()
+            .collection("service_calls")
+            .onSnapshot(
+                function (snapshot) {
+                    var cloudDb = [];
+                    snapshot.forEach(function (doc) {
+                        cloudDb.push({ id: doc.id, ...doc.data() });
+                    });
+                    try {
+                        localStorage.setItem("twinPillarsServiceDB", JSON.stringify(cloudDb));
+                    } catch (e) {}
+                    if (typeof renderServiceBoard === "function") renderServiceBoard();
+                },
+                function (err) {
+                    console.warn("service_calls live listener:", err);
+                    void loadServiceCallsFromCloud();
+                }
+            );
+    } catch (e) {
+        console.warn("subscribeServiceCallsFromCloud:", e);
+        void loadServiceCallsFromCloud();
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+    subscribeServiceCallsFromCloud();
 });
 
 async function loadServiceCallsFromCloud() {
@@ -66,6 +103,9 @@ async function syncSingleServiceCallToCloud(dbId, data) {
     }
 }
 
+/** Last plotted marker positions for “Zoom to fit” (Leaflet [lat, lng]). */
+var dispatchMapMarkerCoords = [];
+
 function initMap() {
     delete L.Icon.Default.prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
@@ -80,74 +120,194 @@ function initMap() {
     streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
     satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
 
-    streetLayer.addTo(dispatchMap); 
+    streetLayer.addTo(dispatchMap);
     markerLayer = L.layerGroup().addTo(dispatchMap);
 }
 
 function setMapType(type) {
-    if (type === 'm') { dispatchMap.removeLayer(satLayer); streetLayer.addTo(dispatchMap); } 
+    if (type === 'm') { dispatchMap.removeLayer(satLayer); streetLayer.addTo(dispatchMap); }
     else { dispatchMap.removeLayer(streetLayer); satLayer.addTo(dispatchMap); }
 }
 
-async function plotMarkerOnMap(address, sc) {
-    if (!address || address.includes("UNKNOWN LOCATION")) return;
-    let cache = JSON.parse(localStorage.getItem('tp_geo_cache') || '{}');
-    if (cache[address]) { addCustomPin(cache[address], sc); return; }
+function escapeHtmlDispatchMap(s) {
+    return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
 
+/** Same palette order as Gantt tech rows (avatar / row color). */
+function getTechColorForAssignedTech(assignedTech) {
+    var colorPalette = ["#2980b9", "#8e44ad", "#d35400", "#16a085", "#27ae60", "#f39c12", "#c0392b", "#34495e"];
+    if (!assignedTech || assignedTech === "Unassigned") return "#95a5a6";
+    var savedTechs = JSON.parse(localStorage.getItem("tp_tech_list") || "[]");
+    var idx = savedTechs.indexOf(assignedTech);
+    if (idx >= 0) return colorPalette[idx % colorPalette.length];
+    return "#3498db";
+}
+
+function buildFullAddressFromServiceCall(sc) {
+    if (!sc) return "";
+    var parts = [
+        sc.locationAddress,
+        sc.custCity,
+        sc.custState,
+        sc.custZip
+    ].map(function (p) { return p != null ? String(p).trim() : ""; });
+    return parts.filter(Boolean).join(", ");
+}
+
+function readLocalGeoCache(fullAddress) {
     try {
-        let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
-        let data = await res.json();
-        if (data && data.length > 0) {
-            let coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-            cache[address] = coords;
-            localStorage.setItem('tp_geo_cache', JSON.stringify(cache));
-            addCustomPin(coords, sc);
-        } else {
-            let fallback = [44.5133 + (Math.random()-0.5)*0.05, -88.0133 + (Math.random()-0.5)*0.05];
-            addCustomPin(fallback, sc);
-        }
-    } catch(e) { console.log("Geocode failed", e); }
+        var cache = JSON.parse(localStorage.getItem("tp_geo_cache") || "{}");
+        return cache[fullAddress] || null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function writeLocalGeoCache(fullAddress, lat, lng) {
+    try {
+        var cache = JSON.parse(localStorage.getItem("tp_geo_cache") || "{}");
+        cache[fullAddress] = [lat, lng];
+        localStorage.setItem("tp_geo_cache", JSON.stringify(cache));
+    } catch (e) {}
+}
+
+async function persistServiceCallGeocode(scId, lat, lng) {
+    var db = JSON.parse(localStorage.getItem("twinPillarsServiceDB") || "[]");
+    var idx = db.findIndex(function (s) { return s.id === scId; });
+    if (idx === -1) return;
+    db[idx].geoLat = lat;
+    db[idx].geoLng = lng;
+    localStorage.setItem("twinPillarsServiceDB", JSON.stringify(db));
+    if (typeof syncSingleServiceCallToCloud === "function") {
+        await syncSingleServiceCallToCloud(scId, { geoLat: lat, geoLng: lng });
+    }
 }
 
 function addCustomPin(coords, sc) {
-    let color = '#3498db'; 
-    if(sc.priority === 'Emergency') color = '#e74c3c';
-    if(sc.priority === 'Urgent') color = '#f39c12';
-    if(sc.priority === 'Routine') color = '#95a5a6';
+    var techColor = getTechColorForAssignedTech(sc.assignedTech);
+    var markerHtml = '<div style="background-color: ' + techColor + "; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.6);\"></div>";
+    var customIcon = L.divIcon({ html: markerHtml, className: "custom-leaflet-marker", iconSize: [22, 22], iconAnchor: [11, 11] });
+    var marker = L.marker(coords, { icon: customIcon }).addTo(markerLayer);
+    var popupHtml =
+        "<div style=\"min-width:190px;\">" +
+        "<strong style=\"color:#1e4b85;\">" +
+        escapeHtmlDispatchMap(sc.customerName) +
+        "</strong><br>" +
+        "<span style=\"font-size:12px;color:#444;\">Status: " +
+        escapeHtmlDispatchMap(sc.status || "—") +
+        "</span><br>" +
+        "<span style=\"font-size:12px;color:#444;\">Tech: " +
+        escapeHtmlDispatchMap(sc.assignedTech || "Unassigned") +
+        "</span><br>" +
+        "<button type=\"button\" class=\"gen-btn dispatch-map-view-ticket-btn\" style=\"margin-top:10px;padding:8px 10px;font-size:12px;width:100%;background:#1e4b85;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;\">🔍 View Ticket</button>" +
+        "</div>";
+    marker.bindPopup(popupHtml);
+    marker.on("popupopen", function () {
+        var pu = marker.getPopup();
+        var el = pu && pu.getElement ? pu.getElement() : null;
+        var btn = el && el.querySelector(".dispatch-map-view-ticket-btn");
+        if (btn) {
+            btn.onclick = function () {
+                openTicketDetails(sc.id);
+                dispatchMap.closePopup();
+            };
+        }
+    });
+}
 
-    const markerHtml = `<div style="background-color: ${color}; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.6);"></div>`;
-    const customIcon = L.divIcon({ html: markerHtml, className: 'custom-leaflet-marker', iconSize: [22, 22], iconAnchor: [11, 11] });
-    let marker = L.marker(coords, {icon: customIcon}).addTo(markerLayer);
-    marker.bindPopup(`<strong style="color:#1e4b85;">${sc.customerName}</strong><br>${sc.ticketNum}<br><button class="gen-btn" style="margin-top:8px; padding:4px 8px; font-size:11px; background:#2ecc71; width:100%;" onclick="openTicketDetails('${sc.id}')">View Details</button>`);
+/**
+ * Resolve coordinates (Firestore geo fields → local cache → Nominatim), persist when newly resolved.
+ */
+async function placeMarkerForServiceCall(sc) {
+    var fullAddress = buildFullAddressFromServiceCall(sc);
+    if (!fullAddress || fullAddress.indexOf("UNKNOWN") !== -1) return;
+
+    var lat;
+    var lng;
+
+    var gLat = parseFloat(sc.geoLat);
+    var gLng = parseFloat(sc.geoLng);
+    if (isFinite(gLat) && isFinite(gLng)) {
+        lat = gLat;
+        lng = gLng;
+    } else {
+        var cached = readLocalGeoCache(fullAddress);
+        if (cached && cached.length >= 2) {
+            lat = parseFloat(cached[0]);
+            lng = parseFloat(cached[1]);
+            if (isFinite(lat) && isFinite(lng)) {
+                await persistServiceCallGeocode(sc.id, lat, lng);
+            } else {
+                return;
+            }
+        } else if (typeof getCoordinatesForAddress === "function") {
+            var resolved = await getCoordinatesForAddress(fullAddress);
+            if (!resolved) return;
+            lat = resolved.lat;
+            lng = resolved.lng;
+            writeLocalGeoCache(fullAddress, lat, lng);
+            await persistServiceCallGeocode(sc.id, lat, lng);
+        } else {
+            return;
+        }
+    }
+
+    var ll = [lat, lng];
+    dispatchMapMarkerCoords.push(ll);
+    addCustomPin(ll, sc);
 }
 
 function centerMapOnTicket(dbId) {
-    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
-    const sc = db.find(s => s.id === dbId);
-    if (!sc) return;
-    const fullAddress = `${sc.locationAddress}, ${sc.custCity}, ${sc.custState} ${sc.custZip}`;
-    let cache = JSON.parse(localStorage.getItem('tp_geo_cache') || '{}');
-    if (cache[fullAddress]) { dispatchMap.flyTo(cache[fullAddress], 16, { animate: true, duration: 1.5 }); }
+    var db = JSON.parse(localStorage.getItem("twinPillarsServiceDB") || "[]");
+    var sc = db.find(function (s) { return s.id === dbId; });
+    if (!sc || !dispatchMap) return;
+    var fullAddress = buildFullAddressFromServiceCall(sc);
+    var cLat = parseFloat(sc.geoLat);
+    var cLng = parseFloat(sc.geoLng);
+    if (isFinite(cLat) && isFinite(cLng)) {
+        dispatchMap.flyTo([cLat, cLng], 16, { animate: true, duration: 1.2 });
+        return;
+    }
+    var cache = readLocalGeoCache(fullAddress);
+    if (cache && cache.length >= 2) {
+        dispatchMap.flyTo([parseFloat(cache[0]), parseFloat(cache[1])], 16, { animate: true, duration: 1.2 });
+    }
 }
 
-// --- DYNAMIC MAP MARKER REFRESH ---
-function updateMapMarkers() {
-    if (!markerLayer) return;
-    
-    // Clear out the old pins so they don't duplicate
-    markerLayer.clearLayers(); 
-    
-    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
-    
-    db.forEach(sc => {
-        if (sc.archived) return;
-        // Hide tickets that are completely done
-        if (sc.status === 'Completed' || sc.status === 'Canceled') return;
-        
-        // Assemble the full address and plot it
-        let fullAddress = `${sc.locationAddress}, ${sc.custCity}, ${sc.custState} ${sc.custZip}`;
-        plotMarkerOnMap(fullAddress, sc);
+/** Fit the map to all active job markers (same set as the left dispatch list). */
+function zoomMapToFitMarkers() {
+    if (!dispatchMap) return;
+    if (!dispatchMapMarkerCoords.length) {
+        if (typeof showSaveCue === "function") showSaveCue("No active job pins to show on the map.");
+        return;
+    }
+    if (dispatchMapMarkerCoords.length === 1) {
+        dispatchMap.setView(dispatchMapMarkerCoords[0], 14);
+        return;
+    }
+    var bounds = L.latLngBounds(dispatchMapMarkerCoords);
+    dispatchMap.fitBounds(bounds, { padding: [36, 36], maxZoom: 15 });
+}
+
+async function updateMapMarkers() {
+    if (!markerLayer || !dispatchMap) return;
+    markerLayer.clearLayers();
+    dispatchMapMarkerCoords = [];
+
+    var db = JSON.parse(localStorage.getItem("twinPillarsServiceDB") || "[]");
+    var active = db.filter(function (sc) {
+        if (sc.archived) return false;
+        if (sc.status === "Completed" || sc.status === "Canceled") return false;
+        return true;
     });
+
+    for (var i = 0; i < active.length; i++) {
+        await placeMarkerForServiceCall(active[i]);
+    }
 }
 
 function initDragAndDrop() {
@@ -331,7 +491,12 @@ async function saveServiceCall(isAutoSave = false) {
     }
 
     localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
-    syncSingleServiceCallToCloud(data.id, data); 
+    var recordToSync = data;
+    if (data.id) {
+        var merged = db.find(function (sc) { return sc.id === data.id; });
+        if (merged) recordToSync = merged;
+    }
+    syncSingleServiceCallToCloud(recordToSync.id, recordToSync);
     renderServiceBoard();
     if (isAutoSave) showSaveCue("✓ Auto-Saved");
     return true;
@@ -847,7 +1012,11 @@ function renderServiceBoard() {
         tContainer.appendChild(block);
     });
     
-    if(typeof updateMapMarkers === 'function') updateMapMarkers();
+    if (typeof updateMapMarkers === "function") {
+        void updateMapMarkers().catch(function (e) {
+            console.warn("updateMapMarkers:", e);
+        });
+    }
     updateCurrentTimeLine();
 }
 
