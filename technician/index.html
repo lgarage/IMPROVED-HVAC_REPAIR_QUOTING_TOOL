@@ -19,6 +19,17 @@ body {
   margin: 0; padding: 0; background: #f4f7fa; color: #333; -webkit-font-smoothing: antialiased;
 }
 * { box-sizing: border-box; }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 /* --- TOP SHELL: logo row + sticky segmented main nav --- */
 .app-top-shell {
@@ -461,6 +472,230 @@ body {
   margin: 0;
   padding: 8px 0;
 }
+
+/* --- DICTATION HUB (asset-centric visit flow) --- */
+.dictation-hub-shell {
+  margin-bottom: 20px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.12);
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+.dictation-hub-top {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  color: #f8fafc;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dictation-hub-process-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.dictation-process-status {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dictation-process-status.dictation-process-status--done {
+  color: #4ade80;
+}
+.dictation-hub-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.dictation-hub-process-btn {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: #38bdf8;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.35);
+}
+.dictation-hub-process-btn:active {
+  transform: scale(0.98);
+  opacity: 0.95;
+}
+#dictationHubNotes {
+  display: block;
+  width: 100%;
+  margin: 0;
+  min-height: 160px;
+  padding: 14px 16px;
+  font-size: 16px;
+  line-height: 1.45;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  resize: vertical;
+  font-family: inherit;
+  background: #fafbfc;
+  color: #0f172a;
+}
+#dictationHubNotes::placeholder {
+  color: #94a3b8;
+}
+.dictation-action-tray-wrap {
+  padding: 12px 0 14px;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+}
+.dictation-action-tray-head {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  padding: 0 16px 8px;
+}
+.dictation-action-tray {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 16px 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.dictation-action-tray-loading,
+.dictation-action-tray-empty {
+  margin: 0;
+  padding: 8px 16px 12px;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.45;
+}
+.dictation-action-tray-empty code {
+  font-size: 11px;
+  background: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.dictation-asset-card {
+  flex: 0 0 auto;
+  width: min(200px, 78vw);
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.07);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.dictation-asset-card-thumb {
+  height: 72px;
+  background: #e8eef5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.dictation-asset-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.dictation-asset-card-thumb--placeholder {
+  color: #94a3b8;
+  font-size: 28px;
+  font-weight: 300;
+}
+.dictation-asset-card-body {
+  padding: 10px 12px 12px;
+}
+.dictation-asset-card-id {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+.dictation-asset-card-meta {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e4b85;
+  margin-bottom: 4px;
+}
+.dictation-asset-card-loc {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.35;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.dictation-asset-card-date {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+.dictation-asset-card.active-asset {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35), 0 6px 20px rgba(15, 23, 42, 0.1);
+}
+.dictation-asset-card--ghost {
+  border-style: dashed;
+  border-color: #94a3b8;
+  background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+}
+.dictation-asset-card--ghost .dictation-asset-card-thumb {
+  background: #e0f2fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.dictation-ghost-upload-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: #0ea5e9;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+.dictation-ghost-upload-btn:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+.dictation-ghost-upload-btn svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+.dictation-site-nav {
+  background: #1e4b85;
+  color: #fff;
+  padding: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.dictation-site-nav .ws-customer { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+.dictation-site-nav .ws-ticket { font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold; }
+.dictation-site-nav .ws-address { margin-bottom: 12px; }
 
 .workspace-header {
   background: #1e4b85; color: #fff; padding: 20px; border-radius: 12px; margin-bottom: 20px;
@@ -1701,13 +1936,30 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     <p>Saved successfully. You can return to your schedule.</p>
   </div>
 
-  <div class="workspace-header">
-    <div id="ws-customer" class="ws-customer">Select a Job</div>
-    <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
-      Return to Schedule to pick a ticket
-    </button>
-    <div id="ws-ticket" class="ws-ticket">NO TICKET</div>
-  </div>
+  <section class="dictation-hub-shell" aria-label="Dictation and site assets">
+    <div class="dictation-hub-top">
+      <h2 class="dictation-hub-title">Dictation Hub</h2>
+      <div class="dictation-hub-process-wrap">
+        <button type="button" id="dictationProcessBtn" class="dictation-hub-process-btn">Process notes</button>
+        <span id="dictationProcessStatus" class="dictation-process-status" aria-live="polite"></span>
+      </div>
+    </div>
+    <label for="dictationHubNotes" class="visually-hidden">Raw visit notes</label>
+    <textarea id="dictationHubNotes" placeholder="Raw visit notes — speak, type, or paste here. This field stays on screen for the whole visit." rows="6" autocomplete="off"></textarea>
+    <div class="dictation-action-tray-wrap">
+      <div class="dictation-action-tray-head">Dynamic action tray — units on site</div>
+      <div id="dictationActionTray" class="dictation-action-tray">
+        <p class="dictation-action-tray-empty">Open a job to load site assets.</p>
+      </div>
+    </div>
+    <nav class="dictation-site-nav" aria-label="Customer and site">
+      <div id="ws-customer" class="ws-customer">Select a Job</div>
+      <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
+        Return to Schedule to pick a ticket
+      </button>
+      <div id="ws-ticket" class="ws-ticket">NO TICKET</div>
+    </nav>
+  </section>
 
   <div id="workspaceCustomerEvidence" class="hidden" aria-live="polite"></div>
   <div id="workspaceFieldEvidence" class="hidden" aria-live="polite"></div>
@@ -2252,6 +2504,7 @@ function switchScreen(screenName) {
   if (screenName !== 'workspace') {
     teardownWorkspaceAddendums();
     applyWorkspaceHistoricalMode(false);
+    if (typeof teardownDictationHub === 'function') teardownDictationHub();
   }
   document.querySelectorAll('.screen').forEach(s => { s.classList.add('hidden'); s.classList.remove('active'); });
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -3119,6 +3372,7 @@ function openWorkspace(ticketId) {
   switchScreen('workspace');
   saveDraft();
   if (typeof refreshJobLinkedEquipmentDropdown === "function") refreshJobLinkedEquipmentDropdown();
+  if (typeof startDictationHubFromWorkspace === "function") startDictationHubFromWorkspace();
 }
 
 /* ---------- location local formatting fallback ---------- */
@@ -5047,6 +5301,7 @@ window.onload = async function(){
 
     <script src="../equipment_manager.js?v=7"></script>
     <script src="../equipment_smart_select.js"></script>
+    <script src="../dictation_hub.js"></script>
     <script src="../equipment_hub.js"></script>
     <script src="../field_forms.js"></script>
     <script src="../tech_job_history.js"></script>
