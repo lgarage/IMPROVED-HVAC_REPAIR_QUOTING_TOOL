@@ -823,6 +823,147 @@
     );
   }
 
+  function getFirestoreDb() {
+    if (typeof db !== "undefined" && db) return db;
+    if (typeof firebase !== "undefined" && firebase.apps && firebase.apps.length) {
+      return firebase.firestore();
+    }
+    return null;
+  }
+
+  function buildDictationPlateOcrPrompt() {
+    return [
+      "You are an expert HVAC data-plate OCR assistant.",
+      "Analyze the image and extract ONLY visible text. Return a single JSON object (no markdown) with these keys:",
+      "manufacturer (string), modelNumber (string), serialNumber (string), voltage (string), phase (string), refrigerant (string).",
+      'Use empty string "" for any field not legible on the plate. Do not invent values.',
+    ].join(" ");
+  }
+
+  /**
+   * Dictation Hub / asset tray: camera capture → Storage URL → optional Gemini plate OCR → setDoc merge on customers/.../assets/{logicalId}.
+   * @param {{ logicalId: string, customerId: string, siteId: string, kind?: string }} opts kind: "nameplate" | "overall"
+   * @param {File} file
+   * @returns {Promise<object>} merged patch summary
+   */
+  function dictationPromoteAssetPhoto(opts, file) {
+    if (!file || !file.type || !file.type.startsWith("image/")) {
+      return Promise.reject(new Error("Choose a photo."));
+    }
+    var logicalId = sanitizePathSegment((opts && opts.logicalId) || "unit");
+    var customerId = sanitizePathSegment((opts && opts.customerId) || "");
+    var siteId = sanitizePathSegment((opts && opts.siteId) || "");
+    var kind = opts && opts.kind === "overall" ? "overall" : "nameplate";
+    if (!customerId || !siteId) {
+      return Promise.reject(new Error("Missing customer or site context."));
+    }
+
+    var fsdb = getFirestoreDb();
+    if (!fsdb) {
+      return Promise.reject(new Error("Firestore not available."));
+    }
+
+    var mime = file.type || "image/jpeg";
+    var ext = /png/i.test(mime) ? "png" : "jpg";
+    var ts = Date.now();
+    var storagePath =
+      "dictation_hub_assets/" +
+      customerId +
+      "/" +
+      siteId +
+      "/" +
+      logicalId +
+      "/" +
+      kind +
+      "_" +
+      ts +
+      "." +
+      ext;
+
+    return ensureFirebaseStorage()
+      .then(function () {
+        var storage = firebase.storage();
+        var ref = storage.ref().child(storagePath);
+        return ref.put(file, { contentType: mime }).then(function () {
+          return ref.getDownloadURL();
+        });
+      })
+      .then(function (downloadUrl) {
+        var ocrPromise =
+          kind === "nameplate"
+            ? fileToBase64(file).then(function (b64) {
+                return callGeminiVision(b64, mime, buildDictationPlateOcrPrompt()).then(
+                  function (text) {
+                    return parseGeminiJson(text);
+                  }
+                );
+              })
+            : Promise.resolve(null);
+
+        return ocrPromise.then(function (ocr) {
+          var assetRef = fsdb
+            .collection("customers")
+            .doc(customerId)
+            .collection("sites")
+            .doc(siteId)
+            .collection("assets")
+            .doc(logicalId);
+
+          return assetRef.get().then(function (snap) {
+            var prev = snap.exists ? snap.data() || {} : {};
+            var images = Object.assign({}, prev.images || {});
+            if (kind === "nameplate") {
+              images.nameplate = Object.assign({}, images.nameplate || {}, {
+                url: downloadUrl,
+              });
+            } else {
+              images.overall = Object.assign({}, images.overall || {}, {
+                url: downloadUrl,
+              });
+            }
+
+            var patch = {
+              id: logicalId,
+              images: images,
+              updatedAt:
+                firebase.firestore && firebase.firestore.FieldValue
+                  ? firebase.firestore.FieldValue.serverTimestamp()
+                  : new Date().toISOString(),
+            };
+
+            if (ocr && typeof ocr === "object") {
+              if (ocr.manufacturer != null && String(ocr.manufacturer).trim()) {
+                patch.manufacturer = String(ocr.manufacturer).trim();
+              }
+              if (ocr.modelNumber != null && String(ocr.modelNumber).trim()) {
+                patch.modelNumber = String(ocr.modelNumber).trim();
+              } else if (ocr.model != null && String(ocr.model).trim()) {
+                patch.modelNumber = String(ocr.model).trim();
+              }
+              if (ocr.serialNumber != null && String(ocr.serialNumber).trim()) {
+                patch.serialNumber = String(ocr.serialNumber).trim();
+              } else if (ocr.serial != null && String(ocr.serial).trim()) {
+                patch.serialNumber = String(ocr.serial).trim();
+              }
+              if (ocr.voltage != null && String(ocr.voltage).trim()) {
+                patch.voltage = String(ocr.voltage).trim();
+              }
+              if (ocr.phase != null && String(ocr.phase).trim()) {
+                patch.phase = String(ocr.phase).trim();
+              }
+              if (ocr.refrigerant != null && String(ocr.refrigerant).trim()) {
+                patch.refrigerant = String(ocr.refrigerant).trim();
+              }
+            }
+
+            return assetRef.set(patch, { merge: true }).then(function () {
+              return patch;
+            });
+          });
+        });
+      });
+  }
+
   function open(opts) {
     if (
       opts &&
@@ -909,6 +1050,7 @@
   }
 
   window.processOcrQueue = processOcrQueue;
+  window.dictationPromoteAssetPhoto = dictationPromoteAssetPhoto;
 
   window.EquipmentManager = {
     open: open,

@@ -1,21 +1,24 @@
 /**
- * Dictation-first workspace: Firestore asset tray + Gemini "HVAC Rosetta Stone" mapping.
+ * Dictation Hub: Firestore asset tray, Rosetta Gemini mapping, verification states, OCR promotion.
  *
- * Firestore: customers/{customerId}/sites/{siteId}/assets/{assetId}
+ * Firestore: customers/{customerId}/sites/{siteId}/assets/{assetDocId}
  *
- * Depends on: firebase, activeTicket, getGeminiApiKey, GEMINI_GENERATE_MODEL (technician app)
+ * Promotion: window.dictationPromoteAssetPhoto (equipment_manager.js)
  */
 (function () {
   "use strict";
 
-  /** After a successful Process, re-applied when Firestore refreshes the tray. null = never processed this session. */
   var rosettaState = { ids: null };
   var lastDictationTicketId = null;
+  /** @type {Object.<string, { id: string, data: object }>} */
+  var trayRowCache = {};
 
   var assetsUnsub = null;
   var notesInputBound = false;
   var notesDebounce = null;
   var locationBlurBound = false;
+  var trayDelegationWired = false;
+  var pendingCapture = null;
 
   var SYSTEM_INSTRUCTION = [
     "You are a master HVAC data-mapper. Follow these rules exactly.",
@@ -29,10 +32,10 @@
     "",
     "QUANTITY / MULTIPLIERS:",
     'Spelled or spoken quantities must expand into numbered asset ids (e.g. "Two RTUs" → RTU1 and RTU2).',
-    'Use digit counts when given: 1 → one id, 2 → two ids, etc.',
+    "Use digit counts when given: 1 → one id, 2 → two ids, etc.",
     'The words "both", "pair", or "a pair" mean 2 units of the preceding or implied equipment type.',
     'The word "handful" means 3 units.',
-    'If quantity is unclear, infer conservatively from context or use a single unit (…1).',
+    "If quantity is unclear, infer conservatively from context or use a single unit (…1).",
     "",
     "OUTPUT:",
     "Return ONLY valid JSON (no markdown fences) with exactly these keys:",
@@ -81,15 +84,58 @@
     return "—";
   }
 
+  function getImageUrl(node) {
+    if (!node) return "";
+    if (typeof node === "string") return node.trim() ? node : "";
+    return node.url && String(node.url).trim() ? String(node.url).trim() : "";
+  }
+
+  function getModelNumber(d) {
+    if (!d || typeof d !== "object") return "";
+    if (d.modelNumber != null && String(d.modelNumber).trim()) {
+      return String(d.modelNumber).trim();
+    }
+    if (d.model != null && String(d.model).trim()) return String(d.model).trim();
+    return "";
+  }
+
+  function getSerialNumber(d) {
+    if (!d || typeof d !== "object") return "";
+    if (d.serialNumber != null && String(d.serialNumber).trim()) {
+      return String(d.serialNumber).trim();
+    }
+    if (d.serialJob != null && String(d.serialJob).trim()) {
+      return String(d.serialJob).trim();
+    }
+    if (d.serial != null && String(d.serial).trim()) return String(d.serial).trim();
+    return "";
+  }
+
   function pickThumbUrl(images) {
     if (!images || typeof images !== "object") return "";
-    var g = images.ghost;
+    var ov = images.overall;
     var n = images.nameplate;
-    if (g && g.thumbUrl) return String(g.thumbUrl);
-    if (g && g.url) return String(g.url);
-    if (n && n.thumbUrl) return String(n.thumbUrl);
-    if (n && n.url) return String(n.url);
+    var g = images.ghost;
+    if (ov && getImageUrl(ov)) return getImageUrl(ov);
+    if (n && getImageUrl(n)) return getImageUrl(n);
+    if (g && getImageUrl(g)) return getImageUrl(g);
     return "";
+  }
+
+  function computeVerification(d) {
+    var img = (d && d.images) || {};
+    var hasNp = !!getImageUrl(img.nameplate);
+    var hasOv = !!getImageUrl(img.overall);
+    var hasModel = !!getModelNumber(d);
+    var hasSerial = !!getSerialNumber(d);
+    var verified = hasModel && hasSerial && hasNp && hasOv;
+    return {
+      verified: verified,
+      hasModel: hasModel,
+      hasSerial: hasSerial,
+      hasNameplate: hasNp,
+      hasOverall: hasOv,
+    };
   }
 
   function normalizeUnitId(s) {
@@ -137,8 +183,256 @@
     if (kind === "done") el.classList.add("dictation-process-status--done");
   }
 
+  function getDictationSiteContext() {
+    if (typeof activeTicket === "undefined" || !activeTicket) {
+      return { customerId: "", siteId: "" };
+    }
+    var locEl = document.getElementById("location");
+    var locLine =
+      locEl && locEl.value
+        ? String(locEl.value).trim()
+        : activeTicket.customerName + " - " + (activeTicket.locationAddress || "");
+    return {
+      customerId: sanitizePathSegment(activeTicket.customerName || ""),
+      siteId: sanitizePathSegment(locLine),
+    };
+  }
+
+  function ensureCameraInput() {
+    var el = document.getElementById("dictationAssetCameraInput");
+    if (el) return el;
+    el = document.createElement("input");
+    el.type = "file";
+    el.id = "dictationAssetCameraInput";
+    el.accept = "image/*";
+    el.setAttribute("capture", "environment");
+    el.className = "visually-hidden";
+    el.setAttribute("tabindex", "-1");
+    el.setAttribute("aria-hidden", "true");
+    document.body.appendChild(el);
+    el.addEventListener("change", onCameraInputChange);
+    return el;
+  }
+
+  function onCameraInputChange() {
+    var input = document.getElementById("dictationAssetCameraInput");
+    var f = input && input.files && input.files[0];
+    var ctx = pendingCapture;
+    pendingCapture = null;
+    if (!f || !ctx) return;
+    if (typeof window.dictationPromoteAssetPhoto !== "function") {
+      alert("Asset engine not loaded. Refresh the page.");
+      return;
+    }
+    setProcessStatus("", "⏳ OCR & save…");
+    window
+      .dictationPromoteAssetPhoto(
+        {
+          logicalId: ctx.logicalId,
+          customerId: ctx.customerId,
+          siteId: ctx.siteId,
+          kind: ctx.kind,
+        },
+        f
+      )
+      .then(function () {
+        setProcessStatus("done", "✓ Saved");
+        if (typeof saveDraft === "function") saveDraft();
+      })
+      .catch(function (err) {
+        console.error("[DictationHub] promote", err);
+        setProcessStatus("", "");
+        alert(err && err.message ? err.message : String(err));
+      });
+  }
+
+  function startDictationCapture(kind, logicalId) {
+    var site = getDictationSiteContext();
+    if (!site.customerId || !site.siteId) {
+      alert("Set location on this ticket first.");
+      return;
+    }
+    var docKey = sanitizePathSegment(logicalId);
+    pendingCapture = {
+      kind: kind === "overall" ? "overall" : "nameplate",
+      logicalId: docKey,
+      customerId: site.customerId,
+      siteId: site.siteId,
+    };
+    ensureCameraInput().value = "";
+    ensureCameraInput().click();
+  }
+
+  function buildAddEquipmentCardHtml() {
+    return (
+      '<article class="dictation-asset-card dictation-asset-card--add" id="dictationAddEquipmentCard" data-add-equipment="1">' +
+      '<div class="dictation-asset-card-body dictation-add-card-body">' +
+      '<button type="button" class="dictation-add-equipment-btn">+ Add Equipment</button>' +
+      '<p class="dictation-add-card-hint">Manual entry — then capture photos</p>' +
+      "</div></article>"
+    );
+  }
+
+  function ensureDetailModal() {
+    var existing = document.getElementById("dictationAssetVerifiedModal");
+    if (existing) return existing;
+    var wrap = document.createElement("div");
+    wrap.id = "dictationAssetVerifiedModal";
+    wrap.className = "dictation-asset-modal hidden";
+    wrap.setAttribute("role", "dialog");
+    wrap.setAttribute("aria-modal", "true");
+    wrap.setAttribute("aria-labelledby", "dictationAssetVerifiedTitle");
+    wrap.innerHTML =
+      '<div class="dictation-asset-modal-backdrop" data-close-modal="1"></div>' +
+      '<div class="dictation-asset-modal-sheet">' +
+      '<div class="dictation-asset-modal-head">' +
+      '<h3 id="dictationAssetVerifiedTitle">Verified unit</h3>' +
+      '<button type="button" class="dictation-asset-modal-close" data-close-modal="1" aria-label="Close">&times;</button>' +
+      "</div>" +
+      '<div id="dictationAssetVerifiedBody" class="dictation-asset-modal-body"></div>' +
+      "</div>";
+    document.body.appendChild(wrap);
+    wrap.addEventListener("click", function (e) {
+      if (e.target.getAttribute("data-close-modal")) closeVerifiedModal();
+    });
+    if (!document.documentElement.dataset.dictationModalEsc) {
+      document.documentElement.dataset.dictationModalEsc = "1";
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        var m = document.getElementById("dictationAssetVerifiedModal");
+        if (m && !m.classList.contains("hidden")) closeVerifiedModal();
+      });
+    }
+    return wrap;
+  }
+
+  function closeVerifiedModal() {
+    var m = document.getElementById("dictationAssetVerifiedModal");
+    if (m) m.classList.add("hidden");
+  }
+
+  function showVerifiedAssetModal(row) {
+    var d = row && row.data ? row.data : {};
+    var logical = d.id != null && String(d.id).trim() ? String(d.id).trim() : row.id;
+    var img = d.images || {};
+    var np = getImageUrl(img.nameplate);
+    var ov = getImageUrl(img.overall);
+    var body = document.getElementById("dictationAssetVerifiedBody");
+    if (!body) return;
+    var html =
+      "<p><strong>" +
+      escapeHtml(logical) +
+      "</strong></p>" +
+      "<dl class=\"dictation-verified-dl\">" +
+      "<dt>Manufacturer</dt><dd>" +
+      escapeHtml(d.manufacturer || d.brand || "—") +
+      "</dd>" +
+      "<dt>Model #</dt><dd>" +
+      escapeHtml(getModelNumber(d) || "—") +
+      "</dd>" +
+      "<dt>Serial #</dt><dd>" +
+      escapeHtml(getSerialNumber(d) || "—") +
+      "</dd>" +
+      "</dl>" +
+      '<div class="dictation-verified-photos">';
+    if (np) {
+      html +=
+        '<figure><figcaption>Nameplate</figcaption><img src="' +
+        escapeHtml(np) +
+        '" alt="Nameplate"></figure>';
+    }
+    if (ov) {
+      html +=
+        '<figure><figcaption>Overall</figcaption><img src="' +
+        escapeHtml(ov) +
+        '" alt="Overall unit"></figure>';
+    }
+    html += "</div>";
+    body.innerHTML = html;
+    var modal = ensureDetailModal();
+    modal.classList.remove("hidden");
+  }
+
+  function wireTrayDelegationOnce() {
+    var tray = document.getElementById("dictationActionTray");
+    if (!tray || trayDelegationWired) return;
+    trayDelegationWired = true;
+    tray.addEventListener("click", function (e) {
+      var addBtn = e.target.closest(".dictation-add-equipment-btn");
+      if (addBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        var name = window.prompt("Unit ID (e.g. EF3):", "");
+        if (name == null || !String(name).trim()) return;
+        var logical = String(name).trim();
+        var docId = sanitizePathSegment(logical);
+        var site = getDictationSiteContext();
+        if (!site.customerId || !site.siteId) {
+          alert("Set location on this ticket first.");
+          return;
+        }
+        if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+          alert("Firebase not available.");
+          return;
+        }
+        firebase
+          .firestore()
+          .collection("customers")
+          .doc(site.customerId)
+          .collection("sites")
+          .doc(site.siteId)
+          .collection("assets")
+          .doc(docId)
+          .set(
+            {
+              id: logical,
+              type: "",
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          )
+          .catch(function (err) {
+            console.error(err);
+            alert(err && err.message ? err.message : String(err));
+          });
+        return;
+      }
+
+      var cap = e.target.closest(".dictation-capture-btn");
+      if (cap) {
+        e.preventDefault();
+        e.stopPropagation();
+        var kind = cap.getAttribute("data-capture-kind") || "nameplate";
+        var lid = cap.getAttribute("data-logical-id");
+        if (lid) startDictationCapture(kind, lid);
+        return;
+      }
+
+      var ghostUp = e.target.closest(".dictation-ghost-upload-btn");
+      if (ghostUp) {
+        e.preventDefault();
+        e.stopPropagation();
+        var glid = ghostUp.getAttribute("data-logical-id");
+        if (glid) startDictationCapture("nameplate", glid);
+        return;
+      }
+
+      var card = e.target.closest(".dictation-asset-card");
+      if (!card || card.classList.contains("dictation-asset-card--add")) return;
+      if (card.classList.contains("dictation-asset-card--ghost")) return;
+      if (e.target.closest("button")) return;
+      if (!card.classList.contains("dictation-asset-card--verified")) return;
+
+      var lid = card.getAttribute("data-logical-id");
+      if (!lid) return;
+      var row = trayRowCache[lid];
+      if (row) showVerifiedAssetModal(row);
+    });
+  }
+
   function clearRosettaUi() {
     rosettaState.ids = null;
+    trayRowCache = {};
     var tray = document.getElementById("dictationActionTray");
     if (tray) {
       tray.querySelectorAll(".dictation-asset-card").forEach(function (c) {
@@ -149,6 +443,7 @@
       });
     }
     setProcessStatus("", "");
+    closeVerifiedModal();
   }
 
   function unsubscribeAssetsOnly() {
@@ -182,6 +477,7 @@
 
     var matched = {};
     tray.querySelectorAll(".dictation-asset-card:not(.dictation-asset-card--ghost)").forEach(function (card) {
+      if (card.classList.contains("dictation-asset-card--add")) return;
       var lid = card.getAttribute("data-logical-id");
       if (!lid) return;
       var key = normalizeUnitId(lid);
@@ -199,48 +495,125 @@
 
   function createGhostAssetCard(logicalId) {
     var article = document.createElement("article");
-    article.className = "dictation-asset-card dictation-asset-card--ghost";
+    article.className =
+      "dictation-asset-card dictation-asset-card--ghost dictation-asset-card--discovery";
     article.setAttribute("data-logical-id", logicalId);
     article.setAttribute("data-ghost-asset", "1");
+
+    var badge = document.createElement("div");
+    badge.className = "dictation-discovery-badge";
+    badge.textContent = "NEW DISCOVERY";
 
     var thumb = document.createElement("div");
     thumb.className = "dictation-asset-card-thumb";
     var uploadBtn = document.createElement("button");
     uploadBtn.type = "button";
     uploadBtn.className = "dictation-ghost-upload-btn";
-    uploadBtn.setAttribute(
-      "title",
-      "Open site equipment to add this unit"
-    );
-    uploadBtn.setAttribute("aria-label", "Add asset or open equipment hub");
+    uploadBtn.setAttribute("data-logical-id", logicalId);
+    uploadBtn.setAttribute("title", "Capture nameplate — creates asset in cloud");
+    uploadBtn.setAttribute("aria-label", "Capture nameplate photo");
     uploadBtn.innerHTML =
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>';
-    uploadBtn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      var hub = document.getElementById("btnOpenEquipmentHub");
-      if (hub) hub.click();
-    });
     thumb.appendChild(uploadBtn);
 
     var body = document.createElement("div");
     body.className = "dictation-asset-card-body";
     body.innerHTML =
       '<div class="dictation-asset-card-id">' +
-      escapeHtml("NEW ASSET: " + logicalId) +
+      escapeHtml(logicalId) +
       "</div>" +
-      '<div class="dictation-asset-card-meta">Not in site list</div>' +
-      '<div class="dictation-asset-card-loc">Tap upload to open Equipment Hub and capture nameplate.</div>' +
-      '<div class="dictation-asset-card-date">AI identified</div>';
+      '<div class="dictation-asset-card-meta">Not yet in site assets</div>' +
+      '<div class="dictation-asset-card-loc">Upload nameplate to promote this unit.</div>' +
+      '<div class="dictation-asset-card-date">AI match</div>';
 
+    article.appendChild(badge);
     article.appendChild(thumb);
     article.appendChild(body);
     return article;
   }
 
-  /**
-   * Gemini: map raw notes → JSON; update location, highlight tray, ghost cards.
-   * @param {string} text Raw visit / dictation notes
-   */
+  function renderAssetCardHtml(row) {
+    var d = row.data || {};
+    var logical =
+      d.id != null && String(d.id).trim() ? String(d.id).trim() : row.id;
+    var logicalNorm = normalizeUnitId(logical);
+    var v = computeVerification(d);
+    var typ = d.type != null && String(d.type).trim() ? String(d.type) : "—";
+    var locDesc =
+      d.locationDescription != null ? String(d.locationDescription) : "—";
+    var last = formatLastServiceDate(d.lastServiceDate);
+    var thumb = pickThumbUrl(d.images);
+
+    var stateClass = v.verified
+      ? "dictation-asset-card--verified"
+      : "dictation-asset-card--incomplete";
+
+    var ribbon =
+      v.verified
+        ? '<div class="dictation-verified-banner" title="Verified asset"><span class="dictation-verified-shield" aria-hidden="true">🛡️</span> Verified</div>'
+        : "";
+
+    var thumbBlock = thumb
+      ? '<div class="dictation-asset-card-thumb"><img src="' +
+        escapeHtml(thumb) +
+        '" alt="" loading="lazy"></div>'
+      : '<div class="dictation-asset-card-thumb dictation-asset-card-thumb--placeholder" aria-hidden="true">◇</div>';
+
+    var actions = "";
+    if (!v.verified) {
+      actions += '<div class="dictation-incomplete-actions">';
+      if (!v.hasNameplate) {
+        actions +=
+          '<button type="button" class="dictation-capture-btn" data-capture-kind="nameplate" data-logical-id="' +
+          escapeHtml(logicalNorm) +
+          '">📸 Capture nameplate</button>';
+      }
+      if (!v.hasOverall) {
+        actions +=
+          '<button type="button" class="dictation-capture-btn" data-capture-kind="overall" data-logical-id="' +
+          escapeHtml(logicalNorm) +
+          '">📸 Capture overall</button>';
+      }
+      if ((v.hasNameplate || v.hasOverall) && (!v.hasModel || !v.hasSerial)) {
+        actions +=
+          '<p class="dictation-incomplete-hint">Re-capture nameplate if model/serial still missing after OCR.</p>';
+      }
+      actions += "</div>";
+    } else {
+      actions +=
+        '<p class="dictation-verified-tap-hint">Tap card for photos &amp; details</p>';
+    }
+
+    return (
+      '<article class="dictation-asset-card ' +
+      stateClass +
+      '" data-asset-id="' +
+      escapeHtml(row.id) +
+      '" data-logical-id="' +
+      escapeHtml(logicalNorm) +
+      '" data-state="' +
+      (v.verified ? "verified" : "incomplete") +
+      '">' +
+      ribbon +
+      thumbBlock +
+      '<div class="dictation-asset-card-body">' +
+      '<div class="dictation-asset-card-id">' +
+      escapeHtml(logical) +
+      "</div>" +
+      '<div class="dictation-asset-card-meta">' +
+      escapeHtml(typ) +
+      "</div>" +
+      '<div class="dictation-asset-card-loc">' +
+      escapeHtml(locDesc) +
+      "</div>" +
+      '<div class="dictation-asset-card-date">Last: ' +
+      escapeHtml(last) +
+      "</div>" +
+      actions +
+      "</div></article>"
+    );
+  }
+
   async function processVisitNotes(text) {
     var raw = String(text || "").trim();
     if (!raw) {
@@ -332,9 +705,11 @@
       if (typeof saveDraft === "function") saveDraft();
     }
 
-    rosettaState.ids = identified.map(function (x) {
-      return String(x || "").trim();
-    }).filter(Boolean);
+    rosettaState.ids = identified
+      .map(function (x) {
+        return String(x || "").trim();
+      })
+      .filter(Boolean);
 
     applyRosettaOverlay();
 
@@ -401,57 +776,31 @@
     var tray = document.getElementById("dictationActionTray");
     if (!tray) return;
 
+    trayRowCache = {};
+    wireTrayDelegationOnce();
+
     var hasDocs = docs && docs.length > 0;
 
     if (!hasDocs) {
       if (rosettaState.ids === null) {
         tray.innerHTML =
-          '<p class="dictation-action-tray-empty">No assets for this customer/site yet. Add documents under <code>customers / sites / assets</code> in Firestore.</p>';
+          '<p class="dictation-action-tray-empty">No assets for this customer/site yet. Use <strong>+ Add Equipment</strong> or process dictation to discover units.</p>';
+        tray.insertAdjacentHTML("beforeend", buildAddEquipmentCardHtml());
+        applyRosettaOverlay();
         return;
       }
-      tray.innerHTML = "";
+      tray.innerHTML = buildAddEquipmentCardHtml();
     } else {
       var html = "";
       docs.forEach(function (row) {
         var d = row.data || {};
         var logical =
-          d.id != null && String(d.id).trim()
-            ? String(d.id).trim()
-            : row.id;
-        var logicalNorm = normalizeUnitId(logical);
-        var typ = d.type != null ? String(d.type) : "—";
-        var locDesc =
-          d.locationDescription != null ? String(d.locationDescription) : "—";
-        var last = formatLastServiceDate(d.lastServiceDate);
-        var thumb = pickThumbUrl(d.images);
-        var thumbBlock = thumb
-          ? '<div class="dictation-asset-card-thumb"><img src="' +
-            escapeHtml(thumb) +
-            '" alt="" loading="lazy"></div>'
-          : '<div class="dictation-asset-card-thumb dictation-asset-card-thumb--placeholder" aria-hidden="true">◇</div>';
-
-        html +=
-          '<article class="dictation-asset-card" data-asset-id="' +
-          escapeHtml(row.id) +
-          '" data-logical-id="' +
-          escapeHtml(logicalNorm) +
-          '">' +
-          thumbBlock +
-          '<div class="dictation-asset-card-body">' +
-          '<div class="dictation-asset-card-id">' +
-          escapeHtml(logical) +
-          "</div>" +
-          '<div class="dictation-asset-card-meta">' +
-          escapeHtml(typ) +
-          "</div>" +
-          '<div class="dictation-asset-card-loc">' +
-          escapeHtml(locDesc) +
-          "</div>" +
-          '<div class="dictation-asset-card-date">Last: ' +
-          escapeHtml(last) +
-          "</div>" +
-          "</div></article>";
+          d.id != null && String(d.id).trim() ? String(d.id).trim() : row.id;
+        var key = normalizeUnitId(logical);
+        trayRowCache[key] = row;
+        html += renderAssetCardHtml(row);
       });
+      html += buildAddEquipmentCardHtml();
       tray.innerHTML = html;
     }
 
