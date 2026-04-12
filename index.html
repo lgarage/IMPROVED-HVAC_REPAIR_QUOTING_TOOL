@@ -16,6 +16,7 @@
     />
     <link rel="stylesheet" href="dispatcher/css/activity_feed.css?v=1" />
     <link rel="stylesheet" href="dispatcher/css/import_hub.css?v=1" />
+    <link rel="stylesheet" href="dispatcher/css/insights.css?v=1" />
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
@@ -2187,6 +2188,17 @@
         </li>
         <li>
           <a
+            id="nav-insights"
+            onclick="switchTab('insights')"
+            title="Executive insights and revenue"
+            ><span class="menu-icon"
+              ><i class="fas fa-chart-line"></i
+            ></span>
+            <span class="menu-text">Executive Insights</span></a
+          >
+        </li>
+        <li>
+          <a
             id="nav-quoting"
             onclick="switchTab('quoting')"
             title="Quoting Tool"
@@ -3422,6 +3434,117 @@
               <button type="button" id="pulseQuickReplyBtn">Send</button>
             </div>
             <p id="pulseQuickReplyHint" class="pulse-hint" aria-live="polite"></p>
+          </div>
+        </div>
+      </div>
+
+      <div id="view-insights" class="app-view">
+        <div id="insightsDashboard" class="insights-dashboard">
+          <div class="insights-dashboard__header">
+            <h2>
+              <i class="fas fa-chart-line" aria-hidden="true"></i>
+              Executive Insights &amp; Revenue
+            </h2>
+            <p>
+              Compare scheduled billable hours to clocked labor by job type (pillar), rank field
+              efficiency, track unbilled client-verified work, and see Shared Brain usage.
+            </p>
+          </div>
+          <p id="insightsErr" class="insights-err" role="alert"></p>
+          <div class="insights-toolbar">
+            <label
+              >From
+              <input type="date" id="insightsDateFrom" />
+            </label>
+            <label
+              >To
+              <input type="date" id="insightsDateTo" />
+            </label>
+            <label
+              >Default billable rate ($/hr)
+              <input
+                type="number"
+                id="insightsDefaultRate"
+                min="1"
+                step="1"
+                placeholder="150"
+              />
+            </label>
+            <button type="button" id="insightsRefreshBtn">Refresh dashboard</button>
+          </div>
+
+          <div class="insights-grid insights-grid--split">
+            <section class="insights-card">
+              <div class="insights-card__head">
+                <h3>Profitability by pillar (job type)</h3>
+                <p>
+                  Total billable (scheduled) hours vs. labor clocked to jobs on tickets in the date
+                  range. When clocked time consistently exceeds quoted billable hours, consider scope
+                  or pricing changes.
+                </p>
+              </div>
+              <div class="insights-card__body">
+                <div id="insightsPillarSection"></div>
+                <div id="insightsManagerLine" class="insights-callout" aria-live="polite"></div>
+              </div>
+            </section>
+
+            <section class="insights-card">
+              <div class="insights-card__head">
+                <h3>Tech efficiency &amp; verification</h3>
+                <p>
+                  Completed field reports in range, median hours from ticket date to report
+                  (closure speed), client verification rate among completed or verified tickets, and
+                  total clocked hours. <strong>Rockstar</strong> = strong verification and reasonable
+                  close time; <strong>Coaching</strong> = low verification or very slow closes vs.
+                  peers.
+                </p>
+              </div>
+              <div class="insights-card__body">
+                <div class="insights-table-wrap">
+                  <table class="insights-table">
+                    <thead>
+                      <tr>
+                        <th>Technician</th>
+                        <th class="num">Reports</th>
+                        <th class="num">Avg close (h)</th>
+                        <th class="num">Verify %</th>
+                        <th class="num">Labor h</th>
+                        <th class="num">Verified / eligible</th>
+                      </tr>
+                    </thead>
+                    <tbody id="insightsTechBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="insights-grid" style="margin-top: 4px">
+            <section class="insights-card">
+              <div class="insights-card__head">
+                <h3>Unbilled revenue</h3>
+                <p>
+                  Tickets in <strong>Client Verified / Ready for Billing</strong>. Potential revenue =
+                  billable hours × default rate (same basis as scheduled work).
+                </p>
+              </div>
+              <div class="insights-card__body">
+                <div id="insightsUnbilledTotal" class="insights-unbilled-total"></div>
+                <div id="insightsUnbilledBody"></div>
+              </div>
+            </section>
+
+            <section class="insights-card">
+              <div class="insights-card__head">
+                <h3>System health (Shared Brain)</h3>
+                <p>
+                  Client portal memos and site intelligence activity — evidence the team is using
+                  AI summaries and site notes.
+                </p>
+              </div>
+              <div class="insights-card__body" id="insightsHealthBody"></div>
+            </section>
           </div>
         </div>
       </div>
@@ -6075,6 +6198,7 @@
 
         document.getElementById("view-service").classList.remove("active");
         document.getElementById("view-pulse").classList.remove("active");
+        document.getElementById("view-insights").classList.remove("active");
         document.getElementById("view-quoting").classList.remove("active");
         document.getElementById("view-invoice").classList.remove("active");
         document
@@ -6084,6 +6208,7 @@
 
         document.getElementById("nav-service").classList.remove("active-tab");
         document.getElementById("nav-pulse").classList.remove("active-tab");
+        document.getElementById("nav-insights").classList.remove("active-tab");
         document.getElementById("nav-quoting").classList.remove("active-tab");
         document.getElementById("nav-invoice").classList.remove("active-tab");
         document
@@ -6154,6 +6279,12 @@
             void hydrateFieldFormTemplatesList();
           }
         }
+        if (tabName === "insights") {
+          if (typeof window.VcInsightsManager !== "undefined") {
+            window.VcInsightsManager.initInsightsDashboard();
+            void window.VcInsightsManager.refreshInsights();
+          }
+        }
       }
 
       function showSaveCue(message) {
@@ -6198,12 +6329,19 @@
     <script>
       window.addEventListener("hashchange", function () {
         if (window.location.hash === "#pulse") switchTab("pulse");
+        if (window.location.hash === "#insights") switchTab("insights");
       });
       if (window.location.hash === "#pulse") {
         switchTab("pulse");
       }
     </script>
     <script src="service_call.js?v=57"></script>
+    <script src="dispatcher/js/insights_manager.js?v=1"></script>
+    <script>
+      if (window.location.hash === "#insights" && typeof switchTab === "function") {
+        switchTab("insights");
+      }
+    </script>
     <script src="dispatcher/js/client_notifications.js?v=1"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=39"></script>
