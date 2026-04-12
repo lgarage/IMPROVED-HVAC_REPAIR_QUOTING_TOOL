@@ -991,7 +991,20 @@
   }
 
   /**
-   * Archive full asset snapshot to assets/{id}/retired_history/{ts}, clear parent for new install.
+   * Compat Firestore equivalent of modular deleteField() — removes fields in update().
+   * @returns {*}
+   */
+  function deleteFieldCompat() {
+    var FV = firebase.firestore.FieldValue;
+    if (!FV || typeof FV.delete !== "function") {
+      throw new Error("FieldValue.delete is not available.");
+    }
+    return FV.delete();
+  }
+
+  /**
+   * Vertex-Core Phase 2: archive snapshot + atomic wipe of active asset (single batch commit).
+   * @param {{ logicalId: string, customerId: string, siteId: string, currentData?: object }} opts
    */
   function dictationRetireCurrentAsset(opts) {
     var logicalId = sanitizePathSegment((opts && opts.logicalId) || "");
@@ -1013,40 +1026,72 @@
       .collection("assets")
       .doc(logicalId);
 
-    return assetRef.get().then(function (snap) {
-      if (!snap.exists) {
-        throw new Error("Asset not found.");
-      }
-      var data = snap.data() || {};
-      var histId = String(Date.now());
-      var histRef = assetRef.collection("retired_history").doc(histId);
-      var archivePayload = Object.assign({}, data, {
-        retiredAt: FV ? FV.serverTimestamp() : new Date().toISOString(),
-        archiveId: histId,
-      });
+    return assetRef
+      .get()
+      .then(function (snap) {
+        if (!snap.exists) {
+          throw new Error("Asset not found.");
+        }
+        var fromServer = snap.data() || {};
+        var fromOpts = opts && opts.currentData && typeof opts.currentData === "object" ? opts.currentData : {};
+        var currentData = Object.assign({}, fromServer, fromOpts);
+        var histId = String(Date.now());
+        var archiveRef = assetRef.collection("retired_history").doc(histId);
+        var archivePayload = Object.assign({}, currentData, {
+          archivedAt: FV ? FV.serverTimestamp() : new Date().toISOString(),
+        });
 
-      var cleared = {
-        id: logicalId,
-        type: "",
-        awaitingNewEquipment: true,
-        updatedAt: FV ? FV.serverTimestamp() : new Date().toISOString(),
-      };
-      if (FV) {
-        cleared.manufacturer = FV.delete();
-        cleared.modelNumber = FV.delete();
-        cleared.serialNumber = FV.delete();
-        cleared.voltage = FV.delete();
-        cleared.phase = FV.delete();
-        cleared.refrigerant = FV.delete();
-        cleared.images = FV.delete();
-        cleared.additional_images = FV.delete();
-        cleared.lastServiceDate = FV.delete();
-      }
-      var batch = fsdb.batch();
-      batch.set(histRef, archivePayload);
-      batch.set(assetRef, cleared, { merge: true });
-      return batch.commit();
-    });
+        var batch = fsdb.batch();
+        batch.set(archiveRef, archivePayload);
+        batch.update(assetRef, {
+          modelNumber: deleteFieldCompat(),
+          serialNumber: deleteFieldCompat(),
+          images: deleteFieldCompat(),
+          awaitingNewEquipment: true,
+          status: "vacant",
+          updatedAt: FV ? FV.serverTimestamp() : new Date().toISOString(),
+        });
+        return batch.commit();
+      })
+      .catch(function (err) {
+        console.error("dictationRetireCurrentAsset", err);
+        return Promise.reject(err);
+      });
+  }
+
+  /**
+   * True if assets/{logicalId}/retired_history has at least one document (Vault UI gate).
+   * @param {{ logicalId: string, customerId: string, siteId: string }} opts
+   * @returns {Promise<boolean>}
+   */
+  function dictationAssetHasRetiredHistory(opts) {
+    var logicalId = sanitizePathSegment((opts && opts.logicalId) || "");
+    var customerId = sanitizePathSegment((opts && opts.customerId) || "");
+    var siteId = sanitizePathSegment((opts && opts.siteId) || "");
+    if (!logicalId || !customerId || !siteId) {
+      return Promise.reject(new Error("Missing asset context."));
+    }
+    var fsdb = getFirestoreDb();
+    if (!fsdb) {
+      return Promise.reject(new Error("Firestore not available."));
+    }
+    return fsdb
+      .collection("customers")
+      .doc(customerId)
+      .collection("sites")
+      .doc(siteId)
+      .collection("assets")
+      .doc(logicalId)
+      .collection("retired_history")
+      .limit(1)
+      .get()
+      .then(function (snap) {
+        return !snap.empty;
+      })
+      .catch(function (err) {
+        console.error("dictationAssetHasRetiredHistory", err);
+        return Promise.reject(err);
+      });
   }
 
   function open(opts) {
@@ -1137,6 +1182,7 @@
   window.processOcrQueue = processOcrQueue;
   window.dictationPromoteAssetPhoto = dictationPromoteAssetPhoto;
   window.dictationRetireCurrentAsset = dictationRetireCurrentAsset;
+  window.dictationAssetHasRetiredHistory = dictationAssetHasRetiredHistory;
 
   window.EquipmentManager = {
     open: open,

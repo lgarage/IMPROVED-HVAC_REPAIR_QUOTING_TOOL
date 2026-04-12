@@ -129,7 +129,7 @@
   }
 
   /**
-   * Vertex-Core Phase 1: strict lifecycle from Firestore document data.
+   * Vertex-Core Phase 1–2: strict lifecycle from Firestore document data.
    * @param {{ exists: boolean, data?: function(): object }} doc Firestore DocumentSnapshot or compatible
    * @returns {'GHOST'|'INCOMPLETE'|'VERIFIED'}
    */
@@ -138,6 +138,9 @@
       return "GHOST";
     }
     var d = typeof doc.data === "function" ? doc.data() || {} : {};
+    if (d.awaitingNewEquipment === true) {
+      return "GHOST";
+    }
     var img = d.images || {};
     var npUrl =
       img.nameplate &&
@@ -570,7 +573,11 @@
           var when =
             arch.retiredAt && arch.retiredAt.toDate
               ? arch.retiredAt.toDate().toLocaleString()
-              : arch.archivedAt || r.id;
+              : arch.archivedAt && arch.archivedAt.toDate
+                ? arch.archivedAt.toDate().toLocaleString()
+                : arch.archivedAt
+                  ? String(arch.archivedAt)
+                  : r.id;
           var entries = collectPhotoEntriesFromSnapshot(arch);
           var slides = "";
           entries.forEach(function (en) {
@@ -648,7 +655,7 @@
     var vaultBtn = document.getElementById("dictationBtnRetiredVault");
     if (vaultBtn) {
       vaultBtn.onclick = function () {
-        openRetiredVaultForUnit(logicalId);
+        console.log("Open Vault for:", logicalId);
       };
     }
   }
@@ -677,7 +684,7 @@
       '<div class="dictation-verified-toolbar">' +
       '<button type="button" class="dictation-btn-retire" id="dictationBtnRetire">⚠️ Retire this Equipment</button>' +
       '<button type="button" class="dictation-btn-add-photo" id="dictationBtnAddPhoto">+ Add Photo</button>' +
-      '<button type="button" class="dictation-btn-retired-vault" id="dictationBtnRetiredVault">Retired Equipment</button>' +
+      '<button type="button" class="dictation-btn-retired-vault" id="dictationBtnRetiredVault" style="display:none" hidden>Retired Equipment</button>' +
       "</div>" +
       "<p class=\"dictation-verified-unit-label\"><strong>" +
       escapeHtml(logical) +
@@ -698,6 +705,39 @@
       "</div>";
 
     wireVerifiedModalActions(logical, row);
+
+    var vaultBtn = document.getElementById("dictationBtnRetiredVault");
+    if (vaultBtn) {
+      var siteVault = getDictationSiteContext();
+      if (
+        siteVault.customerId &&
+        siteVault.siteId &&
+        typeof window.dictationAssetHasRetiredHistory === "function"
+      ) {
+        window
+          .dictationAssetHasRetiredHistory({
+            logicalId: sanitizePathSegment(logicalNorm),
+            customerId: siteVault.customerId,
+            siteId: siteVault.siteId,
+          })
+          .then(function (has) {
+            if (!vaultBtn) return;
+            if (has) {
+              vaultBtn.style.display = "";
+              vaultBtn.removeAttribute("hidden");
+            } else {
+              vaultBtn.style.display = "none";
+              vaultBtn.setAttribute("hidden", "hidden");
+            }
+          })
+          .catch(function () {
+            if (vaultBtn) {
+              vaultBtn.style.display = "none";
+              vaultBtn.setAttribute("hidden", "hidden");
+            }
+          });
+      }
+    }
 
     var modal = ensureDetailModal();
     modal.classList.remove("hidden");
