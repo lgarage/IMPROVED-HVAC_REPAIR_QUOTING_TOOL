@@ -1306,6 +1306,56 @@
         gap: 10px;
         margin-bottom: 8px;
       }
+      @keyframes sc-field-guard-ring {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+        }
+        50% {
+          box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.45);
+        }
+      }
+      .sc-field-guard-pulse {
+        animation: sc-field-guard-ring 0.45s ease-in-out 4;
+        border-radius: 8px;
+        outline: none;
+      }
+      textarea.sc-field-guard-pulse#scIssueInput {
+        border-color: #e74c3c !important;
+      }
+      @keyframes sc-ai-suggest-glow {
+        0%,
+        100% {
+          box-shadow: 0 4px 12px rgba(30, 75, 133, 0.25);
+          filter: brightness(1);
+        }
+        50% {
+          box-shadow:
+            0 0 0 3px rgba(200, 155, 83, 0.75),
+            0 6px 22px rgba(30, 75, 133, 0.45);
+          filter: brightness(1.1);
+        }
+      }
+      .sc-ai-suggest-pulse {
+        animation: sc-ai-suggest-glow 0.65s ease-in-out 4;
+      }
+      @media (max-width: 640px) {
+        .sc-issue-field-toolbar {
+          flex-direction: column;
+          align-items: stretch;
+          justify-content: flex-start;
+        }
+        .sc-issue-field-toolbar .sc-issue-voice-btn,
+        .sc-issue-field-toolbar .sc-issue-ai-btn {
+          width: 100%;
+          max-width: 100%;
+          white-space: normal;
+          text-align: center;
+          line-height: 1.35;
+          padding: 12px 14px;
+          box-sizing: border-box;
+        }
+      }
       .sc-issue-field-toolbar .sc-issue-voice-btn {
         background: #f39c12;
         color: #fff;
@@ -5818,7 +5868,7 @@
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js"></script>
-    <script src="service_call.js?v=55"></script>
+    <script src="service_call.js?v=56"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=39"></script>
 

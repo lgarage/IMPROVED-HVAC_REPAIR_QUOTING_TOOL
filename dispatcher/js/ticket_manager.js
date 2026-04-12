@@ -6,7 +6,11 @@
 
     var DURATION_CHOICES = ["0.5", "1.0", "1.5", "2.0", "3.0", "4.0", "6.0", "8.0", "Multi-Day"];
 
+    /** Minimum characters in reported issue before "Release to Field app" is allowed. */
+    var MIN_ISSUE_CHARS_FOR_RELEASE = 10;
+
     var docCloseBound = false;
+    var releaseGuardWired = false;
 
     /**
      * Numeric hours used for gantt width, time range, and man-hour math.
@@ -242,6 +246,81 @@
         };
     }
 
+    /**
+     * Release to Field app: requires ≥1 technician and a reported issue of at least MIN_ISSUE_CHARS_FOR_RELEASE.
+     * @returns {{ ok: true } | { ok: false, code: 'no_tech' | 'no_issue' | 'issue_too_short' }}
+     */
+    function checkDispatchReadiness() {
+        var techBox = document.getElementById("scAssignedTechsContainer");
+        var techs = techBox ? getSelectedTechsFromContainer(techBox) : [];
+        if (!techs.length) {
+            return { ok: false, code: "no_tech" };
+        }
+        var issueEl = document.getElementById("scIssueInput");
+        var issue = issueEl ? String(issueEl.value || "").trim() : "";
+        if (!issue.length) {
+            return { ok: false, code: "no_issue" };
+        }
+        if (issue.length < MIN_ISSUE_CHARS_FOR_RELEASE) {
+            return { ok: false, code: "issue_too_short" };
+        }
+        return { ok: true };
+    }
+
+    function pulseElementGuardClass(el, className, ms) {
+        if (!el) return;
+        el.classList.add(className);
+        setTimeout(function () {
+            el.classList.remove(className);
+        }, ms || 2000);
+    }
+
+    function pulseAiSuggestButton() {
+        var btn = document.getElementById("scIssueImproveAiBtn");
+        pulseElementGuardClass(btn, "sc-ai-suggest-pulse", 2600);
+    }
+
+    function showReleaseGuardCue(message) {
+        if (global && typeof global.showSaveCue === "function") {
+            global.showSaveCue(message);
+        }
+    }
+
+    /**
+     * Soft guardrail: uncheck Release if dispatch is incomplete; highlight gaps + optional AI nudge.
+     */
+    function wireReleaseToFieldGuardOnce() {
+        if (typeof document === "undefined" || releaseGuardWired) return;
+        var cb = document.getElementById("scReleasedToTech");
+        if (!cb) return;
+        releaseGuardWired = true;
+        cb.addEventListener("change", function (e) {
+            if (!e.target || e.target.id !== "scReleasedToTech") return;
+            if (!e.target.checked) return;
+            var result = checkDispatchReadiness();
+            if (result.ok) return;
+            e.target.checked = false;
+            if (result.code === "no_tech") {
+                var techBox = document.getElementById("scAssignedTechsContainer");
+                pulseElementGuardClass(techBox, "sc-field-guard-pulse", 2000);
+                showReleaseGuardCue(
+                    "Select at least one technician before releasing to the Field app."
+                );
+            } else if (result.code === "no_issue") {
+                var issueTa = document.getElementById("scIssueInput");
+                pulseElementGuardClass(issueTa, "sc-field-guard-pulse", 2000);
+                showReleaseGuardCue("Add a reported issue / scope of work before releasing.");
+            } else if (result.code === "issue_too_short") {
+                var shortTa = document.getElementById("scIssueInput");
+                pulseElementGuardClass(shortTa, "sc-field-guard-pulse", 2000);
+                pulseAiSuggestButton();
+                showReleaseGuardCue(
+                    "Add a bit more detail to the issue (or use ✨ Clean up & structure with AI) before releasing."
+                );
+            }
+        });
+    }
+
     global.DispatcherTicketManager = {
         DURATION_CHOICES: DURATION_CHOICES,
         parseScheduledDurationHours: parseScheduledDurationHours,
@@ -253,5 +332,8 @@
         updateTechDropdownSummary: updateTechDropdownSummary,
         mountTechMultiSelect: mountTechMultiSelect,
         syncLeadSelectFromCrew: syncLeadSelectFromCrew,
+        MIN_ISSUE_CHARS_FOR_RELEASE: MIN_ISSUE_CHARS_FOR_RELEASE,
+        checkDispatchReadiness: checkDispatchReadiness,
+        wireReleaseToFieldGuardOnce: wireReleaseToFieldGuardOnce,
     };
 })(typeof window !== "undefined" ? window : this);

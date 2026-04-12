@@ -356,6 +356,12 @@ function buildServiceAssignedTechForm(techList) {
     }
     wireDispatcherAssignmentControlsOnce();
     wireMultiDayControlsOnce();
+    if (
+        typeof DispatcherTicketManager !== "undefined" &&
+        DispatcherTicketManager.wireReleaseToFieldGuardOnce
+    ) {
+        DispatcherTicketManager.wireReleaseToFieldGuardOnce();
+    }
     updateLeadTechRowVisibility();
     updateDispatcherLaborFields();
 }
