@@ -12,7 +12,7 @@ function toggleSidebar() {
 
 function getPrefixForJobType(type) {
     if (type === "Quoted Repair") return "QR-";
-    if (type === "Install") return "IS-";
+    if (type === "Install") return "IN-";
     if (type === "Preventative Maintenance") return "PM-";
     if (type === "Warranty Call") return "WC-";
     return "SC-"; // Default
@@ -166,63 +166,168 @@ function getPrimaryTechFromTicket(sc) {
 var DISPATCH_TECH_GANTT_COLORS = ["#2980b9", "#8e44ad", "#d35400", "#16a085", "#27ae60", "#f39c12", "#c0392b", "#34495e"];
 
 function gatherAssignedTechsFromServiceForm() {
-    var container = document.getElementById("scAssignedTechsContainer");
-    if (!container) return [];
+    var sel = document.getElementById("scAssignedTechsSelect");
+    if (!sel) return [];
     var out = [];
-    container.querySelectorAll('input[type="checkbox"][data-tech-full]').forEach(function (cb) {
-        if (cb.checked) {
-            var v = cb.getAttribute("data-tech-full");
-            if (v) out.push(v);
+    for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].selected) {
+            out.push(sel.options[i].value);
+        }
+    }
+    return out;
+}
+
+/** Options HTML for duration &lt;select&gt;s (main form + ticket modal). */
+function buildDispatcherDurationSelectOptions(selectedValue) {
+    var choices =
+        typeof DispatcherTicketManager !== "undefined"
+            ? DispatcherTicketManager.DURATION_CHOICES
+            : ["0.5", "1.0", "1.5", "2.0", "3.0", "4.0", "6.0", "8.0", "Multi-Day"];
+    var s = String(selectedValue == null ? "2.0" : selectedValue).trim();
+    var html = "";
+    if (s && choices.indexOf(s) === -1) {
+        html +=
+            '<option value="' +
+            escapeAttrModal(s) +
+            '" selected>Legacy: ' +
+            escapeHtmlDispatchMap(s) +
+            "</option>";
+    }
+    choices.forEach(function (c) {
+        var label = c === "Multi-Day" ? "Multi-Day (scheduled span)" : c + " hrs";
+        html +=
+            '<option value="' +
+            escapeAttrModal(c) +
+            '"' +
+            (s === c ? " selected" : "") +
+            ">" +
+            escapeHtmlDispatchMap(label) +
+            "</option>";
+    });
+    return html;
+}
+
+function updateLeadTechRowVisibility() {
+    var crew = gatherAssignedTechsFromServiceForm();
+    var leadRow = document.getElementById("scLeadTechRow");
+    var primarySel = document.getElementById("scPrimaryTechInput");
+    if (!primarySel) return;
+    var prev = primarySel.value;
+    primarySel.innerHTML = '<option value="">— Select lead —</option>';
+    crew.forEach(function (t) {
+        var o = document.createElement("option");
+        o.value = t;
+        o.textContent = t;
+        primarySel.appendChild(o);
+    });
+    if (prev && crew.indexOf(prev) !== -1) {
+        primarySel.value = prev;
+    } else if (crew.length === 1) {
+        primarySel.value = crew[0];
+    }
+    if (leadRow) {
+        leadRow.style.display = crew.length ? "block" : "none";
+        leadRow.setAttribute("aria-hidden", crew.length ? "false" : "true");
+    }
+    primarySel.required = crew.length > 0;
+}
+
+function updateDispatcherLaborFields() {
+    var techs = gatherAssignedTechsFromServiceForm();
+    var n = techs.length;
+    var durEl = document.getElementById("scDurationInput");
+    var dur = durEl && durEl.value ? durEl.value : "2.0";
+    var total = 0;
+    if (typeof DispatcherTicketManager !== "undefined") {
+        total = DispatcherTicketManager.computeTotalBillableHours(n, dur);
+    } else {
+        total = Math.round(n * (parseFloat(dur) || 1.5) * 100) / 100;
+    }
+    var hid = document.getElementById("scTotalBillableHoursInput");
+    if (hid) {
+        hid.value = String(total);
+    }
+    var disp = document.getElementById("scBillableHoursDisplay");
+    if (disp) {
+        disp.textContent = n
+            ? "Total billable hours (techs × duration): " +
+              total.toFixed(2) +
+              " — prefills Repair Labor Hours on Generate Invoice."
+            : "";
+    }
+    if (typeof triggerServiceAutoSave === "function") {
+        triggerServiceAutoSave();
+    }
+}
+
+function wireDispatcherAssignmentControlsOnce() {
+    var box = document.getElementById("scAssignedTechsContainer");
+    if (!box || box.dataset.dispatcherWired === "1") {
+        return;
+    }
+    box.dataset.dispatcherWired = "1";
+    box.addEventListener("change", function (e) {
+        if (e.target && e.target.id === "scAssignedTechsSelect") {
+            updateLeadTechRowVisibility();
+            updateDispatcherLaborFields();
         }
     });
-    return out;
+    var dur = document.getElementById("scDurationInput");
+    if (dur) {
+        dur.addEventListener("change", updateDispatcherLaborFields);
+    }
+    var lead = document.getElementById("scPrimaryTechInput");
+    if (lead) {
+        lead.addEventListener("change", updateDispatcherLaborFields);
+    }
 }
 
 function buildServiceAssignedTechForm(techList) {
     var box = document.getElementById("scAssignedTechsContainer");
-    var primarySel = document.getElementById("scPrimaryTechInput");
-    if (!box || !primarySel) return;
+    if (!box) {
+        return;
+    }
     box.innerHTML = "";
-    (techList || []).forEach(function (tech) {
-        var id = "scTechChk_" + String(tech).replace(/[^a-z0-9]+/gi, "_");
-        var lab = document.createElement("label");
-        lab.className = "sc-tech-checkbox-label";
-        lab.setAttribute("for", id);
-        var cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.id = id;
-        cb.setAttribute("data-tech-full", tech);
-        lab.appendChild(cb);
-        lab.appendChild(document.createTextNode(" " + tech));
-        box.appendChild(lab);
-    });
-    var curPri = primarySel.value;
-    primarySel.innerHTML = '<option value="">— None —</option>';
+    var sel = document.createElement("select");
+    sel.id = "scAssignedTechsSelect";
+    sel.className = "sc-tech-multi-select";
+    sel.setAttribute("multiple", "multiple");
+    sel.setAttribute(
+        "size",
+        String(Math.min(10, Math.max(4, (techList || []).length || 4)))
+    );
+    sel.setAttribute("aria-label", "Select technicians");
     (techList || []).forEach(function (tech) {
         var o = document.createElement("option");
         o.value = tech;
         o.textContent = tech;
-        primarySel.appendChild(o);
+        sel.appendChild(o);
     });
-    if (curPri && (techList || []).indexOf(curPri) !== -1) primarySel.value = curPri;
+    box.appendChild(sel);
+    wireDispatcherAssignmentControlsOnce();
+    updateLeadTechRowVisibility();
+    updateDispatcherLaborFields();
 }
 
 function applyServiceAssignedTechFormFromTicket(data) {
     var crew = getAssignedTechsArray(data);
     var primary = getPrimaryTechFromTicket(data);
-    var box = document.getElementById("scAssignedTechsContainer");
-    if (box) {
-        box.querySelectorAll('input[type="checkbox"][data-tech-full]').forEach(function (cb) {
-            var full = cb.getAttribute("data-tech-full");
-            cb.checked = crew.indexOf(full) !== -1;
-        });
+    var ms = document.getElementById("scAssignedTechsSelect");
+    if (ms) {
+        for (var i = 0; i < ms.options.length; i++) {
+            ms.options[i].selected = crew.indexOf(ms.options[i].value) !== -1;
+        }
     }
+    updateLeadTechRowVisibility();
     var primarySel = document.getElementById("scPrimaryTechInput");
     if (primarySel) {
-        if (primary && crew.indexOf(primary) !== -1) primarySel.value = primary;
-        else if (crew.length) primarySel.value = crew[0];
-        else primarySel.value = "";
+        if (primary && gatherAssignedTechsFromServiceForm().indexOf(primary) !== -1) {
+            primarySel.value = primary;
+        } else if (crew.length === 1) {
+            primarySel.value = crew[0];
+        }
     }
+    updateDispatcherLaborFields();
 }
 
 function buildSidebarTechAvatarsHtml(sc) {
@@ -611,7 +716,16 @@ function gatherServiceData() {
         equip: document.getElementById('scEquipInput').value.trim().toUpperCase(),
         notes: document.getElementById('scNotesInput').value.trim(),
         parentId: (document.getElementById('scParentSelect') && document.getElementById('scParentSelect').value) || "",
-        releasedToTech: document.getElementById('scReleasedToTech') ? document.getElementById('scReleasedToTech').checked : true
+        releasedToTech: document.getElementById('scReleasedToTech') ? document.getElementById('scReleasedToTech').checked : true,
+        Total_Billable_Hours: (function () {
+            var techs = gatherAssignedTechsFromServiceForm();
+            var durEl = document.getElementById("scDurationInput");
+            var dur = durEl && durEl.value ? durEl.value : "2.0";
+            if (typeof DispatcherTicketManager !== "undefined") {
+                return DispatcherTicketManager.computeTotalBillableHours(techs.length, dur);
+            }
+            return Math.round(techs.length * (parseFloat(dur) || 1.5) * 100) / 100;
+        })()
     };
 }
 
@@ -637,10 +751,23 @@ function clearServiceForm() {
     document.getElementById('scLocNumInput').value = "";
     document.getElementById('scJobTypeInput').value = "Service Call";
     document.getElementById('scPriorityInput').value = "Standard";
-    var scBox = document.getElementById("scAssignedTechsContainer");
-    if (scBox) scBox.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+    var scSel = document.getElementById("scAssignedTechsSelect");
+    if (scSel) {
+        for (var si = 0; si < scSel.options.length; si++) {
+            scSel.options[si].selected = false;
+        }
+    }
     var scPri = document.getElementById("scPrimaryTechInput");
-    if (scPri) scPri.value = "";
+    if (scPri) scPri.innerHTML = '<option value="">— Select lead —</option>';
+    var scLeadRow = document.getElementById("scLeadTechRow");
+    if (scLeadRow) {
+        scLeadRow.style.display = "none";
+        scLeadRow.setAttribute("aria-hidden", "true");
+    }
+    var scBill = document.getElementById("scTotalBillableHoursInput");
+    if (scBill) scBill.value = "0";
+    var scBillDisp = document.getElementById("scBillableHoursDisplay");
+    if (scBillDisp) scBillDisp.textContent = "";
     document.getElementById('scStatusInput').value = "Unassigned";
     document.getElementById('scIssueInput').value = "";
     document.getElementById('scEquipInput').value = "";
@@ -668,7 +795,7 @@ function clearServiceForm() {
 
     document.getElementById('scDateInput').valueAsDate = new Date();
     document.getElementById('scStartTimeInput').value = "08:00"; 
-    document.getElementById('scDurationInput').value = "2.0";   
+    document.getElementById('scDurationInput').value = "2.0";
     
     if(typeof toggleNewCustomerWarning === 'function') toggleNewCustomerWarning(false);
     document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -688,6 +815,15 @@ async function saveServiceCall(isAutoSave = false) {
         if (data.customerName === "UNKNOWN CUSTOMER" || data.issue === "") {
             alert("A Customer Name and Reported Issue are required to log a service call.");
             return false;
+        }
+        var crewSave = gatherAssignedTechsFromServiceForm();
+        if (crewSave.length > 0) {
+            var leadEl = document.getElementById("scPrimaryTechInput");
+            var leadVal = leadEl && leadEl.value ? leadEl.value : "";
+            if (!leadVal || crewSave.indexOf(leadVal) === -1) {
+                alert("Select a lead technician from the assigned crew.");
+                return false;
+            }
         }
         if (typeof resolveServiceParentForSave === 'function') {
             try {
@@ -754,20 +890,20 @@ function openTicketDetails(dbId) {
     const crewModal = getAssignedTechsArray(sc);
     const primaryModal = getPrimaryTechFromTicket(sc);
     let techCrewHtml =
-        '<div id="tdTechCrewChecks" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow:auto;padding:4px 0;">';
+        '<p style="margin:0 0 6px 0;font-size:11px;color:#777;">Hold Ctrl / ⌘ to select multiple technicians.</p>' +
+        '<select id="tdTechMultiSelect" multiple size="5" style="width:100%;max-height:140px;padding:6px;border:1px solid #ccc;border-radius:4px;font-family:inherit;">';
     savedTechs.forEach(function (tech) {
-        const chk = crewModal.indexOf(tech) !== -1 ? " checked" : "";
+        const sel = crewModal.indexOf(tech) !== -1 ? " selected" : "";
         techCrewHtml +=
-            '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">' +
-            '<input type="checkbox" class="td-tech-ck"' +
-            chk +
-            ' data-tech-full="' +
+            '<option value="' +
             escapeAttrModal(tech) +
-            '"> ' +
+            '"' +
+            sel +
+            ">" +
             escapeHtmlDispatchMap(tech) +
-            "</label>";
+            "</option>";
     });
-    techCrewHtml += "</div>";
+    techCrewHtml += "</select>";
     let primaryOpts = '<option value="">— Lead —</option>';
     savedTechs.forEach(function (tech) {
         const sel = primaryModal === tech ? " selected" : "";
@@ -790,6 +926,8 @@ function openTicketDetails(dbId) {
     
     let trackingStr = sc.tracking ? `<span style="color:#e74c3c; font-weight:bold; font-size:12px; margin-left:10px;">PO / Tracking: ${sc.tracking}</span>` : "";
     let locNumStr = sc.locationNum ? `<span style="font-size: 12px; color: #7f8c8d;">Loc ID: ${sc.locationNum}</span><br>` : '';
+
+    const tdDurOpts = buildDispatcherDurationSelectOptions(sc.duration || "2.0");
 
     // Inject Date and Time inputs directly into the modal
     document.getElementById('tdModalContent').innerHTML = `
@@ -830,8 +968,8 @@ function openTicketDetails(dbId) {
                     <input type="time" id="tdStartTime" value="${sc.startTime || '08:00'}" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; font-family:inherit;">
                 </div>
                 <div style="flex:1;">
-                    <label style="font-size:11px; font-weight:bold; color:#777;">Duration (Hrs)</label>
-                    <input type="number" id="tdDuration" step="0.25" min="0.5" value="${sc.duration || '2.0'}" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; font-family:inherit;">
+                    <label style="font-size:11px; font-weight:bold; color:#777;">Est. duration</label>
+                    <select id="tdDuration" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; font-family:inherit;">${tdDurOpts}</select>
                 </div>
             </div>
             <div style="font-size: 11px; color: #777;">*Edits to scheduling auto-save when this window closes.</div>
@@ -925,12 +1063,15 @@ function closeTicketDetails() {
             const timeInput = document.getElementById('tdStartTime');
             const durInput = document.getElementById('tdDuration');
 
-            var crewChk = document.querySelectorAll(".td-tech-ck:checked");
+            var ms = document.getElementById("tdTechMultiSelect");
             var newCrew = [];
-            crewChk.forEach(function (c) {
-                var v = c.getAttribute("data-tech-full");
-                if (v) newCrew.push(v);
-            });
+            if (ms) {
+                for (var mi = 0; mi < ms.options.length; mi++) {
+                    if (ms.options[mi].selected) {
+                        newCrew.push(ms.options[mi].value);
+                    }
+                }
+            }
             db[scIndex].assignedTechs = newCrew;
             var pSel = document.getElementById("tdPrimaryTechSelect");
             var newPrimary =
@@ -952,6 +1093,12 @@ function closeTicketDetails() {
             if(dateInput) db[scIndex].date = dateInput.value;
             if(timeInput) db[scIndex].startTime = timeInput.value;
             if(durInput) db[scIndex].duration = durInput.value;
+            if (typeof DispatcherTicketManager !== "undefined") {
+                db[scIndex].Total_Billable_Hours = DispatcherTicketManager.computeTotalBillableHours(
+                    newCrew.length,
+                    db[scIndex].duration || "2.0"
+                );
+            }
 
             const tdRel = document.getElementById('tdReleasedToTech');
             if (tdRel) db[scIndex].releasedToTech = tdRel.checked;
@@ -985,7 +1132,13 @@ async function loadServiceCall(dbId) {
     document.getElementById('scTrackingInput').value = data.tracking || ""; 
     document.getElementById('scDateInput').value = data.date;
     document.getElementById('scStartTimeInput').value = data.startTime || "08:00";
-    document.getElementById('scDurationInput').value = data.duration || "2.0"; 
+    (function () {
+        var scDur = document.getElementById("scDurationInput");
+        if (!scDur) return;
+        var dvv = data.duration || "2.0";
+        scDur.innerHTML = buildDispatcherDurationSelectOptions(dvv);
+        scDur.value = dvv;
+    })();
     document.getElementById('scCustNameInput').value = data.customerName;
     document.getElementById('scCustNumInput').value = data.customerNum;
     document.getElementById('scContactNameInput').value = data.contactName;
@@ -1024,7 +1177,10 @@ async function loadServiceCall(dbId) {
 // --- HELPER FUNCTION: FORMAT TIME FOR BLOCKS ---
 function formatTimeRange(startStr, durationStr) {
     if(!startStr) startStr = "08:00";
-    let d = parseFloat(durationStr) || 1.5;
+    let d =
+        typeof DispatcherTicketManager !== "undefined"
+            ? DispatcherTicketManager.parseScheduledDurationHours(durationStr)
+            : parseFloat(durationStr) || 1.5;
     let parts = startStr.split(':');
     let h = parseInt(parts[0]);
     let m = parseInt(parts[1]);
@@ -1201,7 +1357,10 @@ function renderServiceBoard() {
 
         let timeParts = sc.startTime ? sc.startTime.split(':') : ['08', '00'];
         let startHour = parseFloat(timeParts[0]) + (parseFloat(timeParts[1]) / 60);
-        let duration = parseFloat(sc.duration) || 1.5;
+        let duration =
+            typeof DispatcherTicketManager !== "undefined"
+                ? DispatcherTicketManager.parseScheduledDurationHours(sc.duration)
+                : parseFloat(sc.duration) || 1.5;
 
         let left = 0; let width = 0;
         let scDateObj = new Date(sc.date + "T12:00:00"); // Safe local time for column math
@@ -1708,7 +1867,14 @@ function timelineMouseUp(e) {
     db[index].date = newDateStr;
     db[index].startTime = timeStr;
     db[index].duration = newDuration.toString();
-        
+    var crewN = getAssignedTechsArray(db[index]).length;
+    if (typeof DispatcherTicketManager !== "undefined") {
+        db[index].Total_Billable_Hours = DispatcherTicketManager.computeTotalBillableHours(
+            crewN,
+            db[index].duration
+        );
+    }
+
     localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
     if(typeof syncSingleServiceCallToCloud === 'function') syncSingleServiceCallToCloud(db[index].id, db[index]);
 
@@ -2189,17 +2355,17 @@ async function improveIssueTextWithAI() {
 
     const safeRaw = String(raw).replace(/"""|```/g, " ");
     const editorRules = [
-        "You are an expert HVAC Dispatch Editor. Your job is to take raw, hastily written, or voice-transcribed notes and transform them into clean, concise, and highly professional text for a customer invoice. Follow these strict rules:",
-        "1. Fix all grammar, punctuation, and spelling.",
-        "2. Remove repetitive statements, filler words (like 'um', 'uh'), and run-on sentences.",
-        "3. Maintain an objective, professional tone.",
-        "4. NEVER invent new information, parts, or complaints; only use the exact facts provided in the raw text.",
-        "5. Output ONLY the finalized, cleaned text. Do not include any introductory or concluding remarks.",
+        "You are an HVAC Dispatcher. Transform the user's rough notes into a clear, professional Work Order.",
+        "Use active, command-based language (e.g., 'Perform', 'Inspect', 'Replace').",
+        "Do NOT write in the past tense as if the work is finished.",
+        "Fix grammar and spelling; remove filler (um, uh) without changing facts.",
+        "NEVER invent equipment, parts, or site details; only use what appears in the raw notes.",
+        "Output ONLY the work order text — no preamble or closing remarks.",
     ].join("\n");
 
     const prompt =
         editorRules +
-        "\n\nRAW TEXT TO EDIT:\n\"\"\"\n" +
+        "\n\nROUGH NOTES:\n\"\"\"\n" +
         safeRaw +
         "\n\"\"\"";
 
@@ -2254,7 +2420,7 @@ async function improveIssueTextWithAI() {
 
         ta.value = out.replace(/\s+/g, " ").trim();
         if (typeof showSaveCue === "function") {
-            showSaveCue("✨ Issue polished for invoice");
+            showSaveCue("✨ Work order text updated");
         }
     } catch (err) {
         console.error("improveIssueTextWithAI", err);
@@ -2421,6 +2587,22 @@ function convertToInvoice(ticketId) {
     if (invSdCopy) {
         if (sc.date) invSdCopy.value = sc.date;
         else invSdCopy.valueAsDate = new Date();
+    }
+
+    var billHrs =
+        sc.Total_Billable_Hours != null && sc.Total_Billable_Hours !== ""
+            ? parseFloat(sc.Total_Billable_Hours)
+            : NaN;
+    if (isNaN(billHrs) && typeof DispatcherTicketManager !== "undefined") {
+        billHrs = DispatcherTicketManager.computeTotalBillableHours(
+            getAssignedTechsArray(sc).length,
+            sc.duration || "2.0"
+        );
+    }
+    const invLaborEl = document.getElementById("invLaborHours");
+    if (invLaborEl && isFinite(billHrs) && billHrs >= 0) {
+        invLaborEl.value = String(billHrs);
+        if (typeof calcInvoice === "function") calcInvoice();
     }
 
     let formattedLoc = street;

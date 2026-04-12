@@ -1083,6 +1083,19 @@
         margin-top: 3px;
         flex-shrink: 0;
       }
+      .sc-tech-assignment-wrap .sc-tech-multi-select {
+        width: 100%;
+        min-height: 120px;
+        padding: 8px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 13px;
+        background: #f8fafc;
+      }
+      .sc-lead-required {
+        color: #e74c3c;
+        font-weight: 800;
+      }
       .tc-tech-strip {
         margin: 6px 0 4px 0;
       }
@@ -2588,28 +2601,33 @@
                 <input type="time" id="scStartTimeInput" value="08:00" />
               </div>
               <div class="input-group">
-                <label>Est. Duration (Hours)</label>
-                <input
-                  type="number"
-                  id="scDurationInput"
-                  value="2.0"
-                  step="0.5"
-                  min="0.5"
-                />
+                <label>Est. Duration</label>
+                <select id="scDurationInput">
+                  <option value="0.5">0.5 hrs</option>
+                  <option value="1.0">1.0 hrs</option>
+                  <option value="1.5">1.5 hrs</option>
+                  <option value="2.0" selected>2.0 hrs</option>
+                  <option value="3.0">3.0 hrs</option>
+                  <option value="4.0">4.0 hrs</option>
+                  <option value="6.0">6.0 hrs</option>
+                  <option value="8.0">8.0 hrs</option>
+                  <option value="Multi-Day">Multi-Day</option>
+                </select>
               </div>
             </div>
+            <input type="hidden" id="scTotalBillableHoursInput" value="0" />
 
             <div class="form-row">
               <div class="input-group">
                 <label>Job Type</label>
                 <select id="scJobTypeInput" onchange="updateTicketPrefix()">
-                  <option value="Service Call">Service Call</option>
-                  <option value="Quoted Repair">Quoted Repair</option>
-                  <option value="Install">Install</option>
                   <option value="Preventative Maintenance">
-                    Preventative Maintenance
+                    PM — Preventative Maintenance
                   </option>
-                  <option value="Warranty Call">Warranty Call</option>
+                  <option value="Quoted Repair">QR — Quoted Repair</option>
+                  <option value="Service Call" selected>SC — Service Call</option>
+                  <option value="Install">IN — Install</option>
+                  <option value="Warranty Call">WC — Warranty Call</option>
                 </select>
               </div>
               <div class="input-group">
@@ -2625,18 +2643,50 @@
                   </option>
                 </select>
               </div>
-              <div class="input-group" style="min-width: 260px">
-                <label>Assigned technicians</label>
+              <div class="input-group" style="min-width: 280px">
+                <label for="scAssignedTechsSelect">Select technicians</label>
                 <div
                   id="scAssignedTechsContainer"
-                  class="sc-tech-checkboxes"
+                  class="sc-tech-assignment-wrap"
                 ></div>
-                <label style="margin-top: 10px; display: block"
-                  >Lead technician</label
+                <p
+                  id="scTechMultiHint"
+                  class="sc-tech-multi-hint"
+                  style="
+                    font-size: 11px;
+                    color: #7f8c8d;
+                    margin: 6px 0 0 0;
+                    line-height: 1.35;
+                  "
                 >
-                <select id="scPrimaryTechInput" style="width: 100%">
-                  <option value="">— None —</option>
-                </select>
+                  Hold <kbd>Ctrl</kbd> (Windows) or <kbd>⌘</kbd> (Mac) to select
+                  multiple.
+                </p>
+                <div
+                  id="scLeadTechRow"
+                  class="sc-lead-tech-row"
+                  style="display: none"
+                  aria-hidden="true"
+                >
+                  <label for="scPrimaryTechInput" style="margin-top: 10px"
+                    ><span class="sc-lead-required" aria-hidden="true">*</span>
+                    Lead technician</label
+                  >
+                  <select id="scPrimaryTechInput" style="width: 100%">
+                    <option value="">— Select lead —</option>
+                  </select>
+                </div>
+                <p
+                  id="scBillableHoursDisplay"
+                  class="sc-billable-hint"
+                  style="
+                    font-size: 12px;
+                    color: #1e4b85;
+                    margin: 10px 0 0 0;
+                    font-weight: 600;
+                  "
+                  aria-live="polite"
+                ></p>
               </div>
               <div class="input-group">
                 <label>Ticket Status</label>
@@ -5547,7 +5597,8 @@
     <script src="settings.js?v=13"></script>
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
-    <script src="service_call.js?v=50"></script>
+    <script src="dispatcher/js/ticket_manager.js"></script>
+    <script src="service_call.js?v=51"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=39"></script>
 
