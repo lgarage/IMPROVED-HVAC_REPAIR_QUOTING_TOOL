@@ -1748,6 +1748,86 @@
         color: #27ae60;
         margin-top: 6px;
       }
+
+      /* ----- Field App phone simulator (dispatcher preview) ----- */
+      .field-app-simulator-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483000;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      .field-app-simulator-modal.hidden {
+        display: none !important;
+      }
+      .field-app-simulator-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: auto;
+      }
+      .field-app-simulator-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.72);
+        cursor: pointer;
+        z-index: 0;
+      }
+      .field-app-simulator-stage {
+        position: relative;
+        z-index: 1;
+        flex-shrink: 0;
+        pointer-events: auto;
+      }
+      .field-app-simulator-close {
+        position: absolute;
+        top: -14px;
+        right: -14px;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: #fff;
+        color: #0f172a;
+        font-size: 26px;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .field-app-simulator-close:hover {
+        background: #f1f5f9;
+      }
+      .field-app-simulator-close:active {
+        transform: scale(0.96);
+      }
+      .field-app-simulator-bezel {
+        width: 390px;
+        height: 844px;
+        border-radius: 36px;
+        border: 14px solid #1a1a1e;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55),
+          0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+        overflow: hidden;
+        background: #000;
+        box-sizing: border-box;
+      }
+      .field-app-simulator-iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        display: block;
+        vertical-align: top;
+      }
     </style>
   </head>
   <body>
@@ -1839,8 +1919,9 @@
 
         <li>
           <a
-            onclick="openTechnicianAppPreview()"
-            title="Opens the Field App in a new tab (same view technicians use). Does not leave this portal."
+            href="#"
+            onclick="openTechnicianAppPreview(); return false;"
+            title="Opens the Field App in a phone simulator (same view technicians use). Stays in this portal."
             role="button"
           >
             <span class="menu-icon"
@@ -1894,7 +1975,7 @@
                   margin-right: 6px;
                 "
                 onclick="openTechnicianAppPreview()"
-                title="Opens the technician Field App in a new tab (same as Preview Field App in the sidebar)"
+                title="Opens the technician Field App in the phone simulator (same as Preview Field App in the sidebar)"
               >
                 Field app
               </button>
@@ -5311,11 +5392,54 @@
         }
       });
 
-      /** Dispatch-only: open technician Field App in a new tab (no reciprocal link in the Field App). */
+      /** Dispatch-only: open technician Field App in the in-portal phone simulator iframe. */
       function openTechnicianAppPreview() {
+        const modal = document.getElementById("fieldAppSimulatorModal");
+        const frame = document.getElementById("fieldAppSimulatorFrame");
+        if (!modal || !frame) return;
         const url = new URL("technician/index.html", window.location.href).href;
-        window.open(url, "_blank", "noopener,noreferrer");
+        if (
+          !frame.getAttribute("src") ||
+          frame.getAttribute("src") === "about:blank"
+        ) {
+          frame.src = url;
+        }
+        modal.classList.remove("hidden");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+        const closeBtn = document.getElementById("fieldAppSimulatorClose");
+        if (closeBtn) closeBtn.focus();
       }
+
+      function closeFieldAppSimulator() {
+        const modal = document.getElementById("fieldAppSimulatorModal");
+        if (!modal) return;
+        modal.classList.add("hidden");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+      }
+
+      (function wireFieldAppSimulator() {
+        const modal = document.getElementById("fieldAppSimulatorModal");
+        const overlay = document.getElementById("fieldAppSimulatorOverlay");
+        const closeBtn = document.getElementById("fieldAppSimulatorClose");
+        if (overlay) {
+          overlay.addEventListener("click", function () {
+            closeFieldAppSimulator();
+          });
+        }
+        if (closeBtn) {
+          closeBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            closeFieldAppSimulator();
+          });
+        }
+        document.addEventListener("keydown", function (e) {
+          if (e.key !== "Escape") return;
+          if (!modal || modal.classList.contains("hidden")) return;
+          closeFieldAppSimulator();
+        });
+      })();
 
       function switchTab(tabName) {
         closeInvoicingSubmenu();
@@ -5559,6 +5683,42 @@
                 Fact-Driven Recommendation
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Field App: in-frame phone simulator (see openTechnicianAppPreview) -->
+    <div
+      id="fieldAppSimulatorModal"
+      class="field-app-simulator-modal hidden"
+      aria-hidden="true"
+      role="dialog"
+      aria-label="Field App phone simulator"
+    >
+      <div class="field-app-simulator-inner">
+        <div
+          class="field-app-simulator-overlay"
+          id="fieldAppSimulatorOverlay"
+          aria-hidden="true"
+        ></div>
+        <div class="field-app-simulator-stage" id="fieldAppSimulatorStage">
+          <button
+            type="button"
+            class="field-app-simulator-close"
+            id="fieldAppSimulatorClose"
+            aria-label="Close Field App simulator"
+            title="Close"
+          >
+            &times;
+          </button>
+          <div class="field-app-simulator-bezel">
+            <iframe
+              id="fieldAppSimulatorFrame"
+              class="field-app-simulator-iframe"
+              title="Field App"
+              src="about:blank"
+            ></iframe>
           </div>
         </div>
       </div>
