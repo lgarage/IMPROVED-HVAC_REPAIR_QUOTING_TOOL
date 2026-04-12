@@ -14,6 +14,7 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
+    <link rel="stylesheet" href="dispatcher/css/activity_feed.css?v=1" />
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
@@ -2161,6 +2162,17 @@
         </li>
         <li>
           <a
+            id="nav-pulse"
+            onclick="switchTab('pulse')"
+            title="Live field activity feed"
+            ><span class="menu-icon"
+              ><i class="fas fa-broadcast-tower"></i
+            ></span>
+            <span class="menu-text">Live Pulse</span></a
+          >
+        </li>
+        <li>
+          <a
             id="nav-quoting"
             onclick="switchTab('quoting')"
             title="Quoting Tool"
@@ -3145,6 +3157,39 @@
             >
               Generate Service Ticket
             </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="view-pulse" class="app-view">
+        <div id="pulseDashboard" class="pulse-dashboard">
+          <div class="pulse-dashboard__header">
+            <h2>Live Pulse</h2>
+            <p class="pulse-dashboard__sub">
+              Real-time internal notes, site intel, and status changes from Firestore.
+              Click a row to open the ticket.
+            </p>
+          </div>
+          <div
+            id="pulseFeedList"
+            class="pulse-feed-list"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions"
+          ></div>
+          <div class="pulse-quick-reply">
+            <label for="pulseQuickReplyInput">Quick reply (Dark Channel)</label>
+            <div class="pulse-quick-reply__row">
+              <input
+                type="text"
+                id="pulseQuickReplyInput"
+                maxlength="2000"
+                placeholder="Select a ticket from the feed, then type an office reply…"
+                autocomplete="off"
+              />
+              <button type="button" id="pulseQuickReplyBtn">Send</button>
+            </div>
+            <p id="pulseQuickReplyHint" class="pulse-hint" aria-live="polite"></p>
           </div>
         </div>
       </div>
@@ -5762,6 +5807,7 @@
         currentActiveView = tabName;
 
         document.getElementById("view-service").classList.remove("active");
+        document.getElementById("view-pulse").classList.remove("active");
         document.getElementById("view-quoting").classList.remove("active");
         document.getElementById("view-invoice").classList.remove("active");
         document
@@ -5770,6 +5816,7 @@
         document.getElementById("view-settings").classList.remove("active");
 
         document.getElementById("nav-service").classList.remove("active-tab");
+        document.getElementById("nav-pulse").classList.remove("active-tab");
         document.getElementById("nav-quoting").classList.remove("active-tab");
         document.getElementById("nav-invoice").classList.remove("active-tab");
         document
@@ -5791,6 +5838,16 @@
 
         if (typeof updateLocationDatalist === "function")
           updateLocationDatalist();
+
+        if (tabName === "pulse") {
+          if (typeof window.PulseActivityFeed !== "undefined") {
+            window.PulseActivityFeed.start();
+          }
+        } else {
+          if (typeof window.PulseActivityFeed !== "undefined") {
+            window.PulseActivityFeed.stop();
+          }
+        }
 
         if (tabName === "service") {
           setTimeout(() => {
@@ -5862,12 +5919,22 @@
           localStorage.setItem("tp_has_seeded_data", "true");
         }
       }
+
     </script>
 
     <script src="settings.js?v=13"></script>
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js"></script>
+    <script src="dispatcher/js/activity_feed.js?v=1"></script>
+    <script>
+      window.addEventListener("hashchange", function () {
+        if (window.location.hash === "#pulse") switchTab("pulse");
+      });
+      if (window.location.hash === "#pulse") {
+        switchTab("pulse");
+      }
+    </script>
     <script src="service_call.js?v=56"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=39"></script>
