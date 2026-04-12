@@ -11,6 +11,14 @@
 (function () {
   "use strict";
 
+  function isVcTimeTrackingOnlySeat() {
+    try {
+      return localStorage.getItem("vc_time_tracking_only") === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+
   var rosettaState = { ids: null };
   var lastDictationTicketId = null;
   /** @type {Object.<string, { id: string, data: object }>} */
@@ -1123,6 +1131,9 @@
     if (!raw) {
       throw new Error("Enter some notes before processing.");
     }
+    if (isVcTimeTrackingOnlySeat()) {
+      throw new Error("Time tracking seat — AI dictation is disabled for this account.");
+    }
 
     if (typeof getGeminiApiKey !== "function") {
       throw new Error("Gemini API key is not available (getGeminiApiKey).");
@@ -1297,6 +1308,7 @@
   }
 
   function scheduleInternalCloudSave(text) {
+    if (isVcTimeTrackingOnlySeat()) return;
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
     if (typeof activeTicket === "undefined" || !activeTicket || !activeTicket.id) return;
     if (internalCloudDebounce) clearTimeout(internalCloudDebounce);
@@ -1572,6 +1584,10 @@
   }
 
   function onProcessNotesClick() {
+    if (isVcTimeTrackingOnlySeat()) {
+      alert("Time tracking seat — AI processing is disabled. Contact the office to upgrade.");
+      return;
+    }
     if (dictationChannel !== "public") {
       alert(
         "Switch to Public Export to run AI on notes that can go to the customer-facing record. Inter-Office Comms stay private."

@@ -15,6 +15,69 @@
     adminUnlockPin: "beta",
   };
 
+  /**
+   * Enterprise role definitions (BuildOps-style mapping). Used by User Import + Field entitlements.
+   */
+  global.VC_ROLE_DEFINITIONS = {
+    admin: { id: "admin", label: "Administrator", description: "Full dispatcher / settings access." },
+    tech: { id: "tech", label: "Field Technician", description: "Field app, jobs, equipment, reporting." },
+    sales: { id: "sales", label: "Sales", description: "Quote / customer-facing workflows." },
+    timeTrackingOnly: {
+      id: "time_tracking_only",
+      label: "Time Tracking Only",
+      description:
+        "Yellow / restricted seat: clock-in/out only; AI dictation, advanced reporting, and premium Field features are disabled to save licenses.",
+    },
+  };
+
+  /** Canonical CSV column headers (case-insensitive match) for Green Column import. */
+  global.VC_USER_IMPORT_HEADERS = {
+    firstName: ["first name", "firstname", "payroll first name", "given name"],
+    lastName: ["last name", "lastname", "payroll last name", "surname", "family name"],
+    email: ["email", "e-mail", "work email", "login email"],
+    department: ["department", "dept", "division", "team"],
+    role: ["role", "roles", "job title", "title", "hats"],
+    isAdmin: ["is admin", "admin", "administrator", "is administrator"],
+    isTech: ["is tech", "technician", "field tech", "is technician", "is field tech"],
+    isSales: ["is sales", "sales", "sales rep", "is sales rep"],
+    timeTrackingOnly: [
+      "time tracking only",
+      "time tracking",
+      "tt only",
+      "clock only",
+      "yellow",
+      "yellow highlight",
+      "time tracking seat",
+    ],
+    password: ["password", "temp password", "temporary password", "initial password"],
+  };
+
+  global.validateVcEnterprisePassword = function (password) {
+    var pw = password != null ? String(password) : "";
+    if (pw.length < 8) {
+      return { ok: false, message: "Password must be at least 8 characters." };
+    }
+    if (!/[A-Z]/.test(pw)) {
+      return { ok: false, message: "Password must include at least one capital letter." };
+    }
+    if (!/[^A-Za-z0-9]/.test(pw)) {
+      return { ok: false, message: "Password must include at least one special character." };
+    }
+    return { ok: true, message: "" };
+  };
+
+  /** BuildOps-style: local+training@domain for sandbox training accounts. */
+  global.trainingEmailFromPrimary = function (email) {
+    var e = String(email || "").trim().toLowerCase();
+    var at = e.indexOf("@");
+    if (at < 1) return "";
+    var local = e.slice(0, at);
+    var domain = e.slice(at + 1);
+    if (!domain) return "";
+    if (local.indexOf("+training") !== -1) return e;
+    return local + "+training@" + domain;
+  };
+
   function loadFromStorage() {
     var cfg = Object.assign({}, BASE);
     try {

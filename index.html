@@ -15,6 +15,7 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
     <link rel="stylesheet" href="dispatcher/css/activity_feed.css?v=1" />
+    <link rel="stylesheet" href="dispatcher/css/import_hub.css?v=1" />
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
@@ -2352,6 +2353,19 @@
           >
             Switch tenant only (reload)
           </button>
+          <hr
+            style="margin: 12px 0; border: none; border-top: 1px solid #e2e8f0"
+          />
+          <p style="font-size: 11px; color: #64748b; margin: 0 0 8px">
+            Enterprise Data Onboarding
+          </p>
+          <button
+            type="button"
+            id="vcOpenImportHubBtn"
+            class="vc-admin-onboarding-btn"
+          >
+            Open import wizard…
+          </button>
         </div>
       </details>
     </div>
@@ -4592,6 +4606,37 @@
             <h2>System Settings</h2>
           </div>
 
+          <div class="form-section" id="vcUserImportSection">
+            <h4>Enterprise User Import (BuildOps Green Column)</h4>
+            <p style="font-size: 13px; color: #666">
+              Upload a CSV with columns:
+              <strong>First Name</strong>, <strong>Last Name</strong>, <strong>Email</strong>,
+              <strong>Department</strong>, <strong>Role</strong> (multiple hats separated by commas),
+              <strong>Is Admin</strong>, <strong>Is Tech</strong>, <strong>Is Sales</strong>,
+              <strong>Time Tracking Only</strong> (true/false — yellow / restricted seat),
+              optional <strong>Password</strong> (validated: 8+ chars, 1 capital, 1 special).
+              Users are stored under <code>tenants/{tenantId}/users</code>. Training sandbox accounts use
+              <code>local+training@domain</code> and Field data under <code>sandbox/default/…</code>.
+            </p>
+            <div style="max-width: 720px; margin-bottom: 12px">
+              <input type="file" id="vcUserImportFile" accept=".csv,text/csv" />
+            </div>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 8px 0">
+              <input type="checkbox" id="vcUserImportCreateTraining" checked />
+              Also create Training (sandbox) user: <code>email+training@domain</code>
+            </label>
+            <div id="vcUserImportErrors" style="font-size: 13px; margin-bottom: 8px"></div>
+            <div id="vcUserImportPreview"></div>
+            <button
+              type="button"
+              id="vcUserImportRun"
+              class="gen-btn"
+              style="margin-top: 12px; background: #1e4b85; padding: 10px 20px; font-size: 14px; color: #fff"
+            >
+              Import users to Firestore
+            </button>
+          </div>
+
           <div class="form-section">
             <h4>Integrations &amp; API Keys</h4>
             <p style="font-size: 13px; color: #666">
@@ -6033,6 +6078,7 @@
     </script>
 
     <script src="settings.js?v=13"></script>
+    <script src="dispatcher/js/user_import.js?v=1"></script>
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js"></script>
@@ -6293,6 +6339,41 @@
         });
       })();
     </script>
+    <div
+      id="vcImportHubOverlay"
+      class="vc-import-hub-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="vcImportHubTitle"
+      aria-hidden="true"
+    >
+      <div class="vc-import-hub-modal">
+        <div class="vc-import-hub-header">
+          <div>
+            <h2 id="vcImportHubTitle">Enterprise Data Onboarding</h2>
+            <p class="vc-import-hub-sub">
+              Upload CSV, map columns, preview rows, then commit to this tenant.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="vc-import-hub-close"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <div class="vc-import-hub-steps">
+          <span class="vc-import-hub-step active" data-step="1"
+            >1 · Upload</span
+          >
+          <span class="vc-import-hub-step" data-step="2">2 · Map</span>
+          <span class="vc-import-hub-step" data-step="3">3 · Commit</span>
+        </div>
+        <div id="vcImportHubBody" class="vc-import-hub-body"></div>
+      </div>
+    </div>
+    <script src="dispatcher/js/import_hub.js?v=1"></script>
     <script src="equipment_manager.js?v=7"></script>
   </body>
 </html>

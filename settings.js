@@ -2543,6 +2543,26 @@ async function hydrateFieldFormTemplatesList() {
 window.openFieldFormBuilderCreate = openFieldFormBuilderCreate;
 window.openFieldFormBuilderEdit = openFieldFormBuilderEdit;
 window.deleteFieldFormTemplateById = deleteFieldFormTemplateById;
+
+/** Called from User Import after writing tenants/.../users. */
+window.mergeImportedTechsIntoRoster = function (names) {
+    if (!Array.isArray(names)) return;
+    var added = 0;
+    names.forEach(function (n) {
+        var u = String(n || "").trim().toUpperCase();
+        if (!u || appTechList.includes(u)) return;
+        appTechList.push(u);
+        added++;
+    });
+    if (added > 0) {
+        try {
+            localStorage.setItem("tp_tech_list", JSON.stringify(appTechList));
+        } catch (e) {}
+        syncTechnicianRosterToFirestore();
+        if (typeof renderTechSettings === "function") renderTechSettings();
+        if (typeof populateTechDropdowns === "function") populateTechDropdowns();
+    }
+};
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initFieldFormBuilderUi);
 } else {

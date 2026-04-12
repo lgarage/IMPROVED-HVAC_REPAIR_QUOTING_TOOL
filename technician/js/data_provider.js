@@ -189,7 +189,8 @@
     var bridge =
       typeof VCFirestore !== "undefined" &&
       VCFirestore.isBridgeTenant &&
-      VCFirestore.isBridgeTenant();
+      VCFirestore.isBridgeTenant() &&
+      !(typeof VCFirestore.isSandboxDataPath === "function" && VCFirestore.isSandboxDataPath());
 
     var p1 = bridge
       ? Promise.all([

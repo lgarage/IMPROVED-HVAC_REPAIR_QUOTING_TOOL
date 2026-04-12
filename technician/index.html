@@ -12,6 +12,7 @@
 <script src="../firebase-config.js?v=3"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/firebase_logic.js"></script>
+<script src="js/vc_entitlements.js?v=1"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
@@ -1188,6 +1189,20 @@ body {
 }
 #dictationHubNotes.dictation-hub-notes--internal::placeholder {
   color: #94a3b8;
+}
+
+.vc-entitlements-banner {
+  background: linear-gradient(90deg, #fef3c7, #fffbeb);
+  border-bottom: 1px solid #f59e0b;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #78350f;
+  line-height: 1.45;
+}
+body.vc-sandbox-session .vc-entitlements-banner {
+  background: linear-gradient(90deg, #dbeafe, #eff6ff);
+  border-bottom-color: #3b82f6;
+  color: #1e3a5f;
 }
 
 .vc-site-search-wrap {
@@ -3297,6 +3312,9 @@ async function completeTechnicianLogin() {
   }
   if (!canonical) canonical = name;
   localStorage.setItem('tp_saved_tech', canonical);
+  if (typeof applyVcFieldEntitlements === 'function') {
+    await applyVcFieldEntitlements(canonical);
+  }
   hideLoginShell();
   const openedFromDispatchLink = await loadUserProfile();
   if (!openedFromDispatchLink) switchScreen('schedule');
@@ -3320,6 +3338,7 @@ async function loadUserProfile(options = {}) {
 
 async function switchUser() {
   unsubscribeSchedule();
+  if (typeof clearVcFieldEntitlements === 'function') clearVcFieldEntitlements();
   localStorage.removeItem('tp_saved_tech');
   currentTechProfile = '';
   selectedScheduleDayYmd = '';
@@ -5505,6 +5524,11 @@ function formatQuoteEquipField(){ const el = document.getElementById("quoteEquip
 /* ---------- BACKGROUND CLOUD SYNC ---------- */
 function uploadReportToCloud(visitData, fullReportText) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+    try {
+      if (localStorage.getItem('vc_time_tracking_only') === '1') {
+        return;
+      }
+    } catch (e) {}
     const db = firebase.firestore();
     const scUp =
       typeof VCFirestore !== "undefined"
@@ -5883,6 +5907,10 @@ window.onload = async function(){
     showLoginShell(cachedTechnicianRoster);
   document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
   return;
+  }
+
+  if (typeof applyVcFieldEntitlements === 'function') {
+    await applyVcFieldEntitlements(canonical);
   }
 
   const openedFromDispatchLink = await loadUserProfile();

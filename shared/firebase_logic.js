@@ -14,6 +14,19 @@
     return "TWIN_PILLARS";
   }
 
+  /** Training / sandbox data path (Field App training accounts only). */
+  function isSandboxDataPath() {
+    try {
+      return typeof global !== "undefined" && global.VC_SANDBOX_DATA === true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function sandboxDefaultSubcollection(db, name) {
+    return tenantRoot(db).collection("sandbox").doc("default").collection(String(name));
+  }
+
   function tenantRoot(db) {
     return db.collection("tenants").doc(getTenantId());
   }
@@ -24,11 +37,27 @@
   }
 
   function serviceCalls(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "service_calls");
+    }
     return tenantCollection(db, "service_calls");
   }
 
   function siteIntelligence(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "site_intelligence");
+    }
     return tenantCollection(db, "site_intelligence");
+  }
+
+  /** Enterprise user directory (imported roster / BuildOps-style). */
+  function tenantUsers(db) {
+    return tenantCollection(db, "users");
+  }
+
+  /** Legacy platform equipment rows keyed by site + normalized location (import hub). */
+  function tenantImportedEquipment(db) {
+    return tenantCollection(db, "imported_equipment");
   }
 
   /** Single roster document: names[], profiles{}, updatedAt */
@@ -37,15 +66,24 @@
   }
 
   function fieldQuotes(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "field_quotes");
+    }
     return tenantCollection(db, "field_quotes");
   }
 
   function pmRecords(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "pm_records");
+    }
     return tenantCollection(db, "pm_records");
   }
 
   /** Dynamic / custom field form submissions (tenant-scoped). */
   function fieldFormSubmissions(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "field_form_submissions");
+    }
     return tenantCollection(db, "field_form_submissions");
   }
 
@@ -56,6 +94,9 @@
 
   /** Technician completed report uploads from field app (tenant-scoped). */
   function completedReports(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "completed_reports");
+    }
     return tenantCollection(db, "completed_reports");
   }
 
@@ -111,6 +152,9 @@
    * For non–TWIN_PILLARS tenants, tenant only.
    */
   function subscribeServiceCallsMerged(db, onNext, onError) {
+    if (isSandboxDataPath()) {
+      return serviceCalls(db).onSnapshot(onNext, onError);
+    }
     if (!isBridgeTenant()) {
       return serviceCalls(db).onSnapshot(onNext, onError);
     }
@@ -142,6 +186,9 @@
   }
 
   function subscribeSiteIntelligenceMerged(db, onNext, onError) {
+    if (isSandboxDataPath()) {
+      return siteIntelligence(db).onSnapshot(onNext, onError);
+    }
     if (!isBridgeTenant()) {
       return siteIntelligence(db).onSnapshot(onNext, onError);
     }
@@ -176,6 +223,9 @@
    * Same query executed on tenant + root collections; merged doc map (tenant wins).
    */
   function subscribeBridgedServiceCallQuery(db, buildQuery, onNext, onError) {
+    if (isSandboxDataPath()) {
+      return buildQuery(serviceCalls(db)).onSnapshot(onNext, onError);
+    }
     if (!isBridgeTenant()) {
       return buildQuery(serviceCalls(db)).onSnapshot(onNext, onError);
     }
@@ -216,7 +266,7 @@
       if (snap.exists) {
         return { exists: true, data: snap.data(), ref: tRef, source: "tenant" };
       }
-      if (!isBridgeTenant()) {
+      if (isSandboxDataPath() || !isBridgeTenant()) {
         return { exists: false, data: null, ref: tRef, source: "tenant" };
       }
       var rRef = rootCollection(db, "service_calls").doc(tid);
@@ -236,7 +286,7 @@
     var tid = String(ticketId || "");
     var tRef = serviceCalls(db).doc(tid);
     return tRef.set(data, { merge: !!merge }).then(function () {
-      if (!isBridgeTenant()) return;
+      if (isSandboxDataPath() || !isBridgeTenant()) return;
       var rRef = rootCollection(db, "service_calls").doc(tid);
       return rRef.get().then(function (snap) {
         if (snap.exists) return rRef.delete();
@@ -251,7 +301,7 @@
       if (snap.exists) {
         return { exists: true, data: snap.data(), ref: tRef, source: "tenant" };
       }
-      if (!isBridgeTenant()) {
+      if (isSandboxDataPath() || !isBridgeTenant()) {
         return { exists: false, data: null, ref: tRef, source: "tenant" };
       }
       var rRef = rootCollection(db, "site_intelligence").doc(id);
@@ -268,7 +318,7 @@
     var id = String(docId || "");
     var tRef = siteIntelligence(db).doc(id);
     return tRef.set(data, { merge: !!merge }).then(function () {
-      if (!isBridgeTenant()) return;
+      if (isSandboxDataPath() || !isBridgeTenant()) return;
       var rRef = rootCollection(db, "site_intelligence").doc(id);
       return rRef.get().then(function (snap) {
         if (snap.exists) return rRef.delete();
@@ -287,7 +337,7 @@
       });
       return rows;
     }
-    if (!isBridgeTenant()) {
+    if (isSandboxDataPath() || !isBridgeTenant()) {
       return tc
         .where(field, op, value)
         .limit(lim)
@@ -313,7 +363,7 @@
 
   function loadServiceCallsMergedOnce(db) {
     var tc = serviceCalls(db);
-    if (!isBridgeTenant()) {
+    if (isSandboxDataPath() || !isBridgeTenant()) {
       return tc.get();
     }
     return Promise.all([tc.get(), rootCollection(db, "service_calls").get()]).then(function (pair) {
@@ -327,7 +377,7 @@
    * @returns {Promise<Object.<string, firebase.firestore.DocumentSnapshot>>}
    */
   function getServiceCallsWhereMergedOnce(db, buildWhere) {
-    if (!isBridgeTenant()) {
+    if (isSandboxDataPath() || !isBridgeTenant()) {
       return buildWhere(serviceCalls(db))
         .get()
         .then(function (snap) {
@@ -352,7 +402,7 @@
   function subscribeSiteIntelDocMerged(db, docId, onNotesTrimmed, onError) {
     var id = String(docId || "");
     var tRef = siteIntelligence(db).doc(id);
-    if (!isBridgeTenant()) {
+    if (isSandboxDataPath() || !isBridgeTenant()) {
       return tRef.onSnapshot(
         function (snap) {
           var notes = snap.exists && snap.data() ? String(snap.data().notes || "").trim() : "";
@@ -399,8 +449,11 @@
 
   global.VCFirestore = {
     getTenantId: getTenantId,
+    isSandboxDataPath: isSandboxDataPath,
     tenantRoot: tenantRoot,
     tenantCollection: tenantCollection,
+    tenantUsers: tenantUsers,
+    tenantImportedEquipment: tenantImportedEquipment,
     serviceCalls: serviceCalls,
     siteIntelligence: siteIntelligence,
     rosterDoc: rosterDoc,
