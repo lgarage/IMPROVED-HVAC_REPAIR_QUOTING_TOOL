@@ -21,7 +21,7 @@
   }
 
   /**
-   * Standard Ticket — internal VC contract for jobs (provider-neutral).
+   * Standard Ticket — provider-neutral job contract for the app.
    * @typedef {Object} StandardTicket
    * @property {string} id — Internal document id (always present)
    * @property {string} locationName — Primary site / customer line for UI
@@ -161,43 +161,75 @@
       };
     }
 
-    var p1 = sc
-      .limit(800)
-      .get()
-      .then(function (snap) {
-        snap.forEach(function (doc) {
-          var d = doc.data() || {};
-          addRow(d.customerName, d.locationAddress);
-        });
-      })
-      .catch(function (e) {
-        console.warn("[DataProvider] getAllLocations service_calls", e);
+    function ingestServiceCallSnap(snap) {
+      snap.forEach(function (doc) {
+        var d = doc.data() || {};
+        addRow(d.customerName, d.locationAddress);
       });
+    }
+    function ingestSiteIntelSnap(snap) {
+      snap.forEach(function (doc) {
+        var d = doc.data() || {};
+        var line = String(d.locationDisplay || d.displayLine || "").trim();
+        if (line) {
+          var dash = line.indexOf(" - ");
+          if (dash > 0) {
+            addRow(line.slice(0, dash).trim(), line.slice(dash + 3).trim());
+          } else {
+            addRow(line, "");
+          }
+          return;
+        }
+        if (d.customerName || d.address) {
+          addRow(d.customerName, d.address);
+        }
+      });
+    }
 
-    var p2 = si
-      .limit(500)
-      .get()
-      .then(function (snap) {
-        snap.forEach(function (doc) {
-          var d = doc.data() || {};
-          var line = String(d.locationDisplay || d.displayLine || "").trim();
-          if (line) {
-            var dash = line.indexOf(" - ");
-            if (dash > 0) {
-              addRow(line.slice(0, dash).trim(), line.slice(dash + 3).trim());
-            } else {
-              addRow(line, "");
-            }
-            return;
-          }
-          if (d.customerName || d.address) {
-            addRow(d.customerName, d.address);
-          }
-        });
-      })
-      .catch(function () {
-        /* collection may be empty */
-      });
+    var bridge =
+      typeof VCFirestore !== "undefined" &&
+      VCFirestore.isBridgeTenant &&
+      VCFirestore.isBridgeTenant();
+
+    var p1 = bridge
+      ? Promise.all([
+          sc.limit(800).get(),
+          db.collection("service_calls").limit(800).get(),
+        ])
+          .then(function (pair) {
+            ingestServiceCallSnap(pair[0]);
+            ingestServiceCallSnap(pair[1]);
+          })
+          .catch(function (e) {
+            console.warn("[DataProvider] getAllLocations service_calls", e);
+          })
+      : sc
+          .limit(800)
+          .get()
+          .then(ingestServiceCallSnap)
+          .catch(function (e) {
+            console.warn("[DataProvider] getAllLocations service_calls", e);
+          });
+
+    var p2 = bridge
+      ? Promise.all([
+          si.limit(500).get(),
+          db.collection("site_intelligence").limit(500).get(),
+        ])
+          .then(function (pair) {
+            ingestSiteIntelSnap(pair[0]);
+            ingestSiteIntelSnap(pair[1]);
+          })
+          .catch(function () {
+            /* collection may be empty */
+          })
+      : si
+          .limit(500)
+          .get()
+          .then(ingestSiteIntelSnap)
+          .catch(function () {
+            /* collection may be empty */
+          });
 
     return Promise.all([p1, p2]).then(function () {
       return Object.keys(byKey)

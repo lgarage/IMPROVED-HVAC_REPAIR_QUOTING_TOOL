@@ -64,13 +64,20 @@
   async function fetchTicketForWorkspace(ticketId) {
     if (typeof firebase === "undefined" || !firebase.apps.length) return null;
     var _db = firebase.firestore();
-    var _sc =
-      typeof VCFirestore !== "undefined"
-        ? VCFirestore.serviceCalls(_db)
-        : _db.collection("service_calls");
-    var snap = await _sc.doc(ticketId).get();
-    if (!snap.exists) return null;
-    var data = snap.data() || {};
+    var got =
+      typeof VCFirestore !== "undefined" && VCFirestore.getServiceCallOnceBridged
+        ? await VCFirestore.getServiceCallOnceBridged(_db, ticketId)
+        : await (typeof VCFirestore !== "undefined"
+            ? VCFirestore.serviceCalls(_db)
+            : _db.collection("service_calls")
+          )
+            .doc(ticketId)
+            .get()
+            .then(function (snap) {
+              return { exists: snap.exists, data: snap.exists ? snap.data() : null };
+            });
+    if (!got.exists) return null;
+    var data = got.data || {};
     data.id = ticketId;
     return data;
   }
@@ -115,23 +122,37 @@
 
     try {
       var _db2 = firebase.firestore();
-      var col =
-        typeof VCFirestore !== "undefined"
-          ? VCFirestore.serviceCalls(_db2)
-          : _db2.collection("service_calls");
-      var snapNew = await col
-        .where("assignedTechs", "array-contains", currentTechProfile)
-        .get();
-      var snapLegacy = await col
-        .where("assignedTech", "==", currentTechProfile)
-        .get();
+      var mergeFn =
+        typeof VCFirestore !== "undefined" && VCFirestore.getServiceCallsWhereMergedOnce
+          ? VCFirestore.getServiceCallsWhereMergedOnce
+          : async function (db, buildWhere) {
+              var col =
+                typeof VCFirestore !== "undefined"
+                  ? VCFirestore.serviceCalls(db)
+                  : db.collection("service_calls");
+              var snap = await buildWhere(col).get();
+              var o = {};
+              snap.forEach(function (d) {
+                o[d.id] = d;
+              });
+              return o;
+            };
+      var mergedNew = await mergeFn(_db2, function (col) {
+        return col.where("assignedTechs", "array-contains", currentTechProfile);
+      });
+      var mergedLegacy = await mergeFn(_db2, function (col) {
+        return col.where("assignedTech", "==", currentTechProfile);
+      });
 
       var byId = new Map();
-      snapNew.forEach(function (doc) {
-        byId.set(doc.id, doc.data() || {});
+      Object.keys(mergedNew).forEach(function (id) {
+        var d = mergedNew[id];
+        byId.set(id, d.data ? d.data() || {} : {});
       });
-      snapLegacy.forEach(function (doc) {
-        if (!byId.has(doc.id)) byId.set(doc.id, doc.data() || {});
+      Object.keys(mergedLegacy).forEach(function (id) {
+        if (byId.has(id)) return;
+        var d = mergedLegacy[id];
+        byId.set(id, d.data ? d.data() || {} : {});
       });
 
       var rows = [];

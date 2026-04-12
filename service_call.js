@@ -43,11 +43,18 @@ function subscribeServiceCallsFromCloud() {
             _serviceCallsBoardUnsub = null;
         }
         var _db = firebase.firestore();
-        var _sc =
-          typeof VCFirestore !== "undefined"
-            ? VCFirestore.serviceCalls(_db)
-            : _db.collection("service_calls");
-        _serviceCallsBoardUnsub = _sc.onSnapshot(
+        var subFn =
+          typeof VCFirestore !== "undefined" && VCFirestore.subscribeServiceCallsMerged
+            ? VCFirestore.subscribeServiceCallsMerged
+            : function (db, onNext, onErr) {
+                var _sc =
+                  typeof VCFirestore !== "undefined"
+                    ? VCFirestore.serviceCalls(db)
+                    : db.collection("service_calls");
+                return _sc.onSnapshot(onNext, onErr);
+              };
+        _serviceCallsBoardUnsub = subFn(
+                _db,
                 function (snapshot) {
                     var cloudDb = [];
                     snapshot.forEach(function (doc) {
@@ -76,11 +83,14 @@ window.addEventListener("DOMContentLoaded", function () {
 async function loadServiceCallsFromCloud() {
     try {
         let firestoreDb = firebase.firestore();
-        var scCol =
-          typeof VCFirestore !== "undefined"
-            ? VCFirestore.serviceCalls(firestoreDb)
-            : firestoreDb.collection("service_calls");
-        const snapshot = await scCol.get();
+        const snapshot =
+          typeof VCFirestore !== "undefined" && VCFirestore.loadServiceCallsMergedOnce
+            ? await VCFirestore.loadServiceCallsMergedOnce(firestoreDb)
+            : await (
+                typeof VCFirestore !== "undefined"
+                  ? VCFirestore.serviceCalls(firestoreDb)
+                  : firestoreDb.collection("service_calls")
+              ).get();
         let cloudDb = [];
         
         snapshot.forEach(doc => {
@@ -105,8 +115,15 @@ async function syncSingleServiceCallToCloud(dbId, data) {
             : firestoreDb.collection("service_calls");
         if (data === null) {
             await scCol.doc(dbId).delete();
+            if (typeof VCFirestore !== "undefined" && VCFirestore.isBridgeTenant && VCFirestore.isBridgeTenant()) {
+                await firestoreDb.collection("service_calls").doc(dbId).delete();
+            }
         } else {
-            await scCol.doc(dbId).set(data, { merge: true });
+            if (typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged) {
+                await VCFirestore.setServiceCallMerged(firestoreDb, dbId, data, true);
+            } else {
+                await scCol.doc(dbId).set(data, { merge: true });
+            }
         }
     } catch (e) {
         console.error("Failed to sync service call to cloud:", e);

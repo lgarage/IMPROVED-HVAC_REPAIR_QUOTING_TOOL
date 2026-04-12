@@ -81,7 +81,7 @@
     if (!feedEl) return;
     if (!feedEl.querySelector(".pulse-feed-item")) {
       feedEl.innerHTML =
-        '<div class="pulse-feed-list--empty">Listening for activity… Open a job in the field or add internal notes.</div>';
+        '<div class="pulse-feed-list--empty">Listening for activity… Open a job in the field or add inter-office notes.</div>';
     }
   }
 
@@ -169,9 +169,10 @@
       return;
     }
 
-    snapshot.docChanges().forEach(function (change) {
-      var doc = change.doc;
+    var seen = {};
+    snapshot.forEach(function (doc) {
       var id = doc.id;
+      seen[id] = true;
       var data = doc.data() || {};
       var prev = lastTicketState[id] || { status: "", internal: "" };
       var st = data.status != null ? String(data.status) : "";
@@ -185,7 +186,7 @@
         prependFeedItem(
           feedItemHtml({
             type: "internal",
-            who: tlabel + " (Internal Note)",
+            who: tlabel + " (Inter-Office Comms)",
             line: '"' + snippet + '"',
             time: commTime || "—",
             ticketId: id,
@@ -207,32 +208,48 @@
 
       lastTicketState[id] = { status: st, internal: internal };
     });
+    Object.keys(lastTicketState).forEach(function (id) {
+      if (!seen[id]) delete lastTicketState[id];
+    });
   }
+
+  var lastIntelNotes = {};
 
   function onIntelSnapshot(snapshot) {
     if (firstIntelSnap) {
       firstIntelSnap = false;
+      snapshot.forEach(function (doc) {
+        var data = doc.data() || {};
+        lastIntelNotes[doc.id] = String(data.notes || "").trim();
+      });
       return;
     }
 
-    snapshot.docChanges().forEach(function (change) {
-      if (change.type !== "modified" && change.type !== "added") return;
-      var doc = change.doc;
+    var seen = {};
+    snapshot.forEach(function (doc) {
+      var id = doc.id;
+      seen[id] = true;
       var data = doc.data() || {};
       var notes = String(data.notes || "").trim();
-      if (!notes) return;
-      var loc = String(data.locationDisplay || data.normalizedKey || "Site").trim();
-      var by = String(data.updatedByTech || "Field").trim();
-      var snippet = notes.length > 200 ? notes.slice(0, 197) + "…" : notes;
-      prependFeedItem(
-        feedItemHtml({
-          type: "intel",
-          who: by + " (Site Intel)",
-          line: loc + ": " + snippet,
-          time: formatTime(data.updatedAt) || "—",
-          intelId: doc.id,
-        })
-      );
+      var prevNotes = lastIntelNotes[id] != null ? lastIntelNotes[id] : "";
+      if (notes && notes !== prevNotes) {
+        var loc = String(data.locationDisplay || data.normalizedKey || "Site").trim();
+        var by = String(data.updatedByTech || "Field").trim();
+        var snippet = notes.length > 200 ? notes.slice(0, 197) + "…" : notes;
+        prependFeedItem(
+          feedItemHtml({
+            type: "intel",
+            who: by + " (Site Intel)",
+            line: loc + ": " + snippet,
+            time: formatTime(data.updatedAt) || "—",
+            intelId: id,
+          })
+        );
+      }
+      lastIntelNotes[id] = notes;
+    });
+    Object.keys(lastIntelNotes).forEach(function (id) {
+      if (!seen[id]) delete lastIntelNotes[id];
     });
   }
 
@@ -280,7 +297,7 @@
     if (!text) return;
     var tid = lastTicketIdForReply;
     if (!tid) {
-      if (hintEl) hintEl.textContent = "Click an internal note or status row first to pick a ticket.";
+      if (hintEl) hintEl.textContent = "Click an inter-office message or status row first to pick a ticket.";
       return;
     }
     var mgr = getManagerLabel();
@@ -291,23 +308,32 @@
         : _db.collection("service_calls")
     ).doc(tid);
     btnEl.disabled = true;
-    ref
-      .get()
-      .then(function (snap) {
-        var prev = snap.exists && snap.data() ? normalizeInternal(snap.data()) : "";
+    (typeof VCFirestore !== "undefined" && VCFirestore.getServiceCallOnceBridged
+      ? VCFirestore.getServiceCallOnceBridged(_db, tid)
+      : _db.collection("service_calls").doc(tid).get().then(function (snap) {
+          return {
+            exists: snap.exists,
+            data: snap.exists ? snap.data() : null,
+          };
+        })
+    )
+      .then(function (got) {
+        var prev =
+          got && got.exists && got.data ? normalizeInternal(got.data) : "";
         var line = "[" + mgr + " @ Pulse]: " + text;
         var next = prev ? prev + "\n\n" + line : line;
-        return ref.set(
-          {
-            internal_comms: next,
-            internal_comms_updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
+        var payload = {
+          internal_comms: next,
+          internal_comms_updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        };
+        if (typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged) {
+          return VCFirestore.setServiceCallMerged(_db, tid, payload, true);
+        }
+        return ref.set(payload, { merge: true });
       })
       .then(function () {
         inputEl.value = "";
-        if (hintEl) hintEl.textContent = "Sent to Dark Channel on ticket " + tid + ".";
+        if (hintEl) hintEl.textContent = "Sent via Inter-Office Comms on ticket " + tid + ".";
         if (typeof global.showSaveCue === "function") {
           global.showSaveCue("✓ Reply synced to Firestore");
         }
@@ -340,18 +366,30 @@
 
     try {
       var db = firebase.firestore();
-      var sc =
-        typeof VCFirestore !== "undefined"
-          ? VCFirestore.serviceCalls(db)
-          : db.collection("service_calls");
-      var si =
-        typeof VCFirestore !== "undefined"
-          ? VCFirestore.siteIntelligence(db)
-          : db.collection("site_intelligence");
-      unsubTickets = sc.onSnapshot(onTicketSnapshot, function (err) {
+      var scSub =
+        typeof VCFirestore !== "undefined" && VCFirestore.subscribeServiceCallsMerged
+          ? VCFirestore.subscribeServiceCallsMerged
+          : function (d, onNext, onErr) {
+              var sc =
+                typeof VCFirestore !== "undefined"
+                  ? VCFirestore.serviceCalls(d)
+                  : d.collection("service_calls");
+              return sc.onSnapshot(onNext, onErr);
+            };
+      var siSub =
+        typeof VCFirestore !== "undefined" && VCFirestore.subscribeSiteIntelligenceMerged
+          ? VCFirestore.subscribeSiteIntelligenceMerged
+          : function (d, onNext, onErr) {
+              var si =
+                typeof VCFirestore !== "undefined"
+                  ? VCFirestore.siteIntelligence(d)
+                  : d.collection("site_intelligence");
+              return si.onSnapshot(onNext, onErr);
+            };
+      unsubTickets = scSub(db, onTicketSnapshot, function (err) {
         console.warn("[Pulse] service_calls", err);
       });
-      unsubIntel = si.onSnapshot(onIntelSnapshot, function (err) {
+      unsubIntel = siSub(db, onIntelSnapshot, function (err) {
         console.warn("[Pulse] site_intelligence", err);
       });
     } catch (e) {
@@ -371,6 +409,7 @@
     firstTicketsSnap = true;
     firstIntelSnap = true;
     lastTicketState = {};
+    lastIntelNotes = {};
   }
 
   function wireQuickReplyOnce() {

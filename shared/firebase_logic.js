@@ -69,6 +69,334 @@
     return serviceCalls(db).doc(String(ticketId)).collection(String(sub));
   }
 
+  /** Legacy root collections — used for TWIN_PILLARS dual-read during migration. */
+  var BRIDGE_TENANT_ID = "TWIN_PILLARS";
+
+  function isBridgeTenant() {
+    return getTenantId() === BRIDGE_TENANT_ID;
+  }
+
+  function rootCollection(db, name) {
+    return db.collection(String(name));
+  }
+
+  function mergeDocSnapshots(tenantSnap, rootSnap) {
+    var byId = {};
+    if (rootSnap) {
+      rootSnap.forEach(function (d) {
+        byId[d.id] = d;
+      });
+    }
+    if (tenantSnap) {
+      tenantSnap.forEach(function (d) {
+        byId[d.id] = d;
+      });
+    }
+    return byId;
+  }
+
+  function mergedSnapshotForEach(byIdObj) {
+    var ids = Object.keys(byIdObj);
+    return {
+      forEach: function (cb) {
+        for (var i = 0; i < ids.length; i++) {
+          cb(byIdObj[ids[i]]);
+        }
+      },
+    };
+  }
+
+  /**
+   * Full collection listener: tenant wins when both have the same doc id.
+   * For non–TWIN_PILLARS tenants, tenant only.
+   */
+  function subscribeServiceCallsMerged(db, onNext, onError) {
+    if (!isBridgeTenant()) {
+      return serviceCalls(db).onSnapshot(onNext, onError);
+    }
+    var tSnap = null;
+    var rSnap = null;
+    function emit() {
+      if (tSnap === null && rSnap === null) return;
+      var merged = mergeDocSnapshots(tSnap, rSnap);
+      onNext(mergedSnapshotForEach(merged));
+    }
+    var u1 = serviceCalls(db).onSnapshot(
+      function (s) {
+        tSnap = s;
+        emit();
+      },
+      onError
+    );
+    var u2 = rootCollection(db, "service_calls").onSnapshot(
+      function (s) {
+        rSnap = s;
+        emit();
+      },
+      onError
+    );
+    return function () {
+      u1();
+      u2();
+    };
+  }
+
+  function subscribeSiteIntelligenceMerged(db, onNext, onError) {
+    if (!isBridgeTenant()) {
+      return siteIntelligence(db).onSnapshot(onNext, onError);
+    }
+    var tSnap = null;
+    var rSnap = null;
+    function emit() {
+      if (tSnap === null && rSnap === null) return;
+      var merged = mergeDocSnapshots(tSnap, rSnap);
+      onNext(mergedSnapshotForEach(merged));
+    }
+    var u1 = siteIntelligence(db).onSnapshot(
+      function (s) {
+        tSnap = s;
+        emit();
+      },
+      onError
+    );
+    var u2 = rootCollection(db, "site_intelligence").onSnapshot(
+      function (s) {
+        rSnap = s;
+        emit();
+      },
+      onError
+    );
+    return function () {
+      u1();
+      u2();
+    };
+  }
+
+  /**
+   * Same query executed on tenant + root collections; merged doc map (tenant wins).
+   */
+  function subscribeBridgedServiceCallQuery(db, buildQuery, onNext, onError) {
+    if (!isBridgeTenant()) {
+      return buildQuery(serviceCalls(db)).onSnapshot(onNext, onError);
+    }
+    var tSnap = null;
+    var rSnap = null;
+    function emit() {
+      if (tSnap === null && rSnap === null) return;
+      var merged = mergeDocSnapshots(tSnap, rSnap);
+      onNext(mergedSnapshotForEach(merged));
+    }
+    var u1 = buildQuery(serviceCalls(db)).onSnapshot(
+      function (s) {
+        tSnap = s;
+        emit();
+      },
+      onError
+    );
+    var u2 = buildQuery(rootCollection(db, "service_calls")).onSnapshot(
+      function (s) {
+        rSnap = s;
+        emit();
+      },
+      onError
+    );
+    return function () {
+      u1();
+      u2();
+    };
+  }
+
+  /**
+   * Single doc: tenant first; for TWIN_PILLARS fallback to root if missing.
+   */
+  function getServiceCallOnceBridged(db, ticketId) {
+    var tid = String(ticketId || "");
+    var tRef = serviceCalls(db).doc(tid);
+    return tRef.get().then(function (snap) {
+      if (snap.exists) {
+        return { exists: true, data: snap.data(), ref: tRef, source: "tenant" };
+      }
+      if (!isBridgeTenant()) {
+        return { exists: false, data: null, ref: tRef, source: "tenant" };
+      }
+      var rRef = rootCollection(db, "service_calls").doc(tid);
+      return rRef.get().then(function (snap2) {
+        if (snap2.exists) {
+          return { exists: true, data: snap2.data(), ref: rRef, source: "root" };
+        }
+        return { exists: false, data: null, ref: tRef, source: "tenant" };
+      });
+    });
+  }
+
+  /**
+   * Write to tenant path; if TWIN_PILLARS and a root copy exists, remove it after migrate.
+   */
+  function setServiceCallMerged(db, ticketId, data, merge) {
+    var tid = String(ticketId || "");
+    var tRef = serviceCalls(db).doc(tid);
+    return tRef.set(data, { merge: !!merge }).then(function () {
+      if (!isBridgeTenant()) return;
+      var rRef = rootCollection(db, "service_calls").doc(tid);
+      return rRef.get().then(function (snap) {
+        if (snap.exists) return rRef.delete();
+      });
+    });
+  }
+
+  function getSiteIntelDocOnceBridged(db, docId) {
+    var id = String(docId || "");
+    var tRef = siteIntelligence(db).doc(id);
+    return tRef.get().then(function (snap) {
+      if (snap.exists) {
+        return { exists: true, data: snap.data(), ref: tRef, source: "tenant" };
+      }
+      if (!isBridgeTenant()) {
+        return { exists: false, data: null, ref: tRef, source: "tenant" };
+      }
+      var rRef = rootCollection(db, "site_intelligence").doc(id);
+      return rRef.get().then(function (s2) {
+        if (s2.exists) {
+          return { exists: true, data: s2.data(), ref: rRef, source: "root" };
+        }
+        return { exists: false, data: null, ref: tRef, source: "tenant" };
+      });
+    });
+  }
+
+  function setSiteIntelMerged(db, docId, data, merge) {
+    var id = String(docId || "");
+    var tRef = siteIntelligence(db).doc(id);
+    return tRef.set(data, { merge: !!merge }).then(function () {
+      if (!isBridgeTenant()) return;
+      var rRef = rootCollection(db, "site_intelligence").doc(id);
+      return rRef.get().then(function (snap) {
+        if (snap.exists) return rRef.delete();
+      });
+    });
+  }
+
+  function queryCompletedReportsWhereMerged(db, field, op, value, limitN) {
+    var lim = limitN != null ? limitN : 40;
+    var tc = completedReports(db);
+    var rc = rootCollection(db, "completed_reports");
+    function snapToRows(snap) {
+      var rows = [];
+      snap.forEach(function (d) {
+        rows.push({ id: d.id, data: d.data() || {} });
+      });
+      return rows;
+    }
+    if (!isBridgeTenant()) {
+      return tc
+        .where(field, op, value)
+        .limit(lim)
+        .get()
+        .then(snapToRows);
+    }
+    return Promise.all([
+      tc.where(field, op, value).limit(lim).get(),
+      rc.where(field, op, value).limit(lim).get(),
+    ]).then(function (pair) {
+      var byId = {};
+      pair[1].forEach(function (d) {
+        byId[d.id] = d.data() || {};
+      });
+      pair[0].forEach(function (d) {
+        byId[d.id] = d.data() || {};
+      });
+      return Object.keys(byId).map(function (id) {
+        return { id: id, data: byId[id] };
+      });
+    });
+  }
+
+  function loadServiceCallsMergedOnce(db) {
+    var tc = serviceCalls(db);
+    if (!isBridgeTenant()) {
+      return tc.get();
+    }
+    return Promise.all([tc.get(), rootCollection(db, "service_calls").get()]).then(function (pair) {
+      var merged = mergeDocSnapshots(pair[0], pair[1]);
+      return mergedSnapshotForEach(merged);
+    });
+  }
+
+  /**
+   * @param {function(firebase.firestore.CollectionReference): firebase.firestore.Query} buildWhere
+   * @returns {Promise<Object.<string, firebase.firestore.DocumentSnapshot>>}
+   */
+  function getServiceCallsWhereMergedOnce(db, buildWhere) {
+    if (!isBridgeTenant()) {
+      return buildWhere(serviceCalls(db))
+        .get()
+        .then(function (snap) {
+          var o = {};
+          snap.forEach(function (d) {
+            o[d.id] = d;
+          });
+          return o;
+        });
+    }
+    return Promise.all([
+      buildWhere(serviceCalls(db)).get(),
+      buildWhere(rootCollection(db, "service_calls")).get(),
+    ]).then(function (pair) {
+      return mergeDocSnapshots(pair[0], pair[1]);
+    });
+  }
+
+  /**
+   * Single site_intel doc: listen to tenant + root (TWIN_PILLARS); notes from tenant win if both set.
+   */
+  function subscribeSiteIntelDocMerged(db, docId, onNotesTrimmed, onError) {
+    var id = String(docId || "");
+    var tRef = siteIntelligence(db).doc(id);
+    if (!isBridgeTenant()) {
+      return tRef.onSnapshot(
+        function (snap) {
+          var notes = snap.exists && snap.data() ? String(snap.data().notes || "").trim() : "";
+          onNotesTrimmed(notes);
+        },
+        onError
+      );
+    }
+    var rRef = rootCollection(db, "site_intelligence").doc(id);
+    var lastT = null;
+    var lastR = null;
+    function emit() {
+      var tEx = lastT && lastT.exists;
+      var rEx = lastR && lastR.exists;
+      var tNotes =
+        tEx && lastT.data() ? String(lastT.data().notes || "").trim() : "";
+      var rNotes =
+        rEx && lastR.data() ? String(lastR.data().notes || "").trim() : "";
+      if (tEx) {
+        onNotesTrimmed(tNotes);
+        return;
+      }
+      onNotesTrimmed(rNotes);
+    }
+    var u1 = tRef.onSnapshot(
+      function (s) {
+        lastT = s;
+        emit();
+      },
+      onError
+    );
+    var u2 = rRef.onSnapshot(
+      function (s) {
+        lastR = s;
+        emit();
+      },
+      onError
+    );
+    return function () {
+      u1();
+      u2();
+    };
+  }
+
   global.VCFirestore = {
     getTenantId: getTenantId,
     tenantRoot: tenantRoot,
@@ -82,5 +410,17 @@
     onCallStateDoc: onCallStateDoc,
     completedReports: completedReports,
     serviceCallSubcollection: serviceCallSubcollection,
+    isBridgeTenant: isBridgeTenant,
+    subscribeServiceCallsMerged: subscribeServiceCallsMerged,
+    subscribeSiteIntelligenceMerged: subscribeSiteIntelligenceMerged,
+    subscribeBridgedServiceCallQuery: subscribeBridgedServiceCallQuery,
+    getServiceCallOnceBridged: getServiceCallOnceBridged,
+    setServiceCallMerged: setServiceCallMerged,
+    getSiteIntelDocOnceBridged: getSiteIntelDocOnceBridged,
+    setSiteIntelMerged: setSiteIntelMerged,
+    queryCompletedReportsWhereMerged: queryCompletedReportsWhereMerged,
+    loadServiceCallsMergedOnce: loadServiceCallsMergedOnce,
+    subscribeSiteIntelDocMerged: subscribeSiteIntelDocMerged,
+    getServiceCallsWhereMergedOnce: getServiceCallsWhereMergedOnce,
   };
 })(typeof window !== "undefined" ? window : this);

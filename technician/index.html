@@ -12,6 +12,7 @@
 <script src="../firebase-config.js?v=3"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/firebase_logic.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <style>
@@ -2603,10 +2604,10 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     <div class="dictation-channel-bar" role="group" aria-label="Note visibility">
       <span class="dictation-channel-label">Notes</span>
       <button type="button" id="dictationChannelPublic" class="dictation-channel-btn dictation-channel-btn--active">
-        <span class="dictation-channel-icon" aria-hidden="true">📤</span>Public export
+        <span class="dictation-channel-icon" aria-hidden="true"><i class="fa-solid fa-file-export"></i></span>Public export
       </button>
       <button type="button" id="dictationChannelInternal" class="dictation-channel-btn">
-        <span class="dictation-channel-icon" aria-hidden="true">🛡️</span>Internal VC only
+        <span class="dictation-channel-icon" aria-hidden="true"><i class="fa-solid fa-building-user"></i></span>Inter-Office Comms
       </button>
     </div>
     <label for="dictationHubNotes" class="visually-hidden">Raw visit notes</label>
@@ -3609,10 +3610,6 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
 
   try {
     const db = firebase.firestore();
-    const sc =
-      typeof VCFirestore !== "undefined"
-        ? VCFirestore.serviceCalls(db)
-        : db.collection("service_calls");
     const startStr = scheduleWindowStart();
     const endStr = scheduleWindowEnd();
     container.innerHTML = '<div style="text-align:center; padding: 40px; color:#95a5a6;">Connecting…</div>';
@@ -3668,21 +3665,38 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
       }
     };
 
-    const u1 = sc
-      .where('assignedTechs', 'array-contains', currentTechProfile)
-      .onSnapshot((snapshot) => {
+    const subQ =
+      typeof VCFirestore !== "undefined" && VCFirestore.subscribeBridgedServiceCallQuery
+        ? VCFirestore.subscribeBridgedServiceCallQuery
+        : function (d, buildQuery, onNext, onErr) {
+            const sc0 =
+              typeof VCFirestore !== "undefined"
+                ? VCFirestore.serviceCalls(d)
+                : d.collection("service_calls");
+            return buildQuery(sc0).onSnapshot(onNext, onErr);
+          };
+
+    const u1 = subQ(
+      db,
+      (col) => col.where("assignedTechs", "array-contains", currentTechProfile),
+      (snapshot) => {
         q1Docs.clear();
         snapshot.forEach((doc) => q1Docs.set(doc.id, doc.data()));
         runScheduleMergeAndRender();
-      }, onSchedErr);
+      },
+      onSchedErr
+    );
 
-    const u2 = sc
-      .where('assignedTech', '==', currentTechProfile)
-      .onSnapshot((snapshot) => {
+    const u2 = subQ(
+      db,
+      (col) => col.where("assignedTech", "==", currentTechProfile),
+      (snapshot) => {
         q2Docs.clear();
         snapshot.forEach((doc) => q2Docs.set(doc.id, doc.data()));
         runScheduleMergeAndRender();
-      }, onSchedErr);
+      },
+      onSchedErr
+    );
 
     scheduleUnsubscribeFns.push(u1, u2);
   } catch (error) {
@@ -3878,13 +3892,21 @@ async function maybeOpenDeepLinkedTicket() {
     let t = myTickets.find((x) => x.id === tid);
     if (!t) {
       const _dbDl = firebase.firestore();
-      const _scDl =
-        typeof VCFirestore !== "undefined"
-          ? VCFirestore.serviceCalls(_dbDl)
-          : _dbDl.collection("service_calls");
-      const snap = await _scDl.doc(tid).get();
-      if (!snap.exists) return false;
-      const data = snap.data();
+      const got =
+        typeof VCFirestore !== "undefined" && VCFirestore.getServiceCallOnceBridged
+          ? await VCFirestore.getServiceCallOnceBridged(_dbDl, tid)
+          : await (typeof VCFirestore !== "undefined"
+              ? VCFirestore.serviceCalls(_dbDl)
+              : _dbDl.collection("service_calls")
+            )
+              .doc(tid)
+              .get()
+              .then((snap) => ({
+                exists: snap.exists,
+                data: snap.exists ? snap.data() : null,
+              }));
+      if (!got.exists) return false;
+      const data = got.data;
       if (data.archived) return false;
       if (data.releasedToTech === false) {
         alert("This job has not been released by dispatch yet. It will open here after they enable Release to Field app.");

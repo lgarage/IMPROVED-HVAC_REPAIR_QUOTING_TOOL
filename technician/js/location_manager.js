@@ -59,17 +59,24 @@
       return;
     }
 
-    firebase
-      .firestore()
-      .collection("completed_reports")
-      .where("location", "==", line)
-      .limit(40)
-      .get()
-      .then(function (snap) {
-        var rows = [];
-        snap.forEach(function (doc) {
-          rows.push({ id: doc.id, data: doc.data() || {} });
-        });
+    var dbLm = firebase.firestore();
+    var loadRows =
+      typeof VCFirestore !== "undefined" && VCFirestore.queryCompletedReportsWhereMerged
+        ? VCFirestore.queryCompletedReportsWhereMerged(dbLm, "location", "==", line, 40)
+        : dbLm
+            .collection("completed_reports")
+            .where("location", "==", line)
+            .limit(40)
+            .get()
+            .then(function (snap) {
+              var rows = [];
+              snap.forEach(function (doc) {
+                rows.push({ id: doc.id, data: doc.data() || {} });
+              });
+              return rows;
+            });
+    loadRows
+      .then(function (rows) {
         rows.sort(function (a, b) {
           var ta = a.data.timestamp && a.data.timestamp.toMillis ? a.data.timestamp.toMillis() : 0;
           var tb = b.data.timestamp && b.data.timestamp.toMillis ? b.data.timestamp.toMillis() : 0;
@@ -77,7 +84,7 @@
         });
         if (!rows.length) {
           body.innerHTML =
-            "<p class=\"vc-muted\">No completed VC reports found for this exact location line yet.</p>";
+            "<p class=\"vc-muted\">No completed reports found for this exact location line yet.</p>";
           return;
         }
         var html = '<ul class="vc-unit-history-list">';

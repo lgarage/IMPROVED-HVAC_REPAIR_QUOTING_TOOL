@@ -1,6 +1,6 @@
 /**
  * Active job workspace UI: Site Intel (Firebase site_intelligence), header affordances.
- * VC-native; does not depend on UFX.
+ * Inter-office site notes; does not depend on UFX.
  */
 (function () {
   "use strict";
@@ -102,15 +102,29 @@
       return;
     }
     lastIntelDocId = meta.docId;
-    siteIntelUnsub = meta.ref.onSnapshot(
-      function (snap) {
-        var notes = snap.exists && snap.data() ? String(snap.data().notes || "").trim() : "";
-        setSiteIntelButtonState(notes.length > 0);
-      },
-      function () {
-        setSiteIntelButtonState(false);
-      }
-    );
+    var _db = firebase.firestore();
+    if (typeof VCFirestore !== "undefined" && VCFirestore.subscribeSiteIntelDocMerged) {
+      siteIntelUnsub = VCFirestore.subscribeSiteIntelDocMerged(
+        _db,
+        meta.docId,
+        function (notes) {
+          setSiteIntelButtonState(String(notes || "").trim().length > 0);
+        },
+        function () {
+          setSiteIntelButtonState(false);
+        }
+      );
+    } else {
+      siteIntelUnsub = meta.ref.onSnapshot(
+        function (snap) {
+          var notes = snap.exists && snap.data() ? String(snap.data().notes || "").trim() : "";
+          setSiteIntelButtonState(notes.length > 0);
+        },
+        function () {
+          setSiteIntelButtonState(false);
+        }
+      );
+    }
   }
 
   function openSiteIntelModal(prefillLine) {
@@ -131,15 +145,25 @@
       return;
     }
     var _dbOpen = firebase.firestore();
-    var _siOpen =
-      typeof VCFirestore !== "undefined"
-        ? VCFirestore.siteIntelligence(_dbOpen)
-        : _dbOpen.collection("site_intelligence");
-    _siOpen
-      .doc(docId)
-      .get()
-      .then(function (snap) {
-        var t = snap.exists && snap.data() ? String(snap.data().notes || "") : "";
+    var load =
+      typeof VCFirestore !== "undefined" && VCFirestore.getSiteIntelDocOnceBridged
+        ? VCFirestore.getSiteIntelDocOnceBridged(_dbOpen, docId)
+        : (typeof VCFirestore !== "undefined"
+            ? VCFirestore.siteIntelligence(_dbOpen)
+            : _dbOpen.collection("site_intelligence")
+          )
+            .doc(docId)
+            .get()
+            .then(function (snap) {
+              return {
+                exists: snap.exists,
+                data: snap.exists ? snap.data() : null,
+              };
+            });
+    load
+      .then(function (got) {
+        var t =
+          got && got.exists && got.data ? String(got.data.notes || "") : "";
         body.value = t;
         modal.classList.remove("hidden");
       })
@@ -173,13 +197,16 @@
     };
     status.textContent = "Saving…";
     var _dbSave = firebase.firestore();
-    var _siSave =
-      typeof VCFirestore !== "undefined"
-        ? VCFirestore.siteIntelligence(_dbSave)
-        : _dbSave.collection("site_intelligence");
-    _siSave
-      .doc(docId)
-      .set(payload, { merge: true })
+    var savePromise =
+      typeof VCFirestore !== "undefined" && VCFirestore.setSiteIntelMerged
+        ? VCFirestore.setSiteIntelMerged(_dbSave, docId, payload, true)
+        : (typeof VCFirestore !== "undefined"
+            ? VCFirestore.siteIntelligence(_dbSave)
+            : _dbSave.collection("site_intelligence")
+          )
+            .doc(docId)
+            .set(payload, { merge: true });
+    savePromise
       .then(function () {
         status.textContent = "Saved.";
         setSiteIntelButtonState(String(body.value || "").trim().length > 0);

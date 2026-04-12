@@ -21,7 +21,7 @@
   var notesDebounce = null;
   var locationBlurBound = false;
   var trayDelegationWired = false;
-  /** "public" = compiled for export / UFX-facing notes; "internal" = VC-only (internal_comms). */
+  /** "public" = compiled for export / UFX-facing notes; "internal" = Inter-Office Comms (internal_comms). */
   var dictationChannel = "public";
   var internalCloudDebounce = null;
   var channelUiWired = false;
@@ -1309,18 +1309,17 @@
         typeof VCFirestore !== "undefined"
           ? VCFirestore.serviceCalls(_db)
           : _db.collection("service_calls");
-      _sc
-        .doc(ticketId)
-        .set(
-          {
-            internal_comms: payload,
-            internal_comms_updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        )
-        .catch(function (err) {
-          console.warn("[DictationHub] internal_comms save", err);
-        });
+      var patch = {
+        internal_comms: payload,
+        internal_comms_updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      var p =
+        typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged
+          ? VCFirestore.setServiceCallMerged(_db, ticketId, patch, true)
+          : _sc.doc(ticketId).set(patch, { merge: true });
+      p.catch(function (err) {
+        console.warn("[DictationHub] internal_comms save", err);
+      });
     }, 800);
   }
 
@@ -1331,13 +1330,23 @@
       typeof VCFirestore !== "undefined"
         ? VCFirestore.serviceCalls(_db2)
         : _db2.collection("service_calls");
-    _sc2
-      .doc(ticketId)
-      .get()
-      .then(function (snap) {
+    var load =
+      typeof VCFirestore !== "undefined" && VCFirestore.getServiceCallOnceBridged
+        ? VCFirestore.getServiceCallOnceBridged(_db2, ticketId)
+        : _sc2
+            .doc(ticketId)
+            .get()
+            .then(function (snap) {
+              return {
+                exists: snap.exists,
+                data: snap.exists ? snap.data() : null,
+              };
+            });
+    load
+      .then(function (got) {
         var t =
-          snap.exists && snap.data() && snap.data().internal_comms != null
-            ? String(snap.data().internal_comms)
+          got && got.exists && got.data && got.data.internal_comms != null
+            ? String(got.data.internal_comms)
             : "";
         try {
           localStorage.setItem("dictationHubInternal_" + ticketId, t);
@@ -1565,7 +1574,7 @@
   function onProcessNotesClick() {
     if (dictationChannel !== "public") {
       alert(
-        "Switch to Public Export to run AI on notes that can go to the customer-facing record. Internal VC notes stay private."
+        "Switch to Public Export to run AI on notes that can go to the customer-facing record. Inter-Office Comms stay private."
       );
       return;
     }

@@ -20,6 +20,16 @@
   font-size: 1.45rem;
 }
 
+.pulse-dashboard__header h2 .fa-solid {
+  margin-right: 8px;
+  opacity: 0.92;
+}
+
+.pulse-quick-reply label .fa-solid {
+  margin-right: 6px;
+  color: #1e4b85;
+}
+
 .pulse-dashboard__sub {
   margin: 0;
   font-size: 13px;

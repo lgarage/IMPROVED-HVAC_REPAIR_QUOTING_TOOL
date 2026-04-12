@@ -2180,7 +2180,7 @@
             ><span class="menu-icon"
               ><i class="fas fa-broadcast-tower"></i
             ></span>
-            <span class="menu-text">Live Pulse</span></a
+            <span class="menu-text">Inter-Office Feed</span></a
           >
         </li>
         <li>
@@ -3264,9 +3264,12 @@
       <div id="view-pulse" class="app-view">
         <div id="pulseDashboard" class="pulse-dashboard">
           <div class="pulse-dashboard__header">
-            <h2>Live Pulse</h2>
+            <h2>
+              <i class="fa-solid fa-building-user" aria-hidden="true"></i>
+              Live Inter-Office Feed
+            </h2>
             <p class="pulse-dashboard__sub">
-              Real-time internal notes, site intel, and status changes from Firestore.
+              Real-time inter-office messages, site intel, and status changes from Firestore.
               Click a row to open the ticket.
             </p>
           </div>
@@ -3278,13 +3281,16 @@
             aria-relevant="additions"
           ></div>
           <div class="pulse-quick-reply">
-            <label for="pulseQuickReplyInput">Quick reply (Dark Channel)</label>
+            <label for="pulseQuickReplyInput"
+              ><i class="fa-solid fa-comments" aria-hidden="true"></i> Quick reply
+              (Inter-Office Comms)</label
+            >
             <div class="pulse-quick-reply__row">
               <input
                 type="text"
                 id="pulseQuickReplyInput"
                 maxlength="2000"
-                placeholder="Select a ticket from the feed, then type an office reply…"
+                placeholder="Type an inter-office message to the tech…"
                 autocomplete="off"
               />
               <button type="button" id="pulseQuickReplyBtn">Send</button>
