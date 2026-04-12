@@ -403,7 +403,7 @@
       alert("Asset engine not loaded. Refresh the page.");
       return;
     }
-    setProcessStatus("", "⏳ OCR & save…");
+    setProcessStatus("", "⏳ Saving photo…");
     window
       .dictationPromoteAssetPhoto(
         {
@@ -1419,6 +1419,12 @@
   window.teardownDictationHub = teardownDictationHub;
   window.startDictationHubFromWorkspace = function () {
     wireProcessButton();
+    if (!document.documentElement.dataset.dictationPlateOcrEvt) {
+      document.documentElement.dataset.dictationPlateOcrEvt = "1";
+      document.addEventListener("dictationHubNameplateImageSaved", function () {
+        setProcessStatus("", "⏳ Reading nameplate…");
+      });
+    }
     startDictationHubAssetsListener();
   };
 })();

@@ -13,6 +13,7 @@ const firebaseConfig = {
 
 /**
  * Model id for generativelanguage.googleapis.com .../models/MODEL:generateContent
+ * Used by equipment_manager.js (callGeminiVision) for data-plate OCR and dictation nameplate promotion.
  * (gemini-1.5-flash was retired; change here if Google renames again.)
  */
 var GEMINI_GENERATE_MODEL = "gemini-2.5-flash";

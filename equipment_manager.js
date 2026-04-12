@@ -833,11 +833,82 @@
 
   function buildDictationPlateOcrPrompt() {
     return [
-      "You are an expert HVAC data-plate OCR assistant.",
-      "Analyze the image and extract ONLY visible text. Return a single JSON object (no markdown) with these keys:",
-      "manufacturer (string), modelNumber (string), serialNumber (string), voltage (string), phase (string), refrigerant (string).",
-      'Use empty string "" for any field not legible on the plate. Do not invent values.',
-    ].join(" ");
+      'You are an expert HVAC technician reading a data plate. Extract the following fields and return ONLY a valid JSON object. If a field cannot be read, return null for that key.',
+      'Schema: { "manufacturer": "string", "modelNumber": "string", "serialNumber": "string", "voltage": "string", "phase": "string", "refrigerant": "string" }',
+      "Do not include markdown fences. Do not invent values that are not visible on the plate.",
+    ].join("\n");
+  }
+
+  /**
+   * Vertex-Core Phase 4: keep only keys Gemini actually extracted (non-null, non-empty after trim).
+   * @param {object|null} ocr
+   * @returns {object}
+   */
+  function pickDictationPlateOcrFields(ocr) {
+    if (!ocr || typeof ocr !== "object") {
+      return {};
+    }
+    var keys = [
+      "manufacturer",
+      "modelNumber",
+      "serialNumber",
+      "voltage",
+      "phase",
+      "refrigerant",
+    ];
+    var out = {};
+    keys.forEach(function (k) {
+      var v = ocr[k];
+      if (v === null || v === undefined) {
+        return;
+      }
+      var s = typeof v === "string" ? v.trim() : String(v).trim();
+      if (s !== "") {
+        out[k] = s;
+      }
+    });
+    return out;
+  }
+
+  /**
+   * After nameplate image is in Firestore, run Gemini OCR and merge specs (onSnapshot upgrades UI).
+   * Never rejects — callers always get a settled promise; logs + alert on hard failures.
+   */
+  function runDictationNameplateOcrMerge(watermarkedFile, mime, assetRef) {
+    return fileToBase64(watermarkedFile)
+      .then(function (b64) {
+        return callGeminiVision(b64, mime, buildDictationPlateOcrPrompt());
+      })
+      .then(function (text) {
+        var parsed = parseGeminiJson(text);
+        var fields = pickDictationPlateOcrFields(parsed);
+        var FV = firebase.firestore.FieldValue;
+        if (Object.keys(fields).length === 0) {
+          if (parsed === null || parsed === undefined) {
+            console.error("[Dictation] Nameplate OCR: invalid or empty JSON from model");
+            if (typeof alert === "function") {
+              alert(
+                "Could not read nameplate automatically. Please enter specs manually."
+              );
+            }
+          }
+          return;
+        }
+        return assetRef.set(
+          Object.assign({}, fields, {
+            updatedAt: FV ? FV.serverTimestamp() : new Date().toISOString(),
+          }),
+          { merge: true }
+        );
+      })
+      .catch(function (err) {
+        console.error("[Dictation] Nameplate OCR", err);
+        if (typeof alert === "function") {
+          alert(
+            "Could not read nameplate automatically. Please enter specs manually."
+          );
+        }
+      });
   }
 
   /** Site line for burned-in watermark (#ws-customer-name or #ws-customer, #ws-address). */
@@ -1022,18 +1093,6 @@
           });
         })
         .then(function (downloadUrl) {
-          var ocrPromise =
-            kind === "nameplate"
-              ? fileToBase64(watermarkedFile).then(function (b64) {
-                return callGeminiVision(b64, mime, buildDictationPlateOcrPrompt()).then(
-                  function (text) {
-                    return parseGeminiJson(text);
-                  }
-                );
-              })
-            : Promise.resolve(null);
-
-        return ocrPromise.then(function (ocr) {
           var assetRef = fsdb
             .collection("customers")
             .doc(customerId)
@@ -1085,36 +1144,29 @@
               patch.awaitingNewEquipment = false;
             }
 
-            if (ocr && typeof ocr === "object") {
-              if (ocr.manufacturer != null && String(ocr.manufacturer).trim()) {
-                patch.manufacturer = String(ocr.manufacturer).trim();
-              }
-              if (ocr.modelNumber != null && String(ocr.modelNumber).trim()) {
-                patch.modelNumber = String(ocr.modelNumber).trim();
-              } else if (ocr.model != null && String(ocr.model).trim()) {
-                patch.modelNumber = String(ocr.model).trim();
-              }
-              if (ocr.serialNumber != null && String(ocr.serialNumber).trim()) {
-                patch.serialNumber = String(ocr.serialNumber).trim();
-              } else if (ocr.serial != null && String(ocr.serial).trim()) {
-                patch.serialNumber = String(ocr.serial).trim();
-              }
-              if (ocr.voltage != null && String(ocr.voltage).trim()) {
-                patch.voltage = String(ocr.voltage).trim();
-              }
-              if (ocr.phase != null && String(ocr.phase).trim()) {
-                patch.phase = String(ocr.phase).trim();
-              }
-              if (ocr.refrigerant != null && String(ocr.refrigerant).trim()) {
-                patch.refrigerant = String(ocr.refrigerant).trim();
-              }
-            }
-
             return assetRef.set(patch, { merge: true }).then(function () {
+              if (kind === "nameplate") {
+                if (typeof document !== "undefined" && document.dispatchEvent) {
+                  try {
+                    document.dispatchEvent(
+                      new CustomEvent("dictationHubNameplateImageSaved", {
+                        bubbles: true,
+                        detail: { logicalId: logicalId },
+                      })
+                    );
+                  } catch (e) {}
+                }
+                return runDictationNameplateOcrMerge(
+                  watermarkedFile,
+                  mime,
+                  assetRef
+                ).then(function () {
+                  return patch;
+                });
+              }
               return patch;
             });
           });
-        });
         });
     });
   }
