@@ -840,6 +840,131 @@
     ].join(" ");
   }
 
+  /** Site line for burned-in watermark (#ws-customer-name or #ws-customer, #ws-address). */
+  function getDictationWatermarkLocationLine1() {
+    var nameEl =
+      document.getElementById("ws-customer-name") || document.getElementById("ws-customer");
+    var addrEl = document.getElementById("ws-address");
+    var name = nameEl && nameEl.textContent ? String(nameEl.textContent).trim() : "";
+    var addr = addrEl && addrEl.textContent ? String(addrEl.textContent).trim() : "";
+    if (!name && !addr) {
+      return "Unknown Location";
+    }
+    if (!name) {
+      return addr || "Unknown Location";
+    }
+    if (!addr) {
+      return name || "Unknown Location";
+    }
+    return name + " - " + addr;
+  }
+
+  /**
+   * Vertex-Core Phase 3: burn metadata into image bytes before Storage upload (preserves aspect ratio).
+   * @param {File} file
+   * @param {boolean} isRetired
+   * @param {string} logicalId
+   * @returns {Promise<Blob>}
+   */
+  function applyWatermark(file, isRetired, logicalId) {
+    return new Promise(function (resolve, reject) {
+      if (!file || !file.type || !file.type.startsWith("image/")) {
+        reject(new Error("Choose a photo."));
+        return;
+      }
+      var reader = new FileReader();
+      reader.onerror = function () {
+        reject(reader.error || new Error("File read failed."));
+      };
+      reader.onload = function () {
+        var dataUrl = reader.result;
+        var img = new Image();
+        img.onerror = function () {
+          reject(new Error("Could not decode image."));
+        };
+        img.onload = function () {
+          try {
+            var w = img.naturalWidth;
+            var h = img.naturalHeight;
+            if (!w || !h) {
+              reject(new Error("Invalid image dimensions."));
+              return;
+            }
+            var canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            var ctx = canvas.getContext("2d");
+            if (!ctx) {
+              reject(new Error("Canvas not supported."));
+              return;
+            }
+            ctx.drawImage(img, 0, 0, w, h);
+
+            var line1 = getDictationWatermarkLocationLine1();
+            var line2 =
+              String(logicalId || "").trim() + (isRetired ? " (Retired)" : " (Current)");
+
+            var padding = Math.max(8, Math.round(Math.min(w, h) * 0.018));
+            var maxTextW = w - padding * 2;
+            var baseSize = Math.max(12, Math.min(28, Math.round(h * 0.038)));
+            var size = baseSize;
+            var fontFamily = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+            ctx.font = "bold " + size + "px " + fontFamily;
+            ctx.textAlign = "left";
+            ctx.textBaseline = "bottom";
+            while (
+              size > 10 &&
+              (ctx.measureText(line1).width > maxTextW ||
+                ctx.measureText(line2).width > maxTextW)
+            ) {
+              size -= 1;
+              ctx.font = "bold " + size + "px " + fontFamily;
+            }
+
+            var lineGap = Math.max(size * 1.15, size + 4);
+            var bottomY = h - padding;
+            var x = padding;
+            var y2 = bottomY;
+            var y1 = bottomY - lineGap;
+
+            var strokeW = Math.max(3, Math.round(size * 0.14));
+            ctx.lineJoin = "round";
+            ctx.miterLimit = 2;
+            ctx.lineWidth = strokeW;
+            ctx.strokeStyle = "#000000";
+            ctx.fillStyle = "#ffffff";
+
+            function drawOutlined(text, tx, ty) {
+              ctx.strokeText(text, tx, ty);
+              ctx.fillText(text, tx, ty);
+            }
+
+            drawOutlined(line1, x, y1);
+            drawOutlined(line2, x, y2);
+
+            var outMime = /png/i.test(file.type) ? "image/png" : "image/jpeg";
+            var q = outMime === "image/jpeg" ? 0.92 : undefined;
+            canvas.toBlob(
+              function (blob) {
+                if (!blob) {
+                  reject(new Error("Canvas export failed."));
+                  return;
+                }
+                resolve(blob);
+              },
+              outMime,
+              q
+            );
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   /**
    * Dictation Hub: camera → Storage → optional plate OCR → merge Firestore asset.
    * @param {{ logicalId: string, customerId: string, siteId: string, kind?: string }} opts kind: "nameplate" | "overall" | "additional"
@@ -868,35 +993,38 @@
       return Promise.reject(new Error("Firestore not available."));
     }
 
-    var mime = file.type || "image/jpeg";
-    var ext = /png/i.test(mime) ? "png" : "jpg";
-    var ts = Date.now();
-    var storagePath =
-      "dictation_hub_assets/" +
-      customerId +
-      "/" +
-      siteId +
-      "/" +
-      logicalId +
-      "/" +
-      kind +
-      "_" +
-      ts +
-      "." +
-      ext;
+    return applyWatermark(file, false, logicalId).then(function (blob) {
+      var mime = blob.type || file.type || "image/jpeg";
+      var ext = /png/i.test(mime) ? "png" : "jpg";
+      var ts = Date.now();
+      var storagePath =
+        "dictation_hub_assets/" +
+        customerId +
+        "/" +
+        siteId +
+        "/" +
+        logicalId +
+        "/" +
+        kind +
+        "_" +
+        ts +
+        "." +
+        ext;
 
-    return ensureFirebaseStorage()
-      .then(function () {
-        var storage = firebase.storage();
-        var ref = storage.ref().child(storagePath);
-        return ref.put(file, { contentType: mime }).then(function () {
-          return ref.getDownloadURL();
-        });
-      })
-      .then(function (downloadUrl) {
-        var ocrPromise =
-          kind === "nameplate"
-            ? fileToBase64(file).then(function (b64) {
+      var watermarkedFile = new File([blob], file.name || "photo." + ext, { type: mime });
+
+      return ensureFirebaseStorage()
+        .then(function () {
+          var storage = firebase.storage();
+          var ref = storage.ref().child(storagePath);
+          return ref.put(watermarkedFile, { contentType: mime }).then(function () {
+            return ref.getDownloadURL();
+          });
+        })
+        .then(function (downloadUrl) {
+          var ocrPromise =
+            kind === "nameplate"
+              ? fileToBase64(watermarkedFile).then(function (b64) {
                 return callGeminiVision(b64, mime, buildDictationPlateOcrPrompt()).then(
                   function (text) {
                     return parseGeminiJson(text);
@@ -987,7 +1115,8 @@
             });
           });
         });
-      });
+        });
+    });
   }
 
   /**
@@ -1181,6 +1310,7 @@
 
   window.processOcrQueue = processOcrQueue;
   window.dictationPromoteAssetPhoto = dictationPromoteAssetPhoto;
+  window.applyWatermark = applyWatermark;
   window.dictationRetireCurrentAsset = dictationRetireCurrentAsset;
   window.dictationAssetHasRetiredHistory = dictationAssetHasRetiredHistory;
 

@@ -244,7 +244,7 @@
   function watermarkedFigureHtml(url, caption, unitId, retired) {
     var line1 = escapeHtml(getSiteWatermarkLine1());
     var line2 = escapeHtml(getWatermarkLine2(unitId, retired));
-    var imgCls = retired ? "dictation-img-bw" : "";
+    var imgCls = retired ? "retired-photo" : "";
     return (
       '<div class="dictation-gallery-slide" data-gallery-silo="' +
       (retired ? "retired" : "active") +
@@ -530,6 +530,25 @@
     return wrap;
   }
 
+  function vaultArchivedMs(data) {
+    var d = data || {};
+    var a = d.archivedAt;
+    if (a && typeof a.toMillis === "function") {
+      return a.toMillis();
+    }
+    if (a && typeof a.toDate === "function") {
+      return a.toDate().getTime();
+    }
+    var r = d.retiredAt;
+    if (r && typeof r.toMillis === "function") {
+      return r.toMillis();
+    }
+    if (r && typeof r.toDate === "function") {
+      return r.toDate().getTime();
+    }
+    return 0;
+  }
+
   function openRetiredVaultForUnit(logicalId) {
     var site = getDictationSiteContext();
     if (!site.customerId || !site.siteId) return;
@@ -544,7 +563,7 @@
     var modal = ensureRetiredVaultModal();
     modal.classList.remove("hidden");
 
-    firebase
+    var histCol = firebase
       .firestore()
       .collection("customers")
       .doc(site.customerId)
@@ -552,14 +571,27 @@
       .doc(site.siteId)
       .collection("assets")
       .doc(docId)
-      .collection("retired_history")
+      .collection("retired_history");
+
+    var loadSnap = histCol
+      .orderBy("archivedAt", "desc")
       .get()
+      .catch(function () {
+        return histCol.get();
+      });
+
+    loadSnap
       .then(function (snap) {
         var rows = [];
         snap.forEach(function (doc) {
           rows.push({ id: doc.id, data: doc.data() || {} });
         });
         rows.sort(function (a, b) {
+          var ma = vaultArchivedMs(a.data);
+          var mb = vaultArchivedMs(b.data);
+          if (mb !== ma) {
+            return mb - ma;
+          }
           return String(b.id).localeCompare(String(a.id));
         });
         if (!rows.length) {
@@ -655,7 +687,7 @@
     var vaultBtn = document.getElementById("dictationBtnRetiredVault");
     if (vaultBtn) {
       vaultBtn.onclick = function () {
-        console.log("Open Vault for:", logicalId);
+        openRetiredVaultForUnit(logicalId);
       };
     }
   }
