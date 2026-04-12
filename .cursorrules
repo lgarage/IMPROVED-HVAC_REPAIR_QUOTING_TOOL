@@ -1,0 +1,32 @@
+# Vertex-Core AI Instructions & Rules
+
+## 1. THE "LIVING MANUAL" RULE (CRITICAL)
+
+- After completing ANY task, you MUST update `PROJECT_MAP.md`.
+- The manual must contain two layers for every feature:
+  1. **User Guide:** How a human uses the feature (UI/UX).
+  2. **Technical Specs:** The Firestore paths, role logic, and data structures.
+- Move completed items to "Build History" and update the "Current Focus."
+
+## 2. ARCHITECTURAL GUARDRAILS
+
+- **Tenant Isolation:** All data MUST be sandboxed. Use `tenants/{tenantId}/` for all Firestore writes.
+- **The Bridge:** Follow the "Lazy Migration" pattern (Read Tenant -> Fallback to Root -> Lift to Tenant on save).
+- **Sandbox Mode:** If `VC_SANDBOX_DATA` is true, route data to `/sandbox/default/` sub-paths.
+
+## 3. TERMINOLOGY & UI STANDARDS
+
+- **Naming:** Never use "Dark Channel." Use "Inter-Office Comms."
+- **Visuals:** Follow the "Twin Pillar" select design (orange focus ring, chevron, specific padding).
+- **Mobile First:** Keep AI-generated notes concise. No fluff. Use bolding for scannability.
+- **LaTeX:** Use ONLY for complex math/formulas ($inline$ or $$display$$). Use Markdown for everything else.
+
+## 4. ROLE-BASED ACCESS CONTROL (RBAC)
+
+- Always respect the four roles: `admin`, `tech`, `sales`, `time_tracking_only`.
+- **Lite Seats:** Users with `time_tracking_only` must be strictly restricted to the Time-Tracker UI and Read-Only job views.
+
+## 5. CODE STYLE
+
+- Maintain the "Zero Learning Curve" philosophy. Buttons should be descriptive (e.g., "🎤 Hold to speak customer name").
+- Use `writeBatch` for any operations involving more than 5 documents.
