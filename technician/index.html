@@ -13,6 +13,7 @@
 <script src="../shared/config.js"></script>
 <script src="../shared/firebase_logic.js"></script>
 <script src="js/vc_entitlements.js?v=1"></script>
+<script src="js/time_tracker.js?v=1"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
@@ -2357,6 +2358,69 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 
 .hidden { display: none !important; }
 
+/* --- Lite seat (time_tracking_only): clock dashboard + read-only job --- */
+.vc-lite-seat { max-width: 420px; margin: 0 auto; padding: 8px 0 24px; }
+.vc-lite-seat__card {
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 16px;
+  padding: 20px 18px;
+  margin-bottom: 20px;
+  border: 3px solid #fbbf24;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.35);
+}
+.vc-lite-seat__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  margin: 12px 0 4px;
+}
+.vc-lite-seat__label:first-child { margin-top: 0; }
+.vc-lite-seat__duty { font-size: 22px; font-weight: 900; margin: 0; color: #fef08a; }
+.vc-lite-seat__hours { font-size: 28px; font-weight: 900; margin: 0; font-variant-numeric: tabular-nums; }
+.vc-lite-seat__lead { font-size: 16px; font-weight: 700; margin: 0; }
+.vc-lite-seat__actions { display: flex; flex-direction: column; gap: 14px; }
+.vc-lite-btn {
+  width: 100%;
+  padding: 22px 16px;
+  font-size: 20px;
+  font-weight: 900;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.03em;
+}
+.vc-lite-btn--in { background: #15803d; color: #fff; }
+.vc-lite-btn--out { background: #b91c1c; color: #fff; }
+.vc-lite-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.vc-lite-seat__hint { font-size: 13px; color: #64748b; text-align: center; min-height: 1.2em; }
+.vc-lite-readonly-workspace {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 2px solid #1e4b85;
+}
+.vc-lite-ro-badge { font-size: 11px; font-weight: 800; color: #b45309; text-transform: uppercase; margin: 0 0 8px; }
+.vc-lite-ro-title { margin: 0 0 6px; color: #1e4b85; font-size: 20px; }
+.vc-lite-ro-sub { margin: 0 0 14px; font-size: 13px; color: #64748b; }
+.vc-lite-ro-block { white-space: pre-wrap; font-size: 14px; line-height: 1.45; margin-bottom: 12px; }
+.vc-lite-ro-h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; margin: 14px 0 6px; }
+.vc-lite-ro-body { font-size: 15px; line-height: 1.5; color: #1e293b; white-space: pre-wrap; }
+.vc-lite-ro-back { width: 100%; margin-top: 16px; }
+#screen-workspace.workspace--lite-readonly #workspaceLockScope,
+#screen-workspace.workspace--lite-readonly .workspace-original-fab,
+#screen-workspace.workspace--lite-readonly #workspaceAddendumSection,
+#screen-workspace.workspace--lite-readonly #workspaceAddendumTimeline,
+#screen-workspace.workspace--lite-readonly #workspaceHistoricalBanner {
+  display: none !important;
+}
+#screen-workspace.workspace--lite-readonly #vcLiteReadonlyWorkspace:not(.hidden) {
+  display: block !important;
+}
+
 /* --- Equipment Manager (shared with Dispatch; same as index.html) --- */
 #equipmentManagerModal.em-modal-hidden {
   display: none !important;
@@ -2566,6 +2630,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   <nav class="app-main-nav" aria-label="Main">
     <button type="button" class="nav-item active" id="nav-schedule" onclick="switchScreen('schedule')">📋 Schedule</button>
     <button type="button" class="nav-item" id="nav-history" onclick="switchScreen('history')">🕒 History</button>
+    <button type="button" class="nav-item hidden" id="nav-clock" onclick="switchScreen('lite')">⏱ Time</button>
     <button type="button" class="nav-item" id="nav-profile" onclick="switchScreen('profile')">👤 Profile</button>
   </nav>
 </header>
@@ -2597,9 +2662,25 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   </div>
 </div>
 
+<div id="screen-lite" class="screen hidden">
+  <div id="vcLiteSeatRoot"></div>
+</div>
+
 <div id="screen-workspace" class="screen hidden">
   <div id="workspaceHistoricalBanner" class="workspace-historical-banner hidden" role="status">
     ⚠️ Historical Record: Viewing Read-Only. Use Addendum section below for updates.
+  </div>
+
+  <div id="vcLiteReadonlyWorkspace" class="vc-lite-readonly-workspace hidden" aria-label="Read-only job overview">
+    <p class="vc-lite-ro-badge">Lite seat — read-only</p>
+    <h2 class="vc-lite-ro-title">Job overview</h2>
+    <p id="vcLiteReadonlySub" class="vc-lite-ro-sub"></p>
+    <div id="vcLiteReadonlyCustomer" class="vc-lite-ro-block"></div>
+    <h3 class="vc-lite-ro-h3">Reported issue</h3>
+    <div id="vcLiteReadonlyIssue" class="vc-lite-ro-body"></div>
+    <h3 class="vc-lite-ro-h3">Equipment / scope</h3>
+    <div id="vcLiteReadonlyEquip" class="vc-lite-ro-body"></div>
+    <button type="button" class="btn btn-primary vc-lite-ro-back" id="vcLiteReadonlyBackBtn">Back to schedule</button>
   </div>
 
   <div id="workspaceLockScope" class="workspace-lock-scope">
@@ -3190,6 +3271,12 @@ function switchScreen(screenName) {
     applyWorkspaceHistoricalMode(false);
     if (typeof teardownDictationHub === 'function') teardownDictationHub();
     if (typeof teardownWorkspaceSiteIntel === 'function') teardownWorkspaceSiteIntel();
+    const ws = document.getElementById('screen-workspace');
+    if (ws) {
+      ws.classList.remove('workspace--lite-readonly');
+      const ro = document.getElementById('vcLiteReadonlyWorkspace');
+      if (ro) ro.classList.add('hidden');
+    }
   }
   document.querySelectorAll('.screen').forEach(s => { s.classList.add('hidden'); s.classList.remove('active'); });
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -3197,7 +3284,10 @@ function switchScreen(screenName) {
   const targetScreen = document.getElementById('screen-' + screenName);
   if(targetScreen) { targetScreen.classList.remove('hidden'); targetScreen.classList.add('active'); }
 
-  const targetNav = document.getElementById('nav-' + (screenName === 'workspace' ? 'schedule' : screenName));
+  let navKey = screenName;
+  if (screenName === 'workspace') navKey = 'schedule';
+  else if (screenName === 'lite') navKey = 'clock';
+  const targetNav = document.getElementById('nav-' + navKey);
   if(targetNav) targetNav.classList.add('active');
 
   if (screenName === 'history') populateHistoryCustomers();
@@ -3317,7 +3407,14 @@ async function completeTechnicianLogin() {
   }
   hideLoginShell();
   const openedFromDispatchLink = await loadUserProfile();
-  if (!openedFromDispatchLink) switchScreen('schedule');
+  if (!openedFromDispatchLink) {
+    try {
+      if (localStorage.getItem('vc_time_tracking_only') === '1') switchScreen('lite');
+      else switchScreen('schedule');
+    } catch (e) {
+      switchScreen('schedule');
+    }
+  }
   ensureWireAutosave();
 }
 
@@ -4087,10 +4184,50 @@ async function onWorkspaceImagePasteCapture(e) {
   document.addEventListener('paste', onWorkspaceImagePasteCapture, true);
 })();
 
-function openWorkspace(ticketId) {
+function openWorkspaceLiteReadonly(ticketId) {
   teardownWorkspaceAddendums();
   activeTicket = myTickets.find(t => t.id === ticketId);
   if (!activeTicket) return;
+  if (typeof VcTimeTracker !== 'undefined' && VcTimeTracker.setLaborTicketId) {
+    VcTimeTracker.setLaborTicketId(ticketId);
+  }
+  document.getElementById('ticketSelector').value = ticketId;
+  const sub = document.getElementById('vcLiteReadonlySub');
+  const cust = document.getElementById('vcLiteReadonlyCustomer');
+  const issue = document.getElementById('vcLiteReadonlyIssue');
+  const equip = document.getElementById('vcLiteReadonlyEquip');
+  if (sub) sub.textContent = `${activeTicket.ticketNum || ''} · ${activeTicket.jobType || ''}`.trim();
+  const addr = buildTicketNavAddress(activeTicket) || '';
+  if (cust) {
+    cust.textContent = [activeTicket.customerName || '—', addr].filter(Boolean).join('\n');
+  }
+  if (issue) issue.textContent = activeTicket.issue || '—';
+  if (equip) {
+    equip.textContent =
+      activeTicket.equip && activeTicket.equip !== 'N/A' ? activeTicket.equip : '—';
+  }
+  const ro = document.getElementById('vcLiteReadonlyWorkspace');
+  if (ro) ro.classList.remove('hidden');
+  const ws = document.getElementById('screen-workspace');
+  if (ws) ws.classList.add('workspace--lite-readonly');
+  switchScreen('workspace');
+}
+
+function openWorkspace(ticketId) {
+  try {
+    if (typeof VcTimeTracker !== 'undefined' && VcTimeTracker.isLiteSeat && VcTimeTracker.isLiteSeat()) {
+      openWorkspaceLiteReadonly(ticketId);
+      return;
+    }
+  } catch (e) {}
+  teardownWorkspaceAddendums();
+  activeTicket = myTickets.find(t => t.id === ticketId);
+  if (!activeTicket) return;
+
+  var roPanel = document.getElementById('vcLiteReadonlyWorkspace');
+  if (roPanel) roPanel.classList.add('hidden');
+  var wsEl = document.getElementById('screen-workspace');
+  if (wsEl) wsEl.classList.remove('workspace--lite-readonly');
 
   document.getElementById('ws-customer').innerText = activeTicket.customerName;
   document.getElementById('ws-address').innerText = buildTicketNavAddress(activeTicket) || '—';
@@ -5914,9 +6051,28 @@ window.onload = async function(){
   }
 
   const openedFromDispatchLink = await loadUserProfile();
-  if (!openedFromDispatchLink) switchScreen('schedule');
+  if (!openedFromDispatchLink) {
+    try {
+      if (localStorage.getItem('vc_time_tracking_only') === '1') switchScreen('lite');
+      else switchScreen('schedule');
+    } catch (e) {
+      switchScreen('schedule');
+    }
+  }
 
   document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
+  (function wireLiteReadonlyBack() {
+    var b = document.getElementById('vcLiteReadonlyBackBtn');
+    if (!b || b.dataset.vcWired) return;
+    b.dataset.vcWired = '1';
+    b.addEventListener('click', function () {
+      var ws = document.getElementById('screen-workspace');
+      if (ws) ws.classList.remove('workspace--lite-readonly');
+      var ro = document.getElementById('vcLiteReadonlyWorkspace');
+      if (ro) ro.classList.add('hidden');
+      switchScreen('schedule');
+    });
+  })();
   ensureWireAutosave();
 
   setInterval(function () {

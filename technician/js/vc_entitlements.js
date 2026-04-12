@@ -14,6 +14,7 @@
     if (document.body) {
       document.body.classList.remove("vc-time-tracking-only");
       document.body.classList.remove("vc-sandbox-session");
+      document.body.classList.remove("vc-lite-seat-mode");
     }
     var b = document.getElementById("vcEntitlementsBanner");
     if (b) b.remove();
@@ -49,6 +50,22 @@
     if (existing) existing.remove();
     if (!on) {
       resetPremiumFieldChrome();
+      if (document.body) document.body.classList.remove("vc-lite-seat-mode");
+      var navHist = document.getElementById("nav-history");
+      var navClock = document.getElementById("nav-clock");
+      if (navHist) navHist.classList.remove("hidden");
+      if (navClock) navClock.classList.add("hidden");
+      var liteRoot = document.getElementById("vcLiteSeatRoot");
+      if (liteRoot) {
+        if (liteRoot._vcLiteCleanup) {
+          try {
+            liteRoot._vcLiteCleanup();
+          } catch (e) {}
+          liteRoot._vcLiteCleanup = null;
+        }
+        delete liteRoot.dataset.vcLiteMounted;
+        liteRoot.innerHTML = "";
+      }
       return;
     }
     var bar = document.createElement("div");
@@ -56,28 +73,16 @@
     bar.className = "vc-entitlements-banner";
     bar.setAttribute("role", "status");
     bar.innerHTML =
-      '<strong>Time tracking seat</strong> — AI dictation, advanced reporting, and premium Field tools are disabled. Contact the office to upgrade your license.';
+      '<strong>Lite seat</strong> — Use the Time tab to clock in/out. Job cards open a read-only job view (no dictation or AI).';
     var shell = document.querySelector(".app-top-shell");
     if (shell && shell.nextSibling) {
       shell.parentNode.insertBefore(bar, shell.nextSibling);
     } else {
       document.body.insertBefore(bar, document.body.firstChild);
     }
-    var hub = document.querySelector(".dictation-hub-shell");
-    if (hub) {
-      hub.style.opacity = "0.45";
-      hub.style.pointerEvents = "none";
-      hub.setAttribute("aria-disabled", "true");
+    if (global.VcTimeTracker && typeof global.VcTimeTracker.initLiteSeatShell === "function") {
+      global.VcTimeTracker.initLiteSeatShell();
     }
-    var accForms = document.getElementById("acc-field-forms");
-    if (accForms) {
-      accForms.style.opacity = "0.45";
-      accForms.style.pointerEvents = "none";
-    }
-    var eqBtn = document.getElementById("btnOpenEquipmentHub");
-    if (eqBtn) eqBtn.disabled = true;
-    var pmAcc = document.getElementById("pmSection");
-    if (pmAcc) pmAcc.style.display = "none";
   }
 
   function applySandboxUi(on) {
@@ -128,7 +133,12 @@
     } else {
       applySandboxUi(false);
     }
-    if (profile.timeTrackingOnly === true) {
+    var liteSeat =
+      profile.timeTrackingOnly === true ||
+      String(profile.role || "")
+        .trim()
+        .toLowerCase() === "time_tracking_only";
+    if (liteSeat) {
       applyTimeTrackingOnlyUi(true);
     } else {
       applyTimeTrackingOnlyUi(false);

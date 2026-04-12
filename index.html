@@ -2366,6 +2366,44 @@
           >
             Open import wizard…
           </button>
+          <hr
+            style="margin: 12px 0; border: none; border-top: 1px solid #e2e8f0"
+          />
+          <p style="font-size: 11px; color: #64748b; margin: 0 0 8px">
+            Labor &amp; payroll
+          </p>
+          <label style="display: block; margin-bottom: 6px; font-size: 11px"
+            >From (date)<br /><input
+              type="date"
+              id="vcPayrollFrom"
+              style="width: 100%; box-sizing: border-box; padding: 6px"
+          /></label>
+          <label style="display: block; margin-bottom: 6px; font-size: 11px"
+            >To (date)<br /><input
+              type="date"
+              id="vcPayrollTo"
+              style="width: 100%; box-sizing: border-box; padding: 6px"
+          /></label>
+          <button
+            type="button"
+            id="vcPayrollExportBtn"
+            style="
+              margin-top: 8px;
+              width: 100%;
+              padding: 8px;
+              background: #0f766e;
+              color: #fff;
+              border: none;
+              border-radius: 4px;
+              font-weight: bold;
+            "
+          >
+            Download labor CSV
+          </button>
+          <p
+            id="vcPayrollExportErr"
+            style="color: #c0392b; font-size: 10px; margin: 4px 0 0"
+          ></p>
         </div>
       </details>
     </div>
@@ -6373,6 +6411,7 @@
         <div id="vcImportHubBody" class="vc-import-hub-body"></div>
       </div>
     </div>
+    <script src="dispatcher/js/payroll_manager.js?v=1"></script>
     <script src="dispatcher/js/import_hub.js?v=1"></script>
     <script src="equipment_manager.js?v=7"></script>
   </body>

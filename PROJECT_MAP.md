@@ -133,11 +133,11 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 **User Guide**
 
 - **Training** users (or `+training` email pattern in import helpers) can be flagged so the Field app uses **sandbox** data instead of live tenant collections.
-- **Time-tracking-only** users get a banner and restricted UI (no premium dictation hub, equipment hub, PM section, etc.).
+- **Lite / time-tracking-only** users get a dedicated **Time** tab (stopwatch UI) instead of History; read-only job view from the schedule (no dictation).
 
 **Technical Specs**
 
-- `technician/js/vc_entitlements.js`: loads `tenants/{tenantId}/users` by `payrollNameUpper`; sets `global.VC_SANDBOX_DATA = true` when `isTrainingAccount === true`; sets `localStorage` `vc_time_tracking_only` when `timeTrackingOnly === true`.
+- `technician/js/vc_entitlements.js`: loads `tenants/{tenantId}/users` by `payrollNameUpper`; sets `global.VC_SANDBOX_DATA = true` when `isTrainingAccount === true`; sets `localStorage` `vc_time_tracking_only` when `timeTrackingOnly === true` **or** `role === "time_tracking_only"`.
 - `shared/firebase_logic.js`: when `VC_SANDBOX_DATA === true`, `isSandboxDataPath()` routes to `tenants/{tenantId}/sandbox/default/{collection}` instead of the live tenant subcollections.
 
 ---
@@ -151,12 +151,13 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 **User Guide**
 
 - **Dispatcher office app:** “Admin” access to **tenant branding / PIN-protected admin block** is via **PIN unlock** (`sessionStorage` `vc_admin_unlocked`), not automatically tied to the `isAdmin` field on a user row.
-- Unlocked admins can edit tenant id, brand colors, logo, **Enterprise Data Onboarding** (import wizard), and related controls in the **Admin** disclosure.
+- Unlocked admins can edit tenant id, brand colors, logo, **Enterprise Data Onboarding** (import wizard), **Labor & payroll** CSV export, and related controls in the **Admin** disclosure.
 
 **Technical Specs**
 
 - PIN: `APP_CONFIG.adminUnlockPin` (default in `shared/config.js`); UI `#vcAdminUnlockBtn`, `#vcAdminForm`.
 - User CSV import stores `isAdmin` on `tenants/{tenantId}/users/{docId}` (`dispatcher/js/user_import.js`) for enterprise directory / future enforcement.
+- **Labor export:** `dispatcher/js/payroll_manager.js` — date range → queries `tenants/{tenantId}/labor_logs` by `dateYmd`, resolves job sites via `getServiceCallOnceBridged`, downloads CSV (employee, date, hours, sites, overtime over 8h).
 
 #### Tech
 
@@ -182,12 +183,26 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 **User Guide**
 
-- Banner: **Time tracking seat** — AI dictation, advanced reporting, and premium Field tools disabled.
-- Dictation Hub and Equipment Hub are unusable; **Work Order Forms** accordion is hidden; PM accordion hidden.
+- Banner: **Lite seat** — use the **Time** tab for **CLOCK IN / CLOCK OUT**; status card shows duty state, **hours today**, and **lead tech** (first assigned tech on the crew who is not you, when viewing a job).
+- **Schedule** tab is unchanged; tapping a job opens a **read-only** job screen: reported issue + equipment scope only; **Dictation Hub**, Inter-Office channel, and full workspace are not available.
+- After sign-in, the app opens the **Time** screen first (not History).
 
 **Technical Specs**
 
-- `applyTimeTrackingOnlyUi` in `vc_entitlements.js`; flag `timeTrackingOnly` on user doc; `localStorage` `vc_time_tracking_only`.
+- `applyTimeTrackingOnlyUi` in `vc_entitlements.js`; triggers `VcTimeTracker.initLiteSeatShell()` (`technician/js/time_tracker.js`).
+- `localStorage` `vc_time_tracking_only`; lite user doc: `timeTrackingOnly: true` OR `role: "time_tracking_only"`.
+- Labor writes: `tenants/{tenantId}/labor_logs/{payrollKey}_{YYYY_MM_DD}` via `VCFirestore.laborLogs`; document fields `dateYmd`, `payrollKey`, `employeeName`, `entries[]` (each: `at` ISO, `action` IN/OUT, `lat`, `lng`, `ticketId` optional). Geolocation via `navigator.geolocation.getCurrentPosition`.
+- Read-only workspace: `#vcLiteReadonlyWorkspace` + `workspace--lite-readonly` on `#screen-workspace` hides `#workspaceLockScope` and FAB; `openWorkspace` delegates to `openWorkspaceLiteReadonly` when lite.
+
+#### Labor & payroll (dispatcher)
+
+**User Guide**
+
+- **Admin tools** (PIN) → **Labor & payroll** — pick **From** / **To** dates → **Download labor CSV**.
+
+**Technical Specs**
+
+- `dispatcher/js/payroll_manager.js`; CSV columns: Employee Name, Date, Total Shift Hours, Job Site(s), Overtime (if over 8hrs). Shift hours computed from paired IN/OUT entries; overtime = hours − 8 when hours exceed 8.
 
 ---
 
@@ -196,7 +211,8 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - [v] Phase 10: Tenant Isolation & Branding
 - [v] Phase 11: Terminology Pivot (Inter-Office Comms) & Data Bridge
 - [v] Phase 12: Enterprise Data Importer (BuildOps Mapping)
+- [v] Phase 13: Lite Seat Dashboard & Payroll Manager (`labor_logs`, `time_tracker.js`, `payroll_manager.js`)
 
 ## Current Focus
 
-- Phase 13: Lite Seat Time-Tracking & Payroll Export
+- Next: production hardening (Firestore rules for `labor_logs`, optional composite indexes for payroll queries).

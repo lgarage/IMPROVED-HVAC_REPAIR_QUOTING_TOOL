@@ -60,6 +60,14 @@
     return tenantCollection(db, "imported_equipment");
   }
 
+  /** Geotagged clock IN/OUT punches (lite seat time tracking). Doc id: {payrollKey}_{YYYY_MM_DD}. */
+  function laborLogs(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "labor_logs");
+    }
+    return tenantCollection(db, "labor_logs");
+  }
+
   /** Single roster document: names[], profiles{}, updatedAt */
   function rosterDoc(db) {
     return tenantCollection(db, "roster").doc("default");
@@ -454,6 +462,7 @@
     tenantCollection: tenantCollection,
     tenantUsers: tenantUsers,
     tenantImportedEquipment: tenantImportedEquipment,
+    laborLogs: laborLogs,
     serviceCalls: serviceCalls,
     siteIntelligence: siteIntelligence,
     rosterDoc: rosterDoc,
