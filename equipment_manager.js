@@ -841,10 +841,9 @@
   }
 
   /**
-   * Dictation Hub / asset tray: camera capture → Storage URL → optional Gemini plate OCR → setDoc merge on customers/.../assets/{logicalId}.
-   * @param {{ logicalId: string, customerId: string, siteId: string, kind?: string }} opts kind: "nameplate" | "overall"
+   * Dictation Hub: camera → Storage → optional plate OCR → merge Firestore asset.
+   * @param {{ logicalId: string, customerId: string, siteId: string, kind?: string }} opts kind: "nameplate" | "overall" | "additional"
    * @param {File} file
-   * @returns {Promise<object>} merged patch summary
    */
   function dictationPromoteAssetPhoto(opts, file) {
     if (!file || !file.type || !file.type.startsWith("image/")) {
@@ -853,7 +852,13 @@
     var logicalId = sanitizePathSegment((opts && opts.logicalId) || "unit");
     var customerId = sanitizePathSegment((opts && opts.customerId) || "");
     var siteId = sanitizePathSegment((opts && opts.siteId) || "");
-    var kind = opts && opts.kind === "overall" ? "overall" : "nameplate";
+    var rawKind = opts && opts.kind ? String(opts.kind) : "nameplate";
+    var kind =
+      rawKind === "overall"
+        ? "overall"
+        : rawKind === "additional"
+          ? "additional"
+          : "nameplate";
     if (!customerId || !siteId) {
       return Promise.reject(new Error("Missing customer or site context."));
     }
@@ -911,6 +916,26 @@
 
           return assetRef.get().then(function (snap) {
             var prev = snap.exists ? snap.data() || {} : {};
+            var FV = firebase.firestore.FieldValue;
+
+            if (kind === "additional") {
+              var add = Array.isArray(prev.additional_images)
+                ? prev.additional_images.slice()
+                : [];
+              add.push({
+                url: downloadUrl,
+                addedAt: new Date().toISOString(),
+              });
+              var addPatch = {
+                id: logicalId,
+                additional_images: add,
+                updatedAt: FV ? FV.serverTimestamp() : new Date().toISOString(),
+              };
+              return assetRef.set(addPatch, { merge: true }).then(function () {
+                return addPatch;
+              });
+            }
+
             var images = Object.assign({}, prev.images || {});
             if (kind === "nameplate") {
               images.nameplate = Object.assign({}, images.nameplate || {}, {
@@ -925,11 +950,12 @@
             var patch = {
               id: logicalId,
               images: images,
-              updatedAt:
-                firebase.firestore && firebase.firestore.FieldValue
-                  ? firebase.firestore.FieldValue.serverTimestamp()
-                  : new Date().toISOString(),
+              updatedAt: FV ? FV.serverTimestamp() : new Date().toISOString(),
             };
+
+            if (prev.awaitingNewEquipment === true) {
+              patch.awaitingNewEquipment = false;
+            }
 
             if (ocr && typeof ocr === "object") {
               if (ocr.manufacturer != null && String(ocr.manufacturer).trim()) {
@@ -962,6 +988,65 @@
           });
         });
       });
+  }
+
+  /**
+   * Archive full asset snapshot to assets/{id}/retired_history/{ts}, clear parent for new install.
+   */
+  function dictationRetireCurrentAsset(opts) {
+    var logicalId = sanitizePathSegment((opts && opts.logicalId) || "");
+    var customerId = sanitizePathSegment((opts && opts.customerId) || "");
+    var siteId = sanitizePathSegment((opts && opts.siteId) || "");
+    if (!logicalId || !customerId || !siteId) {
+      return Promise.reject(new Error("Missing asset context."));
+    }
+    var fsdb = getFirestoreDb();
+    if (!fsdb) {
+      return Promise.reject(new Error("Firestore not available."));
+    }
+    var FV = firebase.firestore.FieldValue;
+    var assetRef = fsdb
+      .collection("customers")
+      .doc(customerId)
+      .collection("sites")
+      .doc(siteId)
+      .collection("assets")
+      .doc(logicalId);
+
+    return assetRef.get().then(function (snap) {
+      if (!snap.exists) {
+        throw new Error("Asset not found.");
+      }
+      var data = snap.data() || {};
+      var histId = String(Date.now());
+      var histRef = assetRef.collection("retired_history").doc(histId);
+      var archivePayload = Object.assign({}, data, {
+        retiredAt: FV ? FV.serverTimestamp() : new Date().toISOString(),
+        archiveId: histId,
+      });
+
+      var cleared = {
+        id: logicalId,
+        type: "",
+        awaitingNewEquipment: true,
+        updatedAt: FV ? FV.serverTimestamp() : new Date().toISOString(),
+      };
+      if (FV) {
+        cleared.manufacturer = FV.delete();
+        cleared.modelNumber = FV.delete();
+        cleared.serialNumber = FV.delete();
+        cleared.voltage = FV.delete();
+        cleared.phase = FV.delete();
+        cleared.refrigerant = FV.delete();
+        cleared.images = FV.delete();
+        cleared.additional_images = FV.delete();
+        cleared.lastServiceDate = FV.delete();
+      }
+      var batch = fsdb.batch();
+      batch.set(histRef, archivePayload);
+      batch.set(assetRef, cleared, { merge: true });
+      return batch.commit();
+    });
   }
 
   function open(opts) {
@@ -1051,6 +1136,7 @@
 
   window.processOcrQueue = processOcrQueue;
   window.dictationPromoteAssetPhoto = dictationPromoteAssetPhoto;
+  window.dictationRetireCurrentAsset = dictationRetireCurrentAsset;
 
   window.EquipmentManager = {
     open: open,

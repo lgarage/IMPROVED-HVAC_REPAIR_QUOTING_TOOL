@@ -19,6 +19,8 @@
   var locationBlurBound = false;
   var trayDelegationWired = false;
   var pendingCapture = null;
+  /** @type {{ logicalId: string, row: object } | null} */
+  var verifiedModalContext = null;
 
   var SYSTEM_INSTRUCTION = [
     "You are a master HVAC data-mapper. Follow these rules exactly.",
@@ -122,7 +124,84 @@
     return "";
   }
 
+  function isAwaitingNewEquipment(d) {
+    return !!(d && d.awaitingNewEquipment === true);
+  }
+
+  /**
+   * Vertex-Core Phase 1: strict lifecycle from Firestore document data.
+   * @param {{ exists: boolean, data?: function(): object }} doc Firestore DocumentSnapshot or compatible
+   * @returns {'GHOST'|'INCOMPLETE'|'VERIFIED'}
+   */
+  function evaluateAssetState(doc) {
+    if (!doc || doc.exists === false) {
+      return "GHOST";
+    }
+    var d = typeof doc.data === "function" ? doc.data() || {} : {};
+    var img = d.images || {};
+    var npUrl =
+      img.nameplate &&
+      img.nameplate.url != null &&
+      String(img.nameplate.url).trim() !== "";
+    var ovUrl =
+      img.overall &&
+      img.overall.url != null &&
+      String(img.overall.url).trim() !== "";
+    var hasModel =
+      d.modelNumber != null && String(d.modelNumber).trim() !== "";
+    var hasSerial =
+      d.serialNumber != null && String(d.serialNumber).trim() !== "";
+    if (hasModel && hasSerial && npUrl && ovUrl) {
+      return "VERIFIED";
+    }
+    return "INCOMPLETE";
+  }
+
+  function vcStateToCardClass(vc) {
+    if (vc === "VERIFIED") return "asset-card-verified";
+    if (vc === "GHOST") return "asset-card-ghost";
+    return "asset-card-incomplete";
+  }
+
+  /** Missing items for incomplete tray hints (strict VC fields). */
+  function getVcMissingLabels(d) {
+    var missing = [];
+    var data = d || {};
+    var img = data.images || {};
+    if (data.modelNumber == null || !String(data.modelNumber).trim()) {
+      missing.push("Model number");
+    }
+    if (data.serialNumber == null || !String(data.serialNumber).trim()) {
+      missing.push("Serial number");
+    }
+    if (
+      !img.nameplate ||
+      img.nameplate.url == null ||
+      !String(img.nameplate.url).trim()
+    ) {
+      missing.push("Nameplate photo");
+    }
+    if (
+      !img.overall ||
+      img.overall.url == null ||
+      !String(img.overall.url).trim()
+    ) {
+      missing.push("Overall photo");
+    }
+    return missing;
+  }
+
   function computeVerification(d) {
+    if (isAwaitingNewEquipment(d)) {
+      return {
+        verified: false,
+        vacant: true,
+        hasModel: false,
+        hasSerial: false,
+        hasNameplate: false,
+        hasOverall: false,
+      };
+    }
     var img = (d && d.images) || {};
     var hasNp = !!getImageUrl(img.nameplate);
     var hasOv = !!getImageUrl(img.overall);
@@ -131,11 +210,108 @@
     var verified = hasModel && hasSerial && hasNp && hasOv;
     return {
       verified: verified,
+      vacant: false,
       hasModel: hasModel,
       hasSerial: hasSerial,
       hasNameplate: hasNp,
       hasOverall: hasOv,
     };
+  }
+
+  function getSiteWatermarkLine1() {
+    var locEl = document.getElementById("location");
+    var t = "";
+    if (locEl && locEl.value) t = String(locEl.value).trim();
+    else if (typeof activeTicket !== "undefined" && activeTicket) {
+      t =
+        (activeTicket.customerName || "") +
+        " - " +
+        (activeTicket.locationAddress || "");
+    }
+    return t.replace(/\s+/g, " ").toUpperCase();
+  }
+
+  function getWatermarkLine2(unitId, retired) {
+    return (
+      String(unitId || "").trim().toUpperCase() +
+      (retired ? " (Retired)" : " (Current)")
+    );
+  }
+
+  function watermarkedFigureHtml(url, caption, unitId, retired) {
+    var line1 = escapeHtml(getSiteWatermarkLine1());
+    var line2 = escapeHtml(getWatermarkLine2(unitId, retired));
+    var imgCls = retired ? "dictation-img-bw" : "";
+    return (
+      '<div class="dictation-gallery-slide" data-gallery-silo="' +
+      (retired ? "retired" : "active") +
+      '">' +
+      '<div class="dictation-img-frame' +
+      (retired ? " dictation-img-frame--retired" : "") +
+      '">' +
+      '<img' +
+      (imgCls ? ' class="' + imgCls + '"' : "") +
+      ' src="' +
+      escapeHtml(url) +
+      '" alt="' +
+      escapeHtml(caption) +
+      '">' +
+      '<div class="dictation-watermark" aria-hidden="true">' +
+      '<span class="dictation-wm-line1">' +
+      line1 +
+      "</span>" +
+      '<span class="dictation-wm-line2">' +
+      line2 +
+      "</span>" +
+      "</div></div>" +
+      '<span class="dictation-gallery-caption">' +
+      escapeHtml(caption) +
+      "</span></div>"
+    );
+  }
+
+  function collectActivePhotoEntries(d) {
+    var out = [];
+    var img = (d && d.images) || {};
+    if (getImageUrl(img.nameplate)) {
+      out.push({ label: "Nameplate", url: getImageUrl(img.nameplate) });
+    }
+    if (getImageUrl(img.overall)) {
+      out.push({ label: "Overall", url: getImageUrl(img.overall) });
+    }
+    var add = Array.isArray(d.additional_images) ? d.additional_images : [];
+    add.forEach(function (entry, i) {
+      var u =
+        typeof entry === "string"
+          ? entry
+          : entry && entry.url
+            ? String(entry.url)
+            : "";
+      if (u) out.push({ label: "Additional " + (i + 1), url: u });
+    });
+    return out;
+  }
+
+  function collectPhotoEntriesFromSnapshot(arch) {
+    var out = [];
+    var img = (arch && arch.images) || {};
+    if (getImageUrl(img.nameplate)) {
+      out.push({ label: "Nameplate", url: getImageUrl(img.nameplate) });
+    }
+    if (getImageUrl(img.overall)) {
+      out.push({ label: "Overall", url: getImageUrl(img.overall) });
+    }
+    var add = Array.isArray(arch.additional_images) ? arch.additional_images : [];
+    add.forEach(function (entry, i) {
+      var u =
+        typeof entry === "string"
+          ? entry
+          : entry && entry.url
+            ? String(entry.url)
+            : "";
+      if (u) out.push({ label: "Additional " + (i + 1), url: u });
+    });
+    return out;
   }
 
   function normalizeUnitId(s) {
@@ -231,7 +407,7 @@
           logicalId: ctx.logicalId,
           customerId: ctx.customerId,
           siteId: ctx.siteId,
-          kind: ctx.kind,
+          kind: ctx.kind || "nameplate",
         },
         f
       )
@@ -253,14 +429,19 @@
       return;
     }
     var docKey = sanitizePathSegment(logicalId);
+    var k = kind === "overall" ? "overall" : kind === "additional" ? "additional" : "nameplate";
     pendingCapture = {
-      kind: kind === "overall" ? "overall" : "nameplate",
+      kind: k,
       logicalId: docKey,
       customerId: site.customerId,
       siteId: site.siteId,
     };
     ensureCameraInput().value = "";
     ensureCameraInput().click();
+  }
+
+  function startAdditionalPhotoCapture(logicalId) {
+    startDictationCapture("additional", logicalId);
   }
 
   function buildAddEquipmentCardHtml() {
@@ -299,6 +480,11 @@
       document.documentElement.dataset.dictationModalEsc = "1";
       document.addEventListener("keydown", function (e) {
         if (e.key !== "Escape") return;
+        var rv = document.getElementById("dictationRetiredVaultModal");
+        if (rv && !rv.classList.contains("hidden")) {
+          closeRetiredVaultModal();
+          return;
+        }
         var m = document.getElementById("dictationAssetVerifiedModal");
         if (m && !m.classList.contains("hidden")) closeVerifiedModal();
       });
@@ -309,18 +495,191 @@
   function closeVerifiedModal() {
     var m = document.getElementById("dictationAssetVerifiedModal");
     if (m) m.classList.add("hidden");
+    verifiedModalContext = null;
+  }
+
+  function closeRetiredVaultModal() {
+    var m = document.getElementById("dictationRetiredVaultModal");
+    if (m) m.classList.add("hidden");
+  }
+
+  function ensureRetiredVaultModal() {
+    var existing = document.getElementById("dictationRetiredVaultModal");
+    if (existing) return existing;
+    var wrap = document.createElement("div");
+    wrap.id = "dictationRetiredVaultModal";
+    wrap.className = "dictation-asset-modal dictation-retired-vault-modal hidden";
+    wrap.setAttribute("role", "dialog");
+    wrap.setAttribute("aria-modal", "true");
+    wrap.innerHTML =
+      '<div class="dictation-asset-modal-backdrop" data-close-vault="1"></div>' +
+      '<div class="dictation-asset-modal-sheet dictation-retired-vault-sheet">' +
+      '<div class="dictation-asset-modal-head">' +
+      '<h3 id="dictationRetiredVaultTitle">Retired equipment</h3>' +
+      '<button type="button" class="dictation-asset-modal-close" data-close-vault="1" aria-label="Close">&times;</button>' +
+      "</div>" +
+      '<div id="dictationRetiredVaultBody" class="dictation-asset-modal-body"></div>' +
+      "</div>";
+    document.body.appendChild(wrap);
+    wrap.addEventListener("click", function (e) {
+      if (e.target.getAttribute("data-close-vault")) closeRetiredVaultModal();
+    });
+    return wrap;
+  }
+
+  function openRetiredVaultForUnit(logicalId) {
+    var site = getDictationSiteContext();
+    if (!site.customerId || !site.siteId) return;
+    var docId = sanitizePathSegment(logicalId);
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+
+    var body = document.getElementById("dictationRetiredVaultBody");
+    if (!body) return;
+    body.innerHTML =
+      '<p class="dictation-vault-loading">Loading archive…</p>';
+
+    var modal = ensureRetiredVaultModal();
+    modal.classList.remove("hidden");
+
+    firebase
+      .firestore()
+      .collection("customers")
+      .doc(site.customerId)
+      .collection("sites")
+      .doc(site.siteId)
+      .collection("assets")
+      .doc(docId)
+      .collection("retired_history")
+      .get()
+      .then(function (snap) {
+        var rows = [];
+        snap.forEach(function (doc) {
+          rows.push({ id: doc.id, data: doc.data() || {} });
+        });
+        rows.sort(function (a, b) {
+          return String(b.id).localeCompare(String(a.id));
+        });
+        if (!rows.length) {
+          body.innerHTML =
+            "<p>No retired snapshots for this unit yet.</p>";
+          return;
+        }
+        var html = "";
+        rows.forEach(function (r, idx) {
+          var arch = r.data;
+          var when =
+            arch.retiredAt && arch.retiredAt.toDate
+              ? arch.retiredAt.toDate().toLocaleString()
+              : arch.archivedAt || r.id;
+          var entries = collectPhotoEntriesFromSnapshot(arch);
+          var slides = "";
+          entries.forEach(function (en) {
+            slides += watermarkedFigureHtml(en.url, en.label, logicalId, true);
+          });
+          if (!slides) {
+            slides =
+              "<p class=\"dictation-vault-noimg\">No photos in this archive entry.</p>";
+          }
+          html +=
+            '<section class="dictation-vault-entry">' +
+            "<h4>Archive " +
+            escapeHtml(String(idx + 1)) +
+            " · " +
+            escapeHtml(String(when)) +
+            "</h4>" +
+            '<div class="dictation-gallery dictation-gallery--retired" tabindex="0">' +
+            slides +
+            "</div>" +
+            "</section>";
+        });
+        body.innerHTML = html;
+      })
+      .catch(function (e) {
+        body.innerHTML =
+          "<p>Could not load archive.</p>";
+        console.error(e);
+      });
+  }
+
+  function wireVerifiedModalActions(logicalId, row) {
+    var site = getDictationSiteContext();
+    var docKey = sanitizePathSegment(logicalId);
+
+    var retireBtn = document.getElementById("dictationBtnRetire");
+    if (retireBtn) {
+      retireBtn.onclick = function () {
+        if (
+          !window.confirm(
+            "Retire this equipment? A full snapshot moves to Retired History. This slot will clear for a new installation."
+          )
+        ) {
+          return;
+        }
+        if (typeof window.dictationRetireCurrentAsset !== "function") {
+          alert("Retire is not available. Refresh the page.");
+          return;
+        }
+        setProcessStatus("", "⏳ Archiving…");
+        window
+          .dictationRetireCurrentAsset({
+            logicalId: docKey,
+            customerId: site.customerId,
+            siteId: site.siteId,
+          })
+          .then(function () {
+            setProcessStatus("done", "✓ Retired");
+            closeVerifiedModal();
+            if (typeof saveDraft === "function") saveDraft();
+          })
+          .catch(function (err) {
+            setProcessStatus("", "");
+            alert(err && err.message ? err.message : String(err));
+          });
+      };
+    }
+
+    var addPhotoBtn = document.getElementById("dictationBtnAddPhoto");
+    if (addPhotoBtn) {
+      addPhotoBtn.onclick = function () {
+        startAdditionalPhotoCapture(logicalId);
+      };
+    }
+
+    var vaultBtn = document.getElementById("dictationBtnRetiredVault");
+    if (vaultBtn) {
+      vaultBtn.onclick = function () {
+        openRetiredVaultForUnit(logicalId);
+      };
+    }
   }
 
   function showVerifiedAssetModal(row) {
     var d = row && row.data ? row.data : {};
     var logical = d.id != null && String(d.id).trim() ? String(d.id).trim() : row.id;
-    var img = d.images || {};
-    var np = getImageUrl(img.nameplate);
-    var ov = getImageUrl(img.overall);
+    var logicalNorm = normalizeUnitId(logical);
+    verifiedModalContext = { logicalId: logicalNorm, row: row };
+
     var body = document.getElementById("dictationAssetVerifiedBody");
     if (!body) return;
-    var html =
-      "<p><strong>" +
+
+    var entries = collectActivePhotoEntries(d);
+    var slides = "";
+    entries.forEach(function (en) {
+      slides += watermarkedFigureHtml(en.url, en.label, logical, false);
+    });
+    if (!slides) {
+      slides =
+        '<p class="dictation-gallery-empty">No photos yet.</p>';
+    }
+
+    body.innerHTML =
+      '<p class="dictation-readonly-note" role="note">Read-only detail — specs &amp; photos below. Use toolbar for actions.</p>' +
+      '<div class="dictation-verified-toolbar">' +
+      '<button type="button" class="dictation-btn-retire" id="dictationBtnRetire">⚠️ Retire this Equipment</button>' +
+      '<button type="button" class="dictation-btn-add-photo" id="dictationBtnAddPhoto">+ Add Photo</button>' +
+      '<button type="button" class="dictation-btn-retired-vault" id="dictationBtnRetiredVault">Retired Equipment</button>' +
+      "</div>" +
+      "<p class=\"dictation-verified-unit-label\"><strong>" +
       escapeHtml(logical) +
       "</strong></p>" +
       "<dl class=\"dictation-verified-dl\">" +
@@ -334,21 +693,12 @@
       escapeHtml(getSerialNumber(d) || "—") +
       "</dd>" +
       "</dl>" +
-      '<div class="dictation-verified-photos">';
-    if (np) {
-      html +=
-        '<figure><figcaption>Nameplate</figcaption><img src="' +
-        escapeHtml(np) +
-        '" alt="Nameplate"></figure>';
-    }
-    if (ov) {
-      html +=
-        '<figure><figcaption>Overall</figcaption><img src="' +
-        escapeHtml(ov) +
-        '" alt="Overall unit"></figure>';
-    }
-    html += "</div>";
-    body.innerHTML = html;
+      '<div class="dictation-gallery dictation-gallery--active" tabindex="0">' +
+      slides +
+      "</div>";
+
+    wireVerifiedModalActions(logical, row);
+
     var modal = ensureDetailModal();
     modal.classList.remove("hidden");
   }
@@ -419,9 +769,9 @@
 
       var card = e.target.closest(".dictation-asset-card");
       if (!card || card.classList.contains("dictation-asset-card--add")) return;
-      if (card.classList.contains("dictation-asset-card--ghost")) return;
+      if (card.getAttribute("data-ghost-asset") === "1") return;
       if (e.target.closest("button")) return;
-      if (!card.classList.contains("dictation-asset-card--verified")) return;
+      if (!card.classList.contains("asset-card-verified")) return;
 
       var lid = card.getAttribute("data-logical-id");
       if (!lid) return;
@@ -438,7 +788,7 @@
       tray.querySelectorAll(".dictation-asset-card").forEach(function (c) {
         c.classList.remove("active-asset");
       });
-      tray.querySelectorAll(".dictation-asset-card--ghost").forEach(function (g) {
+      tray.querySelectorAll('[data-ghost-asset="1"]').forEach(function (g) {
         g.remove();
       });
     }
@@ -454,7 +804,7 @@
   }
 
   function removeGhostCards(tray) {
-    tray.querySelectorAll(".dictation-asset-card--ghost").forEach(function (g) {
+    tray.querySelectorAll('[data-ghost-asset="1"]').forEach(function (g) {
       g.remove();
     });
   }
@@ -476,7 +826,7 @@
     removeGhostCards(tray);
 
     var matched = {};
-    tray.querySelectorAll(".dictation-asset-card:not(.dictation-asset-card--ghost)").forEach(function (card) {
+    tray.querySelectorAll(".dictation-asset-card:not([data-ghost-asset])").forEach(function (card) {
       if (card.classList.contains("dictation-asset-card--add")) return;
       var lid = card.getAttribute("data-logical-id");
       if (!lid) return;
@@ -496,12 +846,12 @@
   function createGhostAssetCard(logicalId) {
     var article = document.createElement("article");
     article.className =
-      "dictation-asset-card dictation-asset-card--ghost dictation-asset-card--discovery";
+      "dictation-asset-card asset-card-ghost dictation-asset-card--discovery";
     article.setAttribute("data-logical-id", logicalId);
     article.setAttribute("data-ghost-asset", "1");
 
     var badge = document.createElement("div");
-    badge.className = "dictation-discovery-badge";
+    badge.className = "dictation-discovery-badge asset-new-discovery-label";
     badge.textContent = "NEW DISCOVERY";
 
     var thumb = document.createElement("div");
@@ -532,67 +882,140 @@
     return article;
   }
 
+  function renderWatermarkedThumb(url, logical, retired) {
+    var line1 = escapeHtml(getSiteWatermarkLine1());
+    var line2 = escapeHtml(getWatermarkLine2(logical, retired));
+    return (
+      '<div class="dictation-img-frame dictation-img-frame--thumb">' +
+      '<img src="' +
+      escapeHtml(url) +
+      '" alt="" loading="lazy">' +
+      '<div class="dictation-watermark dictation-watermark--thumb" aria-hidden="true">' +
+      '<span class="dictation-wm-line1">' +
+      line1 +
+      "</span>" +
+      '<span class="dictation-wm-line2">' +
+      line2 +
+      "</span>" +
+      "</div></div>"
+    );
+  }
+
+  function wrapDocSnapForRow(row) {
+    if (row.docSnap) return row.docSnap;
+    return {
+      exists: true,
+      data: function () {
+        return row.data || {};
+      },
+    };
+  }
+
   function renderAssetCardHtml(row) {
     var d = row.data || {};
     var logical =
       d.id != null && String(d.id).trim() ? String(d.id).trim() : row.id;
     var logicalNorm = normalizeUnitId(logical);
-    var v = computeVerification(d);
+    var docSnap = wrapDocSnapForRow(row);
+    var vc = evaluateAssetState(docSnap);
+    var vcClass = vcStateToCardClass(vc);
+
     var typ = d.type != null && String(d.type).trim() ? String(d.type) : "—";
     var locDesc =
       d.locationDescription != null ? String(d.locationDescription) : "—";
     var last = formatLastServiceDate(d.lastServiceDate);
     var thumb = pickThumbUrl(d.images);
 
-    var stateClass = v.verified
-      ? "dictation-asset-card--verified"
-      : "dictation-asset-card--incomplete";
+    var ribbon = "";
+    if (vc === "VERIFIED") {
+      ribbon =
+        '<div class="dictation-verified-banner" title="Verified asset"><span class="dictation-verified-shield" aria-hidden="true">🛡️</span> Verified</div>';
+    } else if (isAwaitingNewEquipment(d)) {
+      ribbon =
+        '<div class="dictation-vacant-banner">New install slot</div>';
+    }
 
-    var ribbon =
-      v.verified
-        ? '<div class="dictation-verified-banner" title="Verified asset"><span class="dictation-verified-shield" aria-hidden="true">🛡️</span> Verified</div>'
+    var thumbBlock = "";
+    if (thumb) {
+      thumbBlock =
+        '<div class="dictation-asset-card-thumb">' +
+        renderWatermarkedThumb(thumb, logical, false) +
+        "</div>";
+    } else {
+      thumbBlock =
+        '<div class="dictation-asset-card-thumb dictation-asset-card-thumb--placeholder" aria-hidden="true">◇</div>';
+    }
+
+    var missing = vc === "INCOMPLETE" ? getVcMissingLabels(d) : [];
+    var missingBlock =
+      missing.length && vc === "INCOMPLETE"
+        ? '<ul class="asset-incomplete-missing-list">' +
+          missing
+            .map(function (m) {
+              return "<li>" + escapeHtml(m) + "</li>";
+            })
+            .join("") +
+          "</ul>"
         : "";
 
-    var thumbBlock = thumb
-      ? '<div class="dictation-asset-card-thumb"><img src="' +
-        escapeHtml(thumb) +
-        '" alt="" loading="lazy"></div>'
-      : '<div class="dictation-asset-card-thumb dictation-asset-card-thumb--placeholder" aria-hidden="true">◇</div>';
-
     var actions = "";
-    if (!v.verified) {
+    if (vc === "VERIFIED") {
+      actions +=
+        '<p class="dictation-verified-tap-hint">Tap for read-only detail &amp; lifecycle</p>';
+    } else {
       actions += '<div class="dictation-incomplete-actions">';
-      if (!v.hasNameplate) {
+      if (isAwaitingNewEquipment(d)) {
         actions +=
           '<button type="button" class="dictation-capture-btn" data-capture-kind="nameplate" data-logical-id="' +
           escapeHtml(logicalNorm) +
-          '">📸 Capture nameplate</button>';
-      }
-      if (!v.hasOverall) {
-        actions +=
+          '">📸 Capture nameplate</button>' +
           '<button type="button" class="dictation-capture-btn" data-capture-kind="overall" data-logical-id="' +
           escapeHtml(logicalNorm) +
           '">📸 Capture overall</button>';
+      } else {
+        var img = d.images || {};
+        var needNp =
+          !img.nameplate ||
+          !img.nameplate.url ||
+          !String(img.nameplate.url).trim();
+        var needOv =
+          !img.overall || !img.overall.url || !String(img.overall.url).trim();
+        if (needNp) {
+          actions +=
+            '<button type="button" class="dictation-capture-btn" data-capture-kind="nameplate" data-logical-id="' +
+            escapeHtml(logicalNorm) +
+            '">📸 Capture nameplate</button>';
+        }
+        if (needOv) {
+          actions +=
+            '<button type="button" class="dictation-capture-btn" data-capture-kind="overall" data-logical-id="' +
+            escapeHtml(logicalNorm) +
+            '">📸 Capture overall</button>';
+        }
+        if (
+          !needNp &&
+          !needOv &&
+          (d.modelNumber == null ||
+            !String(d.modelNumber).trim() ||
+            d.serialNumber == null ||
+            !String(d.serialNumber).trim())
+        ) {
+          actions +=
+            '<p class="dictation-incomplete-hint">Re-capture nameplate so OCR can fill model &amp; serial.</p>';
+        }
       }
-      if ((v.hasNameplate || v.hasOverall) && (!v.hasModel || !v.hasSerial)) {
-        actions +=
-          '<p class="dictation-incomplete-hint">Re-capture nameplate if model/serial still missing after OCR.</p>';
-      }
-      actions += "</div>";
-    } else {
-      actions +=
-        '<p class="dictation-verified-tap-hint">Tap card for photos &amp; details</p>';
+      actions += missingBlock + "</div>";
     }
 
     return (
       '<article class="dictation-asset-card ' +
-      stateClass +
+      vcClass +
       '" data-asset-id="' +
       escapeHtml(row.id) +
       '" data-logical-id="' +
       escapeHtml(logicalNorm) +
-      '" data-state="' +
-      (v.verified ? "verified" : "incomplete") +
+      '" data-vc-state="' +
+      vc +
       '">' +
       ribbon +
       thumbBlock +
@@ -869,7 +1292,11 @@
       function (snap) {
         var rows = [];
         snap.forEach(function (doc) {
-          rows.push({ id: doc.id, data: doc.data() || {} });
+          rows.push({
+            id: doc.id,
+            data: doc.data() || {},
+            docSnap: doc,
+          });
         });
         rows.sort(function (a, b) {
           return String(a.id).localeCompare(String(b.id));
@@ -916,6 +1343,7 @@
   }
 
   window.processVisitNotes = processVisitNotes;
+  window.evaluateAssetState = evaluateAssetState;
   window.teardownDictationHub = teardownDictationHub;
   window.startDictationHubFromWorkspace = function () {
     wireProcessButton();
