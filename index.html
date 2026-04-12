@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dispatcher Portal | Twin Pillars</title>
+    <title>Dispatcher Portal</title>
     <link rel="icon" type="image/png" href="tphc_logo.png" />
 
     <link
@@ -19,6 +19,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
     <script src="firebase-config.js?v=3"></script>
+    <script src="shared/config.js"></script>
+    <script src="shared/firebase_logic.js"></script>
     <script>
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
@@ -2136,8 +2138,18 @@
 
     <div class="sidebar collapsed" id="appSidebar">
       <div class="sidebar-header">
-        <img src="tphc_logo.png" alt="Twin Pillars Logo" class="full-logo" />
-        <img src="tphc_logo.png" alt="Twin Pillars Icon" class="mini-logo" />
+        <img
+          id="vcBrandLogo"
+          src="tphc_logo.png"
+          alt=""
+          class="full-logo"
+        />
+        <img
+          id="vcBrandLogoMini"
+          src="tphc_logo.png"
+          alt=""
+          class="mini-logo"
+        />
         <button
           class="sidebar-toggle-btn"
           onclick="toggleSidebar()"
@@ -2250,10 +2262,98 @@
         </li>
       </ul>
       <div class="sidebar-footer">
-        <span class="menu-text"
-          >Twin Pillars Heating & Cooling<br />Dispatcher Portal v4.0</span
-        >
+        <span class="menu-text" data-vc-brand-footer></span>
       </div>
+      <details
+        id="vcAdminTools"
+        class="vc-admin-tools"
+        style="margin: 8px 12px 12px; font-size: 11px; color: #555"
+      >
+        <summary style="cursor: pointer; user-select: none">Admin tools</summary>
+        <div id="vcAdminPinBlock" style="margin-top: 8px">
+          <input
+            type="password"
+            id="vcAdminPinInput"
+            placeholder="PIN"
+            style="
+              width: 100%;
+              padding: 6px;
+              box-sizing: border-box;
+              border-radius: 4px;
+              border: 1px solid #ccc;
+            "
+            autocomplete="off"
+          />
+          <button
+            type="button"
+            id="vcAdminUnlockBtn"
+            style="margin-top: 6px; width: 100%; padding: 6px"
+          >
+            Unlock
+          </button>
+          <p
+            id="vcAdminPinErr"
+            style="color: #c0392b; margin: 4px 0 0; font-size: 10px"
+          ></p>
+        </div>
+        <div id="vcAdminForm" style="display: none; margin-top: 8px">
+          <label style="display: block; margin-bottom: 6px"
+            >Tenant ID<br /><input
+              id="vcInpTenantId"
+              style="width: 100%; box-sizing: border-box; padding: 6px"
+          /></label>
+          <label style="display: block; margin-bottom: 6px"
+            >Brand name<br /><input
+              id="vcInpBrand"
+              style="width: 100%; box-sizing: border-box; padding: 6px"
+          /></label>
+          <label style="display: block; margin-bottom: 6px"
+            >Short brand<br /><input
+              id="vcInpShort"
+              style="width: 100%; box-sizing: border-box; padding: 6px"
+          /></label>
+          <label style="display: block; margin-bottom: 6px"
+            >Logo URL<br /><input
+              id="vcInpLogo"
+              style="width: 100%; box-sizing: border-box; padding: 6px"
+          /></label>
+          <label style="display: block; margin-bottom: 6px"
+            >Primary<br /><input
+              id="vcInpPrimary"
+              type="color"
+              style="width: 100%; height: 28px; padding: 0; border: none"
+          /></label>
+          <label style="display: block; margin-bottom: 6px"
+            >Accent<br /><input
+              id="vcInpAccent"
+              type="color"
+              style="width: 100%; height: 28px; padding: 0; border: none"
+          /></label>
+          <button
+            type="button"
+            id="vcBtnSaveConfig"
+            style="
+              margin-top: 8px;
+              width: 100%;
+              padding: 8px;
+              background: #1e4b85;
+              color: #fff;
+              border: none;
+              border-radius: 4px;
+              font-weight: bold;
+            "
+          >
+            Save config &amp; reload
+          </button>
+          <button
+            type="button"
+            id="vcBtnTenantOnly"
+            style="margin-top: 6px; width: 100%; padding: 6px"
+          >
+            Switch tenant only (reload)
+          </button>
+        </div>
+      </details>
     </div>
 
     <div class="main-content expanded">
@@ -3469,12 +3569,16 @@
           <div id="customerQuoteView" class="document-print-view">
             <div class="print-header">
               <div class="comp-info">
-                <strong>Twin Pillars Heating & Cooling</strong><br />
+                <strong data-vc-brand-title></strong><br />
                 2944 Holmgren Way<br />
                 Green Bay, WI 54304
               </div>
               <div class="print-logo">
-                <img src="tphc_logo.png" alt="Twin Pillars Print Logo" />
+                <img
+                  id="vcBrandLogoPrint"
+                  src="tphc_logo.png"
+                  alt=""
+                />
               </div>
             </div>
             <div class="print-title">HVAC QUOTE</div>
@@ -3541,7 +3645,7 @@
             <div class="footer-terms">
               <strong>Terms and Conditions</strong><br />
               Payment is due in 14 days.<br />
-              Please make checks payable to: Twin Pillars Heating & Cooling
+              Please make checks payable to: <span data-vc-brand-title></span>
             </div>
 
             <div class="signature-line-wrapper">
@@ -4182,7 +4286,7 @@
           <div id="printInvoiceView" class="document-print-view">
             <div class="inv-header">
               <div class="inv-company">
-                <h2>Twin Pillars Heating & Cooling LLC</h2>
+                <h2 data-vc-brand-title></h2>
                 <p>2944 Holmgren Way</p>
                 <p>Green Bay, WI 54304</p>
                 <p>920-441-5916</p>
@@ -4255,7 +4359,7 @@
 
             <div class="inv-tear-off">
               <div class="inv-tear-left">
-                <h4>Twin Pillars Heating & Cooling LLC</h4>
+                <h4 data-vc-brand-title></h4>
                 <p>2944 Holmgren Way</p>
                 <p>Green Bay, WI 54304</p>
                 <p>920-441-5916</p>
@@ -4359,7 +4463,7 @@
             <div id="printInvoiceViewArch" class="document-print-view">
               <div class="inv-header">
                 <div class="inv-company">
-                  <h2>Twin Pillars Heating & Cooling LLC</h2>
+                  <h2 data-vc-brand-title></h2>
                   <p>2944 Holmgren Way</p>
                   <p>Green Bay, WI 54304</p>
                   <p>920-441-5916</p>
@@ -4441,7 +4545,7 @@
 
               <div class="inv-tear-off">
                 <div class="inv-tear-left">
-                  <h4>Twin Pillars Heating & Cooling LLC</h4>
+                  <h4 data-vc-brand-title></h4>
                   <p>2944 Holmgren Way</p>
                   <p>Green Bay, WI 54304</p>
                   <p>920-441-5916</p>
@@ -6091,6 +6195,98 @@
       </div>
     </div>
 
+    <script>
+      (function () {
+        function hexForColorInput(hex) {
+          if (!hex || typeof hex !== "string") return "#1e4b85";
+          var s = hex.trim();
+          if (/^#[0-9a-fA-F]{6}$/.test(s)) return s;
+          if (/^#[0-9a-fA-F]{3}$/.test(s)) {
+            return (
+              "#" +
+              s[1] +
+              s[1] +
+              s[2] +
+              s[2] +
+              s[3] +
+              s[3]
+            ).toLowerCase();
+          }
+          return "#1e4b85";
+        }
+        function fillVcAdminForm() {
+          if (typeof APP_CONFIG === "undefined") return;
+          var c = APP_CONFIG;
+          var g = function (id) {
+            return document.getElementById(id);
+          };
+          if (g("vcInpTenantId")) g("vcInpTenantId").value = c.tenantId || "";
+          if (g("vcInpBrand")) g("vcInpBrand").value = c.brandName || "";
+          if (g("vcInpShort")) g("vcInpShort").value = c.shortBrand || "";
+          if (g("vcInpLogo")) g("vcInpLogo").value = c.logoUrl || "";
+          if (g("vcInpPrimary")) g("vcInpPrimary").value = hexForColorInput(c.primaryColor);
+          if (g("vcInpAccent")) g("vcInpAccent").value = hexForColorInput(c.accentColor);
+        }
+        document.addEventListener("DOMContentLoaded", function () {
+          var det = document.getElementById("vcAdminTools");
+          if (!det || typeof APP_CONFIG === "undefined") return;
+          fillVcAdminForm();
+          var pinBlock = document.getElementById("vcAdminPinBlock");
+          var form = document.getElementById("vcAdminForm");
+          var unlocked = false;
+          try {
+            unlocked = sessionStorage.getItem("vc_admin_unlocked") === "1";
+          } catch (e) {}
+          if (unlocked && pinBlock && form) {
+            pinBlock.style.display = "none";
+            form.style.display = "block";
+          }
+          var btnUnlock = document.getElementById("vcAdminUnlockBtn");
+          if (btnUnlock) {
+            btnUnlock.addEventListener("click", function () {
+              var pin = (
+                document.getElementById("vcAdminPinInput") || {}
+              ).value
+                ? String(document.getElementById("vcAdminPinInput").value).trim()
+                : "";
+              var expected =
+                (APP_CONFIG && APP_CONFIG.adminUnlockPin) || "beta";
+              var err = document.getElementById("vcAdminPinErr");
+              if (pin !== String(expected)) {
+                if (err) err.textContent = "Invalid PIN";
+                return;
+              }
+              if (err) err.textContent = "";
+              try {
+                sessionStorage.setItem("vc_admin_unlocked", "1");
+              } catch (e2) {}
+              if (pinBlock) pinBlock.style.display = "none";
+              if (form) form.style.display = "block";
+              fillVcAdminForm();
+            });
+          }
+          var btnSave = document.getElementById("vcBtnSaveConfig");
+          if (btnSave && typeof saveVcAppConfig === "function") {
+            btnSave.addEventListener("click", function () {
+              saveVcAppConfig({
+                tenantId: document.getElementById("vcInpTenantId").value.trim(),
+                brandName: document.getElementById("vcInpBrand").value.trim(),
+                shortBrand: document.getElementById("vcInpShort").value.trim(),
+                logoUrl: document.getElementById("vcInpLogo").value.trim(),
+                primaryColor: document.getElementById("vcInpPrimary").value,
+                accentColor: document.getElementById("vcInpAccent").value,
+              });
+            });
+          }
+          var btnTenant = document.getElementById("vcBtnTenantOnly");
+          if (btnTenant && typeof setVcTenantId === "function") {
+            btnTenant.addEventListener("click", function () {
+              setVcTenantId(document.getElementById("vcInpTenantId").value.trim());
+            });
+          }
+        });
+      })();
+    </script>
     <script src="equipment_manager.js?v=7"></script>
   </body>
 </html>

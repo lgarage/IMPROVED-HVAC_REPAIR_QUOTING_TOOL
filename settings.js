@@ -377,16 +377,20 @@ function checkPtoOverlapsProjectedOnCall(techName, startYmd, endYmd) {
     return hits;
 }
 
-/** Load technician roster: Firestore app_config/technicians.names when present, else localStorage (may be empty). */
+/** Load technician roster: tenants/{tenantId}/roster/default, else legacy app_config/technicians, else localStorage. */
 async function hydrateTechnicianRosterFromCloud() {
     appTechList = [];
     let loadedFromCloud = false;
     if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
         try {
-            const snap = await firebase.firestore().collection('app_config').doc('technicians').get();
-            if (snap.exists) {
+            const db = firebase.firestore();
+            let snap = null;
+            if (typeof VCFirestore !== 'undefined') {
+                snap = await VCFirestore.rosterDoc(db).get();
+            }
+            if (snap && snap.exists) {
                 const data = snap.data() || {};
-                if (Array.isArray(data.names)) {
+                if (Array.isArray(data.names) && data.names.length) {
                     appTechList = data.names.map(function (n) { return String(n).trim(); }).filter(Boolean);
                     loadedFromCloud = true;
                     localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
@@ -401,6 +405,28 @@ async function hydrateTechnicianRosterFromCloud() {
                         };
                     });
                     persistTechProfilesLocal();
+                }
+            }
+            if (!loadedFromCloud) {
+                const leg = await db.collection('app_config').doc('technicians').get();
+                if (leg.exists) {
+                    const data = leg.data() || {};
+                    if (Array.isArray(data.names) && data.names.length) {
+                        appTechList = data.names.map(function (n) { return String(n).trim(); }).filter(Boolean);
+                        loadedFromCloud = true;
+                        localStorage.setItem('tp_tech_list', JSON.stringify(appTechList));
+                    }
+                    if (Object.keys(techProfiles).length === 0 && data.profiles && typeof data.profiles === "object") {
+                        techProfiles = {};
+                        Object.keys(data.profiles).forEach(function (k) {
+                            const raw = data.profiles[k] || {};
+                            techProfiles[String(k).trim()] = {
+                                onCallEligible: !!raw.onCallEligible,
+                                ptoDates: Array.isArray(raw.ptoDates) ? raw.ptoDates.map(function (d) { return String(d).trim(); }).filter(Boolean) : []
+                            };
+                        });
+                        persistTechProfilesLocal();
+                    }
                 }
             }
         } catch (e) {
@@ -436,7 +462,14 @@ async function hydrateOnCallStateFromCloud() {
         return;
     }
     try {
-        const snap = await firebase.firestore().collection('app_config').doc('onCallState').get();
+        const db = firebase.firestore();
+        let snap = null;
+        if (typeof VCFirestore !== 'undefined') {
+            snap = await VCFirestore.onCallStateDoc(db).get();
+        }
+        if (!snap || !snap.exists) {
+            snap = await db.collection('app_config').doc('onCallState').get();
+        }
         if (snap.exists) {
             const d = snap.data() || {};
             onCallState = {
@@ -492,15 +525,20 @@ async function loadAppTechs() {
     setTimeout(checkGlobalVMI, 500);
 }
 
-/** Pushes the office technician roster + profiles to Firestore (names preserved for Field app). */
+/** Pushes the office technician roster + profiles to tenant roster (and legacy doc for migration). */
 function syncTechnicianRosterToFirestore() {
     if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) return;
     try {
-        firebase.firestore().collection('app_config').doc('technicians').set({
+        const db = firebase.firestore();
+        const payload = {
             names: appTechList.slice(),
             profiles: techProfiles,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        };
+        if (typeof VCFirestore !== 'undefined') {
+            VCFirestore.rosterDoc(db).set(payload, { merge: true });
+        }
+        db.collection('app_config').doc('technicians').set(payload, { merge: true });
     } catch (e) {
         console.error('syncTechnicianRosterToFirestore', e);
     }
@@ -509,11 +547,16 @@ function syncTechnicianRosterToFirestore() {
 function syncOnCallStateToFirestore() {
     if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) return;
     try {
-        firebase.firestore().collection('app_config').doc('onCallState').set({
+        const db = firebase.firestore();
+        const payload = {
             pauseRotation: !!onCallState.pauseRotation,
             manualOnCallTech: onCallState.manualOnCallTech || "",
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        };
+        if (typeof VCFirestore !== 'undefined') {
+            VCFirestore.onCallStateDoc(db).set(payload, { merge: true });
+        }
+        db.collection('app_config').doc('onCallState').set(payload, { merge: true });
     } catch (e) {
         console.error('syncOnCallStateToFirestore', e);
     }

@@ -42,10 +42,12 @@ function subscribeServiceCallsFromCloud() {
             _serviceCallsBoardUnsub();
             _serviceCallsBoardUnsub = null;
         }
-        _serviceCallsBoardUnsub = firebase
-            .firestore()
-            .collection("service_calls")
-            .onSnapshot(
+        var _db = firebase.firestore();
+        var _sc =
+          typeof VCFirestore !== "undefined"
+            ? VCFirestore.serviceCalls(_db)
+            : _db.collection("service_calls");
+        _serviceCallsBoardUnsub = _sc.onSnapshot(
                 function (snapshot) {
                     var cloudDb = [];
                     snapshot.forEach(function (doc) {
@@ -74,7 +76,11 @@ window.addEventListener("DOMContentLoaded", function () {
 async function loadServiceCallsFromCloud() {
     try {
         let firestoreDb = firebase.firestore();
-        const snapshot = await firestoreDb.collection('service_calls').get();
+        var scCol =
+          typeof VCFirestore !== "undefined"
+            ? VCFirestore.serviceCalls(firestoreDb)
+            : firestoreDb.collection("service_calls");
+        const snapshot = await scCol.get();
         let cloudDb = [];
         
         snapshot.forEach(doc => {
@@ -93,10 +99,14 @@ async function loadServiceCallsFromCloud() {
 async function syncSingleServiceCallToCloud(dbId, data) {
     try {
         let firestoreDb = firebase.firestore();
+        var scCol =
+          typeof VCFirestore !== "undefined"
+            ? VCFirestore.serviceCalls(firestoreDb)
+            : firestoreDb.collection("service_calls");
         if (data === null) {
-            await firestoreDb.collection('service_calls').doc(dbId).delete();
+            await scCol.doc(dbId).delete();
         } else {
-            await firestoreDb.collection('service_calls').doc(dbId).set(data, { merge: true });
+            await scCol.doc(dbId).set(data, { merge: true });
         }
     } catch (e) {
         console.error("Failed to sync service call to cloud:", e);
@@ -2943,7 +2953,12 @@ function loadFieldQuotesForTicketIntoModal(ticketId) {
         return;
     }
     mount.innerHTML = '<p style="font-size:12px;color:#95a5a6;margin:0;">Loading field repair quotes…</p>';
-    firebase.firestore().collection("field_quotes").where("ticketId", "==", ticketId).get()
+    var _dbq = firebase.firestore();
+    var _fq =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.fieldQuotes(_dbq)
+        : _dbq.collection("field_quotes");
+    _fq.where("ticketId", "==", ticketId).get()
         .then((snap) => {
             if (snap.empty) {
                 mount.innerHTML = '<p style="font-size:12px;color:#999;margin:0;">No field repair quotes saved for this ticket.</p>';

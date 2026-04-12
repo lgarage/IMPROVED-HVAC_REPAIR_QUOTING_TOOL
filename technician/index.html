@@ -3,13 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
-<title>Twin Pillars Field App</title>
+<title>Field App</title>
 <link rel="icon" type="image/png" href="../tphc_logo.png">
 
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
 <script src="../firebase-config.js?v=3"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/firebase_logic.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <style>
@@ -2542,7 +2544,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 
 <header class="app-top-shell" role="banner">
   <div class="app-header-row">
-    <img src="../tphc_logo.png" alt="Twin Pillars" width="120" height="40" onerror="this.outerHTML='<span style=\'font-weight:800;color:#1e4b85;font-size:14px;\'>TWIN PILLARS</span>'">
+    <img id="vcBrandLogo" src="../tphc_logo.png" alt="" width="120" height="40" onerror="this.outerHTML='<span style=\'font-weight:800;color:#1e4b85;font-size:14px;\'>FIELD APP</span>'">
     <span id="techDisplayLabel" class="tech-profile-badge">Loading…</span>
   </div>
   <nav class="app-main-nav" aria-label="Main">
@@ -3607,6 +3609,10 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
 
   try {
     const db = firebase.firestore();
+    const sc =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.serviceCalls(db)
+        : db.collection("service_calls");
     const startStr = scheduleWindowStart();
     const endStr = scheduleWindowEnd();
     container.innerHTML = '<div style="text-align:center; padding: 40px; color:#95a5a6;">Connecting…</div>';
@@ -3662,7 +3668,7 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
       }
     };
 
-    const u1 = db.collection('service_calls')
+    const u1 = sc
       .where('assignedTechs', 'array-contains', currentTechProfile)
       .onSnapshot((snapshot) => {
         q1Docs.clear();
@@ -3670,7 +3676,7 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
         runScheduleMergeAndRender();
       }, onSchedErr);
 
-    const u2 = db.collection('service_calls')
+    const u2 = sc
       .where('assignedTech', '==', currentTechProfile)
       .onSnapshot((snapshot) => {
         q2Docs.clear();
@@ -3749,7 +3755,10 @@ function subscribeWorkspaceAddendums(ticketId) {
   teardownWorkspaceAddendums();
   if (!ticketId || typeof firebase === 'undefined' || !firebase.apps.length) return;
   const db = firebase.firestore();
-  const col = db.collection('service_calls').doc(ticketId).collection('addendums');
+  const col =
+    typeof VCFirestore !== "undefined"
+      ? VCFirestore.serviceCallSubcollection(db, ticketId, "addendums")
+      : db.collection("service_calls").doc(ticketId).collection("addendums");
   workspaceAddendumUnsub = col.onSnapshot((snapshot) => {
     const rows = [];
     snapshot.forEach((doc) => {
@@ -3834,7 +3843,11 @@ async function saveSupplementalUpdate() {
       }
     }
     const db = firebase.firestore();
-    await db.collection('service_calls').doc(ticketId).collection('addendums').add({
+    const addRef =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.serviceCallSubcollection(db, ticketId, "addendums")
+        : db.collection("service_calls").doc(ticketId).collection("addendums");
+    await addRef.add({
       techName: currentTechProfile,
       timestamp: firebase.firestore.FieldValue.serverTimestamp(),
       text: text,
@@ -3864,7 +3877,12 @@ async function maybeOpenDeepLinkedTicket() {
   try {
     let t = myTickets.find((x) => x.id === tid);
     if (!t) {
-      const snap = await firebase.firestore().collection("service_calls").doc(tid).get();
+      const _dbDl = firebase.firestore();
+      const _scDl =
+        typeof VCFirestore !== "undefined"
+          ? VCFirestore.serviceCalls(_dbDl)
+          : _dbDl.collection("service_calls");
+      const snap = await _scDl.doc(tid).get();
       if (!snap.exists) return false;
       const data = snap.data();
       if (data.archived) return false;
@@ -3951,7 +3969,12 @@ async function persistFieldEvidencePhotoUrlToFirestore(ticketId, url) {
   if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
     throw new Error('Not connected.');
   }
-  await firebase.firestore().collection('service_calls').doc(ticketId).update({
+  const _dbEv = firebase.firestore();
+  const _scEv =
+    typeof VCFirestore !== "undefined"
+      ? VCFirestore.serviceCalls(_dbEv)
+      : _dbEv.collection("service_calls");
+  await _scEv.doc(ticketId).update({
     evidencePhotoUrls: firebase.firestore.FieldValue.arrayUnion(url)
   });
 }
@@ -5461,6 +5484,14 @@ function formatQuoteEquipField(){ const el = document.getElementById("quoteEquip
 function uploadReportToCloud(visitData, fullReportText) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return;
     const db = firebase.firestore();
+    const scUp =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.serviceCalls(db)
+        : db.collection("service_calls");
+    const crCol =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.completedReports(db)
+        : db.collection("completed_reports");
     const ticketId = document.getElementById('ticketSelector').value;
     const finalStatus = document.getElementById('finalJobStatus').value;
     const linkedEquipmentEl = document.getElementById('linkedEquipmentSelect');
@@ -5473,7 +5504,7 @@ function uploadReportToCloud(visitData, fullReportText) {
     };
     if (linkedEquipmentId) payload.Linked_Equipment_ID = linkedEquipmentId;
 
-    db.collection('completed_reports').add(payload).catch(e => console.error("Sync queued."));
+    crCol.add(payload).catch(e => console.error("Sync queued."));
     if (ticketId) {
         const ticketUpdate = { status: finalStatus, techNotes: fullReportText };
         if (linkedEquipmentId) ticketUpdate.Linked_Equipment_ID = linkedEquipmentId;
@@ -5481,7 +5512,7 @@ function uploadReportToCloud(visitData, fullReportText) {
           const internalOnly = localStorage.getItem('dictationHubInternal_' + ticketId) || '';
           if (internalOnly.trim()) ticketUpdate.internal_comms = internalOnly;
         } catch (e) {}
-        db.collection('service_calls').doc(ticketId).set(ticketUpdate, { merge: true }).catch(e => console.error("Ticket update queued."));
+        scUp.doc(ticketId).set(ticketUpdate, { merge: true }).catch(e => console.error("Ticket update queued."));
         if (typeof window.UFXAdapter !== 'undefined' && typeof window.UFXAdapter.pushTicketSummary === 'function') {
           var ufxVisit = visitData || {};
           var resolution = '';

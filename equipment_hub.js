@@ -367,19 +367,28 @@
     }
 
     var db = firebase.firestore();
+    var sc =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.serviceCalls(db)
+        : db.collection("service_calls");
+    var pmCol =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.pmRecords(db)
+        : db.collection("pm_records");
+    var fqCol =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.fieldQuotes(db)
+        : db.collection("field_quotes");
     try {
-      var snapCalls = await db
-        .collection("service_calls")
+      var snapCalls = await sc
         .where("Linked_Equipment_ID", "==", equipmentId)
         .get();
 
-      var snapPm = await db
-        .collection("pm_records")
+      var snapPm = await pmCol
         .where("equipmentId", "==", equipmentId)
         .get();
 
-      var snapQuotes = await db
-        .collection("field_quotes")
+      var snapQuotes = await fqCol
         .where("equipmentId", "==", equipmentId)
         .get();
 

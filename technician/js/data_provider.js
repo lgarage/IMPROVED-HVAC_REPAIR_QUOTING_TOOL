@@ -134,6 +134,14 @@
       return Promise.resolve([]);
     }
     var db = firebase.firestore();
+    var sc =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.serviceCalls(db)
+        : db.collection("service_calls");
+    var si =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.siteIntelligence(db)
+        : db.collection("site_intelligence");
     var byKey = {};
 
     function addRow(customerName, locationAddress) {
@@ -153,8 +161,7 @@
       };
     }
 
-    var p1 = db
-      .collection("service_calls")
+    var p1 = sc
       .limit(800)
       .get()
       .then(function (snap) {
@@ -167,8 +174,7 @@
         console.warn("[DataProvider] getAllLocations service_calls", e);
       });
 
-    var p2 = db
-      .collection("site_intelligence")
+    var p2 = si
       .limit(500)
       .get()
       .then(function (snap) {

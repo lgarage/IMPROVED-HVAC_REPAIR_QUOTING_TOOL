@@ -72,7 +72,12 @@
     }
     var docId = DataProvider.siteIntelDocIdFromLocationLine(line);
     if (!docId || typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return null;
-    return { docId: docId, line: line, ref: firebase.firestore().collection("site_intelligence").doc(docId) };
+    var _db = firebase.firestore();
+    var _si =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.siteIntelligence(_db)
+        : _db.collection("site_intelligence");
+    return { docId: docId, line: line, ref: _si.doc(docId) };
   }
 
   function setSiteIntelButtonState(hasNotes) {
@@ -125,9 +130,12 @@
       modal.classList.remove("hidden");
       return;
     }
-    firebase
-      .firestore()
-      .collection("site_intelligence")
+    var _dbOpen = firebase.firestore();
+    var _siOpen =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.siteIntelligence(_dbOpen)
+        : _dbOpen.collection("site_intelligence");
+    _siOpen
       .doc(docId)
       .get()
       .then(function (snap) {
@@ -164,9 +172,12 @@
       updatedByTech: techName(),
     };
     status.textContent = "Saving…";
-    firebase
-      .firestore()
-      .collection("site_intelligence")
+    var _dbSave = firebase.firestore();
+    var _siSave =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.siteIntelligence(_dbSave)
+        : _dbSave.collection("site_intelligence");
+    _siSave
       .doc(docId)
       .set(payload, { merge: true })
       .then(function () {

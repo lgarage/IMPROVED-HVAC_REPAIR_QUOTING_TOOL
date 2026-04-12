@@ -63,11 +63,12 @@
 
   async function fetchTicketForWorkspace(ticketId) {
     if (typeof firebase === "undefined" || !firebase.apps.length) return null;
-    var snap = await firebase
-      .firestore()
-      .collection("service_calls")
-      .doc(ticketId)
-      .get();
+    var _db = firebase.firestore();
+    var _sc =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.serviceCalls(_db)
+        : _db.collection("service_calls");
+    var snap = await _sc.doc(ticketId).get();
     if (!snap.exists) return null;
     var data = snap.data() || {};
     data.id = ticketId;
@@ -113,7 +114,11 @@
     var maxD = todayYmd();
 
     try {
-      var col = firebase.firestore().collection("service_calls");
+      var _db2 = firebase.firestore();
+      var col =
+        typeof VCFirestore !== "undefined"
+          ? VCFirestore.serviceCalls(_db2)
+          : _db2.collection("service_calls");
       var snapNew = await col
         .where("assignedTechs", "array-contains", currentTechProfile)
         .get();
@@ -285,16 +290,25 @@
     var formsHtml = "<h4 style=\"margin:16px 0 8px 0;\">Saved forms for this ticket</h4>";
     try {
       var db = firebase.firestore();
-      var pmSnap = await db
-        .collection("pm_records")
+      var pmCol =
+        typeof VCFirestore !== "undefined"
+          ? VCFirestore.pmRecords(db)
+          : db.collection("pm_records");
+      var fqCol =
+        typeof VCFirestore !== "undefined"
+          ? VCFirestore.fieldQuotes(db)
+          : db.collection("field_quotes");
+      var ffCol =
+        typeof VCFirestore !== "undefined"
+          ? VCFirestore.fieldFormSubmissions(db)
+          : db.collection("field_form_submissions");
+      var pmSnap = await pmCol
         .where("ticketId", "==", ticketId)
         .get();
-      var qSnap = await db
-        .collection("field_quotes")
+      var qSnap = await fqCol
         .where("ticketId", "==", ticketId)
         .get();
-      var dynSnap = await db
-        .collection("field_form_submissions")
+      var dynSnap = await ffCol
         .where("ticketId", "==", ticketId)
         .get();
 
@@ -347,11 +361,11 @@
       "<h4 style=\"margin:0 0 10px 0;color:#2c3e50;font-size:15px;\">Supplemental addendums</h4>";
     try {
       var dbAdd = firebase.firestore();
-      var addSnap = await dbAdd
-        .collection("service_calls")
-        .doc(ticketId)
-        .collection("addendums")
-        .get();
+      var addCol =
+        typeof VCFirestore !== "undefined"
+          ? VCFirestore.serviceCallSubcollection(dbAdd, ticketId, "addendums")
+          : dbAdd.collection("service_calls").doc(ticketId).collection("addendums");
+      var addSnap = await addCol.get();
       var addRows = [];
       addSnap.forEach(function (d) {
         var x = d.data() || {};

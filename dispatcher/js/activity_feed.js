@@ -284,7 +284,12 @@
       return;
     }
     var mgr = getManagerLabel();
-    var ref = firebase.firestore().collection("service_calls").doc(tid);
+    var _db = firebase.firestore();
+    var ref = (
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.serviceCalls(_db)
+        : _db.collection("service_calls")
+    ).doc(tid);
     btnEl.disabled = true;
     ref
       .get()
@@ -335,10 +340,18 @@
 
     try {
       var db = firebase.firestore();
-      unsubTickets = db.collection("service_calls").onSnapshot(onTicketSnapshot, function (err) {
+      var sc =
+        typeof VCFirestore !== "undefined"
+          ? VCFirestore.serviceCalls(db)
+          : db.collection("service_calls");
+      var si =
+        typeof VCFirestore !== "undefined"
+          ? VCFirestore.siteIntelligence(db)
+          : db.collection("site_intelligence");
+      unsubTickets = sc.onSnapshot(onTicketSnapshot, function (err) {
         console.warn("[Pulse] service_calls", err);
       });
-      unsubIntel = db.collection("site_intelligence").onSnapshot(onIntelSnapshot, function (err) {
+      unsubIntel = si.onSnapshot(onIntelSnapshot, function (err) {
         console.warn("[Pulse] site_intelligence", err);
       });
     } catch (e) {

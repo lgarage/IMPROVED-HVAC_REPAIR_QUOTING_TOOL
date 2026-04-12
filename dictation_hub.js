@@ -1304,9 +1304,12 @@
     var payload = String(text || "");
     internalCloudDebounce = setTimeout(function () {
       internalCloudDebounce = null;
-      firebase
-        .firestore()
-        .collection("service_calls")
+      var _db = firebase.firestore();
+      var _sc =
+        typeof VCFirestore !== "undefined"
+          ? VCFirestore.serviceCalls(_db)
+          : _db.collection("service_calls");
+      _sc
         .doc(ticketId)
         .set(
           {
@@ -1323,9 +1326,12 @@
 
   function fetchInternalCommsFromCloud(ticketId) {
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
-    firebase
-      .firestore()
-      .collection("service_calls")
+    var _db2 = firebase.firestore();
+    var _sc2 =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.serviceCalls(_db2)
+        : _db2.collection("service_calls");
+    _sc2
       .doc(ticketId)
       .get()
       .then(function (snap) {

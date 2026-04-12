@@ -1189,6 +1189,18 @@
     }
 
     var db = firebase.firestore();
+    var dbPm =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.pmRecords(db)
+        : db.collection("pm_records");
+    var dbFq =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.fieldQuotes(db)
+        : db.collection("field_quotes");
+    var dbFf =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.fieldFormSubmissions(db)
+        : db.collection("field_form_submissions");
     var ticketId = getTicketId();
     var tech =
       typeof currentTechProfile !== "undefined" ? currentTechProfile : "";
@@ -1281,7 +1293,7 @@
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       };
       try {
-        await db.collection("field_form_submissions").add(payload);
+        await dbFf.add(payload);
         alert("Form saved.");
         closeFieldFormModal();
       } catch (e) {
@@ -1322,7 +1334,7 @@
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       };
       try {
-        await db.collection("pm_records").add(payload);
+        await dbPm.add(payload);
         alert("PM checklist saved.");
         closeFieldFormModal();
       } catch (e) {
@@ -1403,7 +1415,7 @@
       };
 
       try {
-        await db.collection("field_quotes").add(qPayload);
+        await dbFq.add(qPayload);
         alert("Repair quote saved.");
         closeFieldFormModal();
       } catch (e2) {
