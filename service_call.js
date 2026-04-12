@@ -215,6 +215,35 @@ function buildDispatcherDurationSelectOptions(selectedValue) {
     return html;
 }
 
+function syncScMultiDayPanelVisibility() {
+    var durEl = document.getElementById("scDurationInput");
+    var panel = document.getElementById("scMultiDayDetails");
+    if (!durEl || !panel) return;
+    var isMulti = durEl.value === "Multi-Day";
+    panel.hidden = !isMulti;
+    panel.style.display = isMulti ? "block" : "none";
+    panel.setAttribute("aria-hidden", isMulti ? "false" : "true");
+}
+
+function getMultiDayOptionsFromForm() {
+    var durEl = document.getElementById("scDurationInput");
+    var dur = durEl && durEl.value ? durEl.value : "2.0";
+    if (dur !== "Multi-Day") return null;
+    var dayEl = document.getElementById("scMultiDayCount");
+    var days = dayEl ? parseInt(dayEl.value, 10) : 2;
+    if (!isFinite(days) || days < 1) days = 2;
+    var wk = document.getElementById("scMultiDayIncludeWeekends");
+    return { days: days, includeWeekends: !!(wk && wk.checked) };
+}
+
+function getMultiDayOptionsFromTicket(sc) {
+    if (!sc) return null;
+    if (String(sc.duration || "").trim() !== "Multi-Day") return null;
+    var days = sc.multiDayDays != null ? parseInt(sc.multiDayDays, 10) : 2;
+    if (!isFinite(days) || days < 1) days = 2;
+    return { days: days, includeWeekends: sc.multiDayIncludeWeekends === true };
+}
+
 function updateLeadTechRowVisibility() {
     var crew = gatherAssignedTechsFromServiceForm();
     var leadRow = document.getElementById("scLeadTechRow");
@@ -241,15 +270,21 @@ function updateLeadTechRowVisibility() {
 }
 
 function updateDispatcherLaborFields() {
+    syncScMultiDayPanelVisibility();
     var techs = gatherAssignedTechsFromServiceForm();
     var n = techs.length;
     var durEl = document.getElementById("scDurationInput");
     var dur = durEl && durEl.value ? durEl.value : "2.0";
+    var multiOpts = getMultiDayOptionsFromForm();
     var total = 0;
     if (typeof DispatcherTicketManager !== "undefined") {
-        total = DispatcherTicketManager.computeTotalBillableHours(n, dur);
+        total = DispatcherTicketManager.computeTotalBillableHours(n, dur, multiOpts);
     } else {
-        total = Math.round(n * (parseFloat(dur) || 1.5) * 100) / 100;
+        if (dur === "Multi-Day" && multiOpts) {
+            total = Math.round(n * 8 * (multiOpts.days || 2) * 100) / 100;
+        } else {
+            total = Math.round(n * (parseFloat(dur) || 1.5) * 100) / 100;
+        }
     }
     var hid = document.getElementById("scTotalBillableHoursInput");
     if (hid) {
@@ -257,11 +292,25 @@ function updateDispatcherLaborFields() {
     }
     var disp = document.getElementById("scBillableHoursDisplay");
     if (disp) {
-        disp.textContent = n
-            ? "Total billable hours (techs × duration): " +
-              total.toFixed(2) +
-              " — prefills Repair Labor Hours on Generate Invoice."
-            : "";
+        if (n) {
+            if (dur === "Multi-Day" && multiOpts) {
+                disp.textContent =
+                    "Total billable hours (techs × 8 h × " +
+                    multiOpts.days +
+                    " day" +
+                    (multiOpts.days !== 1 ? "s" : "") +
+                    "): " +
+                    total.toFixed(2) +
+                    " — prefills Repair Labor Hours on Generate Invoice.";
+            } else {
+                disp.textContent =
+                    "Total billable hours (techs × duration): " +
+                    total.toFixed(2) +
+                    " — prefills Repair Labor Hours on Generate Invoice.";
+            }
+        } else {
+            disp.textContent = "";
+        }
     }
     var laborInline = document.getElementById("scTotalLaborInline");
     if (laborInline) {
@@ -306,8 +355,24 @@ function buildServiceAssignedTechForm(techList) {
         DispatcherTicketManager.mountTechMultiSelect(box, techList || [], {});
     }
     wireDispatcherAssignmentControlsOnce();
+    wireMultiDayControlsOnce();
     updateLeadTechRowVisibility();
     updateDispatcherLaborFields();
+}
+
+function wireMultiDayControlsOnce() {
+    if (typeof document === "undefined") return;
+    if (document.body.dataset.scMultiDayControlsWired === "1") return;
+    document.body.dataset.scMultiDayControlsWired = "1";
+    var n = document.getElementById("scMultiDayCount");
+    var w = document.getElementById("scMultiDayIncludeWeekends");
+    if (n) {
+        n.addEventListener("input", updateDispatcherLaborFields);
+        n.addEventListener("change", updateDispatcherLaborFields);
+    }
+    if (w) {
+        w.addEventListener("change", updateDispatcherLaborFields);
+    }
 }
 
 function applyServiceAssignedTechFormFromTicket(data) {
@@ -727,12 +792,25 @@ function gatherServiceData() {
         notes: document.getElementById('scNotesInput').value.trim(),
         parentId: (document.getElementById('scParentSelect') && document.getElementById('scParentSelect').value) || "",
         releasedToTech: document.getElementById('scReleasedToTech') ? document.getElementById('scReleasedToTech').checked : true,
+        multiDayDays: (function () {
+            var el = document.getElementById("scMultiDayCount");
+            if (!el) return 2;
+            var d = parseInt(el.value, 10);
+            return isFinite(d) && d >= 1 ? d : 2;
+        })(),
+        multiDayIncludeWeekends: document.getElementById("scMultiDayIncludeWeekends")
+            ? document.getElementById("scMultiDayIncludeWeekends").checked
+            : false,
         Total_Billable_Hours: (function () {
             var techs = gatherAssignedTechsFromServiceForm();
             var durEl = document.getElementById("scDurationInput");
             var dur = durEl && durEl.value ? durEl.value : "2.0";
+            var mo = getMultiDayOptionsFromForm();
             if (typeof DispatcherTicketManager !== "undefined") {
-                return DispatcherTicketManager.computeTotalBillableHours(techs.length, dur);
+                return DispatcherTicketManager.computeTotalBillableHours(techs.length, dur, mo);
+            }
+            if (dur === "Multi-Day" && mo) {
+                return Math.round(techs.length * 8 * (mo.days || 2) * 100) / 100;
             }
             return Math.round(techs.length * (parseFloat(dur) || 1.5) * 100) / 100;
         })()
@@ -815,6 +893,10 @@ function clearServiceForm() {
     document.getElementById('scDateInput').valueAsDate = new Date();
     document.getElementById('scStartTimeInput').value = "08:00"; 
     document.getElementById('scDurationInput').value = "2.0";
+    var scMd = document.getElementById("scMultiDayCount");
+    if (scMd) scMd.value = "2";
+    var scMw = document.getElementById("scMultiDayIncludeWeekends");
+    if (scMw) scMw.checked = false;
     
     if(typeof toggleNewCustomerWarning === 'function') toggleNewCustomerWarning(false);
     if (typeof updateDispatcherLaborFields === "function") {
@@ -1122,7 +1204,8 @@ function closeTicketDetails() {
             if (typeof DispatcherTicketManager !== "undefined") {
                 db[scIndex].Total_Billable_Hours = DispatcherTicketManager.computeTotalBillableHours(
                     newCrew.length,
-                    db[scIndex].duration || "2.0"
+                    db[scIndex].duration || "2.0",
+                    getMultiDayOptionsFromTicket(db[scIndex])
                 );
             }
 
@@ -1164,6 +1247,15 @@ async function loadServiceCall(dbId) {
         var dvv = data.duration || "2.0";
         scDur.innerHTML = buildDispatcherDurationSelectOptions(dvv);
         scDur.value = dvv;
+    })();
+    (function () {
+        var n = document.getElementById("scMultiDayCount");
+        var w = document.getElementById("scMultiDayIncludeWeekends");
+        if (n) {
+            var d = data.multiDayDays != null ? parseInt(data.multiDayDays, 10) : 2;
+            n.value = isFinite(d) && d >= 1 ? String(d) : "2";
+        }
+        if (w) w.checked = data.multiDayIncludeWeekends === true;
     })();
     document.getElementById('scCustNameInput').value = data.customerName;
     document.getElementById('scCustNumInput').value = data.customerNum;
@@ -2629,7 +2721,8 @@ function convertToInvoice(ticketId) {
     if (isNaN(billHrs) && typeof DispatcherTicketManager !== "undefined") {
         billHrs = DispatcherTicketManager.computeTotalBillableHours(
             getAssignedTechsArray(sc).length,
-            sc.duration || "2.0"
+            sc.duration || "2.0",
+            getMultiDayOptionsFromTicket(sc)
         );
     }
     const invLaborEl = document.getElementById("invLaborHours");

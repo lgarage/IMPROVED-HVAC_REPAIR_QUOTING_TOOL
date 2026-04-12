@@ -21,8 +21,23 @@
         return isFinite(n) && n > 0 ? n : 1.5;
     }
 
-    function computeTotalBillableHours(techCount, durationStr) {
+    /**
+     * @param {{ days?: number, includeWeekends?: boolean }} multiDayOpts
+     *        For duration "Multi-Day": total = techCount × 8 × days (includeWeekends stored on ticket; scheduling use later).
+     */
+    function computeTotalBillableHours(techCount, durationStr, multiDayOpts) {
         var t = Math.max(0, parseInt(techCount, 10) || 0);
+        var s = String(durationStr == null ? "" : durationStr).trim();
+        if (s === "Multi-Day" || /^multi[\s-]?day$/i.test(s)) {
+            var days = 2;
+            if (multiDayOpts && multiDayOpts.days != null) {
+                var d = parseInt(multiDayOpts.days, 10);
+                if (isFinite(d) && d >= 1) {
+                    days = d;
+                }
+            }
+            return Math.round(t * 8.0 * days * 100) / 100;
+        }
         var h = parseScheduledDurationHours(durationStr);
         return Math.round(t * h * 100) / 100;
     }

@@ -1170,6 +1170,73 @@
         line-height: 1.35;
         min-height: 1.2em;
       }
+      .sc-dispatch-summary-panel {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        padding: 12px 14px;
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 400px;
+      }
+      .sc-dispatch-summary-panel .sc-tech-assignment-wrap {
+        margin-bottom: 2px;
+      }
+      .release-to-field-container {
+        max-width: 100%;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #e2e8f0;
+      }
+      .release-to-field-container label {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1.4;
+        text-transform: none;
+        letter-spacing: 0;
+        margin: 0;
+        color: #334155;
+      }
+      .sc-multiday-details {
+        margin-top: 10px;
+        padding: 10px 12px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 12px;
+        color: #475569;
+      }
+      .sc-multiday-details label.sc-multiday-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .sc-multiday-details .sc-multiday-days-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      .sc-multiday-details input[type="number"] {
+        width: 72px;
+        padding: 6px 8px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-family: inherit;
+        font-size: 13px;
+      }
+      .sc-multiday-details .sc-multiday-weekends {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        font-weight: 500;
+        cursor: pointer;
+      }
       .sc-lead-required {
         color: #e74c3c;
         font-weight: 800;
@@ -2692,11 +2759,36 @@
                     <option value="8.0">8.0 hrs</option>
                     <option value="Multi-Day">Multi-Day</option>
                   </select>
-                  <span
-                    id="scTotalLaborInline"
-                    class="sc-total-labor-inline"
-                    aria-live="polite"
-                  ></span>
+                </div>
+                <div
+                  id="scMultiDayDetails"
+                  class="sc-multiday-details"
+                  hidden
+                  aria-hidden="true"
+                >
+                  <label class="sc-multiday-label" for="scMultiDayCount"
+                    >Number of days</label
+                  >
+                  <div class="sc-multiday-days-row">
+                    <input
+                      type="number"
+                      id="scMultiDayCount"
+                      min="1"
+                      max="365"
+                      step="1"
+                      value="2"
+                    />
+                    <span style="font-size: 11px; color: #64748b"
+                      >8 h scheduled per day per tech</span
+                    >
+                  </div>
+                  <label class="sc-multiday-weekends">
+                    <input
+                      type="checkbox"
+                      id="scMultiDayIncludeWeekends"
+                    />
+                    Include weekends?
+                  </label>
                 </div>
               </div>
             </div>
@@ -2732,50 +2824,84 @@
                   </option>
                 </select>
               </div>
-              <div class="input-group" style="min-width: 280px">
-                <label for="scAssignedTechsSelect">Select technicians</label>
-                <div
-                  id="scAssignedTechsContainer"
-                  class="sc-tech-assignment-wrap"
-                ></div>
-                <p
-                  id="scTechMultiHint"
-                  class="sc-tech-multi-hint"
-                  style="
-                    font-size: 11px;
-                    color: #7f8c8d;
-                    margin: 6px 0 0 0;
-                    line-height: 1.35;
-                  "
-                >
-                  Click the field to open the list; check each technician to assign.
-                  Lead choices match your selection.
-                </p>
-                <div
-                  id="scLeadTechRow"
-                  class="sc-lead-tech-row"
-                  style="display: none"
-                  aria-hidden="true"
-                >
-                  <label for="scPrimaryTechInput" style="margin-top: 10px"
-                    ><span class="sc-lead-required" aria-hidden="true">*</span>
-                    Lead technician</label
+              <div
+                class="input-group sc-dispatch-summary-column"
+                style="min-width: 280px; max-width: 400px"
+              >
+                <div class="sc-dispatch-summary-panel">
+                  <label for="scAssignedTechsSelect">Select technicians</label>
+                  <div
+                    id="scAssignedTechsContainer"
+                    class="sc-tech-assignment-wrap"
+                  ></div>
+                  <p
+                    id="scTechMultiHint"
+                    class="sc-tech-multi-hint"
+                    style="
+                      font-size: 11px;
+                      color: #7f8c8d;
+                      margin: 6px 0 0 0;
+                      line-height: 1.35;
+                    "
                   >
-                  <select id="scPrimaryTechInput" class="sc-twin-pillar-select" style="width: 100%">
-                    <option value="">— Select lead —</option>
-                  </select>
+                    Click the field to open the list; check each technician to
+                    assign. Lead choices match your selection.
+                  </p>
+                  <div
+                    id="scLeadTechRow"
+                    class="sc-lead-tech-row"
+                    style="display: none"
+                    aria-hidden="true"
+                  >
+                    <label for="scPrimaryTechInput" style="margin-top: 10px"
+                      ><span class="sc-lead-required" aria-hidden="true">*</span>
+                      Lead technician</label
+                    >
+                    <select
+                      id="scPrimaryTechInput"
+                      class="sc-twin-pillar-select"
+                      style="width: 100%"
+                    >
+                      <option value="">— Select lead —</option>
+                    </select>
+                  </div>
+                  <p
+                    id="scTotalLaborInline"
+                    class="sc-total-labor-inline"
+                    style="margin-top: 10px"
+                    aria-live="polite"
+                  ></p>
+                  <p
+                    id="scBillableHoursDisplay"
+                    class="sc-billable-hint"
+                    style="
+                      font-size: 12px;
+                      color: #1e4b85;
+                      margin: 8px 0 0 0;
+                      font-weight: 600;
+                    "
+                    aria-live="polite"
+                  ></p>
+                  <div class="release-to-field-container">
+                    <label for="scReleasedToTech">
+                      <input
+                        type="checkbox"
+                        id="scReleasedToTech"
+                        style="
+                          width: 18px;
+                          height: 18px;
+                          margin-top: 3px;
+                          flex-shrink: 0;
+                        "
+                      />
+                      <span
+                        ><strong>Release to Field app</strong> — allow the
+                        assigned technician to see this job on the Field app. New
+                        tickets start unchecked until dispatch is ready.</span
+                      >
+                    </label>
+                  </div>
                 </div>
-                <p
-                  id="scBillableHoursDisplay"
-                  class="sc-billable-hint"
-                  style="
-                    font-size: 12px;
-                    color: #1e4b85;
-                    margin: 10px 0 0 0;
-                    font-weight: 600;
-                  "
-                  aria-live="polite"
-                ></p>
               </div>
               <div class="input-group">
                 <label>Ticket Status</label>
@@ -2791,39 +2917,6 @@
                   <option value="Completed">Completed (Needs Billing)</option>
                   <option value="Canceled">Canceled</option>
                 </select>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="input-group" style="width: 100%">
-                <label
-                  style="
-                    display: flex;
-                    align-items: flex-start;
-                    gap: 10px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    line-height: 1.4;
-                    text-transform: none;
-                    letter-spacing: 0;
-                  "
-                >
-                  <input
-                    type="checkbox"
-                    id="scReleasedToTech"
-                    style="
-                      width: 18px;
-                      height: 18px;
-                      margin-top: 3px;
-                      flex-shrink: 0;
-                    "
-                  />
-                  <span
-                    ><strong>Release to Field app</strong> — allow the assigned
-                    technician to see this job on the Field app. New tickets
-                    start unchecked until dispatch is ready.</span
-                  >
-                </label>
               </div>
             </div>
 
@@ -5687,7 +5780,7 @@
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js"></script>
-    <script src="service_call.js?v=53"></script>
+    <script src="service_call.js?v=54"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=39"></script>
 
