@@ -1778,13 +1778,18 @@
         cursor: pointer;
         z-index: 0;
       }
+      /*
+        Stage sits above the overlay but must not steal clicks outside the phone.
+        pointer-events: none on the stage + auto on the bezel lets dim-area hits reach the overlay.
+      */
       .field-app-simulator-stage {
         position: relative;
         z-index: 1;
         flex-shrink: 0;
-        pointer-events: auto;
+        pointer-events: none;
       }
       .field-app-simulator-bezel {
+        pointer-events: auto;
         width: min(390px, calc(100vw - 48px), calc(90vh * 390 / 844));
         max-width: min(390px, calc(100vw - 48px));
         aspect-ratio: 390 / 844;
@@ -5409,11 +5414,7 @@
         document.body.style.overflow = "";
       }
 
-      /**
-       * Close when the click lands outside the phone bezel (dim overlay, modal padding, etc.).
-       * Uses closest() so flex wrappers / nested nodes are reliable. Phone area uses stopPropagation
-       * so iframe/bezel interactions never bubble here (iframe content stays isolated in its document).
-       */
+      /** Close when click is on the dim layer, modal shell, or any target not inside the phone bezel. */
       function closeOnBackgroundClick(event) {
         const modal = document.getElementById("fieldAppSimulatorModal");
         if (!modal || modal.classList.contains("hidden")) return;
@@ -5425,13 +5426,12 @@
 
       (function wireFieldAppSimulator() {
         const modal = document.getElementById("fieldAppSimulatorModal");
-        const stage = document.getElementById("fieldAppSimulatorStage");
-        function stopPhoneBubble(event) {
-          event.stopPropagation();
-        }
-        if (stage) {
-          stage.addEventListener("click", stopPhoneBubble);
-          stage.addEventListener("pointerdown", stopPhoneBubble);
+        const overlay = document.getElementById("fieldAppSimulatorOverlay");
+        if (overlay) {
+          overlay.addEventListener("click", function (e) {
+            e.stopPropagation();
+            closeFieldAppSimulator();
+          });
         }
         if (modal) {
           modal.addEventListener("click", closeOnBackgroundClick);
