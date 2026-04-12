@@ -784,6 +784,129 @@ function triggerServiceAutoSave() {
     autoSaveTimeout = setTimeout(() => { saveServiceCall(true); }, 250); 
 }
 
+function renderDispatcherFieldEvidenceOverrides(ticket) {
+    var wrap = document.getElementById("scFieldEvidenceOverrideWrap");
+    var list = document.getElementById("scFieldEvidenceOverrideList");
+    if (!wrap || !list) return;
+    if (
+        !ticket ||
+        !ticket.id ||
+        !ticket.evidencePhotoUrls ||
+        !Array.isArray(ticket.evidencePhotoUrls) ||
+        !ticket.evidencePhotoUrls.length
+    ) {
+        wrap.style.display = "none";
+        list.innerHTML = "";
+        return;
+    }
+    if (typeof VCClientPortal === "undefined" || !VCClientPortal.normalizeEvidencePhotoArray) {
+        wrap.style.display = "none";
+        return;
+    }
+    var entries = VCClientPortal.normalizeEvidencePhotoArray(ticket.evidencePhotoUrls);
+    if (!entries.length) {
+        wrap.style.display = "none";
+        list.innerHTML = "";
+        return;
+    }
+    wrap.style.display = "flex";
+    var html = "";
+    entries.forEach(function (entry, idx) {
+        var u = entry.url;
+        var safe = String(u)
+            .replace(/&/g, "&amp;")
+            .replace(/"/g, "&quot;")
+            .replace(/</g, "&lt;");
+        var isPub = entry.isPublic !== false;
+        html +=
+            '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;flex-wrap:wrap;">';
+        if (/\.(png|jpe?g|gif|webp)(\?|#|$)/i.test(u)) {
+            html +=
+                '<a href="' +
+                safe +
+                '" target="_blank" rel="noopener"><img src="' +
+                safe +
+                '" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1;"></a>';
+        }
+        html += '<div style="flex:1;min-width:200px;font-size:12px;">';
+        html +=
+            '<label style="display:flex;align-items:center;gap:8px;font-weight:600;color:#334155;">Show on Proof of Service? ';
+        html +=
+            '<select data-disp-fe-idx="' +
+            idx +
+            '" class="sc-dispatch-evidence-select" style="padding:6px 8px;border-radius:4px;border:1px solid #cbd5e1;">';
+        html += '<option value="yes"' + (isPub ? " selected" : "") + ">Yes</option>";
+        html += '<option value="no"' + (!isPub ? " selected" : "") + ">No (internal)</option>";
+        html += "</select></label></div></div>";
+    });
+    list.innerHTML = html;
+    if (!list.dataset.dispFeWired) {
+        list.dataset.dispFeWired = "1";
+        list.addEventListener("change", function (ev) {
+            var sel = ev.target;
+            if (!sel || !sel.classList || !sel.classList.contains("sc-dispatch-evidence-select")) return;
+            var idx = parseInt(sel.getAttribute("data-disp-fe-idx"), 10);
+            var isPublic = sel.value === "yes";
+            var ticketId =
+                document.getElementById("scCurrentId") && document.getElementById("scCurrentId").value;
+            if (!ticketId || !isFinite(idx)) return;
+            void persistDispatcherEvidenceOverride(ticketId, idx, { isPublic: isPublic });
+        });
+    }
+}
+
+async function persistDispatcherEvidenceOverride(ticketId, index, patch) {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+        alert("Firebase not connected.");
+        return;
+    }
+    if (typeof VCClientPortal === "undefined" || !VCClientPortal.normalizeEvidencePhotoArray) return;
+    try {
+        var db = firebase.firestore();
+        var ref =
+            typeof VCFirestore !== "undefined"
+                ? VCFirestore.serviceCalls(db).doc(ticketId)
+                : db.collection("service_calls").doc(ticketId);
+        await db.runTransaction(function (tx) {
+            return tx.get(ref).then(function (snap) {
+                var data = snap.exists && snap.data() ? snap.data() : {};
+                var arr = VCClientPortal.normalizeEvidencePhotoArray(data.evidencePhotoUrls);
+                if (!arr[index]) throw new Error("Evidence index out of range.");
+                var cur = arr[index];
+                arr[index] = {
+                    url: cur.url,
+                    isPublic: patch.isPublic !== undefined ? !!patch.isPublic : cur.isPublic !== false,
+                    caption: cur.caption != null ? String(cur.caption) : "",
+                };
+                tx.set(ref, { evidencePhotoUrls: arr }, { merge: true });
+            });
+        });
+        var dbLocal = JSON.parse(localStorage.getItem("twinPillarsServiceDB") || "[]");
+        var row = dbLocal.find(function (r) {
+            return r && r.id === ticketId;
+        });
+        if (row) {
+            var arr2 = VCClientPortal.normalizeEvidencePhotoArray(row.evidencePhotoUrls);
+            if (arr2[index]) {
+                arr2[index].isPublic =
+                    patch.isPublic !== undefined ? !!patch.isPublic : arr2[index].isPublic !== false;
+                row.evidencePhotoUrls = arr2;
+                localStorage.setItem("twinPillarsServiceDB", JSON.stringify(dbLocal));
+            }
+        }
+        if (typeof syncSingleServiceCallToCloud === "function") {
+            var merged = dbLocal.find(function (r) {
+                return r && r.id === ticketId;
+            });
+            if (merged) syncSingleServiceCallToCloud(ticketId, merged);
+        }
+        if (typeof showSaveCue === "function") showSaveCue("Evidence visibility updated");
+    } catch (e) {
+        console.error(e);
+        alert(e && e.message ? e.message : String(e));
+    }
+}
+
 function gatherServiceData() {
     return {
         id: document.getElementById('scCurrentId').value,
@@ -948,6 +1071,9 @@ function clearServiceForm() {
     if(typeof toggleNewCustomerWarning === 'function') toggleNewCustomerWarning(false);
     if (typeof updateDispatcherLaborFields === "function") {
         updateDispatcherLaborFields();
+    }
+    if (typeof renderDispatcherFieldEvidenceOverrides === "function") {
+        renderDispatcherFieldEvidenceOverrides(null);
     }
     document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1344,6 +1470,10 @@ async function loadServiceCall(dbId) {
         if (scPs) scPs.value = '';
         if (scPn) scPn.value = '';
         if (typeof updateServiceBillToParentRadioState === 'function') updateServiceBillToParentRadioState();
+    }
+
+    if (typeof renderDispatcherFieldEvidenceOverrides === 'function') {
+        renderDispatcherFieldEvidenceOverrides(data);
     }
 }
 

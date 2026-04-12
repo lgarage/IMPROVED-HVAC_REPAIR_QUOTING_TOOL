@@ -217,6 +217,18 @@
       });
   }
 
+  /**
+   * Field evidence default visibility: Inter-Office Comms tab → internal-only;
+   * Public export tab → client-safe.
+   */
+  function getFieldEvidenceDefaultIsPublic() {
+    var intl = document.getElementById("dictationChannelInternal");
+    if (intl && intl.classList.contains("dictation-channel-btn--active")) {
+      return false;
+    }
+    return true;
+  }
+
   function workspaceUiOnOpen() {
     subscribeSiteIntelPulse();
     var btn = document.getElementById("wsSiteIntelBtn");
@@ -231,4 +243,5 @@
   window.workspaceUiOnOpen = workspaceUiOnOpen;
   window.openSiteIntelForLocation = openSiteIntelModal;
   window.teardownWorkspaceSiteIntel = teardownSiteIntelListener;
+  window.getFieldEvidenceDefaultIsPublic = getFieldEvidenceDefaultIsPublic;
 })();

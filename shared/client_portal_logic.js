@@ -125,11 +125,62 @@
     return out;
   }
 
+  /**
+   * Normalize one evidence entry: legacy string URLs become public by default.
+   * @param {string|{url?:string,isPublic?:boolean,caption?:string}} raw
+   * @returns {{url:string,isPublic:boolean,caption:string}|null}
+   */
+  function normalizeEvidenceEntry(raw) {
+    if (raw == null || raw === "") return null;
+    if (typeof raw === "string") {
+      var u = String(raw).trim();
+      return u ? { url: u, isPublic: true, caption: "" } : null;
+    }
+    if (typeof raw === "object") {
+      var url = raw.url != null ? String(raw.url).trim() : "";
+      if (!url) return null;
+      return {
+        url: url,
+        isPublic: raw.isPublic !== false,
+        caption: raw.caption != null ? String(raw.caption) : "",
+      };
+    }
+    return null;
+  }
+
+  /**
+   * @param {Array} arr
+   * @returns {Array<{url:string,isPublic:boolean,caption:string}>}
+   */
+  function normalizeEvidencePhotoArray(arr) {
+    if (!Array.isArray(arr)) return [];
+    var out = [];
+    for (var i = 0; i < arr.length; i++) {
+      var e = normalizeEvidenceEntry(arr[i]);
+      if (e) out.push(e);
+    }
+    return out;
+  }
+
+  /** URLs safe to show on Proof of Service / customer-facing surfaces. */
+  function filterPublicEvidencePhotoUrls(arr) {
+    return normalizeEvidencePhotoArray(arr)
+      .filter(function (e) {
+        return e.isPublic;
+      })
+      .map(function (e) {
+        return e.url;
+      });
+  }
+
   global.VCClientPortal = {
     generatePortalTokenId: generatePortalTokenId,
     parseWorkOrderBlocks: parseWorkOrderBlocks,
     buildProofOfServiceUrl: buildProofOfServiceUrl,
     pickPublicWorkDescription: pickPublicWorkDescription,
     generateClientSummaryLetter: generateClientSummaryLetter,
+    normalizeEvidenceEntry: normalizeEvidenceEntry,
+    normalizeEvidencePhotoArray: normalizeEvidencePhotoArray,
+    filterPublicEvidencePhotoUrls: filterPublicEvidencePhotoUrls,
   };
 })(typeof window !== "undefined" ? window : this);

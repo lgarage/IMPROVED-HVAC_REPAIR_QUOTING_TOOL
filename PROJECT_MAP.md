@@ -241,7 +241,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 **User Guide**
 
 - Customer opens the link on a phone or desktop: sees branded header, **job site**, **equipment** line, **work performed** as **[INSPECTION] / [ACTION] / [VERIFICATION]** blocks when present in the technician/dispatch text (public notes only — **no** `internal_comms`), **or** a **Work summary** when the memo field is used instead.
-- **Photos:** `customerEvidenceUrls` and `evidencePhotoUrls` on the ticket.
+- **Photos:** `customerEvidenceUrls` (strings) and `evidencePhotoUrls` (objects `{ url, isPublic, caption }`); Proof of Service shows **public** field photos only (`isPublic !== false`).
 - **Approve work** records approval and sets the ticket status to **Client Verified / Ready for Billing** (when the write succeeds).
 
 **Technical Specs**
@@ -260,6 +260,37 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 ---
 
+### Evidence filtering & Custom Report Studio (Phase 16)
+
+#### Field evidence — public vs internal
+
+**User Guide**
+
+- In the **Field app** workspace, pasted/uploaded field photos are stored under **Field Evidence**. Each row has **Show client? Yes/No**, an optional **caption**, and a badge (Client vs Internal).
+- **Default visibility:** With **Public export** selected in the Dictation Hub channel bar, new pastes default to **client-visible**. With **Inter-Office Comms** selected, new pastes default to **internal** (not shown on Proof of Service).
+- **Dispatcher override:** On the service ticket form, **Field evidence — client visibility** lists each field photo with **Show on Proof of Service?** so the office can flip a photo internal before **Send verification to client**.
+
+**Technical Specs**
+
+- `evidencePhotoUrls`: array of `{ url: string, isPublic: boolean, caption: string }`; legacy string URLs normalize to **public** in `VCClientPortal.normalizeEvidencePhotoArray`.
+- `technician/index.html` — paste pipeline, `persistFieldEvidencePhotoUrlToFirestore` (`arrayUnion` object), `updateFieldEvidenceFirestoreAtIndex` (transaction), `renderWorkspaceFieldEvidence`.
+- `technician/js/workspace_ui.js` — `getFieldEvidenceDefaultIsPublic()` reads `#dictationChannelInternal` active state.
+- `shared/client_portal_logic.js` — `normalizeEvidenceEntry`, `normalizeEvidencePhotoArray`, `filterPublicEvidencePhotoUrls`.
+- `service_call.js` — `renderDispatcherFieldEvidenceOverrides`, `persistDispatcherEvidenceOverride` (Firestore + local cache sync).
+
+#### Custom Report Studio (dispatcher)
+
+**User Guide**
+
+- Sidebar: **Custom Report Studio** — set **From** / **To**, optional **Ticket IDs** (comma-separated; leave blank for all tickets in range), choose **blocks**, then **Generate & print**. A new window opens with printable HTML; use the browser **Print** dialog → **Save as PDF**.
+
+**Technical Specs**
+
+- `dispatcher/js/report_builder.js` (`VcReportStudio`), `#view-report-studio` in `index.html`.
+- Loads `VCFirestore.loadServiceCallsMergedOnce`, filters by `date` and optional IDs; optional blocks: job details, public-facing notes (issue / `techNotes` / `clientPortalMemo`), equipment + `getSiteIntelDocOnceBridged` for the hashed site key, `filterPublicEvidencePhotoUrls` for photos, labor hours via `labor_logs` IN/OUT pairs with `ticketId` on IN.
+
+---
+
 ## Build History
 
 - [v] Phase 10: Tenant Isolation & Branding
@@ -268,6 +299,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - [v] Phase 13: Lite Seat Dashboard & Payroll Manager (`labor_logs`, `time_tracker.js`, `payroll_manager.js`)
 - [v] Phase 14: Client Verification & Proof of Service Portal (`portal_tokens`, `proof_of_service.html`, `client_notifications.js`, `client_portal_logic.js`)
 - [v] Phase 15: Executive Insights & Revenue Dashboard (`dispatcher/js/insights_manager.js`, `dispatcher/css/insights.css`, `#view-insights` in `index.html`)
+- [v] Phase 16: Evidence filtering & Custom Report Studio (`shared/client_portal_logic.js` evidence helpers, `technician/index.html` + `workspace_ui.js`, `service_call.js` dispatcher overrides, `dispatcher/js/report_builder.js`, `proof_of_service.html` filter)
 
 ## Current Focus
 

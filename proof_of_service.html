@@ -10,7 +10,7 @@
     <script src="firebase-config.js?v=3"></script>
     <script src="shared/config.js"></script>
     <script src="shared/firebase_logic.js"></script>
-    <script src="shared/client_portal_logic.js?v=1"></script>
+    <script src="shared/client_portal_logic.js?v=2"></script>
     <style>
       :root {
         --vc-pri: #1e4b85;
@@ -238,7 +238,9 @@
               if (Array.isArray(job.customerEvidenceUrls)) {
                 photos = photos.concat(job.customerEvidenceUrls.filter(Boolean));
               }
-              if (Array.isArray(job.evidencePhotoUrls)) {
+              if (Array.isArray(job.evidencePhotoUrls) && VCClientPortal.filterPublicEvidencePhotoUrls) {
+                photos = photos.concat(VCClientPortal.filterPublicEvidencePhotoUrls(job.evidencePhotoUrls));
+              } else if (Array.isArray(job.evidencePhotoUrls)) {
                 photos = photos.concat(job.evidencePhotoUrls.filter(Boolean));
               }
 

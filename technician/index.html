@@ -12,6 +12,7 @@
 <script src="../firebase-config.js?v=3"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/firebase_logic.js"></script>
+<script src="../shared/client_portal_logic.js?v=2"></script>
 <script src="js/vc_entitlements.js?v=1"></script>
 <script src="js/time_tracker.js?v=1"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -1462,6 +1463,61 @@ button.ws-address.ws-address--link:active {
 }
 .customer-evidence-panel--field .customer-evidence-thumb-link {
   border-color: #86efac;
+}
+.field-evidence-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+.field-evidence-row__thumb img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+}
+.field-evidence-row__meta {
+  flex: 1;
+  min-width: 180px;
+  font-size: 12px;
+}
+.field-evidence-row__meta label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #334155;
+}
+.field-evidence-row__caption {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.field-evidence-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.field-evidence-badge--pub {
+  background: #dcfce7;
+  color: #166534;
+}
+.field-evidence-badge--int {
+  background: #fee2e2;
+  color: #991b1b;
 }
 .job-card-ce-badge {
   display: inline-block;
@@ -4103,7 +4159,7 @@ async function uploadFieldEvidencePastedBlob(ticketId, blob) {
   return ref.getDownloadURL();
 }
 
-async function persistFieldEvidencePhotoUrlToFirestore(ticketId, url) {
+async function persistFieldEvidencePhotoUrlToFirestore(ticketId, entry) {
   if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
     throw new Error('Not connected.');
   }
@@ -4112,36 +4168,128 @@ async function persistFieldEvidencePhotoUrlToFirestore(ticketId, url) {
     typeof VCFirestore !== "undefined"
       ? VCFirestore.serviceCalls(_dbEv)
       : _dbEv.collection("service_calls");
+  var payload =
+    entry && typeof entry === "object"
+      ? { url: String(entry.url || "").trim(), isPublic: entry.isPublic !== false, caption: entry.caption != null ? String(entry.caption) : "" }
+      : { url: String(entry || "").trim(), isPublic: true, caption: "" };
+  if (!payload.url) throw new Error("Missing evidence URL.");
   await _scEv.doc(ticketId).update({
-    evidencePhotoUrls: firebase.firestore.FieldValue.arrayUnion(url)
+    evidencePhotoUrls: firebase.firestore.FieldValue.arrayUnion(payload),
   });
 }
 
+async function updateFieldEvidenceFirestoreAtIndex(ticketId, index, patch) {
+  if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+    throw new Error("Not connected.");
+  }
+  if (typeof VCClientPortal === "undefined" || !VCClientPortal.normalizeEvidencePhotoArray) {
+    throw new Error("Client portal helpers missing.");
+  }
+  const db = firebase.firestore();
+  const ref =
+    typeof VCFirestore !== "undefined"
+      ? VCFirestore.serviceCalls(db).doc(ticketId)
+      : db.collection("service_calls").doc(ticketId);
+  await db.runTransaction(function (tx) {
+    return tx.get(ref).then(function (snap) {
+      var data = snap.exists && snap.data() ? snap.data() : {};
+      var arr = VCClientPortal.normalizeEvidencePhotoArray(data.evidencePhotoUrls);
+      if (!arr[index]) throw new Error("Evidence index out of range.");
+      var cur = arr[index];
+      arr[index] = {
+        url: cur.url,
+        isPublic: patch.isPublic !== undefined ? !!patch.isPublic : cur.isPublic !== false,
+        caption: patch.caption !== undefined ? String(patch.caption) : cur.caption || "",
+      };
+      tx.set(ref, { evidencePhotoUrls: arr }, { merge: true });
+    });
+  });
+}
+
+function onFieldEvidencePublicChange(ev) {
+  var sel = ev.target;
+  if (!sel || !sel.classList || !sel.classList.contains("field-evidence-public-select")) return;
+  var idx = parseInt(sel.getAttribute("data-fe-idx"), 10);
+  if (!isFinite(idx) || !activeTicket || !activeTicket.id) return;
+  var isPublic = sel.value === "yes";
+  void applyFieldEvidencePatch(activeTicket.id, idx, { isPublic: isPublic });
+}
+
+function onFieldEvidenceCaptionBlur(ev) {
+  var inp = ev.target;
+  if (!inp || !inp.classList || !inp.classList.contains("field-evidence-row__caption")) return;
+  var idx = parseInt(inp.getAttribute("data-fe-caption"), 10);
+  if (!isFinite(idx) || !activeTicket || !activeTicket.id) return;
+  void applyFieldEvidencePatch(activeTicket.id, idx, { caption: inp.value.trim() });
+}
+
+async function applyFieldEvidencePatch(ticketId, index, patch) {
+  try {
+    await updateFieldEvidenceFirestoreAtIndex(ticketId, index, patch);
+    var list = VCClientPortal.normalizeEvidencePhotoArray(activeTicket.evidencePhotoUrls);
+    if (list[index]) {
+      list[index] = {
+        url: list[index].url,
+        isPublic: patch.isPublic !== undefined ? !!patch.isPublic : list[index].isPublic !== false,
+        caption: patch.caption !== undefined ? String(patch.caption) : list[index].caption || "",
+      };
+      activeTicket.evidencePhotoUrls = list;
+    }
+    renderWorkspaceFieldEvidence(activeTicket);
+    showMapNavToast("Saved.", "success");
+  } catch (err) {
+    console.error(err);
+    showMapNavToast(err && err.message ? err.message : "Update failed", "error");
+  }
+}
+
 function renderWorkspaceFieldEvidence(ticket) {
-  const el = document.getElementById('workspaceFieldEvidence');
+  const el = document.getElementById("workspaceFieldEvidence");
   if (!el) return;
-  const urls = Array.isArray(ticket.evidencePhotoUrls)
-    ? ticket.evidencePhotoUrls.filter(Boolean)
-    : [];
-  if (!urls.length) {
-    el.classList.add('hidden');
-    el.innerHTML = '';
+  const list =
+    typeof VCClientPortal !== "undefined" && VCClientPortal.normalizeEvidencePhotoArray
+      ? VCClientPortal.normalizeEvidencePhotoArray(ticket.evidencePhotoUrls)
+      : [];
+  if (!list.length) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
     return;
   }
-  el.classList.remove('hidden');
-  let html = '<div class="customer-evidence-panel customer-evidence-panel--field"><div class="customer-evidence-title">📷 Field Evidence (Pasted)</div><div class="customer-evidence-grid">';
-  urls.forEach((url, idx) => {
-    const u = String(url);
+  el.classList.remove("hidden");
+  let html =
+    '<div class="customer-evidence-panel customer-evidence-panel--field"><div class="customer-evidence-title">📷 Field Evidence</div>';
+  list.forEach((entry, idx) => {
+    const u = entry.url;
     const safe = escapeAttrForUrl(u);
     const isImg = /\.(png|jpe?g|gif|webp)(\?|#|$)/i.test(u);
+    const isPub = entry.isPublic !== false;
+    const capEsc = String(entry.caption || "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;");
+    html += `<div class="field-evidence-row" data-fe-idx="${idx}">`;
+    html += `<div class="field-evidence-row__thumb">`;
     if (isImg) {
-      html += `<a class="customer-evidence-thumb-link" href="${safe}" target="_blank" rel="noopener" title="View full size"><img class="customer-evidence-thumb" src="${safe}" alt="Field evidence ${idx + 1}"></a>`;
+      html += `<a href="${safe}" target="_blank" rel="noopener"><img src="${safe}" alt=""></a>`;
     } else {
-      html += `<a class="customer-evidence-doc-link" href="${safe}" target="_blank" rel="noopener">📎 Attachment ${idx + 1}</a>`;
+      html += `<a href="${safe}" target="_blank" rel="noopener">📎 File</a>`;
     }
+    html += `</div><div class="field-evidence-row__meta">`;
+    html += `<div style="margin-bottom:6px;"><span class="field-evidence-badge ${isPub ? "field-evidence-badge--pub" : "field-evidence-badge--int"}">${isPub ? "Client" : "Internal"}</span></div>`;
+    html += `<label>Show client? <select class="field-evidence-public-select" data-fe-idx="${idx}">`;
+    html += `<option value="yes" ${isPub ? "selected" : ""}>Yes</option>`;
+    html += `<option value="no" ${!isPub ? "selected" : ""}>No</option></select></label>`;
+    html += `<label style="display:block;font-weight:600;margin-top:8px;">Caption (optional)</label>`;
+    html += `<input type="text" class="field-evidence-row__caption" data-fe-caption="${idx}" value="${capEsc}" maxlength="200" placeholder="e.g. Filter rack" />`;
+    html += `</div></div>`;
   });
-  html += '</div></div>';
+  html += "</div>";
   el.innerHTML = html;
+  if (!el.dataset.feDelegated) {
+    el.dataset.feDelegated = "1";
+    el.addEventListener("change", onFieldEvidencePublicChange);
+    el.addEventListener("blur", onFieldEvidenceCaptionBlur, true);
+  }
 }
 
 async function onWorkspaceImagePasteCapture(e) {
@@ -4167,9 +4315,15 @@ async function onWorkspaceImagePasteCapture(e) {
   showMapNavToast('Uploading pasted image…');
   try {
     const url = await uploadFieldEvidencePastedBlob(ticketId, blob);
-    await persistFieldEvidencePhotoUrlToFirestore(ticketId, url);
-    const prev = Array.isArray(activeTicket.evidencePhotoUrls) ? activeTicket.evidencePhotoUrls.filter(Boolean) : [];
-    activeTicket.evidencePhotoUrls = prev.concat([url]);
+    var defaultPublic =
+      typeof getFieldEvidenceDefaultIsPublic === "function" ? getFieldEvidenceDefaultIsPublic() : true;
+    const entry = { url: url, isPublic: defaultPublic, caption: "" };
+    await persistFieldEvidencePhotoUrlToFirestore(ticketId, entry);
+    const prev =
+      typeof VCClientPortal !== "undefined" && VCClientPortal.normalizeEvidencePhotoArray
+        ? VCClientPortal.normalizeEvidencePhotoArray(activeTicket.evidencePhotoUrls)
+        : [];
+    activeTicket.evidencePhotoUrls = prev.concat([entry]);
     renderWorkspaceFieldEvidence(activeTicket);
     showMapNavToast('✓ Upload complete', 'success');
   } catch (err) {

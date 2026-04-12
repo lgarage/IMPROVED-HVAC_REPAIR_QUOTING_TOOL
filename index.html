@@ -23,7 +23,7 @@
     <script src="firebase-config.js?v=3"></script>
     <script src="shared/config.js"></script>
     <script src="shared/firebase_logic.js"></script>
-    <script src="shared/client_portal_logic.js?v=1"></script>
+    <script src="shared/client_portal_logic.js?v=2"></script>
     <script>
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
@@ -2199,6 +2199,17 @@
         </li>
         <li>
           <a
+            id="nav-report-studio"
+            onclick="switchTab('report-studio')"
+            title="Custom printable reports"
+            ><span class="menu-icon"
+              ><i class="fas fa-file-alt"></i
+            ></span>
+            <span class="menu-text">Custom Report Studio</span></a
+          >
+        </li>
+        <li>
+          <a
             id="nav-quoting"
             onclick="switchTab('quoting')"
             title="Quoting Tool"
@@ -3345,6 +3356,28 @@
               </div>
             </div>
 
+            <div
+              class="form-row"
+              id="scFieldEvidenceOverrideWrap"
+              style="display: none"
+            >
+              <div class="input-group" style="width: 100%">
+                <label>Field evidence — client visibility</label>
+                <p
+                  style="
+                    margin: 0 0 8px;
+                    font-size: 12px;
+                    color: #64748b;
+                    line-height: 1.45;
+                  "
+                >
+                  Override whether each pasted field photo appears on the Proof of Service link before you
+                  send verification. Internal photos stay on the ticket for the crew only.
+                </p>
+                <div id="scFieldEvidenceOverrideList"></div>
+              </div>
+            </div>
+
             <div class="form-row">
               <div class="input-group" style="width: 100%">
                 <label>Client verification</label>
@@ -3545,6 +3578,70 @@
               </div>
               <div class="insights-card__body" id="insightsHealthBody"></div>
             </section>
+          </div>
+        </div>
+      </div>
+
+      <div id="view-report-studio" class="app-view">
+        <div class="insights-dashboard">
+          <div class="insights-dashboard__header">
+            <h2>
+              <i class="fas fa-file-alt" aria-hidden="true"></i>
+              Custom Report Studio
+            </h2>
+            <p>
+              Select a date range and optional ticket IDs, choose content blocks, then generate a clean,
+              printable HTML report (use your browser print dialog to save as PDF). No per-report fees.
+            </p>
+          </div>
+          <p id="reportStudioErr" class="insights-err" role="alert"></p>
+          <div class="insights-toolbar">
+            <label
+              >From
+              <input type="date" id="reportStudioDateFrom" />
+            </label>
+            <label
+              >To
+              <input type="date" id="reportStudioDateTo" />
+            </label>
+            <label style="flex: 1; min-width: 220px"
+              >Ticket IDs (optional, comma-separated)
+              <input
+                type="text"
+                id="reportStudioTicketIds"
+                placeholder="Leave empty to include all tickets in date range"
+                style="min-width: 240px"
+              />
+            </label>
+            <button type="button" id="reportStudioGenerateBtn">Generate &amp; print</button>
+          </div>
+          <div class="insights-card" style="max-width: 720px">
+            <div class="insights-card__head">
+              <h3>Include blocks</h3>
+              <p>Mix and match sections for each ticket in scope.</p>
+            </div>
+            <div class="insights-card__body" style="font-size: 13px; line-height: 1.6">
+              <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px">
+                <input type="checkbox" id="reportBlockJob" checked />
+                Job details (schedule, status, site, equipment line)
+              </label>
+              <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px">
+                <input type="checkbox" id="reportBlockNotes" checked />
+                Public notes (reported issue, technician report, client portal memo — not Inter-Office Comms)
+              </label>
+              <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px">
+                <input type="checkbox" id="reportBlockIntel" checked />
+                Equipment intel (ticket equipment + Site Intel notes for the address)
+              </label>
+              <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px">
+                <input type="checkbox" id="reportBlockPhotos" checked />
+                Public field photos only (<code>isPublic</code> evidence)
+              </label>
+              <label style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px">
+                <input type="checkbox" id="reportBlockLabor" checked />
+                Labor totals (hours clocked to this ticket from labor logs in the date range)
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -6199,6 +6296,7 @@
         document.getElementById("view-service").classList.remove("active");
         document.getElementById("view-pulse").classList.remove("active");
         document.getElementById("view-insights").classList.remove("active");
+        document.getElementById("view-report-studio").classList.remove("active");
         document.getElementById("view-quoting").classList.remove("active");
         document.getElementById("view-invoice").classList.remove("active");
         document
@@ -6209,6 +6307,7 @@
         document.getElementById("nav-service").classList.remove("active-tab");
         document.getElementById("nav-pulse").classList.remove("active-tab");
         document.getElementById("nav-insights").classList.remove("active-tab");
+        document.getElementById("nav-report-studio").classList.remove("active-tab");
         document.getElementById("nav-quoting").classList.remove("active-tab");
         document.getElementById("nav-invoice").classList.remove("active-tab");
         document
@@ -6285,6 +6384,11 @@
             void window.VcInsightsManager.refreshInsights();
           }
         }
+        if (tabName === "report-studio") {
+          if (typeof window.VcReportStudio !== "undefined") {
+            window.VcReportStudio.initReportStudio();
+          }
+        }
       }
 
       function showSaveCue(message) {
@@ -6330,16 +6434,21 @@
       window.addEventListener("hashchange", function () {
         if (window.location.hash === "#pulse") switchTab("pulse");
         if (window.location.hash === "#insights") switchTab("insights");
+        if (window.location.hash === "#report-studio") switchTab("report-studio");
       });
       if (window.location.hash === "#pulse") {
         switchTab("pulse");
       }
     </script>
-    <script src="service_call.js?v=57"></script>
+    <script src="service_call.js?v=58"></script>
     <script src="dispatcher/js/insights_manager.js?v=1"></script>
+    <script src="dispatcher/js/report_builder.js?v=1"></script>
     <script>
       if (window.location.hash === "#insights" && typeof switchTab === "function") {
         switchTab("insights");
+      }
+      if (window.location.hash === "#report-studio" && typeof switchTab === "function") {
+        switchTab("report-studio");
       }
     </script>
     <script src="dispatcher/js/client_notifications.js?v=1"></script>
