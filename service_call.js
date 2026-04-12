@@ -166,6 +166,14 @@ function getPrimaryTechFromTicket(sc) {
 var DISPATCH_TECH_GANTT_COLORS = ["#2980b9", "#8e44ad", "#d35400", "#16a085", "#27ae60", "#f39c12", "#c0392b", "#34495e"];
 
 function gatherAssignedTechsFromServiceForm() {
+    var box = document.getElementById("scAssignedTechsContainer");
+    if (
+        box &&
+        typeof DispatcherTicketManager !== "undefined" &&
+        DispatcherTicketManager.getSelectedTechsFromContainer
+    ) {
+        return DispatcherTicketManager.getSelectedTechsFromContainer(box);
+    }
     var sel = document.getElementById("scAssignedTechsSelect");
     if (!sel) return [];
     var out = [];
@@ -267,7 +275,7 @@ function wireDispatcherAssignmentControlsOnce() {
     }
     box.dataset.dispatcherWired = "1";
     box.addEventListener("change", function (e) {
-        if (e.target && e.target.id === "scAssignedTechsSelect") {
+        if (e.target && e.target.classList && e.target.classList.contains("sc-tech-cb")) {
             updateLeadTechRowVisibility();
             updateDispatcherLaborFields();
         }
@@ -287,23 +295,12 @@ function buildServiceAssignedTechForm(techList) {
     if (!box) {
         return;
     }
-    box.innerHTML = "";
-    var sel = document.createElement("select");
-    sel.id = "scAssignedTechsSelect";
-    sel.className = "sc-tech-multi-select";
-    sel.setAttribute("multiple", "multiple");
-    sel.setAttribute(
-        "size",
-        String(Math.min(10, Math.max(4, (techList || []).length || 4)))
-    );
-    sel.setAttribute("aria-label", "Select technicians");
-    (techList || []).forEach(function (tech) {
-        var o = document.createElement("option");
-        o.value = tech;
-        o.textContent = tech;
-        sel.appendChild(o);
-    });
-    box.appendChild(sel);
+    if (
+        typeof DispatcherTicketManager !== "undefined" &&
+        DispatcherTicketManager.mountTechMultiSelect
+    ) {
+        DispatcherTicketManager.mountTechMultiSelect(box, techList || [], {});
+    }
     wireDispatcherAssignmentControlsOnce();
     updateLeadTechRowVisibility();
     updateDispatcherLaborFields();
@@ -312,10 +309,19 @@ function buildServiceAssignedTechForm(techList) {
 function applyServiceAssignedTechFormFromTicket(data) {
     var crew = getAssignedTechsArray(data);
     var primary = getPrimaryTechFromTicket(data);
-    var ms = document.getElementById("scAssignedTechsSelect");
-    if (ms) {
-        for (var i = 0; i < ms.options.length; i++) {
-            ms.options[i].selected = crew.indexOf(ms.options[i].value) !== -1;
+    var box = document.getElementById("scAssignedTechsContainer");
+    if (
+        box &&
+        typeof DispatcherTicketManager !== "undefined" &&
+        DispatcherTicketManager.setSelectedTechsInContainer
+    ) {
+        DispatcherTicketManager.setSelectedTechsInContainer(box, crew);
+    } else {
+        var ms = document.getElementById("scAssignedTechsSelect");
+        if (ms) {
+            for (var i = 0; i < ms.options.length; i++) {
+                ms.options[i].selected = crew.indexOf(ms.options[i].value) !== -1;
+            }
         }
     }
     updateLeadTechRowVisibility();
@@ -751,10 +757,19 @@ function clearServiceForm() {
     document.getElementById('scLocNumInput').value = "";
     document.getElementById('scJobTypeInput').value = "Service Call";
     document.getElementById('scPriorityInput').value = "Standard";
-    var scSel = document.getElementById("scAssignedTechsSelect");
-    if (scSel) {
-        for (var si = 0; si < scSel.options.length; si++) {
-            scSel.options[si].selected = false;
+    var scBox = document.getElementById("scAssignedTechsContainer");
+    if (
+        scBox &&
+        typeof DispatcherTicketManager !== "undefined" &&
+        DispatcherTicketManager.setSelectedTechsInContainer
+    ) {
+        DispatcherTicketManager.setSelectedTechsInContainer(scBox, []);
+    } else {
+        var scSel = document.getElementById("scAssignedTechsSelect");
+        if (scSel) {
+            for (var si = 0; si < scSel.options.length; si++) {
+                scSel.options[si].selected = false;
+            }
         }
     }
     var scPri = document.getElementById("scPrimaryTechInput");
@@ -889,33 +904,6 @@ function openTicketDetails(dbId) {
     let savedTechs = JSON.parse(localStorage.getItem('tp_tech_list') || '[]');
     const crewModal = getAssignedTechsArray(sc);
     const primaryModal = getPrimaryTechFromTicket(sc);
-    let techCrewHtml =
-        '<p style="margin:0 0 6px 0;font-size:11px;color:#777;">Hold Ctrl / ⌘ to select multiple technicians.</p>' +
-        '<select id="tdTechMultiSelect" multiple size="5" style="width:100%;max-height:140px;padding:6px;border:1px solid #ccc;border-radius:4px;font-family:inherit;">';
-    savedTechs.forEach(function (tech) {
-        const sel = crewModal.indexOf(tech) !== -1 ? " selected" : "";
-        techCrewHtml +=
-            '<option value="' +
-            escapeAttrModal(tech) +
-            '"' +
-            sel +
-            ">" +
-            escapeHtmlDispatchMap(tech) +
-            "</option>";
-    });
-    techCrewHtml += "</select>";
-    let primaryOpts = '<option value="">— Lead —</option>';
-    savedTechs.forEach(function (tech) {
-        const sel = primaryModal === tech ? " selected" : "";
-        primaryOpts +=
-            "<option value=\"" +
-            escapeAttrModal(tech) +
-            "\"" +
-            sel +
-            ">" +
-            escapeHtmlDispatchMap(tech) +
-            "</option>";
-    });
 
     let custNumStr = sc.customerNum ? ` <span style="font-size: 14px; color: #7f8c8d; font-weight: normal;">(${sc.customerNum})</span>` : '';
     document.getElementById('tdModalTitle').innerHTML = `Ticket ${sc.ticketNum} - ${sc.customerName}${custNumStr}`;
@@ -947,10 +935,10 @@ function openTicketDetails(dbId) {
             <div style="background: #fcfdfe; padding: 15px; border: 1px solid #eaeaea; border-radius: 4px; margin-bottom: 15px;">
             <div style="margin-bottom: 15px;">
                 <p style="margin-top:0; margin-bottom: 8px;"><strong>Assigned technicians:</strong></p>
-                ${techCrewHtml}
+                <div id="tdTechAssignContainer" class="sc-tech-assignment-wrap"></div>
                 <label style="display:block;margin-top:12px;font-size:12px;font-weight:bold;color:#555;">Lead technician</label>
-                <select id="tdPrimaryTechSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit; margin-top:4px;">
-                    ${primaryOpts}
+                <select id="tdPrimaryTechSelect" class="sc-twin-pillar-select" style="width: 100%; margin-top:4px;">
+                    <option value="">— Lead —</option>
                 </select>
             </div>
             <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:12px; font-size:13px; line-height:1.35;">
@@ -1001,6 +989,28 @@ function openTicketDetails(dbId) {
         ${sc.techNotes ? `<p style="margin-top:14px;"><strong>Technician report (Field app):</strong></p><pre style="background:#e8f4fc; padding:12px; border-radius:4px; margin-top:6px; white-space:pre-wrap; font-family:inherit; font-size:13px; line-height:1.45; border:1px solid #b8d4ea; max-height:280px; overflow:auto;">${escapeHtmlServiceArchive(sc.techNotes)}</pre>` : '<p style="font-size:12px; color:#999; margin-top:10px;"><em>No technician report yet (Field app).</em></p>'}
         <div id="tdFieldQuotesMount" style="margin-top:16px;"></div>
     `;
+
+    (function () {
+        var tdBox = document.getElementById("tdTechAssignContainer");
+        if (
+            tdBox &&
+            typeof DispatcherTicketManager !== "undefined" &&
+            DispatcherTicketManager.mountTechMultiSelect
+        ) {
+            DispatcherTicketManager.mountTechMultiSelect(tdBox, savedTechs, {
+                initialSelected: crewModal,
+                leadSelectId: "tdPrimaryTechSelect",
+            });
+            var pSelModal = document.getElementById("tdPrimaryTechSelect");
+            if (pSelModal) {
+                if (primaryModal && crewModal.indexOf(primaryModal) !== -1) {
+                    pSelModal.value = primaryModal;
+                } else if (crewModal.length === 1) {
+                    pSelModal.value = crewModal[0];
+                }
+            }
+        }
+    })();
 
     document.getElementById('tdEditBtn').onclick = async function() {
         closeTicketDetails();
@@ -1063,12 +1073,21 @@ function closeTicketDetails() {
             const timeInput = document.getElementById('tdStartTime');
             const durInput = document.getElementById('tdDuration');
 
-            var ms = document.getElementById("tdTechMultiSelect");
+            var tdAssign = document.getElementById("tdTechAssignContainer");
             var newCrew = [];
-            if (ms) {
-                for (var mi = 0; mi < ms.options.length; mi++) {
-                    if (ms.options[mi].selected) {
-                        newCrew.push(ms.options[mi].value);
+            if (
+                tdAssign &&
+                typeof DispatcherTicketManager !== "undefined" &&
+                DispatcherTicketManager.getSelectedTechsFromContainer
+            ) {
+                newCrew = DispatcherTicketManager.getSelectedTechsFromContainer(tdAssign);
+            } else {
+                var ms = document.getElementById("tdTechMultiSelect");
+                if (ms) {
+                    for (var mi = 0; mi < ms.options.length; mi++) {
+                        if (ms.options[mi].selected) {
+                            newCrew.push(ms.options[mi].value);
+                        }
                     }
                 }
             }
@@ -2355,11 +2374,17 @@ async function improveIssueTextWithAI() {
 
     const safeRaw = String(raw).replace(/"""|```/g, " ");
     const editorRules = [
-        "You are an HVAC Dispatcher. Transform the user's rough notes into a clear, professional Work Order.",
-        "Use active, command-based language (e.g., 'Perform', 'Inspect', 'Replace').",
-        "Do NOT write in the past tense as if the work is finished.",
+        "Role: Professional HVAC Dispatcher.",
+        "Input: Rough notes about a customer issue.",
+        "Task: Create a technical Work Order (not a completion or \"as-left\" report).",
+        "Strict Rule 1: Use IMPERATIVE verbs (e.g., 'Inspect', 'Replace', 'Test').",
+        "Strict Rule 2: NEVER use past tense (e.g., avoid 'Changed', 'Verified', 'Completed').",
         "Fix grammar and spelling; remove filler (um, uh) without changing facts.",
         "NEVER invent equipment, parts, or site details; only use what appears in the raw notes.",
+        "Format the output exactly as follows:",
+        "[INSPECTION]: {What to look for}",
+        "[ACTION]: {Specific steps to take}",
+        "[VERIFICATION]: {How to confirm it's fixed}",
         "Output ONLY the work order text — no preamble or closing remarks.",
     ].join("\n");
 
