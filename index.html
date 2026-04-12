@@ -5409,18 +5409,30 @@
         document.body.style.overflow = "";
       }
 
-      /** Close when click is outside the phone bezel (handles flex wrappers / overlay without fragile target checks). */
+      /**
+       * Close when the click lands outside the phone bezel (dim overlay, modal padding, etc.).
+       * Uses closest() so flex wrappers / nested nodes are reliable. Phone area uses stopPropagation
+       * so iframe/bezel interactions never bubble here (iframe content stays isolated in its document).
+       */
       function closeOnBackgroundClick(event) {
         const modal = document.getElementById("fieldAppSimulatorModal");
         if (!modal || modal.classList.contains("hidden")) return;
-        const bezel = modal.querySelector(".field-app-simulator-bezel");
-        if (bezel && !bezel.contains(event.target)) {
-          closeFieldAppSimulator();
-        }
+        const el = event.target;
+        if (!(el instanceof Element)) return;
+        if (el.closest(".field-app-simulator-bezel")) return;
+        closeFieldAppSimulator();
       }
 
       (function wireFieldAppSimulator() {
         const modal = document.getElementById("fieldAppSimulatorModal");
+        const stage = document.getElementById("fieldAppSimulatorStage");
+        function stopPhoneBubble(event) {
+          event.stopPropagation();
+        }
+        if (stage) {
+          stage.addEventListener("click", stopPhoneBubble);
+          stage.addEventListener("pointerdown", stopPhoneBubble);
+        }
         if (modal) {
           modal.addEventListener("click", closeOnBackgroundClick);
         }
