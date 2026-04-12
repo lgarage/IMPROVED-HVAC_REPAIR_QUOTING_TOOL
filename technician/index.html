@@ -1113,6 +1113,237 @@ body {
 .dictation-site-nav .ws-customer { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
 .dictation-site-nav .ws-ticket { font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold; }
 .dictation-site-nav .ws-address { margin-bottom: 12px; }
+.dictation-site-nav .ws-site-intel-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ws-site-intel-btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.ws-site-intel-btn.site-intel--has-data {
+  background: #f4d03f;
+  color: #1a1a1a;
+  border-color: #d4ac0d;
+  animation: vc-site-intel-pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 0 2px rgba(244, 208, 63, 0.45);
+}
+@keyframes vc-site-intel-pulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.08); }
+}
+
+.dictation-channel-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 10px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5a6c7d;
+}
+.dictation-channel-bar .dictation-channel-label {
+  margin-right: 4px;
+}
+.dictation-channel-btn {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d9e0;
+  background: #fff;
+  color: #34495e;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dictation-channel-btn.dictation-channel-btn--active {
+  background: #1e4b85;
+  color: #fff;
+  border-color: #1e4b85;
+}
+.dictation-channel-btn .dictation-channel-icon {
+  margin-right: 4px;
+}
+#dictationHubNotes.dictation-hub-notes--internal {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+#dictationHubNotes.dictation-hub-notes--internal::placeholder {
+  color: #94a3b8;
+}
+
+.vc-site-search-wrap {
+  margin: 12px 0 18px 0;
+}
+.vc-site-search-wrap input[type="search"] {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #d1d9e0;
+  border-radius: 10px;
+  font-size: 15px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.vc-site-search-results {
+  margin-top: 8px;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid #e1e8ed;
+  border-radius: 10px;
+  background: #fff;
+}
+.vc-site-search-results[hidden] { display: none !important; }
+.vc-site-search-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.vc-site-search-item {
+  padding: 12px 14px;
+  border-bottom: 1px solid #eef1f4;
+}
+.vc-site-search-item:last-child { border-bottom: none; }
+.vc-site-search-line {
+  font-weight: 700;
+  font-size: 14px;
+  color: #2c3e50;
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+.vc-site-search-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.vc-site-search-actions .btn {
+  margin: 0;
+  font-size: 12px;
+  padding: 8px 10px;
+}
+.vc-site-search-empty {
+  margin: 0;
+  padding: 14px;
+  color: #7f8c8d;
+  font-size: 14px;
+}
+
+.vc-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.vc-modal.hidden { display: none !important; }
+.vc-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+.vc-modal-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  max-height: 88vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  padding: 18px 18px 24px;
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.12);
+}
+.vc-modal-sheet--wide { max-width: 640px; }
+.vc-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.vc-modal-head h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #1e4b85;
+}
+.vc-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  color: #7f8c8d;
+}
+.vc-modal-hint {
+  font-size: 13px;
+  color: #5a6c7d;
+  line-height: 1.45;
+  margin: 0 0 12px 0;
+}
+.vc-site-intel-location {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+}
+.vc-modal-sheet label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #555;
+  margin-bottom: 6px;
+}
+.vc-modal-sheet textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #d1d9e0;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 140px;
+}
+.vc-modal-actions {
+  margin-top: 14px;
+}
+.vc-modal-status {
+  font-size: 13px;
+  margin-top: 10px;
+  color: #5a6c7d;
+}
+.vc-unit-history-body {
+  font-size: 14px;
+  line-height: 1.45;
+}
+.vc-unit-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.vc-unit-history-list li {
+  padding: 12px 0;
+  border-bottom: 1px solid #eef1f4;
+}
+.vc-uh-row { font-size: 13px; color: #34495e; }
+.vc-uh-snippet { font-size: 12px; color: #7f8c8d; margin-top: 6px; }
+.vc-muted { color: #95a5a6; }
 
 .workspace-header {
   background: #1e4b85; color: #fff; padding: 20px; border-radius: 12px; margin-bottom: 20px;
@@ -2337,6 +2568,12 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   
   <div id="draftStatus" style="text-align: center; font-size: 12px; font-weight: bold; color: #7f8c8d; margin-bottom: 15px;"></div>
 
+  <div class="vc-site-search-wrap">
+    <label for="globalSiteSearchInput" class="visually-hidden">Search sites and locations</label>
+    <input type="search" id="globalSiteSearchInput" placeholder="Search sites (navigate, site intel, history)…" autocomplete="off" />
+    <div id="globalSiteSearchResults" class="vc-site-search-results" hidden></div>
+  </div>
+
   <div id="jobListContainer">
     <div style="text-align:center; padding: 40px 20px; color:#95a5a6;">Fetching schedule...</div>
   </div>
@@ -2361,6 +2598,15 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
         <span id="dictationProcessStatus" class="dictation-process-status" aria-live="polite"></span>
       </div>
     </div>
+    <div class="dictation-channel-bar" role="group" aria-label="Note visibility">
+      <span class="dictation-channel-label">Notes</span>
+      <button type="button" id="dictationChannelPublic" class="dictation-channel-btn dictation-channel-btn--active">
+        <span class="dictation-channel-icon" aria-hidden="true">📤</span>Public export
+      </button>
+      <button type="button" id="dictationChannelInternal" class="dictation-channel-btn">
+        <span class="dictation-channel-icon" aria-hidden="true">🛡️</span>Internal VC only
+      </button>
+    </div>
     <label for="dictationHubNotes" class="visually-hidden">Raw visit notes</label>
     <textarea id="dictationHubNotes" placeholder="Raw visit notes — speak, type, or paste here. This field stays on screen for the whole visit." rows="6" autocomplete="off"></textarea>
     <div class="dictation-action-tray-wrap">
@@ -2371,6 +2617,9 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     </div>
     <nav class="dictation-site-nav" aria-label="Customer and site">
       <div id="ws-customer" class="ws-customer">Select a Job</div>
+      <div class="ws-site-intel-row">
+        <button type="button" id="wsSiteIntelBtn" class="ws-site-intel-btn" title="Site-specific intel (roof access, etc.)">Site Intel</button>
+      </div>
       <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
         Return to Schedule to pick a ticket
       </button>
@@ -2922,6 +3171,7 @@ function switchScreen(screenName) {
     teardownWorkspaceAddendums();
     applyWorkspaceHistoricalMode(false);
     if (typeof teardownDictationHub === 'function') teardownDictationHub();
+    if (typeof teardownWorkspaceSiteIntel === 'function') teardownWorkspaceSiteIntel();
   }
   document.querySelectorAll('.screen').forEach(s => { s.classList.add('hidden'); s.classList.remove('active'); });
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -3394,6 +3644,7 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
       });
       myTickets = Array.from(byId.values());
       renderJobListUI();
+      if (typeof refreshLocationDirectoryCache === 'function') refreshLocationDirectoryCache();
       if (scheduleFirstSnapshotPending) {
         if (runDeepLink) maybeOpenDeepLinkedTicket().then(finishFirst);
         else finishFirst(false);
@@ -3820,6 +4071,7 @@ function openWorkspace(ticketId) {
   saveDraft();
   if (typeof refreshJobLinkedEquipmentDropdown === "function") refreshJobLinkedEquipmentDropdown();
   if (typeof startDictationHubFromWorkspace === "function") startDictationHubFromWorkspace();
+  if (typeof window.workspaceUiOnOpen === "function") window.workspaceUiOnOpen();
 }
 
 /* ---------- location local formatting fallback ---------- */
@@ -5225,7 +5477,33 @@ function uploadReportToCloud(visitData, fullReportText) {
     if (ticketId) {
         const ticketUpdate = { status: finalStatus, techNotes: fullReportText };
         if (linkedEquipmentId) ticketUpdate.Linked_Equipment_ID = linkedEquipmentId;
+        try {
+          const internalOnly = localStorage.getItem('dictationHubInternal_' + ticketId) || '';
+          if (internalOnly.trim()) ticketUpdate.internal_comms = internalOnly;
+        } catch (e) {}
         db.collection('service_calls').doc(ticketId).set(ticketUpdate, { merge: true }).catch(e => console.error("Ticket update queued."));
+        if (typeof window.UFXAdapter !== 'undefined' && typeof window.UFXAdapter.pushTicketSummary === 'function') {
+          var ufxVisit = visitData || {};
+          var resolution = '';
+          var parts = ufxVisit.partsUsed != null ? String(ufxVisit.partsUsed) : '';
+          var hours = '';
+          if (ufxVisit.mode === 'PM') {
+            resolution = ufxVisit.notesFinal != null ? String(ufxVisit.notesFinal) : '';
+          } else if (ufxVisit.mode === 'SERVICE CALL') {
+            resolution = ufxVisit.diagnosis != null ? String(ufxVisit.diagnosis) : '';
+            hours = ufxVisit.quoteLabor != null ? String(ufxVisit.quoteLabor) : '';
+          } else if (ufxVisit.mode === 'QUOTED REPAIR') {
+            resolution = ufxVisit.repairsCompleted != null ? String(ufxVisit.repairsCompleted) : '';
+          }
+          var ufxSafe = window.UFXAdapter.pushTicketSummary({
+            resolution: resolution,
+            parts: parts,
+            hours: hours,
+          });
+          if (typeof window.DATA_SOURCE !== 'undefined' && window.DATA_SOURCE === 'UFX') {
+            console.info('[UFXAdapter] pushTicketSummary (gatekept payload for external export)', ufxSafe);
+          }
+        }
     }
 
     document.querySelectorAll('.accordion').forEach(a => a.classList.remove('open'));
@@ -5338,6 +5616,13 @@ async function buildReportFromForm() {
 
     report = `QUOTED REPAIR\n\nLocation:\n${finalLocationDisplay}\n\nDate:\n${date}${nameplateBlock}\n\nEquipment Repaired:\n${quoteEquipDisplay}\n\nOriginal Issue Resolved:\n${issue}\n\nRepairs Completed:\n${repairsCompleted}\n\nSystem Testing & Verification:\n${testing}\n\nFurther Recommendations:\n${recs}\n\nPictures:\nRepair photos attached.\n`;
     visit = { date, mode: "QUOTED REPAIR", customer: getCustomerFromLocation(location), location, equipmentRepaired: quoteEquipDisplay, originalIssue: issue, repairsCompleted: repairsCompleted, partsUsed: "NONE", testingVerification: testing, recommendations: recs, report, ...ut };
+  }
+
+  var pubDict = typeof window.getPublicDictationNotesForReport === "function"
+    ? window.getPublicDictationNotesForReport()
+    : "";
+  if (pubDict) {
+    report += "\n\n--- Visit notes (dictation hub — public) ---\n" + pubDict;
   }
 
   return { report, visit };
@@ -5748,11 +6033,16 @@ window.onload = async function(){
 
     <script src="../equipment_manager.js?v=7"></script>
     <script src="../equipment_smart_select.js"></script>
-    <script src="js/providers/ufx_adapter.js"></script>
+    <script src="js/ufx_adapter.js"></script>
     <script src="js/data_provider.js"></script>
+    <script src="js/workspace_ui.js"></script>
+    <script src="js/location_manager.js"></script>
     <script src="../dictation_hub.js"></script>
     <script src="../equipment_hub.js"></script>
     <script src="../field_forms.js"></script>
     <script src="../tech_job_history.js"></script>
+    <script>
+      if (typeof initGlobalSiteDirectory === "function") initGlobalSiteDirectory();
+    </script>
 </body>
 </html>
