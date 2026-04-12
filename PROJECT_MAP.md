@@ -206,13 +206,52 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 ---
 
+### Proof of Service & client verification (Phase 14)
+
+#### Verification link (dispatcher)
+
+**User Guide**
+
+- **Send verification to client** (on the service ticket form) creates a **one-time style** link. Copy it from the box or use the automatic clipboard copy when the browser allows it.
+- **URL shape:** `{origin}/proof_of_service.html?tid={tenantId}&t={opaqueToken}` — map a short hostname (e.g. `vc.app`) in Firebase Hosting to the same site if desired.
+
+**Technical Specs**
+
+- `dispatcher/js/client_notifications.js` — writes `tenants/{tenantId}/portal_tokens/{token}` (metadata, branding snapshot, expiry ~90 days) and merges `portalVerificationToken` + `portalVerificationSentAt` on the service call.
+- `shared/client_portal_logic.js` — `VCClientPortal.generatePortalTokenId`, `buildProofOfServiceUrl`, `parseWorkOrderBlocks`, `generateClientSummaryLetter` (Gemini).
+
+#### Proof of Service page (customer)
+
+**User Guide**
+
+- Customer opens the link on a phone or desktop: sees branded header, **job site**, **equipment** line, **work performed** as **[INSPECTION] / [ACTION] / [VERIFICATION]** blocks when present in the technician/dispatch text (public notes only — **no** `internal_comms`), **or** a **Work summary** when the memo field is used instead.
+- **Photos:** `customerEvidenceUrls` and `evidencePhotoUrls` on the ticket.
+- **Approve work** records approval and sets the ticket status to **Client Verified / Ready for Billing** (when the write succeeds).
+
+**Technical Specs**
+
+- `proof_of_service.html` — Firebase compat + `shared/config.js`, `shared/firebase_logic.js`, `shared/client_portal_logic.js`; reads token doc, loads ticket via `getServiceCallOnceBridged`; approval: `portal_tokens` merge + `setServiceCallMerged` on the ticket.
+
+#### AI: Generate Client Summary
+
+**User Guide**
+
+- On the service form, **✉ Generate Client Summary** uses the technician report (or reported issue if empty) to draft a **professional letter** into **Client portal memo**; save the ticket to persist it.
+
+**Technical Specs**
+
+- `generateClientSummaryForPortal()` in `service_call.js`; `clientPortalMemo` on the service call document via normal save/merge.
+
+---
+
 ## Build History
 
 - [v] Phase 10: Tenant Isolation & Branding
 - [v] Phase 11: Terminology Pivot (Inter-Office Comms) & Data Bridge
 - [v] Phase 12: Enterprise Data Importer (BuildOps Mapping)
 - [v] Phase 13: Lite Seat Dashboard & Payroll Manager (`labor_logs`, `time_tracker.js`, `payroll_manager.js`)
+- [v] Phase 14: Client Verification & Proof of Service Portal (`portal_tokens`, `proof_of_service.html`, `client_notifications.js`, `client_portal_logic.js`)
 
 ## Current Focus
 
-- Next: production hardening (Firestore rules for `labor_logs`, optional composite indexes for payroll queries).
+- Next: production Firestore rules for `portal_tokens` (public read + controlled approval write) and `labor_logs`; optional short URL / custom domain for `proof_of_service.html`.

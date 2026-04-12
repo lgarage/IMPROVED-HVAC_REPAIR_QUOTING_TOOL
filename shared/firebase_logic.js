@@ -68,6 +68,14 @@
     return tenantCollection(db, "labor_logs");
   }
 
+  /** Client proof-of-service magic links (token doc id = opaque string in URL). */
+  function portalTokens(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "portal_tokens");
+    }
+    return tenantCollection(db, "portal_tokens");
+  }
+
   /** Single roster document: names[], profiles{}, updatedAt */
   function rosterDoc(db) {
     return tenantCollection(db, "roster").doc("default");
@@ -463,6 +471,7 @@
     tenantUsers: tenantUsers,
     tenantImportedEquipment: tenantImportedEquipment,
     laborLogs: laborLogs,
+    portalTokens: portalTokens,
     serviceCalls: serviceCalls,
     siteIntelligence: siteIntelligence,
     rosterDoc: rosterDoc,

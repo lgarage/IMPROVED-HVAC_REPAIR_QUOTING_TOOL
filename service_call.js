@@ -846,6 +846,10 @@ function gatherServiceData() {
                 return Math.round(techs.length * 8 * (mo.days || 2) * 100) / 100;
             }
             return Math.round(techs.length * (parseFloat(dur) || 1.5) * 100) / 100;
+        })(),
+        clientPortalMemo: (function () {
+            var el = document.getElementById("scClientPortalMemo");
+            return el && el.value ? String(el.value).trim() : "";
         })()
     };
 }
@@ -904,6 +908,16 @@ function clearServiceForm() {
     document.getElementById('scNotesInput').value = "";
     const scTn = document.getElementById('scTechNotesReadonly');
     if (scTn) scTn.value = "";
+    const scMemo = document.getElementById('scClientPortalMemo');
+    if (scMemo) scMemo.value = "";
+    const vcUrl = document.getElementById('vcClientVerificationUrlOut');
+    if (vcUrl) {
+        vcUrl.value = "";
+        vcUrl.style.display = "none";
+    }
+    if (typeof VcClientNotifications !== 'undefined' && VcClientNotifications.teardownPortalWatch) {
+        VcClientNotifications.teardownPortalWatch();
+    }
     const scRel = document.getElementById('scReleasedToTech');
     if (scRel) scRel.checked = false;
 
@@ -1313,6 +1327,14 @@ async function loadServiceCall(dbId) {
     if (scRelEdit) scRelEdit.checked = data.releasedToTech !== false;
     const scTechRo = document.getElementById('scTechNotesReadonly');
     if (scTechRo) scTechRo.value = data.techNotes || '';
+    const scMemo = document.getElementById('scClientPortalMemo');
+    if (scMemo) scMemo.value = data.clientPortalMemo || '';
+    if (typeof VcClientNotifications !== 'undefined') {
+        if (VcClientNotifications.teardownPortalWatch) VcClientNotifications.teardownPortalWatch();
+        if (data.portalVerificationToken && VcClientNotifications.watchPortalTokenForTicket) {
+            VcClientNotifications.watchPortalTokenForTicket(data.portalVerificationToken, data.id);
+        }
+    }
 
     if (data.parentId && typeof setServiceParentSelect === 'function') {
         await setServiceParentSelect(data.parentId);
@@ -2583,6 +2605,45 @@ async function improveIssueTextWithAI() {
     } catch (err) {
         console.error("improveIssueTextWithAI", err);
         alert("Clean up & structure with AI failed: " + (err && err.message ? err.message : String(err)));
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = label;
+        }
+    }
+}
+
+/**
+ * AI: professional customer letter for Proof of Service / client portal (from tech notes or issue).
+ */
+async function generateClientSummaryForPortal() {
+    if (typeof VCClientPortal === "undefined" || !VCClientPortal.generateClientSummaryLetter) {
+        alert("Client portal helpers not loaded (shared/client_portal_logic.js).");
+        return;
+    }
+    var techEl = document.getElementById("scTechNotesReadonly");
+    var issueEl = document.getElementById("scIssueInput");
+    var custEl = document.getElementById("scCustNameInput");
+    var tech = techEl && techEl.value ? String(techEl.value).trim() : "";
+    var issue = issueEl && issueEl.value ? String(issueEl.value).trim() : "";
+    var cust = custEl && custEl.value ? String(custEl.value).trim() : "";
+    var raw = tech || issue;
+    var btn = document.getElementById("scClientSummaryAiBtn");
+    var label = "✉ Generate Client Summary";
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = "⏳ Generating…";
+    }
+    try {
+        var letter = await VCClientPortal.generateClientSummaryLetter(raw, cust);
+        var memo = document.getElementById("scClientPortalMemo");
+        if (memo) memo.value = letter;
+        if (typeof showSaveCue === "function") {
+            showSaveCue("✓ Client summary ready — save the ticket when ready.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert(err && err.message ? err.message : String(err));
     } finally {
         if (btn) {
             btn.disabled = false;

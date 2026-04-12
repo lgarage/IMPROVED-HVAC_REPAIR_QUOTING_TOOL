@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Proof of Service</title>
+    <link rel="icon" type="image/png" href="tphc_logo.png" />
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js?v=3"></script>
+    <script src="shared/config.js"></script>
+    <script src="shared/firebase_logic.js"></script>
+    <script src="shared/client_portal_logic.js?v=1"></script>
+    <style>
+      :root {
+        --vc-pri: #1e4b85;
+        --vc-accent: #c89b53;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #f0f2f5;
+        color: #1e293b;
+        min-height: 100vh;
+      }
+      .vc-pos-wrap {
+        max-width: 520px;
+        margin: 0 auto;
+        padding: 20px 16px 48px;
+      }
+      .vc-pos-head {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .vc-pos-head img {
+        max-height: 48px;
+        margin-bottom: 8px;
+      }
+      .vc-pos-head h1 {
+        margin: 0;
+        font-size: 1.25rem;
+        color: var(--vc-pri);
+      }
+      .vc-pos-sub {
+        font-size: 13px;
+        color: #64748b;
+        margin: 6px 0 0;
+      }
+      .vc-pos-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 18px 16px;
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 16px;
+      }
+      .vc-pos-card h2 {
+        margin: 0 0 10px;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+      }
+      .vc-pos-block {
+        margin-bottom: 14px;
+      }
+      .vc-pos-block h3 {
+        margin: 0 0 6px;
+        font-size: 12px;
+        color: var(--vc-pri);
+        font-weight: 800;
+      }
+      .vc-pos-block p {
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+      }
+      .vc-pos-photos {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .vc-pos-photos img {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        object-fit: cover;
+        aspect-ratio: 4/3;
+        background: #f8fafc;
+      }
+      .vc-pos-approve {
+        margin-top: 8px;
+      }
+      .vc-pos-approve label {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+      .vc-pos-approve input {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        font-size: 16px;
+        margin-bottom: 12px;
+      }
+      .vc-pos-btn {
+        width: 100%;
+        padding: 16px;
+        font-size: 17px;
+        font-weight: 800;
+        border: none;
+        border-radius: 10px;
+        background: var(--vc-pri);
+        color: #fff;
+        cursor: pointer;
+      }
+      .vc-pos-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .vc-pos-msg {
+        font-size: 14px;
+        margin-top: 12px;
+        text-align: center;
+        color: #15803d;
+        font-weight: 600;
+      }
+      .vc-pos-err {
+        color: #b91c1c;
+        font-size: 14px;
+        margin-top: 10px;
+      }
+      .vc-pos-loading {
+        text-align: center;
+        padding: 40px 16px;
+        color: #64748b;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="vcPosRoot" class="vc-pos-wrap">
+      <p class="vc-pos-loading" id="vcPosLoading">Loading…</p>
+    </div>
+    <script>
+      (function () {
+        function qs(name) {
+          var m = new RegExp("[?&]" + name + "=([^&]*)").exec(
+            String(location.search || "")
+          );
+          return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : "";
+        }
+        function esc(s) {
+          return String(s == null ? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+        function resolveLogo(u) {
+          if (!u) return "";
+          var x = String(u).trim();
+          if (/^https?:\/\//i.test(x) || x.charAt(0) === "/") return x;
+          return x.replace(/^\.\//, "");
+        }
+
+        var tid = qs("tid");
+        var token = qs("t");
+        var root = document.getElementById("vcPosRoot");
+        var loading = document.getElementById("vcPosLoading");
+
+        if (!tid || !token) {
+          if (loading) loading.textContent = "Invalid link — missing verification code.";
+          return;
+        }
+        if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+          if (loading) loading.textContent = "Unable to load Firebase.";
+          return;
+        }
+        if (typeof VCFirestore === "undefined") {
+          if (loading) loading.textContent = "Configuration error.";
+          return;
+        }
+
+        var db = firebase.firestore();
+        var portalRef = VCFirestore.portalTokens(db).doc(token);
+
+        portalRef
+          .get()
+          .then(function (snap) {
+            if (!snap.exists) {
+              if (loading) loading.textContent = "This verification link is invalid or has expired.";
+              return;
+            }
+            var meta = snap.data() || {};
+            if (String(meta.tenantId || "") !== tid) {
+              if (loading) loading.textContent = "Link does not match tenant.";
+              return;
+            }
+            var exp = meta.expiresAt;
+            if (exp && exp.toMillis && exp.toMillis() < Date.now()) {
+              if (loading) loading.textContent = "This link has expired. Contact the office for a new one.";
+              return;
+            }
+            var ticketId = String(meta.ticketId || "");
+            if (!ticketId) {
+              if (loading) loading.textContent = "Missing job reference.";
+              return;
+            }
+
+            return VCFirestore.getServiceCallOnceBridged(db, ticketId).then(function (got) {
+              if (!got || !got.exists || !got.data) {
+                if (loading) loading.textContent = "Job not found.";
+                return;
+              }
+              var job = got.data;
+              var pri = meta.primaryColor || "#1e4b85";
+              document.documentElement.style.setProperty("--vc-pri", pri);
+
+              var memoOnly = String(job.clientPortalMemo || "").trim();
+              var descForBlocks = memoOnly
+                ? ""
+                : VCClientPortal.pickPublicWorkDescription(
+                    job.issue,
+                    job.techNotes,
+                    ""
+                  );
+              var blocks = memoOnly
+                ? { inspection: "", action: "", verification: "", remainder: "" }
+                : VCClientPortal.parseWorkOrderBlocks(descForBlocks);
+              var photos = [];
+              if (Array.isArray(job.customerEvidenceUrls)) {
+                photos = photos.concat(job.customerEvidenceUrls.filter(Boolean));
+              }
+              if (Array.isArray(job.evidencePhotoUrls)) {
+                photos = photos.concat(job.evidencePhotoUrls.filter(Boolean));
+              }
+
+              var brand = meta.shortBrand || meta.brandName || "Service visit";
+              var logo = resolveLogo(meta.logoUrl || "");
+              var ticketLabel = meta.ticketNum || job.ticketNum || ticketId;
+
+              var html = "";
+              html += '<div class="vc-pos-head">';
+              if (logo) {
+                html +=
+                  '<img src="' +
+                  esc(logo) +
+                  '" alt="" onerror="this.style.display=\'none\'" />';
+              }
+              html += "<h1>" + esc(brand) + "</h1>";
+              html +=
+                '<p class="vc-pos-sub">Proof of service · Ticket ' +
+                esc(ticketLabel) +
+                "</p></div>";
+
+              html += '<div class="vc-pos-card">';
+              html += "<h2>Job site</h2>";
+              html +=
+                "<p><strong>" +
+                esc(job.customerName || "Customer") +
+                "</strong><br/>";
+              var addr = [
+                job.locationAddress,
+                [job.custCity, job.custState, job.custZip].filter(Boolean).join(" "),
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              html += esc(addr || "—") + "</p>";
+              if (job.equip) {
+                html +=
+                  '<p style="margin-top:10px;font-size:14px;"><strong>Equipment:</strong> ' +
+                  esc(job.equip) +
+                  "</p>";
+              }
+              html += "</div>";
+
+              if (memoOnly) {
+                html += '<div class="vc-pos-card"><h2>Work summary</h2>';
+                html +=
+                  '<div class="vc-pos-block"><p>' + esc(memoOnly) + "</p></div></div>";
+              } else if (blocks.inspection || blocks.action || blocks.verification) {
+                html += '<div class="vc-pos-card"><h2>Work performed</h2>';
+                if (blocks.inspection) {
+                  html +=
+                    '<div class="vc-pos-block"><h3>Inspection</h3><p>' +
+                    esc(blocks.inspection) +
+                    "</p></div>";
+                }
+                if (blocks.action) {
+                  html +=
+                    '<div class="vc-pos-block"><h3>Action</h3><p>' +
+                    esc(blocks.action) +
+                    "</p></div>";
+                }
+                if (blocks.verification) {
+                  html +=
+                    '<div class="vc-pos-block"><h3>Verification</h3><p>' +
+                    esc(blocks.verification) +
+                    "</p></div>";
+                }
+                html += "</div>";
+              } else if (blocks.remainder) {
+                html += '<div class="vc-pos-card"><h2>Summary</h2>';
+                html +=
+                  '<div class="vc-pos-block"><p>' + esc(blocks.remainder) + "</p></div>";
+                html += "</div>";
+              }
+
+              if (photos.length) {
+                html += '<div class="vc-pos-card"><h2>Photos</h2><div class="vc-pos-photos">';
+                photos.slice(0, 12).forEach(function (url) {
+                  var u = String(url).trim();
+                  if (!u) return;
+                  html +=
+                    '<a href="' +
+                    esc(u) +
+                    '" target="_blank" rel="noopener"><img src="' +
+                    esc(u) +
+                    '" alt="" loading="lazy" /></a>';
+                });
+                html += "</div></div>";
+              }
+
+              var already = meta.clientApprovedAt;
+              if (already) {
+                html +=
+                  '<p class="vc-pos-msg">This visit was already approved. Thank you.</p>';
+                root.innerHTML = html;
+                return;
+              }
+
+              html += '<div class="vc-pos-card vc-pos-approve">';
+              html += "<h2>Approve work</h2>";
+              html +=
+                '<p style="font-size:14px;color:#64748b;margin:0 0 12px;">By approving, you confirm the work described above was completed to your satisfaction.</p>';
+              html +=
+                '<label for="vcPosSigner">Your name (optional)</label>';
+              html +=
+                '<input type="text" id="vcPosSigner" placeholder="Full name" autocomplete="name" />';
+              html +=
+                '<button type="button" class="vc-pos-btn" id="vcPosApproveBtn">Approve work</button>';
+              html += '<p class="vc-pos-err" id="vcPosErr" hidden></p>';
+              html += '<p class="vc-pos-msg" id="vcPosOk" hidden></p>';
+              html += "</div>";
+
+              root.innerHTML = html;
+
+              document.getElementById("vcPosApproveBtn").addEventListener("click", function () {
+                var btn = document.getElementById("vcPosApproveBtn");
+                var err = document.getElementById("vcPosErr");
+                var ok = document.getElementById("vcPosOk");
+                var signer =
+                  (document.getElementById("vcPosSigner") || {}).value || "";
+                if (err) {
+                  err.hidden = true;
+                  err.textContent = "";
+                }
+                btn.disabled = true;
+                var ts = firebase.firestore.FieldValue.serverTimestamp();
+                var nameLine = String(signer).trim() || "Customer";
+                portalRef
+                  .set(
+                    {
+                      clientApprovedAt: ts,
+                      clientSignerName: nameLine,
+                    },
+                    { merge: true }
+                  )
+                  .then(function () {
+                    if (typeof VCFirestore.setServiceCallMerged === "function") {
+                      return VCFirestore.setServiceCallMerged(
+                        db,
+                        ticketId,
+                        {
+                          status: "Client Verified / Ready for Billing",
+                          clientVerifiedAt: ts,
+                          clientVerifiedSignerName: nameLine,
+                        },
+                        true
+                      );
+                    }
+                    return VCFirestore.serviceCalls(db)
+                      .doc(ticketId)
+                      .set(
+                        {
+                          status: "Client Verified / Ready for Billing",
+                          clientVerifiedAt: ts,
+                          clientVerifiedSignerName: nameLine,
+                        },
+                        { merge: true }
+                      );
+                  })
+                  .then(function () {
+                    if (ok) {
+                      ok.hidden = false;
+                      ok.textContent =
+                        "Thank you — your approval has been recorded.";
+                    }
+                    var appr = root.querySelector(".vc-pos-approve");
+                    if (appr) appr.style.display = "none";
+                  })
+                  .catch(function (e) {
+                    console.error(e);
+                    if (err) {
+                      err.hidden = false;
+                      err.textContent =
+                        e && e.message
+                          ? e.message
+                          : "Could not save approval. Try again or call the office.";
+                    }
+                    btn.disabled = false;
+                  });
+              });
+            });
+          })
+          .catch(function (e) {
+            console.error(e);
+            if (loading) loading.textContent = "Could not load this page.";
+          });
+      })();
+    </script>
+  </body>
+</html>

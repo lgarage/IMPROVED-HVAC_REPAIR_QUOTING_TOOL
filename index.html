@@ -22,6 +22,7 @@
     <script src="firebase-config.js?v=3"></script>
     <script src="shared/config.js"></script>
     <script src="shared/firebase_logic.js"></script>
+    <script src="shared/client_portal_logic.js?v=1"></script>
     <script>
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
@@ -3211,6 +3212,9 @@
                   <option value="Needs Repair Quote">Needs Repair Quote</option>
                   <option value="Parts on Order">Parts on Order</option>
                   <option value="Completed">Completed (Needs Billing)</option>
+                  <option value="Client Verified / Ready for Billing">
+                    Client Verified / Ready for Billing
+                  </option>
                   <option value="Canceled">Canceled</option>
                 </select>
               </div>
@@ -3244,6 +3248,17 @@
                     onmouseleave="this.style.filter='none'"
                   >
                     ✨ Clean up &amp; structure with AI
+                  </button>
+                  <button
+                    type="button"
+                    id="scClientSummaryAiBtn"
+                    class="sc-issue-ai-btn"
+                    onclick="generateClientSummaryForPortal()"
+                    title="Draft a professional customer letter from technician notes (for the client portal)"
+                    onmouseenter="this.style.filter='brightness(1.06)'"
+                    onmouseleave="this.style.filter='none'"
+                  >
+                    ✉ Generate Client Summary
                   </button>
                 </div>
                 <textarea
@@ -3295,6 +3310,65 @@
                     color: #2c3e50;
                   "
                   placeholder="The full report from the Field app appears here after the tech taps Complete &amp; Sync. Dispatch notes above are separate."
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="input-group" style="width: 100%">
+                <label for="scClientPortalMemo"
+                  >Client portal memo (customer-facing letter)</label
+                >
+                <textarea
+                  id="scClientPortalMemo"
+                  style="
+                    resize: vertical;
+                    min-height: 100px;
+                    font-family: inherit;
+                    width: 100%;
+                    box-sizing: border-box;
+                  "
+                  placeholder="Optional: friendly summary shown on the Proof of Service link. Use ✉ Generate Client Summary or write your own."
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="input-group" style="width: 100%">
+                <label>Client verification</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+                  <button
+                    type="button"
+                    id="vcSendVerificationBtn"
+                    style="
+                      padding: 10px 14px;
+                      background: #0f766e;
+                      color: #fff;
+                      border: none;
+                      border-radius: 6px;
+                      font-weight: bold;
+                      cursor: pointer;
+                    "
+                  >
+                    Send verification to client
+                  </button>
+                  <span style="font-size: 11px; color: #64748b"
+                    >Creates a read-only link (no inter-office content).</span
+                  >
+                </div>
+                <textarea
+                  id="vcClientVerificationUrlOut"
+                  readonly
+                  rows="2"
+                  style="
+                    display: none;
+                    width: 100%;
+                    margin-top: 8px;
+                    font-size: 12px;
+                    box-sizing: border-box;
+                    font-family: ui-monospace, monospace;
+                  "
+                  placeholder="Verification URL appears here after you send…"
                 ></textarea>
               </div>
             </div>
@@ -6129,7 +6203,8 @@
         switchTab("pulse");
       }
     </script>
-    <script src="service_call.js?v=56"></script>
+    <script src="service_call.js?v=57"></script>
+    <script src="dispatcher/js/client_notifications.js?v=1"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=39"></script>
 
