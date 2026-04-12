@@ -1157,6 +1157,19 @@
         margin-top: 3px;
         flex-shrink: 0;
       }
+      .sc-duration-with-labor {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        width: 100%;
+      }
+      .sc-total-labor-inline {
+        font-size: 11px;
+        color: #64748b;
+        font-weight: 500;
+        line-height: 1.35;
+        min-height: 1.2em;
+      }
       .sc-lead-required {
         color: #e74c3c;
         font-weight: 800;
@@ -2667,17 +2680,24 @@
               </div>
               <div class="input-group">
                 <label>Est. Duration</label>
-                <select id="scDurationInput">
-                  <option value="0.5">0.5 hrs</option>
-                  <option value="1.0">1.0 hrs</option>
-                  <option value="1.5">1.5 hrs</option>
-                  <option value="2.0" selected>2.0 hrs</option>
-                  <option value="3.0">3.0 hrs</option>
-                  <option value="4.0">4.0 hrs</option>
-                  <option value="6.0">6.0 hrs</option>
-                  <option value="8.0">8.0 hrs</option>
-                  <option value="Multi-Day">Multi-Day</option>
-                </select>
+                <div class="sc-duration-with-labor">
+                  <select id="scDurationInput" class="sc-twin-pillar-select">
+                    <option value="0.5">0.5 hrs</option>
+                    <option value="1.0">1.0 hrs</option>
+                    <option value="1.5">1.5 hrs</option>
+                    <option value="2.0" selected>2.0 hrs</option>
+                    <option value="3.0">3.0 hrs</option>
+                    <option value="4.0">4.0 hrs</option>
+                    <option value="6.0">6.0 hrs</option>
+                    <option value="8.0">8.0 hrs</option>
+                    <option value="Multi-Day">Multi-Day</option>
+                  </select>
+                  <span
+                    id="scTotalLaborInline"
+                    class="sc-total-labor-inline"
+                    aria-live="polite"
+                  ></span>
+                </div>
               </div>
             </div>
             <input type="hidden" id="scTotalBillableHoursInput" value="0" />
@@ -2685,14 +2705,18 @@
             <div class="form-row">
               <div class="input-group">
                 <label>Job Type</label>
-                <select id="scJobTypeInput" onchange="updateTicketPrefix()">
+                <select
+                  id="scJobTypeInput"
+                  class="sc-twin-pillar-select"
+                  onchange="updateTicketPrefix()"
+                >
                   <option value="Preventative Maintenance">
-                    PM — Preventative Maintenance
+                    PM - Preventative Maintenance
                   </option>
-                  <option value="Quoted Repair">QR — Quoted Repair</option>
-                  <option value="Service Call" selected>SC — Service Call</option>
-                  <option value="Install">IN — Install</option>
-                  <option value="Warranty Call">WC — Warranty Call</option>
+                  <option value="Quoted Repair">QR - Quoted Repair</option>
+                  <option value="Service Call" selected>SC - Service Call</option>
+                  <option value="Install">IN - Install</option>
+                  <option value="Warranty Call">WC - Warranty Call</option>
                 </select>
               </div>
               <div class="input-group">
@@ -5663,7 +5687,7 @@
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js"></script>
-    <script src="service_call.js?v=52"></script>
+    <script src="service_call.js?v=53"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=39"></script>
 

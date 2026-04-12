@@ -263,6 +263,10 @@ function updateDispatcherLaborFields() {
               " — prefills Repair Labor Hours on Generate Invoice."
             : "";
     }
+    var laborInline = document.getElementById("scTotalLaborInline");
+    if (laborInline) {
+        laborInline.textContent = "Total Labor: " + total.toFixed(1) + " hours.";
+    }
     if (typeof triggerServiceAutoSave === "function") {
         triggerServiceAutoSave();
     }
@@ -813,6 +817,9 @@ function clearServiceForm() {
     document.getElementById('scDurationInput').value = "2.0";
     
     if(typeof toggleNewCustomerWarning === 'function') toggleNewCustomerWarning(false);
+    if (typeof updateDispatcherLaborFields === "function") {
+        updateDispatcherLaborFields();
+    }
     document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -2386,6 +2393,7 @@ async function improveIssueTextWithAI() {
         "[ACTION]: {Specific steps to take}",
         "[VERIFICATION]: {How to confirm it's fixed}",
         "Output ONLY the work order text — no preamble or closing remarks.",
+        "Keep the language concise. These notes will be read on a mobile device in the field. Avoid fluff.",
     ].join("\n");
 
     const prompt =
