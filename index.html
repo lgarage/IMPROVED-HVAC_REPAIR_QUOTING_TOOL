@@ -1237,6 +1237,108 @@
         font-weight: 500;
         cursor: pointer;
       }
+      #scMultiDayDetails[hidden] {
+        display: none !important;
+      }
+      .sc-input-with-voice {
+        display: flex;
+        align-items: stretch;
+        width: 100%;
+        max-width: 100%;
+        margin-top: 6px;
+      }
+      .sc-input-with-voice input[type="text"] {
+        flex: 1;
+        min-width: 0;
+        border-radius: 8px 0 0 8px;
+        border: 1px solid #ccd0d5;
+        padding: 10px 12px;
+        font-size: 14px;
+        font-family: inherit;
+      }
+      .sc-input-with-voice input[type="text"]:focus {
+        outline: none;
+        border-color: #1e4b85;
+        box-shadow: 0 0 0 2px rgba(30, 75, 133, 0.2);
+        position: relative;
+        z-index: 1;
+      }
+      .sc-input-with-voice .sc-voice-btn {
+        flex-shrink: 0;
+        touch-action: none;
+        background: #f39c12;
+        color: #fff;
+        border: 1px solid #e67e22;
+        border-left: none;
+        border-radius: 0 8px 8px 0;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: transform 0.1s, background 0.1s;
+        user-select: none;
+        white-space: nowrap;
+        max-width: 100%;
+      }
+      .sc-input-with-voice .sc-voice-btn:hover {
+        background: #f5a623;
+      }
+      @media (max-width: 640px) {
+        .sc-input-with-voice {
+          flex-wrap: wrap;
+        }
+        .sc-input-with-voice input[type="text"] {
+          border-radius: 8px;
+          width: 100%;
+        }
+        .sc-input-with-voice .sc-voice-btn {
+          border-radius: 8px;
+          border-left: 1px solid #e67e22;
+          width: 100%;
+        }
+      }
+      .sc-issue-field-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .sc-issue-field-toolbar .sc-issue-voice-btn {
+        background: #f39c12;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        transition: transform 0.1s, background 0.1s, filter 0.15s;
+        user-select: none;
+      }
+      .sc-issue-field-toolbar .sc-issue-ai-btn {
+        background: linear-gradient(180deg, #234a7c 0%, #1e4b85 100%);
+        color: #fff;
+        border: 2px solid #c89b53;
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(30, 75, 133, 0.25);
+        transition: transform 0.1s, filter 0.15s;
+        user-select: none;
+      }
+      .sc-issue-field-label {
+        color: #e74c3c;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 0;
+        display: block;
+      }
       .sc-lead-required {
         color: #e74c3c;
         font-weight: 800;
@@ -2398,46 +2500,26 @@
 
             <div class="form-row">
               <div class="input-group" style="flex: 2">
-                <div
-                  style="
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 10px;
-                  "
+                <label style="margin-bottom: 5px; font-size: 14px"
+                  >Customer Name</label
                 >
-                  <label style="margin-bottom: 0; font-size: 14px"
-                    >Customer Name</label
-                  >
+                <div class="sc-input-with-voice">
+                  <input
+                    type="text"
+                    id="scCustNameInput"
+                    placeholder="e.g. Planet Fitness"
+                    list="customerNamesList"
+                    onblur="checkServiceParentCompany()"
+                  />
                   <button
                     type="button"
                     id="scMicBtn"
+                    class="sc-voice-btn"
                     onmousedown="startDispatcherVoiceSearch()"
-                    style="
-                      touch-action: none;
-                      background: #f39c12;
-                      color: #fff;
-                      border: none;
-                      border-radius: 8px;
-                      padding: 12px 25px;
-                      font-size: 15px;
-                      font-weight: bold;
-                      cursor: pointer;
-                      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-                      transition: transform 0.1s, background 0.1s;
-                      user-select: none;
-                    "
                   >
-                    🎤 HOLD TO SPEAK
+                    🎤 Hold to speak customer name
                   </button>
                 </div>
-                <input
-                  type="text"
-                  id="scCustNameInput"
-                  placeholder="e.g. Planet Fitness"
-                  list="customerNamesList"
-                  onblur="checkServiceParentCompany()"
-                />
               </div>
               <div class="input-group" style="flex: 1">
                 <label style="margin-bottom: 5px">Customer #</label>
@@ -2922,79 +3004,33 @@
 
             <div class="form-row">
               <div class="input-group" style="width: 100%">
-                <div class="form-row" style="margin-bottom: 5px">
-                  <div class="input-group">
-                    <div
-                      style="
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        flex-wrap: wrap;
-                        gap: 10px;
-                      "
-                    >
-                      <label
-                        style="
-                          color: #e74c3c;
-                          margin-bottom: 0;
-                          font-size: 14px;
-                        "
-                        >Reported Issue / Scope of Work</label
-                      >
-                      <div
-                        style="
-                          display: flex;
-                          align-items: stretch;
-                          gap: 10px;
-                          flex-wrap: wrap;
-                        "
-                      >
-                        <button
-                          type="button"
-                          id="scIssueMicBtn"
-                          onmousedown="startIssueVoiceInput()"
-                          style="
-                            background: #f39c12;
-                            color: #fff;
-                            border: none;
-                            border-radius: 8px;
-                            padding: 12px 22px;
-                            font-size: 15px;
-                            font-weight: bold;
-                            cursor: pointer;
-                            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-                            transition: transform 0.1s, background 0.1s;
-                            user-select: none;
-                          "
-                        >
-                          🎤 HOLD TO SPEAK
-                        </button>
-                        <button
-                          type="button"
-                          id="scIssueImproveAiBtn"
-                          onclick="improveIssueTextWithAI()"
-                          title="Rewrite rough notes as an imperative work order (Inspect / Action / Verification)"
-                          style="
-                            background: linear-gradient(180deg, #234a7c 0%, #1e4b85 100%);
-                            color: #fff;
-                            border: 2px solid #c89b53;
-                            border-radius: 8px;
-                            padding: 12px 20px;
-                            font-size: 15px;
-                            font-weight: bold;
-                            cursor: pointer;
-                            box-shadow: 0 4px 12px rgba(30, 75, 133, 0.25);
-                            transition: transform 0.1s, filter 0.15s;
-                            user-select: none;
-                          "
-                          onmouseenter="this.style.filter='brightness(1.06)'"
-                          onmouseleave="this.style.filter='none'"
-                        >
-                          ✨ Improve With AI
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                <label class="sc-issue-field-label" for="scIssueInput"
+                  >Reported Issue / Scope of Work</label
+                >
+                <div
+                  class="sc-issue-field-toolbar"
+                  role="toolbar"
+                  aria-label="Reported issue voice and AI tools"
+                >
+                  <button
+                    type="button"
+                    id="scIssueMicBtn"
+                    class="sc-issue-voice-btn"
+                    onmousedown="startIssueVoiceInput()"
+                  >
+                    🎤 Hold to speak reported issue
+                  </button>
+                  <button
+                    type="button"
+                    id="scIssueImproveAiBtn"
+                    class="sc-issue-ai-btn"
+                    onclick="improveIssueTextWithAI()"
+                    title="Rewrite rough notes as an imperative work order (Inspect / Action / Verification)"
+                    onmouseenter="this.style.filter='brightness(1.06)'"
+                    onmouseleave="this.style.filter='none'"
+                  >
+                    ✨ Clean up &amp; structure with AI
+                  </button>
                 </div>
                 <textarea
                   id="scIssueInput"
@@ -3002,6 +3038,8 @@
                     resize: vertical;
                     min-height: 80px;
                     font-family: inherit;
+                    width: 100%;
+                    box-sizing: border-box;
                   "
                   placeholder="Describe what the customer is reporting..."
                 ></textarea>
@@ -5780,7 +5818,7 @@
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js"></script>
-    <script src="service_call.js?v=54"></script>
+    <script src="service_call.js?v=55"></script>
     <script src="quoting.js?v=6"></script>
     <script src="invoice.js?v=39"></script>
 

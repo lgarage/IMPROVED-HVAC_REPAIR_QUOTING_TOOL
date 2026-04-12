@@ -2155,7 +2155,7 @@ async function stopDispatcherVoiceSearch() {
 function resetDispatcherMicBtn() {
     const micBtn = document.getElementById('scMicBtn');
     if(micBtn) {
-        micBtn.innerText = "🎤 HOLD TO SPEAK";
+        micBtn.innerText = "🎤 Hold to speak customer name";
         micBtn.style.backgroundColor = "#f39c12";
     }
 }
@@ -2403,7 +2403,7 @@ function stopIssueVoiceInput() {
 function resetIssueMicBtn() {
     const micBtn = document.getElementById('scIssueMicBtn');
     if(micBtn) {
-        micBtn.innerText = "🎤 HOLD TO SPEAK";
+        micBtn.innerText = "🎤 Hold to speak reported issue";
         micBtn.style.backgroundColor = "#f39c12";
     }
 }
@@ -2441,7 +2441,7 @@ function alertIfGeminiApiDisabled(errMsg) {
         "You are already using your Firebase API key. Google also requires the Generative Language API to be turned ON for the same Google Cloud project as Firebase.\n\n" +
             "1) Open the link below\n" +
             "2) Click Enable\n" +
-            "3) Wait 1–2 minutes, then try Improve With AI again\n\n" +
+            "3) Wait 1–2 minutes, then try ✨ Clean up & structure with AI again\n\n" +
             enableUrl
     );
     return true;
@@ -2457,7 +2457,7 @@ async function improveIssueTextWithAI() {
 
     const raw = ta.value.trim();
     if (!raw) {
-        alert("Enter or dictate text in the issue box first, then click Improve With AI.");
+        alert("Enter or dictate text in the issue box first, then click ✨ Clean up & structure with AI.");
         return;
     }
 
@@ -2494,7 +2494,7 @@ async function improveIssueTextWithAI() {
         safeRaw +
         "\n\"\"\"";
 
-    const label = "✨ Improve With AI";
+    const label = "✨ Clean up & structure with AI";
     if (btn) {
         btn.disabled = true;
         btn.textContent = "⏳ Improving…";
@@ -2549,7 +2549,7 @@ async function improveIssueTextWithAI() {
         }
     } catch (err) {
         console.error("improveIssueTextWithAI", err);
-        alert("Improve With AI failed: " + (err && err.message ? err.message : String(err)));
+        alert("Clean up & structure with AI failed: " + (err && err.message ? err.message : String(err)));
     } finally {
         if (btn) {
             btn.disabled = false;
