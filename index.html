@@ -1750,13 +1750,15 @@
       }
 
       /* ----- Field App phone simulator (dispatcher preview) ----- */
+      /* No dim backdrop: shell is click-through; only the bezel receives pointer events. */
       .field-app-simulator-modal {
         position: fixed;
         inset: 0;
         z-index: 2147483000;
         padding: 24px;
         box-sizing: border-box;
-        overflow: hidden;
+        overflow: visible;
+        pointer-events: none;
       }
       .field-app-simulator-modal.hidden {
         display: none !important;
@@ -1768,20 +1770,10 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        overflow: hidden;
+        overflow: visible;
         min-height: 0;
+        pointer-events: none;
       }
-      .field-app-simulator-overlay {
-        position: absolute;
-        inset: 0;
-        background: rgba(15, 23, 42, 0.72);
-        cursor: pointer;
-        z-index: 0;
-      }
-      /*
-        Stage sits above the overlay but must not steal clicks outside the phone.
-        pointer-events: none on the stage + auto on the bezel lets dim-area hits reach the overlay.
-      */
       .field-app-simulator-stage {
         position: relative;
         z-index: 1;
@@ -5403,7 +5395,6 @@
         }
         modal.classList.remove("hidden");
         modal.setAttribute("aria-hidden", "false");
-        document.body.style.overflow = "hidden";
       }
 
       function closeFieldAppSimulator() {
@@ -5411,11 +5402,14 @@
         if (!modal) return;
         modal.classList.add("hidden");
         modal.setAttribute("aria-hidden", "true");
-        document.body.style.overflow = "";
       }
 
-      /** Close when click is on the dim layer, modal shell, or any target not inside the phone bezel. */
-      function closeOnBackgroundClick(event) {
+      /**
+       * Close the phone preview when anything outside the bezel is clicked (capture phase).
+       * The modal shell uses pointer-events: none so the rest of the dispatcher stays usable;
+       * this listener runs first and dismisses the simulator when the hit is not on the bezel/iframe.
+       */
+      function closeFieldAppSimulatorIfClickOutsideBezel(event) {
         const modal = document.getElementById("fieldAppSimulatorModal");
         if (!modal || modal.classList.contains("hidden")) return;
         const el = event.target;
@@ -5426,16 +5420,11 @@
 
       (function wireFieldAppSimulator() {
         const modal = document.getElementById("fieldAppSimulatorModal");
-        const overlay = document.getElementById("fieldAppSimulatorOverlay");
-        if (overlay) {
-          overlay.addEventListener("click", function (e) {
-            e.stopPropagation();
-            closeFieldAppSimulator();
-          });
-        }
-        if (modal) {
-          modal.addEventListener("click", closeOnBackgroundClick);
-        }
+        document.addEventListener(
+          "pointerdown",
+          closeFieldAppSimulatorIfClickOutsideBezel,
+          true
+        );
         document.addEventListener("keydown", function (e) {
           if (e.key !== "Escape") return;
           if (!modal || modal.classList.contains("hidden")) return;
@@ -5699,11 +5688,6 @@
       aria-label="Field App phone simulator"
     >
       <div class="field-app-simulator-inner">
-        <div
-          class="field-app-simulator-overlay"
-          id="fieldAppSimulatorOverlay"
-          aria-hidden="true"
-        ></div>
         <div class="field-app-simulator-stage" id="fieldAppSimulatorStage">
           <div class="field-app-simulator-bezel">
             <div class="field-app-simulator-screen-inset">
