@@ -134,6 +134,53 @@ body {
 .card-time { font-weight: 800; color: #1e4b85; font-size: 16px; }
 .card-badge { background: #e8f0fe; color: #1e4b85; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
 .badge-emergency { background: #fdedec; color: #e74c3c; border: 1px solid #fadbd8; }
+.card-location-primary {
+  font-size: 17px;
+  font-weight: 800;
+  color: #1e4b85;
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+.card-work-desc {
+  font-size: 14px;
+  color: #34495e;
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+.job-card-meta-panel {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #7f8c8d;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  padding: 0;
+  background: #fafbfc;
+}
+.job-card-meta-panel > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  font-weight: 700;
+  color: #5d6d7e;
+}
+.job-card-meta-panel > summary::-webkit-details-marker { display: none; }
+.job-card-meta-panel > summary::before {
+  content: "ⓘ ";
+  color: #1e4b85;
+}
+.job-card-meta-body {
+  padding: 0 10px 10px;
+  border-top: 1px solid #ecf0f1;
+}
+.job-card-meta-row {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 6px;
+  color: #95a5a6;
+  word-break: break-word;
+}
 .schedule-day-label {
   font-size: 13px; font-weight: 800; color: #1e4b85;
   margin: 18px 0 10px 0; padding-bottom: 6px;
@@ -3205,6 +3252,32 @@ function renderJobListUI() {
     const safeId = JSON.stringify(data.id);
     const navAddrStr = buildTicketNavAddress(data);
     const safeAddr = JSON.stringify(navAddrStr);
+    const std =
+      typeof DataProvider !== "undefined" && typeof DataProvider.mapToStandardTicket === "function"
+        ? DataProvider.mapToStandardTicket(data, data.id)
+        : null;
+    const locTitle = std && std.locationName
+      ? std.locationName
+      : String(data.customerName || "");
+    const workDesc = std && std.description
+      ? std.description
+      : String(data.issue || "").trim();
+    const descBlock =
+      workDesc.length > 0
+        ? `<div class="card-work-desc">${escapeHtml(workDesc)}</div>`
+        : `<div class="card-work-desc" style="color:#95a5a6;font-style:italic">No work description on ticket</div>`;
+    const metaTicket = data.ticketNum != null ? escapeHtml(String(data.ticketNum)) : "—";
+    const metaType = data.jobType != null ? escapeHtml(String(data.jobType)) : "—";
+    const metaId = escapeHtml(String(data.id || ""));
+    const metaPanel = `
+      <details class="job-card-meta-panel" onclick="event.stopPropagation()">
+        <summary>Job info &amp; IDs</summary>
+        <div class="job-card-meta-body">
+          <span class="job-card-meta-row">Reference / ticket # · ${metaTicket}</span>
+          <span class="job-card-meta-row">Job type · ${metaType}</span>
+          <span class="job-card-meta-row">Record id · ${metaId}</span>
+        </div>
+      </details>`;
     let addrHtml;
     if (navAddrStr) {
       const onNav = isHistoricalDay
@@ -3224,11 +3297,13 @@ function renderJobListUI() {
         <div class="job-card job-card--historical">
           <div class="card-header">
             <span class="card-time">${data.startTime || '8:00 AM'}</span>
-            <span class="${badgeClass}">${data.jobType}</span>
+            <span class="${badgeClass}">${escapeHtml(String(data.priority || "Normal"))}</span>
           </div>
-          <div class="card-customer">${escapeHtml(String(data.customerName || ''))}</div>
+          <div class="card-location-primary">${escapeHtml(locTitle)}</div>
+          ${descBlock}
           ${ceBadge}
           ${addrHtml}
+          ${metaPanel}
           <button type="button" class="job-card-review-btn" onclick='openWorkspace(${safeId})'>🛠️ Update / Review This Job</button>
         </div>
       `
@@ -3236,11 +3311,13 @@ function renderJobListUI() {
         <div class="job-card" onclick='openWorkspace(${safeId})'>
           <div class="card-header">
             <span class="card-time">${data.startTime || '8:00 AM'}</span>
-            <span class="${badgeClass}">${data.jobType}</span>
+            <span class="${badgeClass}">${escapeHtml(String(data.priority || "Normal"))}</span>
           </div>
-          <div class="card-customer">${escapeHtml(String(data.customerName || ''))}</div>
+          <div class="card-location-primary">${escapeHtml(locTitle)}</div>
+          ${descBlock}
           ${ceBadge}
           ${addrHtml}
+          ${metaPanel}
         </div>
       `;
     container.innerHTML += cardHTML;
@@ -5671,6 +5748,8 @@ window.onload = async function(){
 
     <script src="../equipment_manager.js?v=7"></script>
     <script src="../equipment_smart_select.js"></script>
+    <script src="js/providers/ufx_adapter.js"></script>
+    <script src="js/data_provider.js"></script>
     <script src="../dictation_hub.js"></script>
     <script src="../equipment_hub.js"></script>
     <script src="../field_forms.js"></script>

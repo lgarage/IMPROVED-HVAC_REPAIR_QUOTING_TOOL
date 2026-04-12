@@ -1,6 +1,9 @@
 /**
  * Dictation Hub: Firestore asset tray, Rosetta Gemini mapping, verification states, OCR promotion.
  *
+ * Schedule / job list is wired at the app shell (technician uses DataProvider.getSchedule); this
+ * module does not reference UniFiX or other field-service providers.
+ *
  * Firestore: customers/{customerId}/sites/{siteId}/assets/{assetDocId}
  *
  * Promotion: window.dictationPromoteAssetPhoto (equipment_manager.js)
