@@ -3630,6 +3630,86 @@ async function fetchTechnicianRosterFromCloud() {
   }
 }
 
+/** Dedupe + sort — same canonical strings as Dispatch → Settings → Technicians. */
+function dedupeSortTechNames(names) {
+  const seen = {};
+  const out = [];
+  (names || []).forEach(function (n) {
+    const s = String(n || "").trim();
+    if (!s || seen[s]) return;
+    seen[s] = true;
+    out.push(s);
+  });
+  out.sort(function (a, b) {
+    return a.localeCompare(b);
+  });
+  return out;
+}
+
+/**
+ * Roster for Shadow tech switcher: matches Settings list (tenant roster doc, else legacy app_config, else localStorage cache).
+ */
+async function fetchTechnicianRosterForShadow() {
+  let names = [];
+  try {
+    if (typeof firebase !== "undefined" && firebase.apps && firebase.apps.length) {
+      const db = firebase.firestore();
+      if (typeof VCFirestore !== "undefined" && VCFirestore.rosterDoc) {
+        const snap = await VCFirestore.rosterDoc(db).get();
+        if (snap.exists) {
+          const data = snap.data() || {};
+          if (Array.isArray(data.names) && data.names.length) {
+            names = data.names.map(function (n) {
+              return String(n).trim();
+            }).filter(Boolean);
+          }
+        }
+      }
+      if (!names.length) {
+        const snap2 = await db.collection("app_config").doc("technicians").get();
+        if (snap2.exists) {
+          const d2 = snap2.data() || {};
+          const arr = d2.names || [];
+          if (Array.isArray(arr)) {
+            names = arr.map(function (n) {
+              return String(n).trim();
+            }).filter(Boolean);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[ShadowSwitcher] roster cloud:", e);
+  }
+  if (!names.length) {
+    try {
+      const raw = localStorage.getItem("tp_tech_list");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          names = parsed.map(function (n) {
+            return String(n).trim();
+          }).filter(Boolean);
+        }
+      }
+    } catch (e2) {}
+  }
+  return dedupeSortTechNames(names);
+}
+
+function presenceKeyFromRosterName(name) {
+  const n = String(name || "").trim();
+  if (!n) return "";
+  if (typeof VcTimeTracker !== "undefined" && VcTimeTracker.payrollKeyFromName) {
+    return VcTimeTracker.payrollKeyFromName(n);
+  }
+  return n
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64) || "USER";
+}
+
 /** Map a saved or typed name to the roster string used in Firestore assignedTechs (array-contains). */
 function resolveCanonicalTechName(saved, roster) {
   if (!saved || !String(saved).trim()) return null;
@@ -6676,51 +6756,82 @@ function switchShadowTechPresence(presenceKey, displayName) {
 }
 
 function initShadowTechSelectorPopulate() {
-  if (typeof firebase === "undefined" || !firebase.apps.length) return;
-  if (typeof VCFirestore === "undefined" || !VCFirestore.tenantUsers) return;
-  const db = firebase.firestore();
-  VCFirestore.tenantUsers(db)
-    .get()
-    .then(function (snap) {
-      const rows = [];
-      snap.forEach(function (doc) {
-        const data = doc.data() || {};
-        if (vcShadowIsAdminUser(data)) return;
-        const pk = vcShadowPresenceKeyFromUserDoc(doc.id, data);
-        const label =
-          data.payrollFullName ||
-          (String(data.firstName || "") + " " + String(data.lastName || "")).trim() ||
-          data.email ||
-          doc.id;
-        rows.push({ presenceKey: pk, displayName: label });
-      });
-      rows.sort(function (a, b) {
-        return String(a.displayName).localeCompare(String(b.displayName));
-      });
-      vcShadowTechListCache = rows;
-      const active = new URLSearchParams(window.location.search).get("vc_presence_key") || "";
-      if (typeof VCFirestore !== "undefined" && VCFirestore.livePresence) {
-        if (vcShadowLivePresenceListUnsub) {
-          try {
-            vcShadowLivePresenceListUnsub();
-          } catch (e) {}
-          vcShadowLivePresenceListUnsub = null;
-        }
-        vcShadowLivePresenceListUnsub = VCFirestore.livePresence(db).onSnapshot(
-          function (lsnap) {
-            vcShadowPresenceMetaByKey = {};
-            lsnap.forEach(function (d) {
-              vcShadowPresenceMetaByKey[d.id] = d.data() || {};
-            });
-            renderShadowTechListRows(new URLSearchParams(window.location.search).get("vc_presence_key") || "");
-          },
-          function () {}
-        );
+  const active = new URLSearchParams(window.location.search).get("vc_presence_key") || "";
+
+  function applyRowsAndRender(rows) {
+    vcShadowTechListCache = rows;
+    const db =
+      typeof firebase !== "undefined" && firebase.apps && firebase.apps.length
+        ? firebase.firestore()
+        : null;
+    if (db && typeof VCFirestore !== "undefined" && VCFirestore.livePresence) {
+      if (vcShadowLivePresenceListUnsub) {
+        try {
+          vcShadowLivePresenceListUnsub();
+        } catch (e) {}
+        vcShadowLivePresenceListUnsub = null;
       }
-      renderShadowTechListRows(active);
+      vcShadowLivePresenceListUnsub = VCFirestore.livePresence(db).onSnapshot(
+        function (lsnap) {
+          vcShadowPresenceMetaByKey = {};
+          lsnap.forEach(function (d) {
+            vcShadowPresenceMetaByKey[d.id] = d.data() || {};
+          });
+          renderShadowTechListRows(
+            new URLSearchParams(window.location.search).get("vc_presence_key") || ""
+          );
+        },
+        function () {}
+      );
+    }
+    renderShadowTechListRows(active);
+  }
+
+  fetchTechnicianRosterForShadow()
+    .then(function (nameList) {
+      const rows = [];
+      nameList.forEach(function (name) {
+        rows.push({
+          presenceKey: presenceKeyFromRosterName(name),
+          displayName: name,
+        });
+      });
+      if (rows.length) {
+        applyRowsAndRender(rows);
+        return;
+      }
+      if (typeof firebase === "undefined" || !firebase.apps.length) {
+        applyRowsAndRender([]);
+        return;
+      }
+      if (typeof VCFirestore === "undefined" || !VCFirestore.tenantUsers) {
+        applyRowsAndRender([]);
+        return;
+      }
+      const db = firebase.firestore();
+      return VCFirestore.tenantUsers(db)
+        .get()
+        .then(function (snap) {
+          const rows2 = [];
+          snap.forEach(function (doc) {
+            const data = doc.data() || {};
+            if (vcShadowIsAdminUser(data)) return;
+            const pk = vcShadowPresenceKeyFromUserDoc(doc.id, data);
+            const label =
+              data.payrollFullName ||
+              (String(data.firstName || "") + " " + String(data.lastName || "")).trim() ||
+              data.email ||
+              doc.id;
+            rows2.push({ presenceKey: pk, displayName: label });
+          });
+          rows2.sort(function (a, b) {
+            return String(a.displayName).localeCompare(String(b.displayName));
+          });
+          applyRowsAndRender(rows2.length ? rows2 : []);
+        });
     })
     .catch(function (e) {
-      console.warn("[ShadowSwitcher] tenant users:", e);
+      console.warn("[ShadowSwitcher] populate:", e);
     });
 }
 
