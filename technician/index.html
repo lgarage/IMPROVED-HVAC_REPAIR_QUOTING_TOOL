@@ -3521,6 +3521,26 @@ let vcShadowTechListCache = [];
 let vcShadowPresenceMetaByKey = {};
 let vcShadowTechSelectorWired = false;
 let vcShadowLivePresenceListUnsub = null;
+let vcShadowParentRosterWired = false;
+
+/** Parent dispatch window can postMessage roster names (same session as Settings). */
+function wireShadowParentRosterListener() {
+  if (vcShadowParentRosterWired) return;
+  vcShadowParentRosterWired = true;
+  window.addEventListener("message", function (ev) {
+    const d = ev.data;
+    if (!d || d.type !== "vc_shadow_parent_roster") return;
+    if (!Array.isArray(d.names)) return;
+    window.VC_SHADOW_ROSTER_NAMES = d.names
+      .map(function (n) {
+        return String(n || "").trim();
+      })
+      .filter(Boolean);
+    if (window.VC_SHADOW_VIEWER && typeof initShadowTechSelectorPopulate === "function") {
+      initShadowTechSelectorPopulate();
+    }
+  });
+}
 function ensureWireAutosave() {
   if (autosaveWired) return;
   wireAutosave();
@@ -3647,10 +3667,33 @@ function dedupeSortTechNames(names) {
 }
 
 /**
- * Roster for Shadow tech switcher: matches Settings list (tenant roster doc, else legacy app_config, else localStorage cache).
+ * Roster for Shadow tech switcher — same data as Dispatch → Settings → Technicians:
+ * `localStorage` tp_tech_list (written by settings.js), tenants/.../roster/default,
+ * and legacy app_config/technicians. Merges all sources (union).
+ * Optional: window.VC_SHADOW_ROSTER_NAMES from parent postMessage (phone preview iframe).
  */
 async function fetchTechnicianRosterForShadow() {
-  let names = [];
+  const merged = [];
+  function pushNames(arr) {
+    if (!Array.isArray(arr)) return;
+    arr.forEach(function (n) {
+      const s = String(n || "").trim();
+      if (s) merged.push(s);
+    });
+  }
+
+  try {
+    const raw = localStorage.getItem("tp_tech_list");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) pushNames(parsed);
+    }
+  } catch (e) {}
+
+  if (Array.isArray(window.VC_SHADOW_ROSTER_NAMES) && window.VC_SHADOW_ROSTER_NAMES.length) {
+    pushNames(window.VC_SHADOW_ROSTER_NAMES);
+  }
+
   try {
     if (typeof firebase !== "undefined" && firebase.apps && firebase.apps.length) {
       const db = firebase.firestore();
@@ -3658,43 +3701,28 @@ async function fetchTechnicianRosterForShadow() {
         const snap = await VCFirestore.rosterDoc(db).get();
         if (snap.exists) {
           const data = snap.data() || {};
-          if (Array.isArray(data.names) && data.names.length) {
-            names = data.names.map(function (n) {
-              return String(n).trim();
-            }).filter(Boolean);
-          }
-        }
-      }
-      if (!names.length) {
-        const snap2 = await db.collection("app_config").doc("technicians").get();
-        if (snap2.exists) {
-          const d2 = snap2.data() || {};
-          const arr = d2.names || [];
-          if (Array.isArray(arr)) {
-            names = arr.map(function (n) {
-              return String(n).trim();
-            }).filter(Boolean);
-          }
+          if (Array.isArray(data.names)) pushNames(data.names);
         }
       }
     }
   } catch (e) {
-    console.warn("[ShadowSwitcher] roster cloud:", e);
+    console.warn("[ShadowSwitcher] roster tenant:", e);
   }
-  if (!names.length) {
-    try {
-      const raw = localStorage.getItem("tp_tech_list");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          names = parsed.map(function (n) {
-            return String(n).trim();
-          }).filter(Boolean);
-        }
+
+  try {
+    if (typeof firebase !== "undefined" && firebase.apps && firebase.apps.length) {
+      const db = firebase.firestore();
+      const snap2 = await db.collection("app_config").doc("technicians").get();
+      if (snap2.exists) {
+        const d2 = snap2.data() || {};
+        if (Array.isArray(d2.names)) pushNames(d2.names);
       }
-    } catch (e2) {}
+    }
+  } catch (e2) {
+    console.warn("[ShadowSwitcher] roster app_config:", e2);
   }
-  return dedupeSortTechNames(names);
+
+  return dedupeSortTechNames(merged);
 }
 
 function presenceKeyFromRosterName(name) {
@@ -6969,6 +6997,7 @@ function initShadowViewerFromUrl() {
   const p = new URLSearchParams(window.location.search);
   if (p.get('vc_shadow_viewer') !== '1') return false;
   window.VC_SHADOW_VIEWER = true;
+  wireShadowParentRosterListener();
   applyShadowReadonlyUi();
   document.getElementById('loginShell').classList.add('hidden');
   applyShadowHeaderSwitcherUi();

@@ -6358,6 +6358,7 @@
         if (!modal || !frame) return;
         const url = new URL("technician/index.html", window.location.href);
         url.searchParams.set("vc_shadow_viewer", "1");
+        url.searchParams.set("_vc_sim", String(Date.now()));
         const shadowSel = document.getElementById("vcShadowUserSelect");
         if (shadowSel && shadowSel.value) {
           const opt = shadowSel.options[shadowSel.selectedIndex];
@@ -6365,6 +6366,34 @@
           const label = opt ? String(opt.textContent || "").trim() : "";
           if (label) url.searchParams.set("vc_display_name", label);
         }
+        const postRosterToFrame = function () {
+          try {
+            let names = [];
+            const raw = localStorage.getItem("tp_tech_list");
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) names = parsed;
+            }
+            if (
+              frame.contentWindow &&
+              typeof frame.contentWindow.postMessage === "function"
+            ) {
+              const origin =
+                window.location.origin && window.location.origin !== "null"
+                  ? window.location.origin
+                  : "*";
+              frame.contentWindow.postMessage(
+                { type: "vc_shadow_parent_roster", names: names },
+                origin
+              );
+            }
+          } catch (e) {}
+        };
+        frame.onload = function () {
+          frame.onload = null;
+          window.setTimeout(postRosterToFrame, 0);
+          window.setTimeout(postRosterToFrame, 250);
+        };
         frame.src = url.toString();
         modal.classList.remove("hidden");
         modal.setAttribute("aria-hidden", "false");
