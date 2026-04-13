@@ -8,7 +8,7 @@
   height: 100vh;
   overflow-x: visible;
   overflow-y: auto;
-  width: 240px;
+  width: 280px;
   background-color: #1e4b85;
   color: #fff;
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.15);
@@ -21,10 +21,11 @@
 }
 .sidebar-header {
   background-color: #fff;
-  padding: 15px;
+  padding: 12px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   border-bottom: 3px solid #c89b53;
   box-sizing: border-box;
   width: 100%;
@@ -32,16 +33,24 @@
 }
 .sidebar.collapsed .sidebar-header {
   flex-direction: column;
-  padding: 15px 5px;
-  gap: 15px;
+  padding: 12px 6px;
+  gap: 12px;
 }
 .full-logo {
-  max-width: 140px;
+  min-width: 0;
+  max-width: 230px;
+  width: auto;
   height: auto;
+  max-height: 96px;
+  object-fit: contain;
+  object-position: left center;
 }
 .mini-logo {
-  max-width: 45px;
+  max-width: 58px;
+  max-height: 80px;
+  width: auto;
   height: auto;
+  object-fit: contain;
   display: none;
 }
 .sidebar.collapsed .full-logo {
