@@ -77,6 +77,41 @@ body {
   max-width: 100%;
 }
 .vc-field-offline-badge.hidden { display: none !important; }
+.vc-coach-toast {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 30000;
+  padding: 14px 16px;
+  background: #1e4b85;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.35;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  border: 2px solid #c89b53;
+}
+.vc-coach-toast.hidden { display: none !important; }
+body.vc-shadow-viewer .fab-btn,
+body.vc-shadow-viewer #reportPreviewSyncBtn,
+body.vc-shadow-viewer .report-preview-sync,
+body.vc-shadow-viewer .vc-lite-btn,
+body.vc-shadow-viewer #pulseQuickReplyBtn,
+body.vc-shadow-viewer #pulseQuickReplyInput {
+  pointer-events: none !important;
+  opacity: 0.45 !important;
+}
+body.vc-shadow-viewer textarea,
+body.vc-shadow-viewer input:not([type="hidden"]) {
+  pointer-events: none !important;
+  opacity: 0.85;
+}
+body.vc-shadow-viewer .nav-item {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
 .tech-profile-badge {
   font-size: 12px;
   font-weight: 800;
@@ -2709,6 +2744,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
       <span id="techDisplayLabel" class="tech-profile-badge">Loading…</span>
     </div>
   </div>
+  <div id="vcCoachToast" class="vc-coach-toast hidden" role="alert" aria-live="assertive"></div>
   <nav class="app-main-nav" aria-label="Main">
     <button type="button" class="nav-item active" id="nav-schedule" onclick="switchScreen('schedule')">📋 Schedule</button>
     <button type="button" class="nav-item" id="nav-history" onclick="switchScreen('history')">🕒 History</button>
@@ -3404,6 +3440,7 @@ function switchScreen(screenName) {
   if (screenName === 'history') populateHistoryCustomers();
 
   window.scrollTo(0,0);
+  if (typeof writeLivePresence === 'function') writeLivePresence();
 }
 
 function toggleAccordion(id) {
@@ -3527,6 +3564,8 @@ async function completeTechnicianLogin() {
     }
   }
   ensureWireAutosave();
+  if (typeof wireCoachingInbox === 'function') wireCoachingInbox();
+  if (typeof writeLivePresence === 'function') writeLivePresence();
 }
 
 /* ---------- user profile ---------- */
@@ -4452,6 +4491,7 @@ function openWorkspaceLiteReadonly(ticketId) {
   const ws = document.getElementById('screen-workspace');
   if (ws) ws.classList.add('workspace--lite-readonly');
   switchScreen('workspace');
+  if (typeof writeLivePresence === 'function') writeLivePresence();
 }
 
 function openWorkspace(ticketId) {
@@ -4515,6 +4555,7 @@ function openWorkspace(ticketId) {
   if (typeof startDictationHubFromWorkspace === "function") startDictationHubFromWorkspace();
   if (typeof window.workspaceUiOnOpen === "function") window.workspaceUiOnOpen();
   prefetchSiteResourcesForTicket(activeTicket);
+  if (typeof writeLivePresence === 'function') writeLivePresence();
 }
 
 /* ---------- location local formatting fallback ---------- */
@@ -6269,8 +6310,143 @@ function wireAutosave(){
   window.addEventListener("pagehide", saveDraft);
 }
 
+/* ---------- Shadow Mode (dispatcher mirror) ---------- */
+function getShadowPresenceKey() {
+  if (typeof VcTimeTracker !== 'undefined' && VcTimeTracker.payrollKeyFromName && currentTechProfile) {
+    return VcTimeTracker.payrollKeyFromName(currentTechProfile);
+  }
+  return '';
+}
+
+function writeLivePresence() {
+  if (window.VC_SHADOW_VIEWER) return;
+  if (!currentTechProfile || typeof firebase === 'undefined' || !firebase.apps.length) return;
+  if (typeof VCFirestore === 'undefined' || !VCFirestore.livePresence) return;
+  const key = getShadowPresenceKey();
+  if (!key) return;
+  const db = firebase.firestore();
+  const ticketId = activeTicket && activeTicket.id ? activeTicket.id : '';
+  let screen = 'schedule';
+  const active = document.querySelector('.screen.active');
+  if (active && active.id && active.id.indexOf('screen-') === 0) {
+    screen = active.id.replace('screen-', '');
+  }
+  const ref = VCFirestore.livePresence(db).doc(key);
+  ref.set({
+    activeTicketId: ticketId || null,
+    screen: screen,
+    techDisplayName: currentTechProfile,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true }).catch(function () {});
+}
+
+let vcCoachUnsub = null;
+function wireCoachingInbox() {
+  if (window.VC_SHADOW_VIEWER) return;
+  if (vcCoachUnsub) {
+    try { vcCoachUnsub(); } catch (e) {}
+    vcCoachUnsub = null;
+  }
+  const key = getShadowPresenceKey();
+  if (!key || typeof firebase === 'undefined' || !firebase.apps.length) return;
+  if (typeof VCFirestore === 'undefined' || !VCFirestore.livePresence) return;
+  const db = firebase.firestore();
+  const ref = VCFirestore.livePresence(db).doc(key);
+  vcCoachUnsub = ref.onSnapshot(function (snap) {
+    const d = snap.data() || {};
+    if (!d.coachPrompt || !d.coachPromptAt) return;
+    const ms = d.coachPromptAt.toMillis ? d.coachPromptAt.toMillis() : 0;
+    const last = parseInt(localStorage.getItem('vc_last_coach_ms') || '0', 10);
+    if (ms <= last) return;
+    localStorage.setItem('vc_last_coach_ms', String(ms));
+    const toast = document.getElementById('vcCoachToast');
+    if (toast) {
+      toast.textContent = 'Coach: ' + String(d.coachPrompt);
+      toast.classList.remove('hidden');
+      window.setTimeout(function () { toast.classList.add('hidden'); }, 12000);
+    } else {
+      alert('Coach: ' + String(d.coachPrompt));
+    }
+    ref.update({
+      coachPrompt: firebase.firestore.FieldValue.delete(),
+      coachPromptAt: firebase.firestore.FieldValue.delete()
+    }).catch(function () {});
+  });
+}
+
+function applyShadowPresenceFromDoc(d) {
+  if (!d || window.VC_SHADOW_VIEWER !== true) return;
+  const screen = d.screen || 'schedule';
+  const tid = d.activeTicketId ? String(d.activeTicketId) : '';
+  if (screen === 'workspace' && !tid) {
+    if (typeof switchScreen === 'function') switchScreen('schedule');
+    return;
+  }
+  if (typeof switchScreen === 'function') switchScreen(screen);
+  if (tid) {
+    let tries = 0;
+    const tryOpen = function () {
+      tries++;
+      if (typeof myTickets !== 'undefined' && myTickets && myTickets.some(function (t) { return t.id === tid; })) {
+        if (typeof openWorkspace === 'function') openWorkspace(tid);
+        return;
+      }
+      if (tries < 40) window.setTimeout(tryOpen, 350);
+    };
+    tryOpen();
+  }
+}
+
+function applyShadowReadonlyUi() {
+  document.body.classList.add('vc-shadow-viewer');
+}
+
+function initShadowViewerFromUrl() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('vc_shadow_viewer') !== '1') return false;
+  window.VC_SHADOW_VIEWER = true;
+  applyShadowReadonlyUi();
+  document.getElementById('loginShell').classList.add('hidden');
+  const presenceKey = p.get('vc_presence_key') || '';
+  const displayName = p.get('vc_display_name') || '';
+  if (displayName) {
+    localStorage.setItem('tp_saved_tech', displayName);
+    currentTechProfile = displayName;
+    document.getElementById('techDisplayLabel').innerText = '👁 Shadow: ' + displayName;
+  } else {
+    document.getElementById('techDisplayLabel').innerText = '👁 Shadow viewer';
+  }
+  if (!presenceKey || typeof firebase === 'undefined' || !firebase.apps.length) return true;
+  if (typeof VCFirestore === 'undefined' || !VCFirestore.livePresence) return true;
+  const db = firebase.firestore();
+  const ref = VCFirestore.livePresence(db).doc(presenceKey);
+  let profileStarted = false;
+  ref.onSnapshot(function (snap) {
+    const d = snap.data() || {};
+    if (d.techDisplayName) {
+      localStorage.setItem('tp_saved_tech', d.techDisplayName);
+      currentTechProfile = d.techDisplayName;
+      document.getElementById('techDisplayLabel').innerText = '👁 Shadow: ' + d.techDisplayName;
+    }
+    if (!profileStarted) {
+      profileStarted = true;
+      loadUserProfile().then(function () {
+        applyShadowPresenceFromDoc(d);
+      });
+    } else {
+      applyShadowPresenceFromDoc(d);
+    }
+  });
+  return true;
+}
+
 /* ---------- init ---------- */
 window.onload = async function(){
+  if (initShadowViewerFromUrl()) {
+    document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
+    ensureWireAutosave();
+    return;
+  }
   initMapPreferenceUI();
   initUnitTagOcr();
   document.getElementById("workdone").value = DEFAULT_PM_WORKDONE;
@@ -6312,6 +6488,11 @@ window.onload = async function(){
   }
 
   document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
+  if (typeof wireCoachingInbox === 'function') wireCoachingInbox();
+  if (typeof writeLivePresence === 'function') writeLivePresence();
+  window.setInterval(function () {
+    if (typeof writeLivePresence === 'function') writeLivePresence();
+  }, 15000);
   (function wireLiteReadonlyBack() {
     var b = document.getElementById('vcLiteReadonlyBackBtn');
     if (!b || b.dataset.vcWired) return;
@@ -6337,6 +6518,7 @@ window.onload = async function(){
     if (scheduleWindowStart() !== lastScheduleWindowStart) {
       subscribeToMyTickets(undefined, false);
     }
+    if (typeof writeLivePresence === 'function') writeLivePresence();
   });
 };
   

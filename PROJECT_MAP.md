@@ -150,6 +150,22 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 - Prefetch: `prefetchSiteResourcesForTicket` in `technician/index.html` — `VCFirestore.getSiteIntelDocOnceBridged` + `queryCompletedReportsWhereMerged` per ticket; deduped with `vcPrefetchedTicketIds` on schedule merge and on workspace open.
 - Offline badge: `updateVcFieldOfflineBadge`, `app_config/api_keys` `onSnapshot({ includeMetadataChanges: true })`, `online`/`offline` window events.
 
+#### Shadow Mode (remote tech viewer) — Phase 19
+
+**User Guide**
+
+- **Support tool for coaching:** dispatchers (and senior techs in the office) use **Shadow user** in the Office top bar to open a **read-only** live preview of a field user’s app in a phone-style frame.
+- Pick a user from **`tenants/{tenantId}/users`** (same roster as enterprise import). The viewer mirrors the tech’s **current screen** and **active ticket** when the tech’s Field App is online and broadcasting.
+- **Send prompt** types a short message (e.g. “Don’t forget the nameplate photo!”); it appears as a **toast** on the technician’s device.
+- Shadow is **not** a substitute for dispatch: the preview is for **training and supervision**, not for billing or time-clock actions (dispatcher cannot clock the tech out).
+
+**Technical Specs**
+
+- `dispatcher/js/shadow_mode.js` (`VcShadowMode`), Office top bar + `#vcShadowModal` + iframe in `index.html`.
+- Presence: `VCFirestore.livePresence(db)` → `tenants/{tenantId}/live_presence/{presenceKey}` with `presenceKey` on user docs (import) + same `payrollKeyFromName` as `VcTimeTracker` / labor logs (`field: techDisplayName, screen, activeTicketId, updatedAt`; coach: `coachPrompt`, `coachPromptAt`).
+- Field `technician/index.html`: `writeLivePresence()` on screen/ticket changes + 15s interval; `wireCoachingInbox()` listener; `?vc_shadow_viewer=1&vc_presence_key=…` → `VC_SHADOW_VIEWER` + read-only UI + `applyShadowPresenceFromDoc` mirroring.
+- `shared/firebase_logic.js`: `livePresence` collection helper.
+
 ---
 
 ### Data Architecture
@@ -371,6 +387,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - [v] Phase 17: Visual analytics & professional reporting (Chart.js in `index.html`, `insights_manager.js`, `report_builder.js` + `report_builder.css`, Proof of Service site trend, competitor-name scrub in UI/copy)
 - [v] Navigation: Reports hub (`dispatcher/css/sidebar.css`, `dispatcher/js/navigation.js`, sidebar order + Invoicing/Reports submenus in `index.html`)
 - [v] Phase 18: Offline sync & geo-snapshotting (`firebase-config.js`, `shared/firebase_config.js`, `technician/js/time_tracker.js`, `technician/js/data_provider.js`, Field header badge + prefetch in `technician/index.html`)
+- [v] Phase 19: Shadow Mode (`shared/firebase_logic.js` `livePresence`, `dispatcher/js/shadow_mode.js`, Office top bar + modal in `index.html`, `technician/index.html` presence + coaching + read-only viewer)
 
 ## Current Focus
 

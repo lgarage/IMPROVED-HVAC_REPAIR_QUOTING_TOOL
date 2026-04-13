@@ -55,6 +55,14 @@
     return tenantCollection(db, "users");
   }
 
+  /** Live field presence + shadow coaching (Phase 19). Doc id = presence key (payroll key). */
+  function livePresence(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "live_presence");
+    }
+    return tenantCollection(db, "live_presence");
+  }
+
   /** Legacy platform equipment rows keyed by site + normalized location (import hub). */
   function tenantImportedEquipment(db) {
     return tenantCollection(db, "imported_equipment");
@@ -469,6 +477,7 @@
     tenantRoot: tenantRoot,
     tenantCollection: tenantCollection,
     tenantUsers: tenantUsers,
+    livePresence: livePresence,
     tenantImportedEquipment: tenantImportedEquipment,
     laborLogs: laborLogs,
     portalTokens: portalTokens,

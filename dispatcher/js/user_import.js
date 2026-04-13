@@ -120,6 +120,18 @@
       .toUpperCase();
   }
 
+  /** Same algorithm as Field `VcTimeTracker.payrollKeyFromName` / labor_logs doc ids (Shadow Mode presence). */
+  function presenceKeyFromFullName(first, last) {
+    var full = (String(first || "").trim() + " " + String(last || "").trim()).trim();
+    return (
+      String(full || "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 64) || "USER"
+    );
+  }
+
   /**
    * @returns {{ rows: Array<object>, errors: string[], headerMap: object }}
    */
@@ -193,6 +205,7 @@
       payrollNameUpper: isTraining
         ? payrollUpper(row.firstName, row.lastName + " (TRAINING)")
         : row.payrollNameUpper,
+      presenceKey: presenceKeyFromFullName(row.firstName, row.lastName),
       isTrainingAccount: isTraining,
       mirrorLiveEmail: isTraining ? row.email : null,
       importSource: "green_column_csv",

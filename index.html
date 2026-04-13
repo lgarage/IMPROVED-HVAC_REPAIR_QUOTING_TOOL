@@ -95,6 +95,143 @@
       .main-content.expanded {
         margin-left: 70px;
       }
+      .vc-dispatcher-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin: -5px 0 14px 0;
+        padding: 10px 14px;
+        background: linear-gradient(135deg, #1e4b85 0%, #153661 100%);
+        border-radius: 10px;
+        color: #fff;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+      }
+      .vc-dispatcher-topbar-label {
+        font-weight: 800;
+        font-size: 14px;
+        letter-spacing: 0.03em;
+      }
+      .vc-shadow-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .vc-shadow-label {
+        font-size: 12px;
+        font-weight: 700;
+        opacity: 0.9;
+      }
+      .vc-shadow-select {
+        min-width: 220px;
+        max-width: min(420px, 100%);
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        background: #fff;
+        color: #1e4b85;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .vc-shadow-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 20000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+      .vc-shadow-modal.hidden {
+        display: none !important;
+      }
+      .vc-shadow-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+      }
+      .vc-shadow-modal-panel {
+        position: relative;
+        z-index: 1;
+        width: min(420px, 100%);
+        max-height: calc(100vh - 32px);
+        display: flex;
+        flex-direction: column;
+        background: #f4f7fa;
+        border-radius: 20px;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+      }
+      .vc-shadow-modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 12px 14px;
+        background: #1e4b85;
+        color: #fff;
+      }
+      .vc-shadow-modal-head h2 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 800;
+      }
+      .vc-shadow-modal-head button {
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 4px 8px;
+      }
+      .vc-shadow-coach {
+        display: flex;
+        gap: 8px;
+        padding: 10px 12px;
+        background: #fff;
+        border-bottom: 1px solid #e1e8ed;
+        flex-wrap: wrap;
+      }
+      .vc-shadow-coach input {
+        flex: 1 1 160px;
+        min-width: 0;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        font-size: 13px;
+      }
+      .vc-shadow-coach button {
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: none;
+        background: #c89b53;
+        color: #fff;
+        font-weight: 800;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .vc-shadow-phone-wrap {
+        padding: 14px;
+        background: #2c3e50;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        justify-content: center;
+        align-items: stretch;
+      }
+      .vc-shadow-phone-wrap iframe {
+        width: 100%;
+        max-width: 390px;
+        height: min(720px, calc(100vh - 220px));
+        min-height: 480px;
+        border: none;
+        border-radius: 28px;
+        background: #fff;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      }
       .app-view {
         display: none;
       }
@@ -2255,6 +2392,62 @@
     </div>
 
     <div class="main-content expanded">
+      <div class="vc-dispatcher-topbar" id="vcDispatcherTopbar">
+        <span class="vc-dispatcher-topbar-label">Office</span>
+        <div class="vc-shadow-controls">
+          <label for="vcShadowUserSelect" class="vc-shadow-label">Shadow user</label>
+          <select
+            id="vcShadowUserSelect"
+            class="vc-shadow-select"
+            title="Select a field user to open the live Shadow viewer (read-only)"
+            aria-label="Shadow user"
+          >
+            <option value="">Shadow a user…</option>
+          </select>
+        </div>
+      </div>
+
+      <div
+        id="vcShadowModal"
+        class="vc-shadow-modal hidden"
+        aria-hidden="true"
+        aria-labelledby="vcShadowModalTitle"
+      >
+        <div
+          class="vc-shadow-modal-backdrop"
+          onclick="VcShadowMode.closeShadowModal()"
+        ></div>
+        <div class="vc-shadow-modal-panel" role="dialog">
+          <div class="vc-shadow-modal-head">
+            <h2 id="vcShadowModalTitle">Shadow viewer</h2>
+            <button
+              type="button"
+              onclick="VcShadowMode.closeShadowModal()"
+              aria-label="Close shadow viewer"
+            >
+              ×
+            </button>
+          </div>
+          <div class="vc-shadow-coach">
+            <input
+              type="text"
+              id="vcShadowCoachInput"
+              maxlength="500"
+              placeholder="Send a coaching prompt (e.g. Don’t forget the nameplate photo)"
+              aria-label="Coaching message"
+            />
+            <button type="button" id="vcShadowCoachSend">Send prompt</button>
+          </div>
+          <div class="vc-shadow-phone-wrap">
+            <iframe
+              id="vcShadowIframe"
+              title="Field app shadow preview"
+              sandbox="allow-scripts allow-same-origin allow-forms"
+            ></iframe>
+          </div>
+        </div>
+      </div>
+
       <div id="view-service" class="app-view active">
         <div class="dispatch-dashboard-layout">
           <div class="dispatch-left-panel">
@@ -6307,11 +6500,17 @@
     <script src="dispatcher/js/navigation.js?v=1"></script>
     <script src="settings.js?v=13"></script>
     <script src="dispatcher/js/user_import.js?v=1"></script>
+    <script src="dispatcher/js/shadow_mode.js?v=1"></script>
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js"></script>
     <script src="dispatcher/js/activity_feed.js?v=1"></script>
     <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        if (typeof VcShadowMode !== "undefined" && VcShadowMode.initShadowMode) {
+          VcShadowMode.initShadowMode();
+        }
+      });
       window.addEventListener("hashchange", function () {
         if (window.location.hash === "#pulse") switchTab("pulse");
         if (window.location.hash === "#insights") switchTab("insights");
