@@ -226,12 +226,32 @@
       });
   }
 
+  function wireShadowIframeTechSync() {
+    if (wireShadowIframeTechSync.wired) return;
+    wireShadowIframeTechSync.wired = true;
+    window.addEventListener("message", function (ev) {
+      var d = ev.data;
+      if (!d || d.type !== "vc_shadow_tech_changed") return;
+      var sel = document.getElementById("vcShadowUserSelect");
+      if (!sel || !d.presenceKey) return;
+      if (sel.value === d.presenceKey) return;
+      sel.dataset.vcSuppressChange = "1";
+      try {
+        sel.value = d.presenceKey;
+      } catch (e) {}
+      delete sel.dataset.vcSuppressChange;
+      updateOfflineBadgeForCurrentSelection();
+    });
+  }
+
   function initShadowMode() {
+    wireShadowIframeTechSync();
     loadTenantUsersIntoSelect();
     var sel = document.getElementById("vcShadowUserSelect");
     if (sel && !sel.dataset.vcShadowWired) {
       sel.dataset.vcShadowWired = "1";
       sel.addEventListener("change", function () {
+        if (sel.dataset.vcSuppressChange) return;
         var v = sel.value;
         if (!v) return;
         var opt = sel.options[sel.selectedIndex];

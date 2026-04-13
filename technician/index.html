@@ -46,6 +46,7 @@ body {
   background: #fff;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
   padding-top: env(safe-area-inset-top);
+  overflow: visible;
 }
 .app-header-row {
   display: flex;
@@ -62,6 +63,7 @@ body {
   gap: 6px;
   flex: 1;
   min-width: 0;
+  overflow: visible;
 }
 .vc-field-offline-badge {
   font-size: 11px;
@@ -127,6 +129,126 @@ body.vc-shadow-viewer .nav-item {
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: right;
+}
+/* Shadow viewer (dispatcher iframe): searchable tech switcher — Twin Pillar orange accent */
+.vc-shadow-tech-selector {
+  position: relative;
+  flex: 1 1 auto;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  z-index: 200;
+}
+.vc-shadow-tech-selector-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 2px solid #f39c12;
+  background: #fffaf3;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(243, 156, 18, 0.25);
+  -webkit-tap-highlight-color: transparent;
+  text-align: left;
+}
+.vc-shadow-tech-selector-trigger-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vc-shadow-tech-selector-chevron {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: #f39c12;
+}
+.vc-shadow-tech-selector-dropdown {
+  position: fixed;
+  z-index: 50000;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.vc-shadow-tech-selector-dropdown.hidden {
+  display: none !important;
+}
+.vc-shadow-tech-selector-search {
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.vc-shadow-tech-selector-list {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px;
+  max-height: inherit;
+}
+.vc-shadow-tech-selector-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 4px 0;
+  padding: 10px 10px;
+  border: 1px solid #e8edf2;
+  border-radius: 10px;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.vc-shadow-tech-selector-row--active {
+  border-color: #f39c12;
+  background: #fff8ed;
+  box-shadow: 0 0 0 1px rgba(243, 156, 18, 0.35);
+}
+.vc-shadow-tech-selector-row--idle .vc-shadow-tech-selector-row-name {
+  opacity: 0.55;
+}
+.vc-shadow-tech-idle-tag {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #94a3b8;
+}
+.vc-shadow-tech-selector-empty {
+  padding: 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-trigger,
+body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-search,
+body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
+  pointer-events: auto !important;
+  opacity: 1 !important;
 }
 .app-main-nav {
   display: flex;
@@ -2742,6 +2864,29 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     <div class="app-header-meta">
       <span id="vcFieldOfflineBadge" class="vc-field-offline-badge hidden" role="status" aria-live="polite" title="Firestore is reading from local cache or the device is offline. Data syncs when signal returns."></span>
       <span id="techDisplayLabel" class="tech-profile-badge">Loading…</span>
+      <div id="vcShadowTechSelector" class="vc-shadow-tech-selector hidden" aria-label="Shadow tech switcher">
+        <button
+          type="button"
+          id="vcShadowTechSelectorTrigger"
+          class="vc-shadow-tech-selector-trigger"
+          aria-expanded="false"
+          aria-haspopup="listbox"
+        >
+          <span id="vcShadowTechSelectorTriggerLabel" class="vc-shadow-tech-selector-trigger-label">👁 Shadow</span>
+          <span class="vc-shadow-tech-selector-chevron" aria-hidden="true">▾</span>
+        </button>
+        <div id="vcShadowTechSelectorDropdown" class="vc-shadow-tech-selector-dropdown hidden" role="presentation">
+          <label for="vcShadowTechSearch" class="visually-hidden">Search technicians</label>
+          <input
+            type="search"
+            id="vcShadowTechSearch"
+            class="vc-shadow-tech-selector-search"
+            placeholder="Search technicians…"
+            autocomplete="off"
+          />
+          <div id="vcShadowTechList" class="vc-shadow-tech-selector-list" role="listbox" aria-label="Technicians"></div>
+        </div>
+      </div>
     </div>
   </div>
   <div id="vcCoachToast" class="vc-coach-toast hidden" role="alert" aria-live="assertive"></div>
@@ -3371,6 +3516,11 @@ let lastScheduleWindowStart = '';
 let cachedTechnicianRoster = [];
 let workspaceAddendumUnsub = null;
 let autosaveWired = false;
+let vcShadowPresenceUnsub = null;
+let vcShadowTechListCache = [];
+let vcShadowPresenceMetaByKey = {};
+let vcShadowTechSelectorWired = false;
+let vcShadowLivePresenceListUnsub = null;
 function ensureWireAutosave() {
   if (autosaveWired) return;
   wireAutosave();
@@ -3576,7 +3726,10 @@ async function loadUserProfile(options = {}) {
   if (!currentTechProfile) {
     return new Promise((resolve) => { resolve(false); });
   }
-  document.getElementById('techDisplayLabel').innerText = "👤 " + currentTechProfile;
+  if (!window.VC_SHADOW_VIEWER) {
+    const tdl = document.getElementById('techDisplayLabel');
+    if (tdl) tdl.innerText = "👤 " + currentTechProfile;
+  }
   const profileInput = document.getElementById('profileNameInput');
   if (profileInput) profileInput.value = currentTechProfile;
   return new Promise((resolve) => {
@@ -6342,6 +6495,297 @@ function writeLivePresence() {
 }
 
 let vcCoachUnsub = null;
+
+const VC_SHADOW_IDLE_MS = 5 * 60 * 1000;
+
+function vcShadowIsAdminUser(data) {
+  const d = data || {};
+  if (d.isAdmin === true) return true;
+  const single = String(d.role || "").trim().toLowerCase();
+  if (single === "admin") return true;
+  const roles = d.roles;
+  if (Array.isArray(roles)) {
+    for (let i = 0; i < roles.length; i++) {
+      if (String(roles[i]).trim().toLowerCase() === "admin") return true;
+    }
+  }
+  return false;
+}
+
+function vcShadowPresenceKeyFromUserDoc(docId, data) {
+  const d = data || {};
+  if (d.presenceKey) return String(d.presenceKey);
+  const full = String(d.payrollFullName || "").trim();
+  if (full && typeof VcTimeTracker !== "undefined" && VcTimeTracker.payrollKeyFromName) {
+    return VcTimeTracker.payrollKeyFromName(full);
+  }
+  return (
+    String(full || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 64) ||
+    String(
+      (String(d.firstName || "").trim() + " " + String(d.lastName || "").trim()).trim() || docId
+    )
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 64) ||
+    "USER"
+  );
+}
+
+function vcShadowAttr(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;");
+}
+
+function updateShadowTechTriggerLabel(displayName) {
+  const el = document.getElementById("vcShadowTechSelectorTriggerLabel");
+  if (!el) return;
+  const t = String(displayName || "").trim();
+  el.textContent = t ? "👁 " + t : "👁 Choose a tech";
+}
+
+function positionShadowTechDropdown() {
+  const trigger = document.getElementById("vcShadowTechSelectorTrigger");
+  const panel = document.getElementById("vcShadowTechSelectorDropdown");
+  if (!trigger || !panel || panel.classList.contains("hidden")) return;
+  const r = trigger.getBoundingClientRect();
+  const pad = 8;
+  const maxW = Math.min(window.innerWidth - pad * 2, Math.max(300, r.width + 24));
+  let left = r.left - (maxW - r.width) / 2;
+  if (left < pad) left = pad;
+  if (left + maxW > window.innerWidth - pad) left = window.innerWidth - pad - maxW;
+  panel.style.left = left + "px";
+  panel.style.width = maxW + "px";
+  panel.style.top = r.bottom + 6 + "px";
+  panel.style.maxHeight = Math.min(320, window.innerHeight - r.bottom - 16) + "px";
+}
+
+function renderShadowTechListRows(activeKey) {
+  const listEl = document.getElementById("vcShadowTechList");
+  if (!listEl) return;
+  const qEl = document.getElementById("vcShadowTechSearch");
+  let q = qEl && qEl.value ? String(qEl.value).trim().toLowerCase() : "";
+  const rows = vcShadowTechListCache || [];
+  let html = "";
+  rows.forEach(function (row) {
+    if (q && String(row.displayName || "").toLowerCase().indexOf(q) < 0) return;
+    let idle = true;
+    const meta = vcShadowPresenceMetaByKey[row.presenceKey];
+    if (meta && meta.updatedAt && meta.updatedAt.toMillis) {
+      idle = Date.now() - meta.updatedAt.toMillis() > VC_SHADOW_IDLE_MS;
+    }
+    const active = row.presenceKey === activeKey;
+    let cls = "vc-shadow-tech-selector-row";
+    if (active) cls += " vc-shadow-tech-selector-row--active";
+    if (idle) cls += " vc-shadow-tech-selector-row--idle";
+    const idleTag = idle
+      ? '<span class="vc-shadow-tech-idle-tag">Offline</span>'
+      : "";
+    html +=
+      '<button type="button" role="option" class="' +
+      cls +
+      '" data-presence-key="' +
+      vcShadowAttr(row.presenceKey) +
+      '" data-display-name="' +
+      vcShadowAttr(row.displayName) +
+      '"><span class="vc-shadow-tech-selector-row-name">' +
+      escapeHtml(String(row.displayName || "")) +
+      "</span>" +
+      idleTag +
+      "</button>";
+  });
+  listEl.innerHTML = html || '<div class="vc-shadow-tech-selector-empty">No matches</div>';
+}
+
+function applyShadowHeaderSwitcherUi() {
+  const navProfile = document.getElementById("nav-profile");
+  const badge = document.getElementById("techDisplayLabel");
+  const box = document.getElementById("vcShadowTechSelector");
+  if (navProfile) navProfile.classList.add("hidden");
+  if (badge) badge.classList.add("hidden");
+  if (box) box.classList.remove("hidden");
+}
+
+function wireShadowPresenceForKey(presenceKey) {
+  if (vcShadowPresenceUnsub) {
+    try {
+      vcShadowPresenceUnsub();
+    } catch (e) {}
+    vcShadowPresenceUnsub = null;
+  }
+  if (!presenceKey || typeof firebase === "undefined" || !firebase.apps.length) return;
+  if (typeof VCFirestore === "undefined" || !VCFirestore.livePresence) return;
+  const db = firebase.firestore();
+  const ref = VCFirestore.livePresence(db).doc(presenceKey);
+  let profileStarted = false;
+  const unsub = ref.onSnapshot(function (snap) {
+    const d = snap.data() || {};
+    if (d.techDisplayName) {
+      localStorage.setItem("tp_saved_tech", d.techDisplayName);
+      currentTechProfile = d.techDisplayName;
+      updateShadowTechTriggerLabel(d.techDisplayName);
+    }
+    if (!profileStarted) {
+      profileStarted = true;
+      loadUserProfile().then(function () {
+        applyShadowPresenceFromDoc(d);
+      });
+    } else {
+      applyShadowPresenceFromDoc(d);
+    }
+  });
+  vcShadowPresenceUnsub = function () {
+    unsub();
+  };
+}
+
+function switchShadowTechPresence(presenceKey, displayName) {
+  if (!presenceKey) return;
+  const pk = String(presenceKey);
+  const name = String(displayName || "").trim();
+  const u = new URL(window.location.href);
+  u.searchParams.set("vc_shadow_viewer", "1");
+  u.searchParams.set("vc_presence_key", pk);
+  if (name) u.searchParams.set("vc_display_name", name);
+  else u.searchParams.delete("vc_display_name");
+  try {
+    history.replaceState({}, "", u.toString());
+  } catch (e) {}
+  if (name) {
+    localStorage.setItem("tp_saved_tech", name);
+    currentTechProfile = name;
+  }
+  updateShadowTechTriggerLabel(name);
+  wireShadowPresenceForKey(pk);
+  renderShadowTechListRows(pk);
+  if (window.parent && window.parent !== window) {
+    try {
+      window.parent.postMessage(
+        { type: "vc_shadow_tech_changed", presenceKey: pk, displayName: name },
+        "*"
+      );
+    } catch (e2) {}
+  }
+}
+
+function initShadowTechSelectorPopulate() {
+  if (typeof firebase === "undefined" || !firebase.apps.length) return;
+  if (typeof VCFirestore === "undefined" || !VCFirestore.tenantUsers) return;
+  const db = firebase.firestore();
+  VCFirestore.tenantUsers(db)
+    .get()
+    .then(function (snap) {
+      const rows = [];
+      snap.forEach(function (doc) {
+        const data = doc.data() || {};
+        if (vcShadowIsAdminUser(data)) return;
+        const pk = vcShadowPresenceKeyFromUserDoc(doc.id, data);
+        const label =
+          data.payrollFullName ||
+          (String(data.firstName || "") + " " + String(data.lastName || "")).trim() ||
+          data.email ||
+          doc.id;
+        rows.push({ presenceKey: pk, displayName: label });
+      });
+      rows.sort(function (a, b) {
+        return String(a.displayName).localeCompare(String(b.displayName));
+      });
+      vcShadowTechListCache = rows;
+      const active = new URLSearchParams(window.location.search).get("vc_presence_key") || "";
+      if (typeof VCFirestore !== "undefined" && VCFirestore.livePresence) {
+        if (vcShadowLivePresenceListUnsub) {
+          try {
+            vcShadowLivePresenceListUnsub();
+          } catch (e) {}
+          vcShadowLivePresenceListUnsub = null;
+        }
+        vcShadowLivePresenceListUnsub = VCFirestore.livePresence(db).onSnapshot(
+          function (lsnap) {
+            vcShadowPresenceMetaByKey = {};
+            lsnap.forEach(function (d) {
+              vcShadowPresenceMetaByKey[d.id] = d.data() || {};
+            });
+            renderShadowTechListRows(new URLSearchParams(window.location.search).get("vc_presence_key") || "");
+          },
+          function () {}
+        );
+      }
+      renderShadowTechListRows(active);
+    })
+    .catch(function (e) {
+      console.warn("[ShadowSwitcher] tenant users:", e);
+    });
+}
+
+function wireShadowTechSelectorUi() {
+  if (vcShadowTechSelectorWired) return;
+  vcShadowTechSelectorWired = true;
+  const trigger = document.getElementById("vcShadowTechSelectorTrigger");
+  const panel = document.getElementById("vcShadowTechSelectorDropdown");
+  const search = document.getElementById("vcShadowTechSearch");
+  const list = document.getElementById("vcShadowTechList");
+  const root = document.getElementById("vcShadowTechSelector");
+  if (!trigger || !panel || !root) return;
+
+  function closePanel() {
+    panel.classList.add("hidden");
+    trigger.setAttribute("aria-expanded", "false");
+  }
+
+  function openPanel() {
+    panel.classList.remove("hidden");
+    trigger.setAttribute("aria-expanded", "true");
+    positionShadowTechDropdown();
+    if (search) {
+      search.focus();
+      search.select();
+    }
+  }
+
+  trigger.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (panel.classList.contains("hidden")) openPanel();
+    else closePanel();
+  });
+
+  if (search) {
+    search.addEventListener("input", function () {
+      renderShadowTechListRows(new URLSearchParams(window.location.search).get("vc_presence_key") || "");
+    });
+    search.addEventListener("click", function (e) {
+      e.stopPropagation();
+    });
+  }
+
+  if (list) {
+    list.addEventListener("click", function (e) {
+      const btn = e.target && e.target.closest ? e.target.closest("[data-presence-key]") : null;
+      if (!btn) return;
+      const pk = btn.getAttribute("data-presence-key");
+      const dn = btn.getAttribute("data-display-name") || "";
+      if (pk) switchShadowTechPresence(pk, dn);
+      closePanel();
+    });
+  }
+
+  document.addEventListener("click", function () {
+    closePanel();
+  });
+  root.addEventListener("click", function (e) {
+    e.stopPropagation();
+  });
+  window.addEventListener("resize", function () {
+    positionShadowTechDropdown();
+  });
+}
+
 function wireCoachingInbox() {
   if (window.VC_SHADOW_VIEWER) return;
   if (vcCoachUnsub) {
@@ -6416,36 +6860,21 @@ function initShadowViewerFromUrl() {
   window.VC_SHADOW_VIEWER = true;
   applyShadowReadonlyUi();
   document.getElementById('loginShell').classList.add('hidden');
+  applyShadowHeaderSwitcherUi();
   const presenceKey = p.get('vc_presence_key') || '';
   const displayName = p.get('vc_display_name') || '';
   if (displayName) {
     localStorage.setItem('tp_saved_tech', displayName);
     currentTechProfile = displayName;
-    document.getElementById('techDisplayLabel').innerText = '👁 Shadow: ' + displayName;
+    updateShadowTechTriggerLabel(displayName);
   } else {
-    document.getElementById('techDisplayLabel').innerText = '👁 Shadow viewer';
+    updateShadowTechTriggerLabel('');
   }
+  initShadowTechSelectorPopulate();
+  wireShadowTechSelectorUi();
   if (!presenceKey || typeof firebase === 'undefined' || !firebase.apps.length) return true;
   if (typeof VCFirestore === 'undefined' || !VCFirestore.livePresence) return true;
-  const db = firebase.firestore();
-  const ref = VCFirestore.livePresence(db).doc(presenceKey);
-  let profileStarted = false;
-  ref.onSnapshot(function (snap) {
-    const d = snap.data() || {};
-    if (d.techDisplayName) {
-      localStorage.setItem('tp_saved_tech', d.techDisplayName);
-      currentTechProfile = d.techDisplayName;
-      document.getElementById('techDisplayLabel').innerText = '👁 Shadow: ' + d.techDisplayName;
-    }
-    if (!profileStarted) {
-      profileStarted = true;
-      loadUserProfile().then(function () {
-        applyShadowPresenceFromDoc(d);
-      });
-    } else {
-      applyShadowPresenceFromDoc(d);
-    }
-  });
+  wireShadowPresenceForKey(presenceKey);
   return true;
 }
 

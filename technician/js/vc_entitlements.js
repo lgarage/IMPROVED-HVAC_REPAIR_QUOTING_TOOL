@@ -121,6 +121,7 @@
   }
 
   global.applyVcFieldEntitlements = async function (payrollUpper) {
+    if (global.VC_SHADOW_VIEWER) return null;
     clearSandboxFlags();
     var profile = await fetchUserEntitlementDoc(payrollUpper);
     if (!profile) {
