@@ -9,7 +9,8 @@
     tenantId: "TWIN_PILLARS",
     brandName: "Twin Pillars Heating & Cooling LLC",
     shortBrand: "Twin Pillars",
-    logoUrl: "tphc_logo.png",
+    /** Default Vertex Core asset; override per tenant via Settings → Branding (URL or path). */
+    logoUrl: "vertex_core_logo.png",
     primaryColor: "#1e4b85",
     accentColor: "#c89b53",
     adminUnlockPin: "beta",

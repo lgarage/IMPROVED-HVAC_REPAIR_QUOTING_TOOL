@@ -375,7 +375,7 @@
       var logoUrl =
         typeof APP_CONFIG !== "undefined" && APP_CONFIG.logoUrl
           ? String(APP_CONFIG.logoUrl).trim()
-          : "tphc_logo.png";
+          : "vertex_core_logo.png";
       try {
         logoUrl = new URL(logoUrl, global.location.href).href;
       } catch (e) {}
