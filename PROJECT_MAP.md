@@ -133,6 +133,23 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 - Works with `equipment_manager.js` for promotions and shared equipment UI.
 - Disabled when **time-tracking-only** (`vc_entitlements.js` — `#btnOpenEquipmentHub`).
 
+#### Offline sync, cache reads & geo snapshots (Phase 18)
+
+**User Guide**
+
+- **Vertex-Core works in basements and mechanical rooms:** Firestore keeps an **offline cache** on the device. When there is no signal, you can still open the schedule, draft work, clock in/out, and queue writes. **Data syncs automatically** when connectivity returns—nothing extra to tap.
+- The Field App header may show **Working offline** (no network) or **Using cached data** (reading from the local Firestore cache; see `SnapshotMetadata.fromCache` via the lightweight `app_config/api_keys` listener).
+- **Clock in/out** and **Complete & Sync** capture a **GPS snapshot** when possible. If a fix does not arrive within **about 5 seconds**, the action still completes and the record is flagged with **`location_estimated: true`** (coordinates may be null).
+- When new jobs appear on your schedule, the app **prefetches** **Site Intel** and **completed visit history** for that customer/address so it is available before you arrive on site.
+
+**Technical Specs**
+
+- Persistence: `firebase-config.js` — `db.enablePersistence({ synchronizeTabs: true })` immediately after the first `firebase.firestore()`; optional duplicate guard in `shared/firebase_config.js` (loaded after `firebase-config.js` on Field, dispatcher, and Proof of Service).
+- Cache-first directory reads: `technician/js/data_provider.js` — `queryGetCacheFirst` (try `get({ source: "cache" })`, then full `get()` if the cached query snapshot is empty or on error).
+- Geo: `technician/js/time_tracker.js` — `captureGeoSnapshot()` (5s cap), `location_estimated` + lat/lng on `labor_logs` entries; `technician/index.html` — `uploadReportToCloud` adds `geoLat`, `geoLng`, `location_estimated` to `completed_reports`.
+- Prefetch: `prefetchSiteResourcesForTicket` in `technician/index.html` — `VCFirestore.getSiteIntelDocOnceBridged` + `queryCompletedReportsWhereMerged` per ticket; deduped with `vcPrefetchedTicketIds` on schedule merge and on workspace open.
+- Offline badge: `updateVcFieldOfflineBadge`, `app_config/api_keys` `onSnapshot({ includeMetadataChanges: true })`, `online`/`offline` window events.
+
 ---
 
 ### Data Architecture
@@ -353,7 +370,8 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - [v] Phase 16: Evidence filtering & Custom Report Studio (`shared/client_portal_logic.js` evidence helpers, `technician/index.html` + `workspace_ui.js`, `service_call.js` dispatcher overrides, `dispatcher/js/report_builder.js`, `proof_of_service.html` filter)
 - [v] Phase 17: Visual analytics & professional reporting (Chart.js in `index.html`, `insights_manager.js`, `report_builder.js` + `report_builder.css`, Proof of Service site trend, competitor-name scrub in UI/copy)
 - [v] Navigation: Reports hub (`dispatcher/css/sidebar.css`, `dispatcher/js/navigation.js`, sidebar order + Invoicing/Reports submenus in `index.html`)
+- [v] Phase 18: Offline sync & geo-snapshotting (`firebase-config.js`, `shared/firebase_config.js`, `technician/js/time_tracker.js`, `technician/js/data_provider.js`, Field header badge + prefetch in `technician/index.html`)
 
 ## Current Focus
 
-- Next: production Firestore rules for `portal_tokens` (public read + controlled approval write) and `labor_logs`; optional short URL / custom domain for `proof_of_service.html`; optional composite Firestore index if `labor_logs` range queries require it at scale; validate print/PDF chart timing across browsers.
+- Next: production Firestore rules for `portal_tokens` (public read + controlled approval write) and `labor_logs`; optional short URL / custom domain for `proof_of_service.html`; optional composite Firestore index if `labor_logs` range queries require it at scale; validate print/PDF chart timing across browsers; field-test Firestore persistence across Safari/Chrome on iOS/Android.

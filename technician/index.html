@@ -9,12 +9,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
-<script src="../firebase-config.js?v=3"></script>
+<script src="../firebase-config.js?v=4"></script>
+<script src="../shared/firebase_config.js?v=1"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/firebase_logic.js"></script>
 <script src="../shared/client_portal_logic.js?v=2"></script>
 <script src="js/vc_entitlements.js?v=1"></script>
-<script src="js/time_tracker.js?v=1"></script>
+<script src="js/time_tracker.js?v=2"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
@@ -54,6 +55,28 @@ body {
   padding: 12px 16px 10px;
 }
 .app-header-row img { max-height: 40px; flex-shrink: 0; }
+.app-header-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.vc-field-offline-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  padding: 4px 8px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+.vc-field-offline-badge.hidden { display: none !important; }
 .tech-profile-badge {
   font-size: 12px;
   font-weight: 800;
@@ -2681,7 +2704,10 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 <header class="app-top-shell" role="banner">
   <div class="app-header-row">
     <img id="vcBrandLogo" src="../tphc_logo.png" alt="" width="120" height="40" onerror="this.outerHTML='<span style=\'font-weight:800;color:#1e4b85;font-size:14px;\'>FIELD APP</span>'">
-    <span id="techDisplayLabel" class="tech-profile-badge">Loading…</span>
+    <div class="app-header-meta">
+      <span id="vcFieldOfflineBadge" class="vc-field-offline-badge hidden" role="status" aria-live="polite" title="Firestore is reading from local cache or the device is offline. Data syncs when signal returns."></span>
+      <span id="techDisplayLabel" class="tech-profile-badge">Loading…</span>
+    </div>
   </div>
   <nav class="app-main-nav" aria-label="Main">
     <button type="button" class="nav-item active" id="nav-schedule" onclick="switchScreen('schedule')">📋 Schedule</button>
@@ -3130,14 +3156,6 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 </div>
 
 <script>
-// --- ENABLE FIREBASE OFFLINE QUEUE ---
-if (typeof firebase !== 'undefined' && firebase.apps.length) {
-    firebase.firestore().enablePersistence()
-      .catch(function(err) {
-          console.warn("Offline persistence issue: ", err.code);
-      });
-}
-
 /* ---------- constants & arrays ---------- */
 function pad2(n){ return String(n).padStart(2, "0"); }
 function today(){ const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
@@ -3308,6 +3326,8 @@ let myTickets = [];
 let activeTicket = null;
 /** Unsubscribe fns for Firestore listeners (multi-tech + legacy assignedTech). */
 let scheduleUnsubscribeFns = [];
+/** Site intel + visit history prefetched per ticket id (offline-ready drive to job). */
+let vcPrefetchedTicketIds = new Set();
 let scheduleFirstSnapshotPending = true;
 /** Set when the schedule listener starts; used to resubscribe after the local calendar day changes. */
 let lastScheduleWindowStart = '';
@@ -3318,6 +3338,41 @@ function ensureWireAutosave() {
   if (autosaveWired) return;
   wireAutosave();
   autosaveWired = true;
+}
+
+function updateVcFieldOfflineBadge(meta) {
+  const el = document.getElementById('vcFieldOfflineBadge');
+  if (!el) return;
+  const navOff = typeof navigator !== 'undefined' && !navigator.onLine;
+  const fromCache = meta && meta.fromCache;
+  const show = navOff || !!fromCache;
+  el.classList.toggle('hidden', !show);
+  if (show) {
+    el.innerHTML = navOff
+      ? '<i class="fas fa-signal" aria-hidden="true"></i> Working offline'
+      : '<i class="fas fa-signal" aria-hidden="true"></i> Using cached data';
+  }
+}
+
+function prefetchSiteResourcesForTicket(ticket) {
+  if (!ticket || typeof firebase === 'undefined' || !firebase.apps.length) return;
+  try {
+    const db = firebase.firestore();
+    const cn = String(ticket.customerName || '').trim();
+    const addr = String(ticket.locationAddress || '').trim();
+    if (!cn || !addr) return;
+    const line = cn + ' - ' + addr;
+    const docId =
+      typeof DataProvider !== 'undefined' && DataProvider.siteIntelDocIdFromLocationLine
+        ? DataProvider.siteIntelDocIdFromLocationLine(line)
+        : '';
+    if (docId && typeof VCFirestore !== 'undefined' && VCFirestore.getSiteIntelDocOnceBridged) {
+      void VCFirestore.getSiteIntelDocOnceBridged(db, docId).catch(function () {});
+    }
+    if (typeof VCFirestore !== 'undefined' && VCFirestore.queryCompletedReportsWhereMerged) {
+      void VCFirestore.queryCompletedReportsWhereMerged(db, 'location', '==', line, 40).catch(function () {});
+    }
+  } catch (e) {}
 }
 
 /* ---------- screen & UI logic ---------- */
@@ -3818,6 +3873,15 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
         if (row) byId.set(id, row);
       });
       myTickets = Array.from(byId.values());
+      myTickets.forEach(function (t) {
+        if (!t || !t.id) return;
+        if (vcPrefetchedTicketIds.has(t.id)) return;
+        vcPrefetchedTicketIds.add(t.id);
+        prefetchSiteResourcesForTicket(t);
+      });
+      if (vcPrefetchedTicketIds.size > 250) {
+        vcPrefetchedTicketIds = new Set(Array.from(vcPrefetchedTicketIds).slice(-150));
+      }
       renderJobListUI();
       if (typeof refreshLocationDirectoryCache === 'function') refreshLocationDirectoryCache();
       if (scheduleFirstSnapshotPending) {
@@ -3871,6 +3935,29 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
     );
 
     scheduleUnsubscribeFns.push(u1, u2);
+
+    try {
+      const metaRef = db.collection('app_config').doc('api_keys');
+      const uMeta = metaRef.onSnapshot(
+        { includeMetadataChanges: true },
+        function (snap) {
+          updateVcFieldOfflineBadge(snap.metadata);
+        },
+        function () {}
+      );
+      scheduleUnsubscribeFns.push(uMeta);
+    } catch (e) {}
+
+    if (!window._vcOfflineListenersWired) {
+      window._vcOfflineListenersWired = true;
+      window.addEventListener('online', function () {
+        updateVcFieldOfflineBadge({ fromCache: false });
+      });
+      window.addEventListener('offline', function () {
+        updateVcFieldOfflineBadge({ fromCache: true });
+      });
+    }
+    updateVcFieldOfflineBadge({ fromCache: typeof navigator !== 'undefined' && !navigator.onLine });
   } catch (error) {
     console.error("Error subscribing to tickets:", error);
     container.innerHTML = '<div style="text-align:center; padding: 40px; color:#e74c3c;">Error connecting to dispatch board.</div>';
@@ -4427,6 +4514,7 @@ function openWorkspace(ticketId) {
   if (typeof refreshJobLinkedEquipmentDropdown === "function") refreshJobLinkedEquipmentDropdown();
   if (typeof startDictationHubFromWorkspace === "function") startDictationHubFromWorkspace();
   if (typeof window.workspaceUiOnOpen === "function") window.workspaceUiOnOpen();
+  prefetchSiteResourcesForTicket(activeTicket);
 }
 
 /* ---------- location local formatting fallback ---------- */
@@ -5813,11 +5901,17 @@ function formatQuotePartsField(){ autoParseParts("quoteParts"); }
 function formatQuoteEquipField(){ const el = document.getElementById("quoteEquip"); if(el.value.trim()){ el.value = formatEquipmentFieldValue(el.value); autoGrow(el); saveDraft(); } }
 
 /* ---------- BACKGROUND CLOUD SYNC ---------- */
-function uploadReportToCloud(visitData, fullReportText) {
+async function uploadReportToCloud(visitData, fullReportText) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return;
     try {
       if (localStorage.getItem('vc_time_tracking_only') === '1') {
         return;
+      }
+    } catch (e) {}
+    let geo = { lat: null, lng: null, location_estimated: true };
+    try {
+      if (typeof VcTimeTracker !== 'undefined' && VcTimeTracker.captureGeoSnapshot) {
+        geo = await VcTimeTracker.captureGeoSnapshot();
       }
     } catch (e) {}
     const db = firebase.firestore();
@@ -5837,7 +5931,10 @@ function uploadReportToCloud(visitData, fullReportText) {
     const payload = {
         ...visitData, fullReportText: fullReportText, techName: currentTechProfile,
         linkedTicketId: ticketId || "None", status: finalStatus, 
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(), deviceSavedAt: new Date().toISOString() 
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(), deviceSavedAt: new Date().toISOString(),
+        geoLat: geo.lat != null ? geo.lat : null,
+        geoLng: geo.lng != null ? geo.lng : null,
+        location_estimated: !!geo.location_estimated
     };
     if (linkedEquipmentId) payload.Linked_Equipment_ID = linkedEquipmentId;
 
@@ -6092,7 +6189,7 @@ document.getElementById("reportPreviewSyncBtn").onclick = async function(){
   }
   saveVisitToHistory(visit);
   populateHistoryCustomers();
-  uploadReportToCloud(visit, report);
+  await uploadReportToCloud(visit, report);
   saveDraft();
   closeReportPreview();
 };

@@ -129,6 +129,23 @@
    * Provider-agnostic; always reads Vertex-Core Firebase.
    * @returns {Promise<Array<{ id: string, displayLine: string, address: string, customerName: string, mapsQuery: string }>>}
    */
+  /**
+   * Prefer IndexedDB cache when persistence is on; if the cached snapshot is empty, try a normal get (server when online).
+   * @param {firebase.firestore.Query} query
+   * @returns {Promise<firebase.firestore.QuerySnapshot>}
+   */
+  function queryGetCacheFirst(query) {
+    return query
+      .get({ source: "cache" })
+      .then(function (snap) {
+        if (snap && !snap.empty) return snap;
+        return query.get();
+      })
+      .catch(function () {
+        return query.get();
+      });
+  }
+
   function getAllLocations() {
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
       return Promise.resolve([]);
@@ -194,8 +211,8 @@
 
     var p1 = bridge
       ? Promise.all([
-          sc.limit(800).get(),
-          db.collection("service_calls").limit(800).get(),
+          queryGetCacheFirst(sc.limit(800)),
+          queryGetCacheFirst(db.collection("service_calls").limit(800)),
         ])
           .then(function (pair) {
             ingestServiceCallSnap(pair[0]);
@@ -204,9 +221,7 @@
           .catch(function (e) {
             console.warn("[DataProvider] getAllLocations service_calls", e);
           })
-      : sc
-          .limit(800)
-          .get()
+      : queryGetCacheFirst(sc.limit(800))
           .then(ingestServiceCallSnap)
           .catch(function (e) {
             console.warn("[DataProvider] getAllLocations service_calls", e);
@@ -214,8 +229,8 @@
 
     var p2 = bridge
       ? Promise.all([
-          si.limit(500).get(),
-          db.collection("site_intelligence").limit(500).get(),
+          queryGetCacheFirst(si.limit(500)),
+          queryGetCacheFirst(db.collection("site_intelligence").limit(500)),
         ])
           .then(function (pair) {
             ingestSiteIntelSnap(pair[0]);
@@ -224,9 +239,7 @@
           .catch(function () {
             /* collection may be empty */
           })
-      : si
-          .limit(500)
-          .get()
+      : queryGetCacheFirst(si.limit(500))
           .then(ingestSiteIntelSnap)
           .catch(function () {
             /* collection may be empty */
@@ -252,6 +265,7 @@
     normalizeLocationKey: normalizeLocationKey,
     siteIntelDocIdFromLocationLine: siteIntelDocIdFromLocationLine,
     getAllLocations: getAllLocations,
+    queryGetCacheFirst: queryGetCacheFirst,
   };
 
   /** Route public schedule API through DataProvider; keep native impl for NATIVE/UFX bridge. */

@@ -31,6 +31,17 @@ firebase.initializeApp({
 
 // Initialize Firestore Database (we will use this 'db' variable in our other files)
 const db = firebase.firestore();
+db.enablePersistence({ synchronizeTabs: true }).catch(function (err) {
+  if (err.code === "failed-precondition") {
+    console.warn(
+      "[Vertex-Core] Firestore persistence: multiple tabs open — use one tab for a single offline cache."
+    );
+  } else if (err.code === "unimplemented") {
+    console.warn("[Vertex-Core] Firestore persistence is not supported in this browser.");
+  } else {
+    console.warn("[Vertex-Core] Firestore persistence:", err.code || err);
+  }
+});
 
 /** Cached Gemini key from Firestore app_config/api_keys field gemini (null = not loaded yet). */
 let _geminiKeyCache = null;

@@ -115,23 +115,43 @@
     return "Off duty";
   }
 
-  function getGeo() {
+  /**
+   * GPS snapshot for labor / reports: wait up to 5s for a fix; if none, allow proceed with location_estimated.
+   * @returns {Promise<{ lat: number|null, lng: number|null, location_estimated: boolean }>}
+   */
+  function captureGeoSnapshot() {
     return new Promise(function (resolve) {
       if (!navigator.geolocation) {
-        resolve({ lat: null, lng: null });
+        resolve({ lat: null, lng: null, location_estimated: true });
         return;
       }
+      var settled = false;
+      function finish(lat, lng, estimated) {
+        if (settled) return;
+        settled = true;
+        resolve({
+          lat: lat != null && !isNaN(lat) ? lat : null,
+          lng: lng != null && !isNaN(lng) ? lng : null,
+          location_estimated: !!estimated,
+        });
+      }
+      var timer = global.setTimeout(function () {
+        finish(null, null, true);
+      }, 5000);
       navigator.geolocation.getCurrentPosition(
         function (pos) {
-          resolve({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
+          try {
+            global.clearTimeout(timer);
+          } catch (e) {}
+          finish(pos.coords.latitude, pos.coords.longitude, false);
         },
         function () {
-          resolve({ lat: null, lng: null });
+          try {
+            global.clearTimeout(timer);
+          } catch (e) {}
+          finish(null, null, true);
         },
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
       );
     });
   }
@@ -150,12 +170,13 @@
     var db = firebase.firestore();
     var ref = VCFirestore.laborLogs(db).doc(docId);
     var iso = new Date().toISOString();
-    return getGeo().then(function (geo) {
+    return captureGeoSnapshot().then(function (geo) {
       var entry = {
         at: iso,
         action: action,
         lat: geo.lat,
         lng: geo.lng,
+        location_estimated: !!geo.location_estimated,
         ticketId: ticketIdOpt ? String(ticketIdOpt) : "",
       };
       return db.runTransaction(function (tx) {
@@ -321,5 +342,6 @@
     todayYmd: todayYmd,
     computeHoursSeconds: computeHoursSeconds,
     appendLaborEntry: appendLaborEntry,
+    captureGeoSnapshot: captureGeoSnapshot,
   };
 })(typeof window !== "undefined" ? window : this);
