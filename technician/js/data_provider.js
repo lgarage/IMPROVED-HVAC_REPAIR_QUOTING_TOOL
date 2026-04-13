@@ -7,7 +7,7 @@
 
   /**
    * Default data source: 'NATIVE' = Firestore service_calls, 'UFX' = UniFiX plugin,
-   * 'SERVICETITAN' = reserved. Runtime: set window.DATA_SOURCE before data_provider loads.
+   * 'LEGACY_PLATFORM' = reserved alias for native-shaped rows. Runtime: set window.DATA_SOURCE before data_provider loads.
    */
   var DEFAULT_DATA_SOURCE = "NATIVE";
   if (typeof window.DATA_SOURCE === "undefined") {
@@ -16,7 +16,7 @@
 
   function currentDataSource() {
     var s = window.DATA_SOURCE;
-    if (s === "UFX" || s === "NATIVE" || s === "SERVICETITAN") return s;
+    if (s === "UFX" || s === "NATIVE" || s === "LEGACY_PLATFORM") return s;
     return DEFAULT_DATA_SOURCE;
   }
 
@@ -72,7 +72,7 @@
     if (src === "UFX" && window.UFXAdapter && typeof window.UFXAdapter.mapUFXToStandardTicket === "function") {
       return window.UFXAdapter.mapUFXToStandardTicket(raw, docId);
     }
-    if (src === "SERVICETITAN") {
+    if (src === "LEGACY_PLATFORM") {
       return mapServiceCallToStandard(raw, docId);
     }
     return mapServiceCallToStandard(raw, docId);

@@ -6,7 +6,7 @@
   "use strict";
 
   var BATCH_SIZE = 500;
-  var LEGACY_SOURCE_DEFAULT = "BuildOps";
+  var LEGACY_SOURCE_DEFAULT = "Legacy Platform";
 
   function normalizeLocationKey(locationLine) {
     return String(locationLine || "")

@@ -11,6 +11,7 @@
     <script src="shared/config.js"></script>
     <script src="shared/firebase_logic.js"></script>
     <script src="shared/client_portal_logic.js?v=2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
       :root {
         --vc-pri: #1e4b85;
@@ -142,6 +143,23 @@
         padding: 40px 16px;
         color: #64748b;
       }
+      .vc-pos-trend-wrap {
+        height: 180px;
+        position: relative;
+        margin-top: 8px;
+      }
+      .vc-pos-meter {
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 999px;
+        overflow: hidden;
+        margin-top: 10px;
+      }
+      .vc-pos-meter__fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--vc-pri), var(--vc-accent));
+      }
     </style>
   </head>
   <body>
@@ -168,6 +186,83 @@
           var x = String(u).trim();
           if (/^https?:\/\//i.test(x) || x.charAt(0) === "/") return x;
           return x.replace(/^\.\//, "");
+        }
+
+        function normalizeSiteKeyPos(job) {
+          var cn = String(job.customerName || "")
+            .trim()
+            .toLowerCase();
+          var ad = String(job.locationAddress || "")
+            .trim()
+            .toLowerCase();
+          return cn + "|" + ad;
+        }
+
+        function paintSiteTrendChart(db, job, priColor) {
+          if (typeof Chart === "undefined" || typeof VCFirestore.loadServiceCallsMergedOnce !== "function") {
+            return;
+          }
+          var canvas = document.getElementById("vcPosTrendCanvas");
+          var meter = document.getElementById("vcPosMeterFill");
+          if (!canvas) return;
+          var stroke = priColor || "#1e4b85";
+          VCFirestore.loadServiceCallsMergedOnce(db)
+            .then(function (snap) {
+              var rows = [];
+              snap.forEach(function (doc) {
+                var d = doc.data() || {};
+                d.id = doc.id;
+                rows.push(d);
+              });
+              var key = normalizeSiteKeyPos(job);
+              if (!key || key === "|") return;
+              var months = [];
+              var now = new Date();
+              var mi;
+              for (mi = 5; mi >= 0; mi--) {
+                var dt = new Date(now.getFullYear(), now.getMonth() - mi, 1);
+                months.push(dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0"));
+              }
+              var counts = months.map(function () {
+                return 0;
+              });
+              for (mi = 0; mi < rows.length; mi++) {
+                var x = rows[mi];
+                if (normalizeSiteKeyPos(x) !== key) continue;
+                if (!x.date || String(x.date).length < 7) continue;
+                var ym = String(x.date).slice(0, 7);
+                var idx = months.indexOf(ym);
+                if (idx >= 0) counts[idx] += 1;
+              }
+              var maxC = Math.max.apply(null, counts.concat([1]));
+              var lastC = counts[counts.length - 1] || 0;
+              if (meter) meter.style.width = Math.min(100, Math.round((lastC / maxC) * 100)) + "%";
+              new Chart(canvas.getContext("2d"), {
+                type: "line",
+                data: {
+                  labels: months,
+                  datasets: [
+                    {
+                      label: "Visits",
+                      data: counts,
+                      borderColor: stroke,
+                      backgroundColor: "rgba(30, 75, 133, 0.14)",
+                      fill: true,
+                      tension: 0.25,
+                    },
+                  ],
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                  },
+                },
+              });
+            })
+            .catch(function () {});
         }
 
         var tid = qs("tid");
@@ -283,6 +378,15 @@
               }
               html += "</div>";
 
+              html += '<div class="vc-pos-card" id="vcPosTrendCard">';
+              html += "<h2>Site service trend</h2>";
+              html +=
+                '<p style="font-size:13px;color:#64748b;margin:0 0 8px;">Recent visit history for this building (Vertex-Core).</p>';
+              html += '<div class="vc-pos-trend-wrap"><canvas id="vcPosTrendCanvas"></canvas></div>';
+              html += '<p style="font-size:11px;color:#64748b;margin:8px 0 4px;">Activity index (latest month vs peak)</p>';
+              html += '<div class="vc-pos-meter"><div class="vc-pos-meter__fill" id="vcPosMeterFill" style="width:0%"></div></div>';
+              html += "</div>";
+
               if (memoOnly) {
                 html += '<div class="vc-pos-card"><h2>Work summary</h2>';
                 html +=
@@ -335,6 +439,7 @@
                 html +=
                   '<p class="vc-pos-msg">This visit was already approved. Thank you.</p>';
                 root.innerHTML = html;
+                paintSiteTrendChart(db, job, pri);
                 return;
               }
 
@@ -353,6 +458,8 @@
               html += "</div>";
 
               root.innerHTML = html;
+
+              paintSiteTrendChart(db, job, pri);
 
               document.getElementById("vcPosApproveBtn").addEventListener("click", function () {
                 var btn = document.getElementById("vcPosApproveBtn");

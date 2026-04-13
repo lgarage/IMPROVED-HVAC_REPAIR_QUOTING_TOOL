@@ -289,18 +289,54 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - `dispatcher/js/report_builder.js` (`VcReportStudio`), `#view-report-studio` in `index.html`.
 - Loads `VCFirestore.loadServiceCallsMergedOnce`, filters by `date` and optional IDs; optional blocks: job details, public-facing notes (issue / `techNotes` / `clientPortalMemo`), equipment + `getSiteIntelDocOnceBridged` for the hashed site key, `filterPublicEvidencePhotoUrls` for photos, labor hours via `labor_logs` IN/OUT pairs with `ticketId` on IN.
 
+### Visual analytics & “gold standard” reporting (Phase 17)
+
+#### Executive Insights — charts
+
+**User Guide**
+
+- **Executive Insights** includes a **Revenue mix** pie (billable dollars by pillar / job type) and a **Labor efficiency** bar chart for the **last 30 days**: quoted billable hours vs. clocked labor hours per pillar, so managers can spot bleed.
+- Default billable rate for dollar estimates matches the **Default billable rate ($/hr)** field on the same view (stored in `localStorage`).
+
+**Technical Specs**
+
+- Chart.js (CDN) in root `index.html`; canvases `#insightsChartPie`, `#insightsChartBar` in `#view-insights`.
+- `dispatcher/js/insights_manager.js` — `laborSnap30` query for last-30-day labor; `destroyInsightsCharts` on refresh.
+
+#### Custom Report Studio & print
+
+**User Guide**
+
+- **Generate & print** opens a window with **branded header**, optional **summary charts** (same mix + labor bars for the report’s ticket slice), and per-ticket **site health** (rolling trend line + meter) when the **Site intel** block is included.
+
+**Technical Specs**
+
+- `dispatcher/js/report_builder.js` — embeds Chart.js + `dispatcher/css/report_builder.css`, JSON `chartPayload` for inline chart script after load.
+- `dispatcher/css/report_builder.css` — Inter/Roboto, meter styles, `@media print` (margins, `print-color-adjust`, avoid breaks inside chart cards).
+
+#### Proof of Service — site trend
+
+**User Guide**
+
+- **Proof of Service** shows a **Site service trend** card: rolling months of service-call counts for this customer + address and a small **activity** meter.
+
+**Technical Specs**
+
+- `proof_of_service.html` — Chart.js, `paintSiteTrendChart()` after ticket render; uses `loadServiceCallsMergedOnce` + same site key as intel.
+
 ---
 
 ## Build History
 
 - [v] Phase 10: Tenant Isolation & Branding
 - [v] Phase 11: Terminology Pivot (Inter-Office Comms) & Data Bridge
-- [v] Phase 12: Enterprise Data Importer (BuildOps Mapping)
+- [v] Phase 12: Enterprise Data Importer (Legacy Platform / Green Column mapping)
 - [v] Phase 13: Lite Seat Dashboard & Payroll Manager (`labor_logs`, `time_tracker.js`, `payroll_manager.js`)
 - [v] Phase 14: Client Verification & Proof of Service Portal (`portal_tokens`, `proof_of_service.html`, `client_notifications.js`, `client_portal_logic.js`)
 - [v] Phase 15: Executive Insights & Revenue Dashboard (`dispatcher/js/insights_manager.js`, `dispatcher/css/insights.css`, `#view-insights` in `index.html`)
 - [v] Phase 16: Evidence filtering & Custom Report Studio (`shared/client_portal_logic.js` evidence helpers, `technician/index.html` + `workspace_ui.js`, `service_call.js` dispatcher overrides, `dispatcher/js/report_builder.js`, `proof_of_service.html` filter)
+- [v] Phase 17: Visual analytics & professional reporting (Chart.js in `index.html`, `insights_manager.js`, `report_builder.js` + `report_builder.css`, Proof of Service site trend, competitor-name scrub in UI/copy)
 
 ## Current Focus
 
-- Next: production Firestore rules for `portal_tokens` (public read + controlled approval write) and `labor_logs`; optional short URL / custom domain for `proof_of_service.html`; optional composite Firestore index if `labor_logs` range queries require it at scale.
+- Next: production Firestore rules for `portal_tokens` (public read + controlled approval write) and `labor_logs`; optional short URL / custom domain for `proof_of_service.html`; optional composite Firestore index if `labor_logs` range queries require it at scale; validate print/PDF chart timing across browsers.

@@ -16,7 +16,9 @@
     />
     <link rel="stylesheet" href="dispatcher/css/activity_feed.css?v=1" />
     <link rel="stylesheet" href="dispatcher/css/import_hub.css?v=1" />
-    <link rel="stylesheet" href="dispatcher/css/insights.css?v=1" />
+    <link rel="stylesheet" href="dispatcher/css/insights.css?v=2" />
+    <link rel="stylesheet" href="dispatcher/css/report_builder.css?v=1" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
@@ -3509,6 +3511,33 @@
           <div class="insights-grid insights-grid--split">
             <section class="insights-card">
               <div class="insights-card__head">
+                <h3>Revenue mix (scheduled billable $ by job type)</h3>
+                <p>
+                  Distribution of <strong>billable hours × default rate</strong> across pillars for the
+                  selected period.
+                </p>
+              </div>
+              <div class="insights-card__body insights-chart-card">
+                <canvas id="insightsChartPie" aria-label="Revenue mix chart"></canvas>
+              </div>
+            </section>
+            <section class="insights-card">
+              <div class="insights-card__head">
+                <h3>Labor efficiency (last 30 days)</h3>
+                <p>
+                  Quoted billable hours vs. clocked labor hours by job type — spot categories that may be
+                  under-priced or over-running.
+                </p>
+              </div>
+              <div class="insights-card__body insights-chart-card">
+                <canvas id="insightsChartBar" aria-label="Labor efficiency chart"></canvas>
+              </div>
+            </section>
+          </div>
+
+          <div class="insights-grid insights-grid--split">
+            <section class="insights-card">
+              <div class="insights-card__head">
                 <h3>Profitability by pillar (job type)</h3>
                 <p>
                   Total billable (scheduled) hours vs. labor clocked to jobs on tickets in the date
@@ -4939,7 +4968,7 @@
           </div>
 
           <div class="form-section" id="vcUserImportSection">
-            <h4>Enterprise User Import (BuildOps Green Column)</h4>
+            <h4>Enterprise User Import (Vertex-Core Green Column)</h4>
             <p style="font-size: 13px; color: #666">
               Upload a CSV with columns:
               <strong>First Name</strong>, <strong>Last Name</strong>, <strong>Email</strong>,
@@ -6441,8 +6470,8 @@
       }
     </script>
     <script src="service_call.js?v=58"></script>
-    <script src="dispatcher/js/insights_manager.js?v=1"></script>
-    <script src="dispatcher/js/report_builder.js?v=1"></script>
+    <script src="dispatcher/js/insights_manager.js?v=2"></script>
+    <script src="dispatcher/js/report_builder.js?v=2"></script>
     <script>
       if (window.location.hash === "#insights" && typeof switchTab === "function") {
         switchTab("insights");

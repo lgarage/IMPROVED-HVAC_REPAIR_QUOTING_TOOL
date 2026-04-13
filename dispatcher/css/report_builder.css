@@ -1,0 +1,161 @@
+/**
+ * Custom Report Studio — screen + print (Phase 17).
+ */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto:wght@400;700&display=swap");
+
+.vc-rpt-root {
+  font-family: Inter, Roboto, system-ui, sans-serif;
+  color: #1e293b;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+  box-sizing: border-box;
+}
+
+.vc-print-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.vc-print-header__logo {
+  max-height: 48px;
+  width: auto;
+  object-fit: contain;
+}
+
+.vc-print-header__titles h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1e4b85;
+}
+
+.vc-print-header__titles p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.vc-rpt-chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 24px 0;
+  page-break-inside: avoid;
+}
+
+@media (max-width: 720px) {
+  .vc-rpt-chart-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.vc-rpt-chart-box {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px 8px;
+  min-height: 260px;
+  position: relative;
+}
+
+.vc-rpt-chart-box h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.vc-rpt-chart-box canvas {
+  max-height: 220px;
+}
+
+.vc-rpt-section {
+  margin-bottom: 20px;
+  page-break-inside: avoid;
+}
+
+.vc-rpt-section h2 {
+  font-size: 1rem;
+  color: #334155;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 6px;
+  margin: 0 0 12px;
+}
+
+.vc-rpt-meter {
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 8px 0 4px;
+}
+
+.vc-rpt-meter__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1e4b85, #c89b53);
+  transition: width 0.3s ease;
+}
+
+@media print {
+  @page {
+    size: letter;
+    margin: 12mm 14mm;
+  }
+
+  html,
+  body {
+    font-family: Inter, Roboto, sans-serif !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color: #1e293b;
+    background: #fff !important;
+  }
+
+  /* Repeat brand bar on each printed page (Chromium/Safari) */
+  .vc-print-header-fixed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    z-index: 999;
+    padding: 8px 14mm;
+    margin: 0 -14mm;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  body {
+    padding-top: 72px !important;
+  }
+
+  .vc-rpt-root {
+    padding-top: 8px;
+  }
+
+  .vc-rpt-section,
+  .vc-rpt-chart-row,
+  .vc-rpt-chart-box {
+    page-break-inside: avoid;
+  }
+
+  .vc-rpt-section h2 {
+    page-break-after: avoid;
+  }
+
+  a {
+    color: #1e4b85;
+    text-decoration: none;
+  }
+
+  img {
+    max-width: 100% !important;
+  }
+}

@@ -1,5 +1,5 @@
 /**
- * Enterprise User Import — BuildOps "Green Column" CSV (dispatcher).
+ * Enterprise User Import — Vertex-Core "Green Column" CSV (dispatcher).
  * Writes tenants/{tenantId}/users/{emailId}; optional training sandbox user + roster merge.
  */
 (function (global) {
@@ -123,7 +123,7 @@
   /**
    * @returns {{ rows: Array<object>, errors: string[], headerMap: object }}
    */
-  function parseBuildOpsRows(csvText) {
+  function parseGreenColumnRows(csvText) {
     var errors = [];
     var rows = parseCsv(csvText);
     if (!rows.length) {
@@ -195,7 +195,7 @@
         : row.payrollNameUpper,
       isTrainingAccount: isTraining,
       mirrorLiveEmail: isTraining ? row.email : null,
-      importSource: "buildops_csv",
+      importSource: "green_column_csv",
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
   }
@@ -311,7 +311,7 @@
       if (!f) return;
       var reader = new FileReader();
       reader.onload = function () {
-        var parsed = parseBuildOpsRows(String(reader.result || ""));
+        var parsed = parseGreenColumnRows(String(reader.result || ""));
         lastParsed = parsed;
         if (errEl) {
           errEl.innerHTML =
@@ -363,7 +363,7 @@
 
   global.VcUserImport = {
     parseCsv: parseCsv,
-    parseBuildOpsRows: parseBuildOpsRows,
+    parseGreenColumnRows: parseGreenColumnRows,
     runImport: runImport,
     renderPreviewTable: renderPreviewTable,
     emailDocId: emailDocId,

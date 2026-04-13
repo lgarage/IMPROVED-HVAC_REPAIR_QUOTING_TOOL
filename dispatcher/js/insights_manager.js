@@ -15,6 +15,145 @@
   };
   var LS_RATE_KEY = "vc_insights_default_rate";
 
+  /** Professional palette: deep blues, orange accent, slate. */
+  var INSIGHTS_PALETTE = ["#1e4b85", "#c89b53", "#475569", "#0ea5e9", "#ea580c"];
+
+  var insightsChartInstances = { pie: null, bar: null };
+
+  function destroyInsightsCharts() {
+    if (insightsChartInstances.pie) {
+      insightsChartInstances.pie.destroy();
+      insightsChartInstances.pie = null;
+    }
+    if (insightsChartInstances.bar) {
+      insightsChartInstances.bar.destroy();
+      insightsChartInstances.bar = null;
+    }
+  }
+
+  function renderInsightsCharts(billableByPillar, billable30, clocked30, rate) {
+    if (typeof Chart === "undefined") return;
+    destroyInsightsCharts();
+    var pieCanvas = document.getElementById("insightsChartPie");
+    var barCanvas = document.getElementById("insightsChartBar");
+    if (!pieCanvas || !barCanvas) return;
+
+    var pieLabels = [];
+    var pieData = [];
+    var pieColors = [];
+    var pi;
+    for (pi = 0; pi < PILLAR_ORDER.length; pi++) {
+      var code = PILLAR_ORDER[pi];
+      var hrs = billableByPillar[code] || 0;
+      if (hrs > 0.005) {
+        pieLabels.push(PILLAR_LABEL[code]);
+        pieData.push(Math.round(hrs * rate * 100) / 100);
+        pieColors.push(INSIGHTS_PALETTE[pi % INSIGHTS_PALETTE.length]);
+      }
+    }
+    if (!pieData.length) {
+      pieLabels = ["No data"];
+      pieData = [1];
+      pieColors = ["#e2e8f0"];
+    }
+    var ctxPie = pieCanvas.getContext("2d");
+    insightsChartInstances.pie = new Chart(ctxPie, {
+      type: "pie",
+      data: {
+        labels: pieLabels,
+        datasets: [
+          {
+            data: pieData,
+            backgroundColor: pieColors,
+            borderWidth: 1,
+            borderColor: "#fff",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { boxWidth: 12, font: { size: 11 } },
+          },
+          title: {
+            display: true,
+            text: "Billable $ mix (hours × rate)",
+            font: { size: 12, weight: "600" },
+            color: "#475569",
+          },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                var v = ctx.parsed;
+                return ctx.label + ": " + fmtMoney(v);
+              },
+            },
+          },
+        },
+      },
+    });
+
+    var barLabels = [];
+    var barQ = [];
+    var barA = [];
+    for (pi = 0; pi < PILLAR_ORDER.length; pi++) {
+      var bcode = PILLAR_ORDER[pi];
+      barLabels.push(bcode);
+      barQ.push(Math.round((billable30[bcode] || 0) * 100) / 100);
+      barA.push(Math.round((clocked30[bcode] || 0) * 100) / 100);
+    }
+    var ctxBar = barCanvas.getContext("2d");
+    insightsChartInstances.bar = new Chart(ctxBar, {
+      type: "bar",
+      data: {
+        labels: barLabels,
+        datasets: [
+          {
+            label: "Quoted billable (h)",
+            data: barQ,
+            backgroundColor: "rgba(30, 75, 133, 0.85)",
+            borderColor: "#1e4b85",
+            borderWidth: 1,
+          },
+          {
+            label: "Clocked labor (h)",
+            data: barA,
+            backgroundColor: "rgba(200, 155, 83, 0.85)",
+            borderColor: "#c89b53",
+            borderWidth: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 11 } },
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { font: { size: 11 } },
+            title: { display: true, text: "Hours" },
+          },
+        },
+        plugins: {
+          legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
+          title: {
+            display: true,
+            text: "Last 30 days — quoted vs clocked by type",
+            font: { size: 12, weight: "600" },
+            color: "#475569",
+          },
+        },
+      },
+    });
+  }
+
   function todayIso() {
     var d = new Date();
     return (
@@ -473,6 +612,37 @@
         clockedByPillar[pillar] = (clockedByPillar[pillar] || 0) + clockedByTicket[tid];
       });
 
+      var from30 = daysAgoIso(30);
+      var to30 = todayIso();
+      var laborSnap30 = await VCFirestore.laborLogs(db)
+        .where("dateYmd", ">=", from30)
+        .where("dateYmd", "<=", to30)
+        .get();
+      var clockedByTicket30 = {};
+      laborSnap30.forEach(function (ldoc) {
+        var d30 = ldoc.data() || {};
+        var ent30 = Array.isArray(d30.entries) ? d30.entries : [];
+        addClockedHoursFromEntries(ent30, clockedByTicket30);
+      });
+      var billable30 = {};
+      var clocked30 = {};
+      for (i = 0; i < PILLAR_ORDER.length; i++) {
+        billable30[PILLAR_ORDER[i]] = 0;
+        clocked30[PILLAR_ORDER[i]] = 0;
+      }
+      Object.keys(ticketById).forEach(function (tid) {
+        var sc3 = ticketById[tid];
+        if (!ticketDateInRange(sc3.date, from30, to30)) return;
+        var p3 = jobTypeToPillar(sc3.jobType);
+        billable30[p3] = (billable30[p3] || 0) + billableHoursForTicket(sc3);
+      });
+      Object.keys(clockedByTicket30).forEach(function (tid) {
+        var sc4 = ticketById[tid];
+        if (!sc4) return;
+        var p4 = jobTypeToPillar(sc4.jobType);
+        clocked30[p4] = (clocked30[p4] || 0) + clockedByTicket30[tid];
+      });
+
       var pillarRows = [];
       var maxBar = 0;
       for (i = 0; i < PILLAR_ORDER.length; i++) {
@@ -487,6 +657,8 @@
       if (pillarHost) renderPillarSection(pillarHost, pillarRows, maxBar);
       var insightEl = document.getElementById("insightsManagerLine");
       if (insightEl) insightEl.textContent = buildPillarInsight(pillarRows);
+
+      renderInsightsCharts(billableByPillar, billable30, clocked30, rate);
 
       var reports = await loadCompletedReportsMergedOnce(db);
       var weekStart = startOfWeekMonday(new Date());

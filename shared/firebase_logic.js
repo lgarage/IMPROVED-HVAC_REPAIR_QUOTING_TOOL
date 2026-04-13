@@ -50,7 +50,7 @@
     return tenantCollection(db, "site_intelligence");
   }
 
-  /** Enterprise user directory (imported roster / BuildOps-style). */
+  /** Enterprise user directory (imported roster / Vertex-Core CSV). */
   function tenantUsers(db) {
     return tenantCollection(db, "users");
   }

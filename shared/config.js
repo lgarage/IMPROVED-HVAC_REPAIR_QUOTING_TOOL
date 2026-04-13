@@ -16,7 +16,7 @@
   };
 
   /**
-   * Enterprise role definitions (BuildOps-style mapping). Used by User Import + Field entitlements.
+   * Enterprise role definitions (Vertex-Core CSV mapping). Used by User Import + Field entitlements.
    */
   global.VC_ROLE_DEFINITIONS = {
     admin: { id: "admin", label: "Administrator", description: "Full dispatcher / settings access." },
@@ -66,7 +66,7 @@
     return { ok: true, message: "" };
   };
 
-  /** BuildOps-style: local+training@domain for sandbox training accounts. */
+  /** Vertex-Core: local+training@domain for sandbox training accounts. */
   global.trainingEmailFromPrimary = function (email) {
     var e = String(email || "").trim().toLowerCase();
     var at = e.indexOf("@");

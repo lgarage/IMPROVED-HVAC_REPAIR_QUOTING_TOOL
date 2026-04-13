@@ -130,6 +130,91 @@
       .filter(Boolean);
   }
 
+  var PILLAR_ORDER = ["PM", "QR", "SC", "IN", "WC"];
+  var RPT_PALETTE = ["#1e4b85", "#c89b53", "#475569", "#0ea5e9", "#ea580c"];
+
+  function reportCssHref() {
+    try {
+      return new URL("dispatcher/css/report_builder.css?v=1", global.location.href).href;
+    } catch (e) {
+      return "dispatcher/css/report_builder.css?v=1";
+    }
+  }
+
+  function jobTypeToPillar(type) {
+    var t = String(type || "").trim();
+    if (t === "Quoted Repair") return "QR";
+    if (t === "Install") return "IN";
+    if (t === "Preventative Maintenance") return "PM";
+    if (t === "Warranty Call") return "WC";
+    return "SC";
+  }
+
+  function getDefaultRateReport() {
+    try {
+      var p = parseFloat(localStorage.getItem("vc_insights_default_rate") || "");
+      if (isFinite(p) && p > 0) return p;
+    } catch (e) {}
+    return 150;
+  }
+
+  function billableHoursForTicketReport(sc) {
+    var raw = sc.Total_Billable_Hours;
+    if (raw != null && raw !== "") {
+      var p = parseFloat(raw);
+      if (isFinite(p)) return Math.max(0, p);
+    }
+    if (typeof global.DispatcherTicketManager === "undefined" || !global.DispatcherTicketManager.computeTotalBillableHours) {
+      return 0;
+    }
+    var n = 0;
+    if (Array.isArray(sc.assignedTechs) && sc.assignedTechs.length) n = sc.assignedTechs.filter(Boolean).length;
+    else if (sc.assignedTech) n = 1;
+    var dur = sc.duration || "1.5";
+    var mo = null;
+    if (String(dur).trim() === "Multi-Day") {
+      mo = {
+        days: sc.multiDayDays != null ? parseInt(sc.multiDayDays, 10) : 2,
+        includeWeekends: sc.multiDayIncludeWeekends === true,
+      };
+    }
+    return global.DispatcherTicketManager.computeTotalBillableHours(n, dur, mo);
+  }
+
+  function normalizeSiteKey(t) {
+    var cn = String(t.customerName || "")
+      .trim()
+      .toLowerCase();
+    var ad = String(t.locationAddress || "")
+      .trim()
+      .toLowerCase();
+    return cn + "|" + ad;
+  }
+
+  function buildSiteVisitTrendSeries(allTickets, t) {
+    var key = normalizeSiteKey(t);
+    if (!key || key === "|") return null;
+    var months = [];
+    var now = new Date();
+    var mi;
+    for (mi = 5; mi >= 0; mi--) {
+      var d = new Date(now.getFullYear(), now.getMonth() - mi, 1);
+      months.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
+    }
+    var counts = months.map(function () {
+      return 0;
+    });
+    for (mi = 0; mi < allTickets.length; mi++) {
+      var x = allTickets[mi];
+      if (normalizeSiteKey(x) !== key) continue;
+      if (!x.date || String(x.date).length < 7) continue;
+      var ym = String(x.date).slice(0, 7);
+      var idx = months.indexOf(ym);
+      if (idx >= 0) counts[idx] += 1;
+    }
+    return { labels: months, counts: counts };
+  }
+
   async function generateCustomReport() {
     var errEl = document.getElementById("reportStudioErr");
     var btn = document.getElementById("reportStudioGenerateBtn");
@@ -166,14 +251,14 @@
     try {
       var db = firebase.firestore();
       var scSnap = await VCFirestore.loadServiceCallsMergedOnce(db);
-      var tickets = [];
+      var allTicketsRaw = [];
       scSnap.forEach(function (doc) {
         var d = doc.data() || {};
         d.id = doc.id;
-        tickets.push(d);
+        allTicketsRaw.push(d);
       });
 
-      tickets = tickets.filter(function (t) {
+      var tickets = allTicketsRaw.filter(function (t) {
         if (!t.date || t.date < fromYmd || t.date > toYmd) return false;
         if (idFilter.length && idFilter.indexOf(t.id) === -1) return false;
         return true;
@@ -183,29 +268,150 @@
       });
 
       var laborByTicket = blocks.labor ? await loadLaborHoursByTicket(db, fromYmd, toYmd) : {};
+      var rateRpt = getDefaultRateReport();
+
+      var billableByPillar = {};
+      var clockedByPillarRpt = {};
+      var pi;
+      for (pi = 0; pi < PILLAR_ORDER.length; pi++) {
+        billableByPillar[PILLAR_ORDER[pi]] = 0;
+        clockedByPillarRpt[PILLAR_ORDER[pi]] = 0;
+      }
+      for (pi = 0; pi < tickets.length; pi++) {
+        var tx = tickets[pi];
+        var px = jobTypeToPillar(tx.jobType);
+        billableByPillar[px] = (billableByPillar[px] || 0) + billableHoursForTicketReport(tx);
+        var lh = laborByTicket[tx.id] != null ? laborByTicket[tx.id] : 0;
+        clockedByPillarRpt[px] = (clockedByPillarRpt[px] || 0) + lh;
+      }
+
+      var pieLabels = [];
+      var pieData = [];
+      var pieColors = [];
+      for (pi = 0; pi < PILLAR_ORDER.length; pi++) {
+        var pcode = PILLAR_ORDER[pi];
+        var bh = billableByPillar[pcode] || 0;
+        if (bh > 0.005) {
+          pieLabels.push(pcode);
+          pieData.push(Math.round(bh * rateRpt * 100) / 100);
+          pieColors.push(RPT_PALETTE[pi % RPT_PALETTE.length]);
+        }
+      }
+      if (!pieData.length) {
+        pieLabels = ["No data"];
+        pieData = [0];
+        pieColors = ["#e2e8f0"];
+      }
+
+      var barQuoted = [];
+      var barClocked = [];
+      for (pi = 0; pi < PILLAR_ORDER.length; pi++) {
+        var pc2 = PILLAR_ORDER[pi];
+        barQuoted.push(Math.round((billableByPillar[pc2] || 0) * 100) / 100);
+        barClocked.push(Math.round((clockedByPillarRpt[pc2] || 0) * 100) / 100);
+      }
+
+      var chartPayload = {
+        pie: {
+          type: "pie",
+          data: {
+            labels: pieLabels,
+            datasets: [
+              {
+                data: pieData,
+                backgroundColor: pieColors,
+                borderWidth: 1,
+                borderColor: "#fff",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              title: { display: true, text: "Billable $ mix (hours × rate)", font: { size: 12 } },
+              legend: { position: "bottom" },
+            },
+          },
+        },
+        bar: {
+          type: "bar",
+          data: {
+            labels: PILLAR_ORDER,
+            datasets: [
+              {
+                label: "Quoted billable (h)",
+                data: barQuoted,
+                backgroundColor: "rgba(30, 75, 133, 0.85)",
+                borderColor: "#1e4b85",
+                borderWidth: 1,
+              },
+              {
+                label: "Clocked labor (h)",
+                data: barClocked,
+                backgroundColor: "rgba(200, 155, 83, 0.85)",
+                borderColor: "#c89b53",
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: { beginAtZero: true, title: { display: true, text: "Hours" } },
+            },
+            plugins: {
+              title: { display: true, text: "Quoted vs clocked by job type", font: { size: 12 } },
+              legend: { position: "bottom" },
+            },
+          },
+        },
+        siteTrends: [],
+      };
 
       var brand =
         typeof APP_CONFIG !== "undefined" && APP_CONFIG.shortBrand
           ? APP_CONFIG.shortBrand
-          : "Service report";
+          : "Vertex-Core report";
+      var logoUrl =
+        typeof APP_CONFIG !== "undefined" && APP_CONFIG.logoUrl
+          ? String(APP_CONFIG.logoUrl).trim()
+          : "tphc_logo.png";
+      try {
+        logoUrl = new URL(logoUrl, global.location.href).href;
+      } catch (e) {}
 
       var html = "";
-      html += "<!DOCTYPE html><html><head><meta charset='utf-8'><title>" + esc(brand) + " — Custom report</title>";
+      html += "<!DOCTYPE html><html><head><meta charset='utf-8'><title>" + esc(brand) + " — Report</title>";
+      html += '<link rel="stylesheet" href="' + esc(reportCssHref()) + '" />';
       html +=
-        "<style>body{font-family:Segoe UI,system-ui,sans-serif;color:#1e293b;margin:24px;}h1{color:#1e4b85;font-size:1.25rem;}h2{font-size:1rem;margin-top:20px;color:#334155;border-bottom:1px solid #e2e8f0;padding-bottom:6px;}section{margin-bottom:18px;}table{width:100%;border-collapse:collapse;font-size:12px;}th,td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left;}th{background:#f8fafc;}.muted{color:#64748b;font-size:12px;}img{max-width:180px;max-height:140px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;margin:4px 6px 4px 0;}@media print{body{margin:12px}}</style></head><body>";
-      html += "<h1>" + esc(brand) + " — Custom Report Studio</h1>";
+        '<link rel="preconnect" href="https://fonts.googleapis.com" /><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />';
       html +=
-        "<p class='muted'>Period " +
+        '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"><\/script>';
+      html += "</head><body>";
+      html += '<div class="vc-rpt-root">';
+      html += '<div class="vc-print-header vc-print-header-fixed">';
+      html += '<img class="vc-print-header__logo" src="' + esc(logoUrl) + '" alt="" />';
+      html += '<div class="vc-print-header__titles"><h1>' + esc(brand) + "</h1>";
+      html +=
+        "<p>Vertex-Core Custom Report Studio · " +
         esc(fromYmd) +
-        " to " +
+        " – " +
         esc(toYmd) +
         " · " +
         tickets.length +
-        " ticket(s)</p>";
+        " ticket(s)</p></div></div>";
+
+      html += '<div class="vc-rpt-chart-row">';
+      html += '<div class="vc-rpt-chart-box"><h3>Revenue mix</h3><canvas id="rptPie"></canvas></div>';
+      html += '<div class="vc-rpt-chart-box"><h3>Labor efficiency</h3><canvas id="rptBar"></canvas></div>';
+      html += "</div>";
+
+      html +=
+        "<p class='muted' style='margin:0 0 16px'>Charts reflect this report selection only. Save as PDF from your browser print dialog.</p>";
 
       for (var i = 0; i < tickets.length; i++) {
         var t = tickets[i];
-        html += "<section>";
+        html += '<section class="vc-rpt-section">';
         html += "<h2>" + esc(t.ticketNum || t.id) + " · " + esc(t.customerName || "") + "</h2>";
 
         if (blocks.job) {
@@ -243,6 +449,27 @@
             "<p style='white-space:pre-wrap;font-size:12px;background:#fffbeb;padding:10px;border-radius:6px;border:1px solid #fde68a;'>" +
             (siteNote ? esc(siteNote) : "<em class='muted'>No site intelligence note for this address.</em>") +
             "</p>";
+          var trend = buildSiteVisitTrendSeries(allTicketsRaw, t);
+          if (trend) {
+            var trendId = "rptSite" + i;
+            html += '<div class="vc-rpt-section" style="margin-top:12px">';
+            html += '<h3 style="font-size:13px;margin:0 0 6px">Site activity trend</h3>';
+            html +=
+              '<p class="muted" style="font-size:11px;margin:0 0 8px">Service visits at this address by month (Vertex-Core history).</p>';
+            html += '<div style="height:150px;position:relative;max-width:420px">';
+            html += '<canvas id="' + trendId + '"></canvas></div>';
+            var maxC = Math.max.apply(null, trend.counts.concat([1]));
+            var lastC = trend.counts[trend.counts.length - 1] || 0;
+            var pct = Math.min(100, Math.round((lastC / maxC) * 100));
+            html += '<p style="font-size:11px;color:#64748b;margin:6px 0 4px">Site health (recent vs peak in window)</p>';
+            html += '<div class="vc-rpt-meter"><div class="vc-rpt-meter__fill" style="width:' + pct + '%"></div></div>';
+            html += "</div>";
+            chartPayload.siteTrends.push({
+              canvasId: trendId,
+              labels: trend.labels,
+              counts: trend.counts,
+            });
+          }
         }
 
         if (blocks.photos && typeof VCClientPortal !== "undefined" && VCClientPortal.filterPublicEvidencePhotoUrls) {
@@ -277,10 +504,15 @@
           var tid = tickets[j].id;
           total += laborByTicket[tid] != null ? laborByTicket[tid] : 0;
         }
-        html += "<section><h2>Labor totals (sum of attributed hours in selection)</h2>";
+        html += '<section class="vc-rpt-section"><h2>Labor totals (sum of attributed hours in selection)</h2>';
         html += "<p><strong>Total:</strong> " + total.toFixed(2) + " h</p></section>";
       }
 
+      html += "</div>";
+      var payloadJson = JSON.stringify(chartPayload).replace(/</g, "\\u003c");
+      html += '<script type="application/json" id="vc-rpt-chart-json">' + payloadJson + "<\/script>";
+      html +=
+        "<script>(function(){function run(){var el=document.getElementById('vc-rpt-chart-json');if(!el||typeof Chart==='undefined')return;var d=JSON.parse(el.textContent);if(d.pie&&document.getElementById('rptPie'))new Chart(document.getElementById('rptPie'),d.pie);if(d.bar&&document.getElementById('rptBar'))new Chart(document.getElementById('rptBar'),d.bar);(d.siteTrends||[]).forEach(function(s){var c=document.getElementById(s.canvasId);if(!c)return;new Chart(c,{type:'line',data:{labels:s.labels,datasets:[{label:'Visits',data:s.counts,borderColor:'#1e4b85',backgroundColor:'rgba(30,75,133,0.12)',fill:true,tension:0.25}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});});}if(document.readyState==='complete')run();else window.addEventListener('load',run);})();<\/script>";
       html += "</body></html>";
 
       var w = global.open("", "_blank");
@@ -295,7 +527,7 @@
         try {
           w.print();
         } catch (e) {}
-      }, 400);
+      }, 900);
     } catch (e) {
       console.error(e);
       if (errEl) errEl.textContent = e && e.message ? e.message : String(e);
