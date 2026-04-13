@@ -3192,6 +3192,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 </div>
 
 <script>
+window.VC_FIELD_APP_LOADED_AT = Date.now();
 /* ---------- constants & arrays ---------- */
 function pad2(n){ return String(n).padStart(2, "0"); }
 function today(){ const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
@@ -6354,6 +6355,14 @@ function wireCoachingInbox() {
   const ref = VCFirestore.livePresence(db).doc(key);
   vcCoachUnsub = ref.onSnapshot(function (snap) {
     const d = snap.data() || {};
+    if (!window.VC_SHADOW_VIEWER && d.forceSyncAt && d.forceSyncAt.toMillis) {
+      const t = d.forceSyncAt.toMillis();
+      const loaded = window.VC_FIELD_APP_LOADED_AT || 0;
+      if (t > loaded) {
+        window.location.reload(true);
+        return;
+      }
+    }
     if (!d.coachPrompt || !d.coachPromptAt) return;
     const ms = d.coachPromptAt.toMillis ? d.coachPromptAt.toMillis() : 0;
     const last = parseInt(localStorage.getItem('vc_last_coach_ms') || '0', 10);

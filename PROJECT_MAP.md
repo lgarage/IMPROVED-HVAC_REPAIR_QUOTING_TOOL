@@ -150,20 +150,22 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 - Prefetch: `prefetchSiteResourcesForTicket` in `technician/index.html` — `VCFirestore.getSiteIntelDocOnceBridged` + `queryCompletedReportsWhereMerged` per ticket; deduped with `vcPrefetchedTicketIds` on schedule merge and on workspace open.
 - Offline badge: `updateVcFieldOfflineBadge`, `app_config/api_keys` `onSnapshot({ includeMetadataChanges: true })`, `online`/`offline` window events.
 
-#### Shadow Mode (remote tech viewer) — Phase 19
+#### Remote coaching & Shadow Mode (dispatcher mirror) — Phases 19–20
 
 **User Guide**
 
-- **Support tool for coaching:** dispatchers (and senior techs in the office) use **Shadow user** in the Office top bar to open a **read-only** live preview of a field user’s app in a phone-style frame.
-- Pick a user from **`tenants/{tenantId}/users`** (same roster as enterprise import). The viewer mirrors the tech’s **current screen** and **active ticket** when the tech’s Field App is online and broadcasting.
-- **Send prompt** types a short message (e.g. “Don’t forget the nameplate photo!”); it appears as a **toast** on the technician’s device.
+- **Remote coaching:** dispatchers use **Shadow View** on the **Service Call Intake** dashboard (top bar) to open a **read-only** live preview of a field user’s app in a phone-style frame. Use it when a tech is **stuck** (talk them through the next step while watching their screen) or to **verify a Lite Seat** apprentice’s progress (time-tracking–only users still appear in the roster when they are not admins).
+- The dropdown lists **non-admin** users from **`tenants/{tenantId}/users`** (labels: **`payrollFullName`**; values: **`presenceKey`**). Changing the selection **swaps** the shadow target: the iframe reloads, the coaching prompt field clears, and the modal title reads **Shadowing: [Tech Name]**.
+- If the tech’s **`live_presence.updatedAt`** is older than **5 minutes**, their name is **dimmed** in the dropdown and **Device Offline** shows in the Shadow modal — the device may be asleep, offline, or the app not open.
+- **Send prompt** delivers a short message (e.g. “Don’t forget the nameplate photo!”) as a **toast** on the technician’s device.
+- **Force app refresh** asks the Field App to **reload** (writes `forceSyncAt` on `live_presence`); the tech’s app reloads when that timestamp is **newer than the app’s load time** (useful after a bad cache state or stale UI).
 - Shadow is **not** a substitute for dispatch: the preview is for **training and supervision**, not for billing or time-clock actions (dispatcher cannot clock the tech out).
 
 **Technical Specs**
 
-- `dispatcher/js/shadow_mode.js` (`VcShadowMode`), Office top bar + `#vcShadowModal` + iframe in `index.html`.
-- Presence: `VCFirestore.livePresence(db)` → `tenants/{tenantId}/live_presence/{presenceKey}` with `presenceKey` on user docs (import) + same `payrollKeyFromName` as `VcTimeTracker` / labor logs (`field: techDisplayName, screen, activeTicketId, updatedAt`; coach: `coachPrompt`, `coachPromptAt`).
-- Field `technician/index.html`: `writeLivePresence()` on screen/ticket changes + 15s interval; `wireCoachingInbox()` listener; `?vc_shadow_viewer=1&vc_presence_key=…` → `VC_SHADOW_VIEWER` + read-only UI + `applyShadowPresenceFromDoc` mirroring.
+- `dispatcher/js/shadow_mode.js` (`VcShadowMode`), `#vcDispatchDashboardBar` + `#vcShadowModal` + iframe in `index.html`.
+- Presence: `VCFirestore.livePresence(db)` → `tenants/{tenantId}/live_presence/{presenceKey}` with `presenceKey` on user docs (import) + same `payrollKeyFromName` as `VcTimeTracker` / labor logs (`techDisplayName`, `screen`, `activeTicketId`, `updatedAt`; coach: `coachPrompt`, `coachPromptAt`; remote refresh: `forceSyncAt`).
+- Field `technician/index.html`: `VC_FIELD_APP_LOADED_AT` at load; `writeLivePresence()` on screen/ticket changes + 15s interval; `wireCoachingInbox()` listener handles **coach prompts** and **`forceSyncAt` → `location.reload()`** when newer than load time; `?vc_shadow_viewer=1&vc_presence_key=…` → `VC_SHADOW_VIEWER` + read-only UI + `applyShadowPresenceFromDoc` mirroring.
 - `shared/firebase_logic.js`: `livePresence` collection helper.
 
 ---
@@ -388,6 +390,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - [v] Navigation: Reports hub (`dispatcher/css/sidebar.css`, `dispatcher/js/navigation.js`, sidebar order + Invoicing/Reports submenus in `index.html`)
 - [v] Phase 18: Offline sync & geo-snapshotting (`firebase-config.js`, `shared/firebase_config.js`, `technician/js/time_tracker.js`, `technician/js/data_provider.js`, Field header badge + prefetch in `technician/index.html`)
 - [v] Phase 19: Shadow Mode (`shared/firebase_logic.js` `livePresence`, `dispatcher/js/shadow_mode.js`, Office top bar + modal in `index.html`, `technician/index.html` presence + coaching + read-only viewer)
+- [v] Phase 20: Shadow switcher & force sync (`dispatcher/js/shadow_mode.js`, Service Call Intake dashboard bar + Shadow modal in `index.html`, `forceSyncAt` + `VC_FIELD_APP_LOADED_AT` reload in `technician/index.html` — non-admin roster, idle styling, **Force app refresh**)
 
 ## Current Focus
 

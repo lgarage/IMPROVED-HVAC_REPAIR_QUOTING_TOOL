@@ -95,23 +95,23 @@
       .main-content.expanded {
         margin-left: 70px;
       }
-      .vc-dispatcher-topbar {
+      .vc-dispatch-dashboard-bar {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
         flex-wrap: wrap;
-        margin: -5px 0 14px 0;
         padding: 10px 14px;
-        background: linear-gradient(135deg, #1e4b85 0%, #153661 100%);
-        border-radius: 10px;
-        color: #fff;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+        margin-bottom: 12px;
+        background: #fff;
+        border: 1px solid #eaeaea;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
       }
-      .vc-dispatcher-topbar-label {
+      .vc-dispatch-dashboard-bar-title {
         font-weight: 800;
-        font-size: 14px;
-        letter-spacing: 0.03em;
+        font-size: 15px;
+        color: #1e4b85;
       }
       .vc-shadow-controls {
         display: flex;
@@ -121,18 +121,21 @@
       .vc-shadow-label {
         font-size: 12px;
         font-weight: 700;
-        opacity: 0.9;
+        color: #555;
       }
       .vc-shadow-select {
         min-width: 220px;
         max-width: min(420px, 100%);
         padding: 8px 10px;
         border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.35);
+        border: 1px solid #ccc;
         background: #fff;
         color: #1e4b85;
         font-weight: 700;
         font-size: 13px;
+      }
+      .vc-shadow-select option.vc-shadow-option--idle {
+        color: #95a5a6;
       }
       .vc-shadow-modal {
         position: fixed;
@@ -173,10 +176,50 @@
         background: #1e4b85;
         color: #fff;
       }
+      .vc-shadow-modal-head-inner {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
+        min-width: 0;
+      }
       .vc-shadow-modal-head h2 {
         margin: 0;
         font-size: 16px;
         font-weight: 800;
+      }
+      .vc-shadow-offline-badge {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+      }
+      .vc-shadow-offline-badge.hidden {
+        display: none !important;
+      }
+      .vc-shadow-force-row {
+        display: flex;
+        justify-content: flex-end;
+        padding: 0 12px 8px;
+        background: #fff;
+        border-bottom: 1px solid #e1e8ed;
+      }
+      .vc-shadow-force-btn {
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid #c89b53;
+        background: #fdfaf2;
+        color: #1e4b85;
+        font-weight: 800;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .vc-shadow-force-btn:hover {
+        background: #f5e6c8;
       }
       .vc-shadow-modal-head button {
         background: transparent;
@@ -478,9 +521,16 @@
       }
       .dispatch-dashboard-layout {
         display: flex;
-        gap: 15px;
+        flex-direction: column;
+        gap: 0;
         height: calc(100vh - 20px);
         margin-bottom: 30px;
+      }
+      .dispatch-dashboard-columns {
+        display: flex;
+        gap: 15px;
+        flex: 1;
+        min-height: 0;
       }
       .dispatch-left-panel {
         width: 380px;
@@ -2392,21 +2442,6 @@
     </div>
 
     <div class="main-content expanded">
-      <div class="vc-dispatcher-topbar" id="vcDispatcherTopbar">
-        <span class="vc-dispatcher-topbar-label">Office</span>
-        <div class="vc-shadow-controls">
-          <label for="vcShadowUserSelect" class="vc-shadow-label">Shadow user</label>
-          <select
-            id="vcShadowUserSelect"
-            class="vc-shadow-select"
-            title="Select a field user to open the live Shadow viewer (read-only)"
-            aria-label="Shadow user"
-          >
-            <option value="">Shadow a user…</option>
-          </select>
-        </div>
-      </div>
-
       <div
         id="vcShadowModal"
         class="vc-shadow-modal hidden"
@@ -2419,13 +2454,30 @@
         ></div>
         <div class="vc-shadow-modal-panel" role="dialog">
           <div class="vc-shadow-modal-head">
-            <h2 id="vcShadowModalTitle">Shadow viewer</h2>
+            <div class="vc-shadow-modal-head-inner">
+              <h2 id="vcShadowModalTitle">Shadow viewer</h2>
+              <span
+                id="vcShadowOfflineBadge"
+                class="vc-shadow-offline-badge hidden"
+                role="status"
+                >Device Offline</span>
+            </div>
             <button
               type="button"
               onclick="VcShadowMode.closeShadowModal()"
               aria-label="Close shadow viewer"
             >
               ×
+            </button>
+          </div>
+          <div class="vc-shadow-force-row">
+            <button
+              type="button"
+              id="vcShadowForceSyncBtn"
+              class="vc-shadow-force-btn"
+              title="Ask the technician app to reload and sync"
+            >
+              🔄 Force app refresh
             </button>
           </div>
           <div class="vc-shadow-coach">
@@ -2450,6 +2502,21 @@
 
       <div id="view-service" class="app-view active">
         <div class="dispatch-dashboard-layout">
+          <div class="vc-dispatch-dashboard-bar" id="vcDispatchDashboardBar">
+            <span class="vc-dispatch-dashboard-bar-title">Dispatcher</span>
+            <div class="vc-shadow-controls">
+              <label for="vcShadowUserSelect" class="vc-shadow-label">Shadow View</label>
+              <select
+                id="vcShadowUserSelect"
+                class="vc-shadow-select"
+                title="Select a field user (non-admin) to mirror in the Shadow viewer"
+                aria-label="Shadow view"
+              >
+                <option value="">Choose a user…</option>
+              </select>
+            </div>
+          </div>
+          <div class="dispatch-dashboard-columns">
           <div class="dispatch-left-panel">
             <div class="panel-header">
               <span
@@ -2709,6 +2776,7 @@
                 </button>
               </div>
             </div>
+          </div>
           </div>
         </div>
 
@@ -6500,7 +6568,7 @@
     <script src="dispatcher/js/navigation.js?v=1"></script>
     <script src="settings.js?v=13"></script>
     <script src="dispatcher/js/user_import.js?v=1"></script>
-    <script src="dispatcher/js/shadow_mode.js?v=1"></script>
+    <script src="dispatcher/js/shadow_mode.js?v=2"></script>
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js"></script>
