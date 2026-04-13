@@ -12,6 +12,22 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 
 ---
 
+### Dispatcher navigation (`index.html` sidebar)
+
+**User Guide**
+
+- The left sidebar follows a single mental model: **operations first**, then **people & sites**, then **collaboration**, then **intelligence**, then **tools at the bottom**.
+- Order: **Service Call Intake** → **Quoting Tool** → **Invoicing** (expand for Invoicing Tool / Invoice Archive) → **Customer Directory** → **Inter-Office Feed** (Pulse) → **Reports** (expand for **Executive Insights** and **Custom Report Studio**) → **Preview Field App** → **Settings** (pinned to the bottom).
+- **Reports** is the hub for all **business intelligence**: charts, KPIs, and printable management reports. Open **Reports**, then choose **Executive Insights** or **Custom Report Studio**; the active sub-item is highlighted in gold like other sidebar selections.
+- **Inter-Office Feed** is the live Pulse stream (not “enter feed” — you open it from the sidebar like any other view).
+
+**Technical Specs**
+
+- Tab switching: global `switchTab()` in `index.html` (inline script); Reports submenu: `dispatcher/js/navigation.js` (`toggleReportsSubmenu`, `closeReportsSubmenu`, flyout positioning). Invoicing submenu logic remains in `index.html`; both cross-close when opening the other.
+- Styles: `dispatcher/css/sidebar.css` (submenu flyouts, `sidebar-reports-active` / `sidebar-reports-open`, Invoicing parent states).
+
+---
+
 ### Dispatcher Board (`index.html` + `service_call.js` + `dispatcher/js/ticket_manager.js`)
 
 #### Twin Pillar UI & dispatch workflow
@@ -32,7 +48,7 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 
 **User Guide**
 
-- Sidebar: **Inter-Office Feed** opens the Pulse view (`#view-pulse`).
+- Sidebar: **Inter-Office Feed** (Pulse) — open from the main nav list; opens `#view-pulse`.
 - The dashboard shows a **live, append-only-style feed** of: Inter-Office Comms changes on tickets, meaningful **status** transitions, and **Site Intel** note updates.
 - Click a row to **deep-link** to **Service Call Intake** and load that ticket (`loadServiceCall`).
 - **Quick reply**: after selecting a feed row, type in the Pulse quick-reply box and send — the office label comes from `localStorage` `pulse_manager_name` (default **Office**). Messages are prefixed as `[Manager @ Pulse]: …` and appended to the ticket’s inter-office thread.
@@ -49,7 +65,7 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 
 **User Guide**
 
-- Sidebar: **Executive Insights** opens `#view-insights`. Set **From** / **To** (defaults to last 30 days), optional **Default billable rate ($/hr)** (saved in `localStorage` as `vc_insights_default_rate`), then **Refresh dashboard**.
+- Sidebar: **Reports** → **Executive Insights** opens `#view-insights`. Set **From** / **To** (defaults to last 30 days), optional **Default billable rate ($/hr)** (saved in `localStorage` as `vc_insights_default_rate`), then **Refresh dashboard**.
 - **Profitability by pillar:** table and bar comparison of **scheduled billable hours** (from ticket `Total_Billable_Hours` or `DispatcherTicketManager.computeTotalBillableHours`) vs **clocked hours** attributed to jobs (`labor_logs` entries: IN carries `ticketId`, OUT closes the pair). Job types map to pillars **PM, QR, SC, IN, WC** via the same rules as ticket prefixes (`getPrefixForJobType` in `service_call.js`). A **manager insight** callout flags pillars where clocked time exceeds billable by ~8%+.
 - **Tech efficiency:** ranks technicians using **completed_reports** in range (timestamp on report), **median hours from ticket `date` to report** as a simple “close speed” signal, **verification %** among tickets in range with status **Completed** or **Client Verified / Ready for Billing** (counts per assigned tech), and **total shift hours** from `labor_logs`. **Rockstar** / **Coaching** badges are heuristic vs peer median verification and close-time thresholds.
 - **Unbilled revenue:** lists tickets with status **Client Verified / Ready for Billing** and shows **potential revenue = billable hours × default rate**. Ticket links switch to Service Call Intake and call `loadServiceCall`.
@@ -282,7 +298,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 **User Guide**
 
-- Sidebar: **Custom Report Studio** — set **From** / **To**, optional **Ticket IDs** (comma-separated; leave blank for all tickets in range), choose **blocks**, then **Generate & print**. A new window opens with printable HTML; use the browser **Print** dialog → **Save as PDF**.
+- Sidebar: **Reports** → **Custom Report Studio** — set **From** / **To**, optional **Ticket IDs** (comma-separated; leave blank for all tickets in range), choose **blocks**, then **Generate & print**. A new window opens with printable HTML; use the browser **Print** dialog → **Save as PDF**.
 
 **Technical Specs**
 
@@ -295,7 +311,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 **User Guide**
 
-- **Executive Insights** includes a **Revenue mix** pie (billable dollars by pillar / job type) and a **Labor efficiency** bar chart for the **last 30 days**: quoted billable hours vs. clocked labor hours per pillar, so managers can spot bleed.
+- From **Reports** → **Executive Insights**, charts include a **Revenue mix** pie (billable dollars by pillar / job type) and a **Labor efficiency** bar chart for the **last 30 days**: quoted billable hours vs. clocked labor hours per pillar, so managers can spot bleed.
 - Default billable rate for dollar estimates matches the **Default billable rate ($/hr)** field on the same view (stored in `localStorage`).
 
 **Technical Specs**
@@ -336,6 +352,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - [v] Phase 15: Executive Insights & Revenue Dashboard (`dispatcher/js/insights_manager.js`, `dispatcher/css/insights.css`, `#view-insights` in `index.html`)
 - [v] Phase 16: Evidence filtering & Custom Report Studio (`shared/client_portal_logic.js` evidence helpers, `technician/index.html` + `workspace_ui.js`, `service_call.js` dispatcher overrides, `dispatcher/js/report_builder.js`, `proof_of_service.html` filter)
 - [v] Phase 17: Visual analytics & professional reporting (Chart.js in `index.html`, `insights_manager.js`, `report_builder.js` + `report_builder.css`, Proof of Service site trend, competitor-name scrub in UI/copy)
+- [v] Navigation: Reports hub (`dispatcher/css/sidebar.css`, `dispatcher/js/navigation.js`, sidebar order + Invoicing/Reports submenus in `index.html`)
 
 ## Current Focus
 
