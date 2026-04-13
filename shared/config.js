@@ -11,6 +11,8 @@
     shortBrand: "Twin Pillars",
     /** Default Vertex Core asset; override per tenant via Settings → Branding (URL or path). */
     logoUrl: "vertex_core_logo.png",
+    /** Mark-only asset for collapsed dispatcher sidebar (no wordmark). */
+    logoUrlMini: "vertex_core_logo_only.png",
     primaryColor: "#1e4b85",
     accentColor: "#c89b53",
     adminUnlockPin: "beta",
@@ -125,6 +127,26 @@
     return u;
   }
 
+  function vcLogoFilenameFromResolved(resolvedUrl) {
+    if (!resolvedUrl) return "";
+    var s = String(resolvedUrl).trim();
+    var q = s.indexOf("?");
+    if (q >= 0) s = s.slice(0, q);
+    var slash = s.lastIndexOf("/");
+    return slash >= 0 ? s.slice(slash + 1).toLowerCase() : s.toLowerCase();
+  }
+
+  /** Navy #1e4b85 tint for default monochrome Vertex PNGs (matches Twin Pillars primary). */
+  function vcSetVertexLogoTint(el, resolvedUrl) {
+    if (!el) return;
+    var f = vcLogoFilenameFromResolved(resolvedUrl);
+    if (f === "vertex_core_logo.png" || f === "vertex_core_logo_only.png") {
+      el.classList.add("vc-brand-logo-twin-tint");
+    } else {
+      el.classList.remove("vc-brand-logo-twin-tint");
+    }
+  }
+
   global.applyVcBranding = function () {
     var cfg = global.APP_CONFIG;
     if (!cfg) return;
@@ -133,20 +155,36 @@
     root.style.setProperty("--vc-brand-accent", cfg.accentColor || "#c89b53");
 
     var resolvedLogo = resolveLogoUrl(cfg.logoUrl);
+    var miniRaw = cfg.logoUrlMini != null ? String(cfg.logoUrlMini).trim() : "";
+    var resolvedMini;
+    if (miniRaw) {
+      resolvedMini = resolveLogoUrl(miniRaw);
+    } else {
+      var fullFn = vcLogoFilenameFromResolved(resolvedLogo);
+      if (fullFn === "vertex_core_logo.png") {
+        resolvedMini = resolveLogoUrl("vertex_core_logo_only.png");
+      } else {
+        resolvedMini = resolvedLogo;
+      }
+    }
+
     var logo = document.getElementById("vcBrandLogo");
     if (logo && resolvedLogo) {
       logo.src = resolvedLogo;
       logo.alt = cfg.brandName || "Company logo";
+      vcSetVertexLogoTint(logo, resolvedLogo);
     }
     var mini = document.getElementById("vcBrandLogoMini");
-    if (mini && resolvedLogo) {
-      mini.src = resolvedLogo;
+    if (mini && resolvedMini) {
+      mini.src = resolvedMini;
       mini.alt = cfg.brandName || "Company logo";
+      vcSetVertexLogoTint(mini, resolvedMini);
     }
     var printLogo = document.getElementById("vcBrandLogoPrint");
     if (printLogo && resolvedLogo) {
       printLogo.src = resolvedLogo;
       printLogo.alt = cfg.brandName || "Company logo";
+      vcSetVertexLogoTint(printLogo, resolvedLogo);
     }
 
     var isField = /technician\/index\.html/i.test(String(global.location && global.location.pathname));

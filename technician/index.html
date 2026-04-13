@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
 <script src="../firebase-config.js?v=4"></script>
 <script src="../shared/firebase_config.js?v=1"></script>
-<script src="../shared/config.js"></script>
+<script src="../shared/config.js?v=2"></script>
 <script src="../shared/firebase_logic.js"></script>
 <script src="../shared/client_portal_logic.js?v=2"></script>
 <script src="js/vc_entitlements.js?v=1"></script>
@@ -20,6 +20,12 @@
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <style>
+/* Default Vertex monochrome PNGs → Twin Pillars navy (#1e4b85) */
+.vc-brand-logo-twin-tint {
+  filter: brightness(0) saturate(100%) invert(16%) sepia(58%) saturate(2500%) hue-rotate(191deg)
+    brightness(0.92) contrast(1.02);
+}
+
 /* --- BASE APP STYLES --- */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;

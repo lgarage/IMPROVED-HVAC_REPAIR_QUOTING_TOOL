@@ -25,7 +25,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
     <script src="firebase-config.js?v=4"></script>
     <script src="shared/firebase_config.js?v=1"></script>
-    <script src="shared/config.js"></script>
+    <script src="shared/config.js?v=2"></script>
     <script src="shared/firebase_logic.js"></script>
     <script src="shared/client_portal_logic.js?v=2"></script>
     <script>
@@ -94,6 +94,11 @@
       }
       .main-content.expanded {
         margin-left: 70px;
+      }
+      /* Default Vertex monochrome PNGs → Twin Pillars navy (#1e4b85); transparent backgrounds work best */
+      .vc-brand-logo-twin-tint {
+        filter: brightness(0) saturate(100%) invert(16%) sepia(58%) saturate(2500%) hue-rotate(191deg)
+          brightness(0.92) contrast(1.02);
       }
       .vc-dispatch-dashboard-bar {
         display: flex;
@@ -2128,7 +2133,7 @@
         />
         <img
           id="vcBrandLogoMini"
-          src="vertex_core_logo.png"
+          src="vertex_core_logo_only.png"
           alt=""
           class="mini-logo"
         />
@@ -2351,6 +2356,13 @@
               id="vcInpLogo"
               placeholder="vertex_core_logo.png or https://…"
               title="Relative to site root, absolute /path, https:// URL, or data: URI — overrides the default Vertex Core logo for white-label tenants."
+              style="width: 100%; box-sizing: border-box; padding: 6px"
+          /></label>
+          <label style="display: block; margin-bottom: 6px"
+            >Collapsed sidebar logo (mark only)<br /><input
+              id="vcInpLogoMini"
+              placeholder="vertex_core_logo_only.png or https://…"
+              title="Shown when the dispatcher sidebar is collapsed. Use a square mark without wordmark for best results."
               style="width: 100%; box-sizing: border-box; padding: 6px"
           /></label>
           <label style="display: block; margin-bottom: 6px"
@@ -6818,6 +6830,7 @@
           if (g("vcInpBrand")) g("vcInpBrand").value = c.brandName || "";
           if (g("vcInpShort")) g("vcInpShort").value = c.shortBrand || "";
           if (g("vcInpLogo")) g("vcInpLogo").value = c.logoUrl || "";
+          if (g("vcInpLogoMini")) g("vcInpLogoMini").value = c.logoUrlMini || "";
           if (g("vcInpPrimary")) g("vcInpPrimary").value = hexForColorInput(c.primaryColor);
           if (g("vcInpAccent")) g("vcInpAccent").value = hexForColorInput(c.accentColor);
         }
@@ -6867,6 +6880,7 @@
                 brandName: document.getElementById("vcInpBrand").value.trim(),
                 shortBrand: document.getElementById("vcInpShort").value.trim(),
                 logoUrl: document.getElementById("vcInpLogo").value.trim(),
+                logoUrlMini: document.getElementById("vcInpLogoMini").value.trim(),
                 primaryColor: document.getElementById("vcInpPrimary").value,
                 accentColor: document.getElementById("vcInpAccent").value,
               });
