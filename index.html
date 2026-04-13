@@ -6351,18 +6351,21 @@
         }
       });
 
-      /** Dispatch-only: open technician Field App in the in-portal phone simulator iframe. */
+      /** Dispatch-only: open technician Field App in the in-portal phone simulator iframe (shadow mode = tech switcher + mirrored UI). */
       function openTechnicianAppPreview() {
         const modal = document.getElementById("fieldAppSimulatorModal");
         const frame = document.getElementById("fieldAppSimulatorFrame");
         if (!modal || !frame) return;
-        const url = new URL("technician/index.html", window.location.href).href;
-        if (
-          !frame.getAttribute("src") ||
-          frame.getAttribute("src") === "about:blank"
-        ) {
-          frame.src = url;
+        const url = new URL("technician/index.html", window.location.href);
+        url.searchParams.set("vc_shadow_viewer", "1");
+        const shadowSel = document.getElementById("vcShadowUserSelect");
+        if (shadowSel && shadowSel.value) {
+          const opt = shadowSel.options[shadowSel.selectedIndex];
+          url.searchParams.set("vc_presence_key", shadowSel.value);
+          const label = opt ? String(opt.textContent || "").trim() : "";
+          if (label) url.searchParams.set("vc_display_name", label);
         }
+        frame.src = url.toString();
         modal.classList.remove("hidden");
         modal.setAttribute("aria-hidden", "false");
       }
