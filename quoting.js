@@ -117,7 +117,7 @@ function gatherFormData() {
             const retailPricePerUnit = cost + (cost * markupMultiplier);
             const totalRetailAmount = retailPricePerUnit * qty;
             partsRetailSubtotal += totalRetailAmount;
-            partsData.push({ qty, desc, num: row.querySelector('.p-num').value.trim().toUpperCase(), vendor, lead: row.querySelector('.p-lead').value.trim().toUpperCase() || "IN STOCK", cost, markupPercent: (markupMultiplier * 100).toFixed(0), retailUnit: retailPricePerUnit, retailTotal: totalRetailAmount });
+            partsData.push({ qty, desc, num: row.querySelector('.p-num').value.trim().toUpperCase(), vendor, lead: row.querySelector('.p-lead').value.trim().toUpperCase() || "N/A", cost, markupPercent: (markupMultiplier * 100).toFixed(0), retailUnit: retailPricePerUnit, retailTotal: totalRetailAmount });
         }
     });
 
@@ -279,7 +279,7 @@ function addPartRow() {
         <input type="text" placeholder="e.g. FILTER, MOTOR" class="p-desc">
         <input type="text" placeholder="Optional" class="p-num">
         <input type="text" placeholder="Vendor" class="p-vendor text-uppercase">
-        <input type="text" placeholder="e.g. 3" class="p-lead">
+        <input type="text" class="p-lead" value="N/A" placeholder="e.g. 3">
         <div class="cost-wrapper"><span>$</span><input type="number" placeholder="0.00" class="p-cost" step="0.01" min="0" oninput="calcQuoteLiveMath()"></div>
         <div class="cost-wrapper" style="color:#27ae60;"><span>$</span><input type="text" class="p-retail" value="0.00" readonly style="background:transparent; border:none; font-weight:bold; width:100%; outline:none;"></div>
         <div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>
