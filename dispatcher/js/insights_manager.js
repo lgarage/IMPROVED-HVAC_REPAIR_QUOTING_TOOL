@@ -531,6 +531,118 @@
       .replace(/"/g, "&quot;");
   }
 
+  function ymdFromDateObj(d) {
+    return (
+      d.getFullYear() +
+      "-" +
+      String(d.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(d.getDate()).padStart(2, "0")
+    );
+  }
+
+  function countAvailableTechsForYmd(ymd) {
+    if (typeof global.getTechAvailabilityForJobDate !== "function") return 0;
+    var roster = [];
+    try {
+      roster = JSON.parse(localStorage.getItem("tp_tech_list") || "[]");
+    } catch (e) {}
+    if (!Array.isArray(roster)) return 0;
+    var c = 0;
+    for (var i = 0; i < roster.length; i++) {
+      if (global.getTechAvailabilityForJobDate(roster[i], ymd)) c++;
+    }
+    return c;
+  }
+
+  function isTicketActiveFleet(sc) {
+    if (!sc || sc.archived === true) return false;
+    var st = String(sc.status || "").trim().toLowerCase();
+    if (st === "completed" || st === "cancelled") return false;
+    return true;
+  }
+
+  function countScheduledJobsOnDate(ticketById, ymd) {
+    var d = String(ymd || "").trim();
+    var n = 0;
+    Object.keys(ticketById).forEach(function (tid) {
+      var sc = ticketById[tid];
+      if (!isTicketActiveFleet(sc)) return;
+      if (String(sc.date || "").trim() !== d) return;
+      if (getAssignedTechCount(sc) < 1) return;
+      n++;
+    });
+    return n;
+  }
+
+  function sumFleetWeek(ticketById, weekStart) {
+    var jobs = 0;
+    var techDays = 0;
+    var cur = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate(), 12, 0, 0);
+    var day;
+    for (day = 0; day < 7; day++) {
+      var ymd = ymdFromDateObj(cur);
+      techDays += countAvailableTechsForYmd(ymd);
+      jobs += countScheduledJobsOnDate(ticketById, ymd);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return { jobs: jobs, techDays: techDays };
+  }
+
+  function renderFleetCapacityCard(el, ticketById) {
+    if (!el) return;
+    var today = todayIso();
+    var avail = countAvailableTechsForYmd(today);
+    var jobs = countScheduledJobsOnDate(ticketById, today);
+    var cap = Math.max(avail, 1);
+    var pct = Math.min(100, Math.round((jobs / cap) * 100));
+    var ws = startOfWeekMonday(new Date());
+    var wk = sumFleetWeek(ticketById, ws);
+    var headroom = Math.max(0, avail - jobs);
+    var over = jobs > avail;
+    el.innerHTML =
+      '<div class="insights-fleet">' +
+      '<div class="insights-fleet__row">' +
+      '<span class="insights-fleet__title">Fleet capacity</span>' +
+      '<span class="insights-fleet__nums">' +
+      jobs +
+      " scheduled job" +
+      (jobs === 1 ? "" : "s") +
+      " today · " +
+      avail +
+      " available tech" +
+      (avail === 1 ? "" : "s") +
+      "</span></div>" +
+      '<div class="insights-fleet__meter"><div class="insights-fleet__fill' +
+      (over ? " insights-fleet__fill--over" : "") +
+      '" style="width:' +
+      pct +
+      '%"></div></div>' +
+      '<p class="insights-fleet__hint">' +
+      (headroom > 0
+        ? "Headroom today: about " +
+          headroom +
+          " more dispatch slot" +
+          (headroom === 1 ? "" : "s") +
+          " vs roster (roughly one active job per slot)."
+        : over
+          ? "Scheduled jobs exceed available techs today — review assignments and double-booking."
+          : avail === 0
+            ? "No technicians marked available today in Settings (service days)."
+            : "No jobs scheduled for today.") +
+      "</p>" +
+      '<p class="insights-muted" style="margin:10px 0 0 0;font-size:12px;line-height:1.45">This calendar week (Mon–Sun): <strong>' +
+      wk.jobs +
+      "</strong> job" +
+      (wk.jobs === 1 ? "" : "s") +
+      " vs <strong>" +
+      wk.techDays +
+      "</strong> tech-day" +
+      (wk.techDays === 1 ? "" : "s") +
+      " of supply (sum of roster availability by weekday).</p>" +
+      "</div>";
+  }
+
   async function refreshInsights() {
     var errEl = document.getElementById("insightsErr");
     var btn = document.getElementById("insightsRefreshBtn");
@@ -565,6 +677,9 @@
         var t = docToTicket(doc);
         ticketById[t.id] = t.data;
       });
+
+      var fleetHost = document.getElementById("insightsFleetCapacity");
+      if (fleetHost) renderFleetCapacityCard(fleetHost, ticketById);
 
       var laborSnap = await VCFirestore.laborLogs(db)
         .where("dateYmd", ">=", fromYmd)

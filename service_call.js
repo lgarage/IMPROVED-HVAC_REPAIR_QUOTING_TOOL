@@ -78,6 +78,29 @@ function subscribeServiceCallsFromCloud() {
 
 window.addEventListener("DOMContentLoaded", function () {
     subscribeServiceCallsFromCloud();
+    var ticketModal = document.getElementById("ticketDetailsModal");
+    if (ticketModal && !ticketModal.dataset.leadDayVerifyDelegated) {
+        ticketModal.dataset.leadDayVerifyDelegated = "1";
+        ticketModal.addEventListener("change", function (e) {
+            if (!e.target || e.target.id !== "tdPrimaryTechSelect") return;
+            var pLead = e.target;
+            var tdD = document.getElementById("tdDate");
+            var ymd = tdD && tdD.value ? String(tdD.value).trim() : "";
+            var v = pLead.value;
+            if (!v || !ymd) return;
+            if (
+                typeof window.getTechAvailabilityForJobDate === "function" &&
+                !window.getTechAvailabilityForJobDate(v, ymd)
+            ) {
+                if (typeof showSaveCue === "function") {
+                    showSaveCue(
+                        "⚠️ Lead must be service-available on the scheduled weekday. Choose another lead or change the date."
+                    );
+                }
+                pLead.value = "";
+            }
+        });
+    }
 });
 
 async function loadServiceCallsFromCloud() {
@@ -279,19 +302,31 @@ function updateLeadTechRowVisibility() {
     var prev = primarySel.value;
     var dateEl = document.getElementById("scDateInput");
     var ymd = dateEl && dateEl.value ? String(dateEl.value).trim() : "";
+    var exEl = document.getElementById("scCurrentId");
+    var exId = exEl && exEl.value ? String(exEl.value).trim() : "";
     primarySel.innerHTML = '<option value="">— Select lead —</option>';
     crew.forEach(function (t) {
         var o = document.createElement("option");
         o.value = t;
-        var label = t;
+        var parts = [t];
         if (
             ymd &&
             typeof window.getTechAvailabilityForJobDate === "function" &&
             !window.getTechAvailabilityForJobDate(t, ymd)
         ) {
-            label = t + " (Off)";
+            parts.push("(Off)");
         }
-        o.textContent = label;
+        if (
+            ymd &&
+            typeof DispatcherTicketManager !== "undefined" &&
+            DispatcherTicketManager.countJobsForTechOnDate
+        ) {
+            var jc = DispatcherTicketManager.countJobsForTechOnDate(t, ymd, exId);
+            if (jc > 0) {
+                parts.push("(" + jc + " Job" + (jc === 1 ? "" : "s") + ")");
+            }
+        }
+        o.textContent = parts.join(" ");
         primarySel.appendChild(o);
     });
     if (prev && crew.indexOf(prev) !== -1) {
@@ -395,6 +430,30 @@ function wireDispatcherAssignmentControlsOnce() {
             updateDispatcherLaborFields();
         });
     }
+    var leadEl = document.getElementById("scPrimaryTechInput");
+    if (leadEl && !leadEl.dataset.leadDayVerifyWired) {
+        leadEl.dataset.leadDayVerifyWired = "1";
+        leadEl.addEventListener("change", function () {
+            var ymd =
+                document.getElementById("scDateInput") &&
+                document.getElementById("scDateInput").value
+                    ? String(document.getElementById("scDateInput").value).trim()
+                    : "";
+            var v = leadEl.value;
+            if (!v || !ymd) return;
+            if (
+                typeof window.getTechAvailabilityForJobDate === "function" &&
+                !window.getTechAvailabilityForJobDate(v, ymd)
+            ) {
+                if (typeof showSaveCue === "function") {
+                    showSaveCue(
+                        "⚠️ Lead must be service-available on the scheduled weekday. Choose another lead or change the date."
+                    );
+                }
+                leadEl.value = "";
+            }
+        });
+    }
 }
 
 function buildServiceAssignedTechForm(techList) {
@@ -402,7 +461,11 @@ function buildServiceAssignedTechForm(techList) {
     if (!box) {
         return;
     }
+    var curIdEl = document.getElementById("scCurrentId");
     var opts = { leadSelectId: "scPrimaryTechInput" };
+    if (curIdEl && curIdEl.value) {
+        opts.excludeTicketId = String(curIdEl.value).trim();
+    }
     var dateEl = document.getElementById("scDateInput");
     var ymd = dateEl && dateEl.value ? String(dateEl.value).trim() : "";
     if (ymd && typeof window.getTechAvailabilityForJobDate === "function") {
@@ -1299,6 +1362,7 @@ function openTicketDetails(dbId) {
             var modalOpts = {
                 initialSelected: crewModal,
                 leadSelectId: "tdPrimaryTechSelect",
+                excludeTicketId: sc.id,
             };
             if (modalYmd && typeof window.getTechAvailabilityForJobDate === "function") {
                 modalOpts.jobDateYmd = modalYmd;
@@ -1324,6 +1388,7 @@ function openTicketDetails(dbId) {
                     var nextOpts = {
                         initialSelected: prev,
                         leadSelectId: "tdPrimaryTechSelect",
+                        excludeTicketId: sc.id,
                     };
                     if (ymd && typeof window.getTechAvailabilityForJobDate === "function") {
                         nextOpts.jobDateYmd = ymd;

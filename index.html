@@ -16,7 +16,7 @@
     />
     <link rel="stylesheet" href="dispatcher/css/activity_feed.css?v=1" />
     <link rel="stylesheet" href="dispatcher/css/import_hub.css?v=1" />
-    <link rel="stylesheet" href="dispatcher/css/insights.css?v=2" />
+    <link rel="stylesheet" href="dispatcher/css/insights.css?v=3" />
     <link rel="stylesheet" href="dispatcher/css/report_builder.css?v=1" />
     <link rel="stylesheet" href="dispatcher/css/sidebar.css?v=2" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -3616,6 +3616,12 @@
             <button type="button" id="insightsRefreshBtn">Refresh dashboard</button>
           </div>
 
+          <div
+            id="insightsFleetCapacity"
+            class="insights-fleet-wrap"
+            aria-live="polite"
+          ></div>
+
           <div class="insights-grid insights-grid--split">
             <section class="insights-card">
               <div class="insights-card__head">
@@ -6631,7 +6637,7 @@
     <script src="dispatcher/js/shadow_mode.js?v=3"></script>
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
-    <script src="dispatcher/js/ticket_manager.js?v=1"></script>
+    <script src="dispatcher/js/ticket_manager.js?v=2"></script>
     <script src="dispatcher/js/activity_feed.js?v=1"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
@@ -6648,8 +6654,8 @@
         switchTab("pulse");
       }
     </script>
-    <script src="service_call.js?v=59"></script>
-    <script src="dispatcher/js/insights_manager.js?v=2"></script>
+    <script src="service_call.js?v=60"></script>
+    <script src="dispatcher/js/insights_manager.js?v=3"></script>
     <script src="dispatcher/js/report_builder.js?v=2"></script>
     <script>
       if (window.location.hash === "#insights" && typeof switchTab === "function") {

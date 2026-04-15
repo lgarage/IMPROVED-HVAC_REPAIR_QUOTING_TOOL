@@ -123,6 +123,55 @@
         });
     }
 
+    function getServiceCallsFromCache() {
+        try {
+            var raw = localStorage.getItem("twinPillarsServiceDB");
+            var arr = raw ? JSON.parse(raw) : [];
+            return Array.isArray(arr) ? arr : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function isTicketActiveForScheduling(sc) {
+        if (!sc || sc.archived === true) return false;
+        var st = String(sc.status || "").trim().toLowerCase();
+        if (st === "completed" || st === "cancelled") return false;
+        return true;
+    }
+
+    function ticketAssignsTech(sc, techName) {
+        var t = String(techName || "").trim();
+        if (!t) return false;
+        if (Array.isArray(sc.assignedTechs) && sc.assignedTechs.length) {
+            return sc.assignedTechs.some(function (x) {
+                return String(x).trim() === t;
+            });
+        }
+        if (sc.assignedTech && String(sc.assignedTech).trim() === t) return true;
+        return false;
+    }
+
+    /**
+     * Active tickets on ymd assigning techName, excluding a ticket id (e.g. current form).
+     */
+    function countJobsForTechOnDate(techName, ymd, excludeTicketId) {
+        var ex = excludeTicketId ? String(excludeTicketId).trim() : "";
+        var d = String(ymd || "").trim();
+        if (!d) return 0;
+        var list = getServiceCallsFromCache();
+        var n = 0;
+        for (var i = 0; i < list.length; i++) {
+            var sc = list[i];
+            if (!sc || !isTicketActiveForScheduling(sc)) continue;
+            if (ex && String(sc.id) === ex) continue;
+            if (String(sc.date || "").trim() !== d) continue;
+            if (!ticketAssignsTech(sc, techName)) continue;
+            n++;
+        }
+        return n;
+    }
+
     function syncLeadSelectFromCrew(leadSelectId, crewNames, leadLabelOpts) {
         leadLabelOpts = leadLabelOpts || {};
         if (!leadSelectId) {
@@ -135,15 +184,25 @@
         var prev = leadSel.value;
         var jobYmd = leadLabelOpts.jobDateYmd ? String(leadLabelOpts.jobDateYmd).trim() : "";
         var isAvailFn = leadLabelOpts.isTechAvailableForJobDate;
+        var exId = leadLabelOpts.excludeTicketId ? String(leadLabelOpts.excludeTicketId).trim() : "";
         leadSel.innerHTML = '<option value="">— Lead —</option>';
         (crewNames || []).forEach(function (t) {
             var o = document.createElement("option");
             o.value = t;
+            var parts = [];
+            parts.push(t);
             var off =
                 jobYmd &&
                 typeof isAvailFn === "function" &&
                 !isAvailFn(t);
-            o.textContent = off ? t + " (Off)" : t;
+            if (off) parts.push("(Off)");
+            if (jobYmd) {
+                var jc = countJobsForTechOnDate(t, jobYmd, exId);
+                if (jc > 0) {
+                    parts.push("(" + jc + " Job" + (jc === 1 ? "" : "s") + ")");
+                }
+            }
+            o.textContent = parts.join(" ");
             leadSel.appendChild(o);
         });
         if (prev && crewNames.indexOf(prev) !== -1) {
@@ -153,7 +212,8 @@
         }
     }
 
-    function appendTechOptionRow(panel, tech, initial, showOffBadge) {
+    function appendTechOptionRow(panel, tech, initial, showOffBadge, jobCount) {
+        var jc = typeof jobCount === "number" && jobCount > 0 ? jobCount : 0;
         var label = document.createElement("label");
         label.className = "sc-tech-dropdown__option";
         if (showOffBadge) {
@@ -167,7 +227,11 @@
             cb.checked = true;
         }
         var span = document.createElement("span");
-        span.textContent = showOffBadge ? tech + " (Off)" : tech;
+        var text = showOffBadge ? tech + " (Off)" : tech;
+        if (jc > 0) {
+            text += " (" + jc + " Job" + (jc === 1 ? "" : "s") + ")";
+        }
+        span.textContent = text;
         label.appendChild(cb);
         label.appendChild(span);
         panel.appendChild(label);
@@ -178,7 +242,7 @@
      * Optional: partition by job-day availability (see Settings → service days).
      * @param {HTMLElement} container
      * @param {string[]} techList
-     * @param {{ initialSelected?: string[], leadSelectId?: string|null, jobDateYmd?: string, isTechAvailableForJobDate?: function(string): boolean }} options
+     * @param {{ initialSelected?: string[], leadSelectId?: string|null, jobDateYmd?: string, excludeTicketId?: string, isTechAvailableForJobDate?: function(string): boolean }} options
      */
     function mountTechMultiSelect(container, techList, options) {
         options = options || {};
@@ -186,10 +250,17 @@
         var leadSelectId = options.leadSelectId != null ? options.leadSelectId : null;
         var jobDateYmd = options.jobDateYmd ? String(options.jobDateYmd).trim() : "";
         var isAvailFn = options.isTechAvailableForJobDate;
-        var leadLabelOpts =
-            jobDateYmd && typeof isAvailFn === "function"
-                ? { jobDateYmd: jobDateYmd, isTechAvailableForJobDate: isAvailFn }
-                : {};
+        var excludeTicketId = options.excludeTicketId ? String(options.excludeTicketId).trim() : "";
+        var leadLabelOpts = {
+            jobDateYmd: jobDateYmd,
+            isTechAvailableForJobDate: isAvailFn,
+            excludeTicketId: excludeTicketId,
+        };
+
+        function jobCountForTech(tech) {
+            if (!jobDateYmd) return 0;
+            return countJobsForTechOnDate(tech, jobDateYmd, excludeTicketId);
+        }
 
         container.innerHTML = "";
         var wrap = document.createElement("div");
@@ -222,7 +293,7 @@
         }
 
         avail.forEach(function (tech) {
-            appendTechOptionRow(panel, tech, initial, false);
+            appendTechOptionRow(panel, tech, initial, false, jobCountForTech(tech));
         });
         if (unavail.length) {
             var hdr = document.createElement("div");
@@ -230,7 +301,7 @@
             hdr.textContent = "Unavailable Today";
             panel.appendChild(hdr);
             unavail.forEach(function (tech) {
-                appendTechOptionRow(panel, tech, initial, true);
+                appendTechOptionRow(panel, tech, initial, true, jobCountForTech(tech));
             });
         }
 
@@ -286,6 +357,14 @@
                 }
                 if (global && typeof global.showSaveCue === "function") {
                     global.showSaveCue("Assigned outside usual weekly availability.");
+                }
+            }
+            if (cb.checked && jobDateYmd) {
+                var already = countJobsForTechOnDate(cb.value, jobDateYmd, excludeTicketId);
+                if (already >= 1 && global && typeof global.showSaveCue === "function") {
+                    global.showSaveCue(
+                        "⚠️ " + cb.value + " is already assigned to another job on this day."
+                    );
                 }
             }
             updateTechDropdownSummary(container);
@@ -401,6 +480,8 @@
         updateTechDropdownSummary: updateTechDropdownSummary,
         mountTechMultiSelect: mountTechMultiSelect,
         syncLeadSelectFromCrew: syncLeadSelectFromCrew,
+        countJobsForTechOnDate: countJobsForTechOnDate,
+        getServiceCallsFromCache: getServiceCallsFromCache,
         MIN_ISSUE_CHARS_FOR_RELEASE: MIN_ISSUE_CHARS_FOR_RELEASE,
         checkDispatchReadiness: checkDispatchReadiness,
         wireReleaseToFieldGuardOnce: wireReleaseToFieldGuardOnce,

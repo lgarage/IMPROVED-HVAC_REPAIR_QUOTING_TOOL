@@ -61,6 +61,21 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 - UI: `dispatcher/js/ticket_manager.js` — `mountTechMultiSelect` partitions by `jobDateYmd` + `isTechAvailableForJobDate`; override confirmation on checkbox; `syncLeadSelectFromCrew` labels lead options with **(Off)** when applicable.
 - Wiring: `service_call.js` — `buildServiceAssignedTechForm` passes `leadSelectId: "scPrimaryTechInput"` and date-aware options; `#scDateInput` `change` rebuilds the multi-select while preserving selection; ticket modal `#tdDate` mirrors the same behavior.
 
+#### Schedule conflict detection & fleet capacity (Phase 24)
+
+**User Guide**
+
+- **Double-booking signal:** For the **selected job date**, each technician line in the assignment dropdown shows **(N Jobs)** when they already have **other active** tickets that day (not **Completed** / **Cancelled**, not **archived**). Counts come from the same ticket list as the board (`localStorage` `twinPillarsServiceDB`, merged with cloud). The **current ticket** is excluded when editing so self-assignment does not inflate the count.
+- **Warning toast:** If you **check** a tech who **already has at least one** other job that day, a toast appears: **⚠️ [Name] is already assigned to another job on this day.** (Assignment is still allowed.)
+- **Lead technician:** Changing **Lead** re-checks **weekly service-day** availability for the **scheduled date**; if the chosen lead is **off** that weekday, the selection is cleared and a warning toast explains why. Applies to the main intake form (`#scPrimaryTechInput`) and the ticket modal (`#tdPrimaryTechSelect`, delegated on `#ticketDetailsModal`).
+- **Fleet capacity (Reports):** **Executive Insights** includes a **Fleet capacity** strip: **today’s** scheduled job count vs **today’s** count of roster techs available on that weekday (Settings → service days), with a **meter** and short **headroom** hint. A second line compares **this calendar week (Mon–Sun)** total scheduled jobs vs **tech-days of supply** (sum over each day of “how many techs are available that weekday”) to spot an overbooked week.
+
+**Technical Specs**
+
+- `dispatcher/js/ticket_manager.js`: `getServiceCallsFromCache`, `isTicketActiveForScheduling`, `ticketAssignsTech`, `countJobsForTechOnDate(techName, ymd, excludeTicketId)`; `mountTechMultiSelect` options include `excludeTicketId`; row labels append **(N Job[s])**; checkbox `change` fires availability override flow then double-book **toast**; `syncLeadSelectFromCrew` includes job-count suffixes when `jobDateYmd` is set.
+- `service_call.js`: passes `excludeTicketId` from `#scCurrentId` (modal: `sc.id`); lead verification listener on main select + delegated handler on ticket modal for `tdPrimaryTechSelect`.
+- `dispatcher/js/insights_manager.js`: `renderFleetCapacityCard`, `countScheduledJobsOnDate`, `countAvailableTechsForYmd`, `sumFleetWeek`; container `#insightsFleetCapacity`. Styles: `dispatcher/css/insights.css` (`.insights-fleet*`).
+
 #### Live Inter-Office Feed (Pulse)
 
 **User Guide**
@@ -83,6 +98,7 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 **User Guide**
 
 - Sidebar: **Reports** → **Executive Insights** opens `#view-insights`. Set **From** / **To** (defaults to last 30 days), optional **Default billable rate ($/hr)** (saved in `localStorage` as `vc_insights_default_rate`), then **Refresh dashboard**.
+- **Fleet capacity:** a **meter** under the toolbar compares **scheduled jobs today** to **available techs today** (roster + weekday availability), with a **weekly** jobs vs **tech-days** summary — use it to see if the week has headroom.
 - **Profitability by pillar:** table and bar comparison of **scheduled billable hours** (from ticket `Total_Billable_Hours` or `DispatcherTicketManager.computeTotalBillableHours`) vs **clocked hours** attributed to jobs (`labor_logs` entries: IN carries `ticketId`, OUT closes the pair). Job types map to pillars **PM, QR, SC, IN, WC** via the same rules as ticket prefixes (`getPrefixForJobType` in `service_call.js`). A **manager insight** callout flags pillars where clocked time exceeds billable by ~8%+.
 - **Tech efficiency:** ranks technicians using **completed_reports** in range (timestamp on report), **median hours from ticket `date` to report** as a simple “close speed” signal, **verification %** among tickets in range with status **Completed** or **Client Verified / Ready for Billing** (counts per assigned tech), and **total shift hours** from `labor_logs`. **Rockstar** / **Coaching** badges are heuristic vs peer median verification and close-time thresholds.
 - **Unbilled revenue:** lists tickets with status **Client Verified / Ready for Billing** and shows **potential revenue = billable hours × default rate**. Ticket links switch to Service Call Intake and call `loadServiceCall`.
@@ -90,7 +106,7 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 
 **Technical Specs**
 
-- `dispatcher/js/insights_manager.js` (`VcInsightsManager`), `dispatcher/css/insights.css`.
+- `dispatcher/js/insights_manager.js` (`VcInsightsManager`), `dispatcher/css/insights.css`; **Fleet capacity** strip: `#insightsFleetCapacity`, `renderFleetCapacityCard` (today + week tech-days vs jobs), uses `getTechAvailabilityForJobDate` and merged service-call tickets.
 - Reads: `VCFirestore.loadServiceCallsMergedOnce`, `VCFirestore.laborLogs` (`dateYmd` range query), merged `completed_reports` (tenant + root for `TWIN_PILLARS`), merged `site_intelligence` for health stats.
 - Pillar job-type mapping: `Quoted Repair`→QR, `Install`→IN, `Preventative Maintenance`→PM, `Warranty Call`→WC, default→SC.
 
