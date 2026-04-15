@@ -1146,6 +1146,19 @@
       .sc-tech-dropdown__option:hover {
         background: #f1f5f9;
       }
+      .sc-tech-dropdown__section-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+        padding: 8px 10px 4px;
+        margin: 6px -8px 2px;
+        border-top: 1px solid #e2e8f0;
+      }
+      .sc-tech-dropdown__option--off {
+        color: #94a3b8;
+      }
       .sc-tech-dropdown__option input {
         margin-top: 3px;
         flex-shrink: 0;
@@ -5071,7 +5084,8 @@
               <strong>Is Admin</strong>, <strong>Is Tech</strong>, <strong>Is Sales</strong>,
               <strong>Time Tracking Only</strong> (true/false — yellow / restricted seat),
               optional <strong>Password</strong> (validated: 8+ chars, 1 capital, 1 special).
-              Users are stored under <code>tenants/{tenantId}/users</code>. Training sandbox accounts use
+              Users are stored under <code>tenants/{tenantId}/users</code> with a weekly
+              <strong>availability</strong> map (<code>mon</code>…<code>sun</code>, default all on). Training sandbox accounts use
               <code>local+training@domain</code> and Field data under <code>sandbox/default/…</code>.
             </p>
             <div style="max-width: 720px; margin-bottom: 12px">
@@ -6612,12 +6626,12 @@
     </script>
 
     <script src="dispatcher/js/navigation.js?v=1"></script>
-    <script src="settings.js?v=13"></script>
-    <script src="dispatcher/js/user_import.js?v=1"></script>
+    <script src="settings.js?v=14"></script>
+    <script src="dispatcher/js/user_import.js?v=2"></script>
     <script src="dispatcher/js/shadow_mode.js?v=3"></script>
     <script src="customer_directory.js?v=25"></script>
     <script src="dispatcher/utils.js?v=1"></script>
-    <script src="dispatcher/js/ticket_manager.js"></script>
+    <script src="dispatcher/js/ticket_manager.js?v=1"></script>
     <script src="dispatcher/js/activity_feed.js?v=1"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
@@ -6634,7 +6648,7 @@
         switchTab("pulse");
       }
     </script>
-    <script src="service_call.js?v=58"></script>
+    <script src="service_call.js?v=59"></script>
     <script src="dispatcher/js/insights_manager.js?v=2"></script>
     <script src="dispatcher/js/report_builder.js?v=2"></script>
     <script>

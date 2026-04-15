@@ -136,8 +136,65 @@ function escapeHTML(str) {
 // --- SETTINGS & TECHNICIAN LOGIC ---
 // ====================================================================
 let appTechList = [];
-/** Per-tech: { onCallEligible: boolean, ptoDates: string[] } keyed by roster name (uppercase). */
+/** Per-tech: { onCallEligible, ptoDates, availability } keyed by roster name (uppercase). */
 let techProfiles = {};
+
+/** Firestore + Settings: weekly flags for service-day eligibility (dispatcher). */
+const DEFAULT_TECH_AVAILABILITY = {
+    mon: true,
+    tue: true,
+    wed: true,
+    thu: true,
+    fri: true,
+    sat: true,
+    sun: true,
+};
+
+const AVAILABILITY_DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+function normalizeTechAvailability(raw) {
+    const out = {};
+    AVAILABILITY_DAY_KEYS.forEach(function (k) {
+        out[k] = !(raw && raw[k] === false);
+    });
+    return out;
+}
+
+/** Local date YYYY-MM-DD → weekday key (mon…sun). Noon avoids DST edge cases. */
+function ymdToAvailabilityDayKey(ymd) {
+    const p = String(ymd || "").trim().split("-");
+    if (p.length !== 3) return null;
+    const y = parseInt(p[0], 10);
+    const m = parseInt(p[1], 10) - 1;
+    const d = parseInt(p[2], 10);
+    if (!isFinite(y) || !isFinite(m) || !isFinite(d)) return null;
+    const dt = new Date(y, m, d, 12, 0, 0);
+    const keys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+    return keys[dt.getDay()] || null;
+}
+
+function formatWeekdayNameFromYmd(ymd) {
+    const p = String(ymd || "").trim().split("-");
+    if (p.length !== 3) return "that day";
+    const y = parseInt(p[0], 10);
+    const m = parseInt(p[1], 10) - 1;
+    const d = parseInt(p[2], 10);
+    if (!isFinite(y) || !isFinite(m) || !isFinite(d)) return "that day";
+    const dt = new Date(y, m, d, 12, 0, 0);
+    try {
+        return dt.toLocaleDateString(undefined, { weekday: "long" });
+    } catch (e) {
+        return "that day";
+    }
+}
+
+function getTechAvailabilityForJobDate(techName, ymd) {
+    const key = ymdToAvailabilityDayKey(ymd);
+    if (!key) return true;
+    const prof = getTechProfile(techName);
+    const a = prof.availability || DEFAULT_TECH_AVAILABILITY;
+    return a[key] !== false;
+}
 /** Firestore app_config/onCallState — pause rotation + manual on-call tech. */
 let onCallState = { pauseRotation: false, manualOnCallTech: "" };
 let currentEditingTechInv = "";
@@ -213,12 +270,25 @@ function persistTechProfilesLocal() {
 
 function getTechProfile(name) {
     const key = String(name || "").trim();
-    if (!key) return { onCallEligible: false, ptoDates: [] };
+    if (!key) {
+        return {
+            onCallEligible: false,
+            ptoDates: [],
+            availability: normalizeTechAvailability(null),
+        };
+    }
     const p = techProfiles[key];
-    if (!p) return { onCallEligible: false, ptoDates: [] };
+    if (!p) {
+        return {
+            onCallEligible: false,
+            ptoDates: [],
+            availability: normalizeTechAvailability(null),
+        };
+    }
     return {
         onCallEligible: !!p.onCallEligible,
-        ptoDates: Array.isArray(p.ptoDates) ? p.ptoDates.slice() : []
+        ptoDates: Array.isArray(p.ptoDates) ? p.ptoDates.slice() : [],
+        availability: normalizeTechAvailability(p.availability),
     };
 }
 
@@ -228,7 +298,11 @@ function setTechProfile(name, partial) {
     const cur = getTechProfile(key);
     techProfiles[key] = {
         onCallEligible: partial.onCallEligible !== undefined ? !!partial.onCallEligible : cur.onCallEligible,
-        ptoDates: partial.ptoDates !== undefined ? (Array.isArray(partial.ptoDates) ? partial.ptoDates.slice() : []) : cur.ptoDates
+        ptoDates: partial.ptoDates !== undefined ? (Array.isArray(partial.ptoDates) ? partial.ptoDates.slice() : []) : cur.ptoDates,
+        availability:
+            partial.availability !== undefined
+                ? normalizeTechAvailability(partial.availability)
+                : cur.availability,
     };
     persistTechProfilesLocal();
     syncTechnicianRosterToFirestore();
@@ -401,7 +475,8 @@ async function hydrateTechnicianRosterFromCloud() {
                         const raw = data.profiles[k] || {};
                         techProfiles[String(k).trim()] = {
                             onCallEligible: !!raw.onCallEligible,
-                            ptoDates: Array.isArray(raw.ptoDates) ? raw.ptoDates.map(function (d) { return String(d).trim(); }).filter(Boolean) : []
+                            ptoDates: Array.isArray(raw.ptoDates) ? raw.ptoDates.map(function (d) { return String(d).trim(); }).filter(Boolean) : [],
+                            availability: normalizeTechAvailability(raw.availability),
                         };
                     });
                     persistTechProfilesLocal();
@@ -422,7 +497,8 @@ async function hydrateTechnicianRosterFromCloud() {
                             const raw = data.profiles[k] || {};
                             techProfiles[String(k).trim()] = {
                                 onCallEligible: !!raw.onCallEligible,
-                                ptoDates: Array.isArray(raw.ptoDates) ? raw.ptoDates.map(function (d) { return String(d).trim(); }).filter(Boolean) : []
+                                ptoDates: Array.isArray(raw.ptoDates) ? raw.ptoDates.map(function (d) { return String(d).trim(); }).filter(Boolean) : [],
+                                availability: normalizeTechAvailability(raw.availability),
                             };
                         });
                         persistTechProfilesLocal();
@@ -690,6 +766,28 @@ function savePtoRange() {
     if (typeof showSaveCue === "function") showSaveCue("PTO saved");
 }
 
+const AVAILABILITY_DAY_UI = [
+    { key: "mon", label: "M" },
+    { key: "tue", label: "T" },
+    { key: "wed", label: "W" },
+    { key: "thu", label: "Th" },
+    { key: "fri", label: "F" },
+    { key: "sat", label: "S" },
+    { key: "sun", label: "Su" },
+];
+
+function setTechAvailabilityDay(techIndex, dayKey, checked) {
+    const name = appTechList[techIndex];
+    if (!name || AVAILABILITY_DAY_KEYS.indexOf(dayKey) === -1) return;
+    const p = getTechProfile(name);
+    const next = Object.assign({}, p.availability);
+    next[dayKey] = !!checked;
+    setTechProfile(name, { availability: next });
+    renderTechSettings();
+    if (typeof populateTechDropdowns === "function") populateTechDropdowns();
+    if (typeof showSaveCue === "function") showSaveCue("Availability updated");
+}
+
 function renderTechSettings() {
     const container = document.getElementById('techListContainer');
     if (!container) return;
@@ -702,7 +800,29 @@ function renderTechSettings() {
 
     appTechList.forEach((tech, index) => {
         const elig = getTechProfile(tech).onCallEligible;
+        const av = getTechProfile(tech).availability;
         const safe = escapeHTML(tech);
+        let dayRow =
+            '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #eef2f6;font-size:12px;color:#475569;">';
+        dayRow +=
+            '<span style="font-weight:600;margin-right:4px;flex-shrink:0;">Service days (dispatch):</span>';
+        dayRow += '<span style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">';
+        AVAILABILITY_DAY_UI.forEach(function (d) {
+            const on = av[d.key] !== false;
+            dayRow +=
+                '<label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;user-select:none;white-space:nowrap;">' +
+                '<input type="checkbox" ' +
+                (on ? "checked " : "") +
+                'onchange="setTechAvailabilityDay(' +
+                index +
+                ", '" +
+                d.key +
+                "', this.checked)" +
+                '" />' +
+                escapeHTML(d.label) +
+                "</label>";
+        });
+        dayRow += "</span></div>";
         container.innerHTML += `
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; background:#fff; padding:12px 15px; border-radius:6px; border:1px solid #e1e8ed; box-shadow: 0 1px 3px rgba(0,0,0,0.02); flex-wrap:wrap;">
                 <div style="flex:1; min-width:200px;">
@@ -711,6 +831,7 @@ function renderTechSettings() {
                         <input type="checkbox" ${elig ? "checked" : ""} onchange="setTechOnCallEligible(${index}, this.checked)" />
                         Eligible for On-Call Rotation
                     </label>
+                    ${dayRow}
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
                     <button type="button" class="gen-btn" style="background:#16a085; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="openPtoModal(${index})">Manage PTO</button>
@@ -2543,6 +2664,9 @@ async function hydrateFieldFormTemplatesList() {
 window.openFieldFormBuilderCreate = openFieldFormBuilderCreate;
 window.openFieldFormBuilderEdit = openFieldFormBuilderEdit;
 window.deleteFieldFormTemplateById = deleteFieldFormTemplateById;
+
+window.getTechAvailabilityForJobDate = getTechAvailabilityForJobDate;
+window.formatWeekdayNameFromYmd = formatWeekdayNameFromYmd;
 
 /** Called from User Import after writing tenants/.../users. */
 window.mergeImportedTechsIntoRoster = function (names) {

@@ -44,6 +44,23 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 - Release guard: `ticket_manager.js` wires validation to `#scIssueInput` / release flow; messages reference **✨ Clean up & structure with AI** when text is too short.
 - Tickets are written through `VCFirestore.serviceCalls` / `setServiceCallMerged` where applicable (tenant path; bridge for legacy tenant — see Data Architecture).
 
+#### Service windows & capacity (weekly tech availability)
+
+**User Guide**
+
+- **Purpose:** Match dispatch to **part-time or fixed-day** field coverage (for example, a technician who only runs service Thursday–Friday).
+- **Where to configure:** **Settings** → **Manage Technicians & Truck Inventory**. Each technician row includes **Service days (dispatch):** checkboxes **M T W Th F S Su**. Checked = **service-ready** that weekday; unchecked = **off** for scheduling on that day (defaults are **all days on** for existing rosters so behavior stays unchanged until you edit it).
+- **Enterprise import:** CSV user import (`dispatcher/js/user_import.js`) writes an `availability` object on each `tenants/{tenantId}/users/{emailId}` document with **all days `true`** by default. Align Field roster names with **payroll / uppercase** names used on the dispatch board.
+- **At intake:** Set the job **date** first. The technician multi-select lists **available** techs first; anyone **not** service-ready that day appears under **Unavailable Today** with an **(Off)** label. The **Lead technician** dropdown uses the same **(Off)** hint.
+- **Emergency override:** You can still check an unavailable technician. The app asks for confirmation and then shows a short **toast** (`showSaveCue`) that the assignment is outside usual weekly availability.
+
+**Technical Specs**
+
+- Profile shape (stored under `app_config/technicians` and tenant `roster` merge payload, `profiles.{techName}.availability`): `{ mon, tue, wed, thu, fri, sat, sun }` booleans (`settings.js`: `normalizeTechAvailability`, `getTechAvailabilityForJobDate`).
+- Firestore user docs from import: `availability` with the same keys (`user_import.js`).
+- UI: `dispatcher/js/ticket_manager.js` — `mountTechMultiSelect` partitions by `jobDateYmd` + `isTechAvailableForJobDate`; override confirmation on checkbox; `syncLeadSelectFromCrew` labels lead options with **(Off)** when applicable.
+- Wiring: `service_call.js` — `buildServiceAssignedTechForm` passes `leadSelectId: "scPrimaryTechInput"` and date-aware options; `#scDateInput` `change` rebuilds the multi-select while preserving selection; ticket modal `#tdDate` mirrors the same behavior.
+
 #### Live Inter-Office Feed (Pulse)
 
 **User Guide**

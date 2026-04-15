@@ -277,11 +277,21 @@ function updateLeadTechRowVisibility() {
     var primarySel = document.getElementById("scPrimaryTechInput");
     if (!primarySel) return;
     var prev = primarySel.value;
+    var dateEl = document.getElementById("scDateInput");
+    var ymd = dateEl && dateEl.value ? String(dateEl.value).trim() : "";
     primarySel.innerHTML = '<option value="">— Select lead —</option>';
     crew.forEach(function (t) {
         var o = document.createElement("option");
         o.value = t;
-        o.textContent = t;
+        var label = t;
+        if (
+            ymd &&
+            typeof window.getTechAvailabilityForJobDate === "function" &&
+            !window.getTechAvailabilityForJobDate(t, ymd)
+        ) {
+            label = t + " (Off)";
+        }
+        o.textContent = label;
         primarySel.appendChild(o);
     });
     if (prev && crew.indexOf(prev) !== -1) {
@@ -368,6 +378,23 @@ function wireDispatcherAssignmentControlsOnce() {
     if (lead) {
         lead.addEventListener("change", updateDispatcherLaborFields);
     }
+    var dateEl = document.getElementById("scDateInput");
+    if (dateEl && !dateEl.dataset.availabilityWired) {
+        dateEl.dataset.availabilityWired = "1";
+        dateEl.addEventListener("change", function () {
+            var prev = gatherAssignedTechsFromServiceForm();
+            var roster = JSON.parse(localStorage.getItem("tp_tech_list") || "[]");
+            buildServiceAssignedTechForm(roster);
+            if (
+                typeof DispatcherTicketManager !== "undefined" &&
+                DispatcherTicketManager.setSelectedTechsInContainer
+            ) {
+                DispatcherTicketManager.setSelectedTechsInContainer(box, prev);
+            }
+            updateLeadTechRowVisibility();
+            updateDispatcherLaborFields();
+        });
+    }
 }
 
 function buildServiceAssignedTechForm(techList) {
@@ -375,11 +402,20 @@ function buildServiceAssignedTechForm(techList) {
     if (!box) {
         return;
     }
+    var opts = { leadSelectId: "scPrimaryTechInput" };
+    var dateEl = document.getElementById("scDateInput");
+    var ymd = dateEl && dateEl.value ? String(dateEl.value).trim() : "";
+    if (ymd && typeof window.getTechAvailabilityForJobDate === "function") {
+        opts.jobDateYmd = ymd;
+        opts.isTechAvailableForJobDate = function (name) {
+            return window.getTechAvailabilityForJobDate(name, ymd);
+        };
+    }
     if (
         typeof DispatcherTicketManager !== "undefined" &&
         DispatcherTicketManager.mountTechMultiSelect
     ) {
-        DispatcherTicketManager.mountTechMultiSelect(box, techList || [], {});
+        DispatcherTicketManager.mountTechMultiSelect(box, techList || [], opts);
     }
     wireDispatcherAssignmentControlsOnce();
     wireMultiDayControlsOnce();
@@ -1259,10 +1295,18 @@ function openTicketDetails(dbId) {
             typeof DispatcherTicketManager !== "undefined" &&
             DispatcherTicketManager.mountTechMultiSelect
         ) {
-            DispatcherTicketManager.mountTechMultiSelect(tdBox, savedTechs, {
+            var modalYmd = sc.date ? String(sc.date).trim() : "";
+            var modalOpts = {
                 initialSelected: crewModal,
                 leadSelectId: "tdPrimaryTechSelect",
-            });
+            };
+            if (modalYmd && typeof window.getTechAvailabilityForJobDate === "function") {
+                modalOpts.jobDateYmd = modalYmd;
+                modalOpts.isTechAvailableForJobDate = function (name) {
+                    return window.getTechAvailabilityForJobDate(name, modalYmd);
+                };
+            }
+            DispatcherTicketManager.mountTechMultiSelect(tdBox, savedTechs, modalOpts);
             var pSelModal = document.getElementById("tdPrimaryTechSelect");
             if (pSelModal) {
                 if (primaryModal && crewModal.indexOf(primaryModal) !== -1) {
@@ -1270,6 +1314,36 @@ function openTicketDetails(dbId) {
                 } else if (crewModal.length === 1) {
                     pSelModal.value = crewModal[0];
                 }
+            }
+            var tdDateEl = document.getElementById("tdDate");
+            if (tdDateEl && !tdDateEl.dataset.availabilityWired) {
+                tdDateEl.dataset.availabilityWired = "1";
+                tdDateEl.addEventListener("change", function () {
+                    var ymd = String(tdDateEl.value || "").trim();
+                    var prev = DispatcherTicketManager.getSelectedTechsFromContainer(tdBox);
+                    var nextOpts = {
+                        initialSelected: prev,
+                        leadSelectId: "tdPrimaryTechSelect",
+                    };
+                    if (ymd && typeof window.getTechAvailabilityForJobDate === "function") {
+                        nextOpts.jobDateYmd = ymd;
+                        nextOpts.isTechAvailableForJobDate = function (name) {
+                            return window.getTechAvailabilityForJobDate(name, ymd);
+                        };
+                    }
+                    DispatcherTicketManager.mountTechMultiSelect(tdBox, savedTechs, nextOpts);
+                    var pSel2 = document.getElementById("tdPrimaryTechSelect");
+                    if (pSel2) {
+                        var crewNow = DispatcherTicketManager.getSelectedTechsFromContainer(tdBox);
+                        if (primaryModal && crewNow.indexOf(primaryModal) !== -1) {
+                            pSel2.value = primaryModal;
+                        } else if (prev.length === 1 && crewNow.indexOf(prev[0]) !== -1) {
+                            pSel2.value = prev[0];
+                        } else if (crewNow.length === 1) {
+                            pSel2.value = crewNow[0];
+                        }
+                    }
+                });
             }
         }
     })();

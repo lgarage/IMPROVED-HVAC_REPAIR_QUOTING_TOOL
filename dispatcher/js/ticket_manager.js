@@ -123,7 +123,8 @@
         });
     }
 
-    function syncLeadSelectFromCrew(leadSelectId, crewNames) {
+    function syncLeadSelectFromCrew(leadSelectId, crewNames, leadLabelOpts) {
+        leadLabelOpts = leadLabelOpts || {};
         if (!leadSelectId) {
             return;
         }
@@ -132,11 +133,17 @@
             return;
         }
         var prev = leadSel.value;
+        var jobYmd = leadLabelOpts.jobDateYmd ? String(leadLabelOpts.jobDateYmd).trim() : "";
+        var isAvailFn = leadLabelOpts.isTechAvailableForJobDate;
         leadSel.innerHTML = '<option value="">— Lead —</option>';
         (crewNames || []).forEach(function (t) {
             var o = document.createElement("option");
             o.value = t;
-            o.textContent = t;
+            var off =
+                jobYmd &&
+                typeof isAvailFn === "function" &&
+                !isAvailFn(t);
+            o.textContent = off ? t + " (Off)" : t;
             leadSel.appendChild(o);
         });
         if (prev && crewNames.indexOf(prev) !== -1) {
@@ -146,16 +153,43 @@
         }
     }
 
+    function appendTechOptionRow(panel, tech, initial, showOffBadge) {
+        var label = document.createElement("label");
+        label.className = "sc-tech-dropdown__option";
+        if (showOffBadge) {
+            label.classList.add("sc-tech-dropdown__option--off");
+        }
+        var cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.className = "sc-tech-cb";
+        cb.value = tech;
+        if (initial.indexOf(tech) !== -1) {
+            cb.checked = true;
+        }
+        var span = document.createElement("span");
+        span.textContent = showOffBadge ? tech + " (Off)" : tech;
+        label.appendChild(cb);
+        label.appendChild(span);
+        panel.appendChild(label);
+    }
+
     /**
      * Renders a div-based multi-select: checkboxes in a dropdown, summary on the trigger.
+     * Optional: partition by job-day availability (see Settings → service days).
      * @param {HTMLElement} container
      * @param {string[]} techList
-     * @param {{ initialSelected?: string[], leadSelectId?: string|null }} options
+     * @param {{ initialSelected?: string[], leadSelectId?: string|null, jobDateYmd?: string, isTechAvailableForJobDate?: function(string): boolean }} options
      */
     function mountTechMultiSelect(container, techList, options) {
         options = options || {};
         var initial = options.initialSelected || [];
         var leadSelectId = options.leadSelectId != null ? options.leadSelectId : null;
+        var jobDateYmd = options.jobDateYmd ? String(options.jobDateYmd).trim() : "";
+        var isAvailFn = options.isTechAvailableForJobDate;
+        var leadLabelOpts =
+            jobDateYmd && typeof isAvailFn === "function"
+                ? { jobDateYmd: jobDateYmd, isTechAvailableForJobDate: isAvailFn }
+                : {};
 
         container.innerHTML = "";
         var wrap = document.createElement("div");
@@ -172,29 +206,40 @@
         panel.hidden = true;
         panel.setAttribute("role", "listbox");
 
-        (techList || []).forEach(function (tech) {
-            var label = document.createElement("label");
-            label.className = "sc-tech-dropdown__option";
-            var cb = document.createElement("input");
-            cb.type = "checkbox";
-            cb.className = "sc-tech-cb";
-            cb.value = tech;
-            if (initial.indexOf(tech) !== -1) {
-                cb.checked = true;
-            }
-            var span = document.createElement("span");
-            span.textContent = tech;
-            label.appendChild(cb);
-            label.appendChild(span);
-            panel.appendChild(label);
+        var usePartition = typeof isAvailFn === "function" && jobDateYmd.length > 0;
+        var avail = [];
+        var unavail = [];
+        if (usePartition) {
+            (techList || []).forEach(function (tech) {
+                if (isAvailFn(tech)) {
+                    avail.push(tech);
+                } else {
+                    unavail.push(tech);
+                }
+            });
+        } else {
+            avail = (techList || []).slice();
+        }
+
+        avail.forEach(function (tech) {
+            appendTechOptionRow(panel, tech, initial, false);
         });
+        if (unavail.length) {
+            var hdr = document.createElement("div");
+            hdr.className = "sc-tech-dropdown__section-label";
+            hdr.textContent = "Unavailable Today";
+            panel.appendChild(hdr);
+            unavail.forEach(function (tech) {
+                appendTechOptionRow(panel, tech, initial, true);
+            });
+        }
 
         wrap.appendChild(trigger);
         wrap.appendChild(panel);
         container.appendChild(wrap);
 
         updateTechDropdownSummary(container);
-        syncLeadSelectFromCrew(leadSelectId, getSelectedTechsFromContainer(container));
+        syncLeadSelectFromCrew(leadSelectId, getSelectedTechsFromContainer(container), leadLabelOpts);
 
         trigger.addEventListener("click", function (e) {
             e.preventDefault();
@@ -217,10 +262,34 @@
         });
 
         panel.addEventListener("change", function (e) {
-            if (e.target && e.target.classList.contains("sc-tech-cb")) {
-                updateTechDropdownSummary(container);
-                syncLeadSelectFromCrew(leadSelectId, getSelectedTechsFromContainer(container));
+            if (!e.target || !e.target.classList || !e.target.classList.contains("sc-tech-cb")) {
+                return;
             }
+            var cb = e.target;
+            if (
+                cb.checked &&
+                usePartition &&
+                typeof isAvailFn === "function" &&
+                !isAvailFn(cb.value)
+            ) {
+                var dayWord = "that day";
+                if (global && typeof global.formatWeekdayNameFromYmd === "function") {
+                    dayWord = global.formatWeekdayNameFromYmd(jobDateYmd);
+                }
+                var msg =
+                    "Note: This tech is not scheduled for service on " +
+                    dayWord +
+                    ". Proceed?";
+                if (!global.confirm(msg)) {
+                    cb.checked = false;
+                    return;
+                }
+                if (global && typeof global.showSaveCue === "function") {
+                    global.showSaveCue("Assigned outside usual weekly availability.");
+                }
+            }
+            updateTechDropdownSummary(container);
+            syncLeadSelectFromCrew(leadSelectId, getSelectedTechsFromContainer(container), leadLabelOpts);
         });
 
         if (typeof document !== "undefined" && !docCloseBound) {
@@ -241,7 +310,7 @@
             },
             setSelected: function (names) {
                 setSelectedTechsInContainer(container, names);
-                syncLeadSelectFromCrew(leadSelectId, getSelectedTechsFromContainer(container));
+                syncLeadSelectFromCrew(leadSelectId, getSelectedTechsFromContainer(container), leadLabelOpts);
             },
         };
     }

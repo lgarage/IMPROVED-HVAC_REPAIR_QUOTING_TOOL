@@ -188,6 +188,19 @@
     return { rows: out, errors: errors, headerMap: hm };
   }
 
+  /** Weekly service availability (dispatcher scheduling). Default all days on so imports do not restrict assignments. */
+  function defaultUserAvailability() {
+    return {
+      mon: true,
+      tue: true,
+      wed: true,
+      thu: true,
+      fri: true,
+      sat: true,
+      sun: true,
+    };
+  }
+
   function buildUserPayload(row, opts) {
     var isTraining = !!opts.isTraining;
     var trainingEmail = opts.trainingEmail || "";
@@ -208,6 +221,7 @@
       presenceKey: presenceKeyFromFullName(row.firstName, row.lastName),
       isTrainingAccount: isTraining,
       mirrorLiveEmail: isTraining ? row.email : null,
+      availability: defaultUserAvailability(),
       importSource: "green_column_csv",
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
