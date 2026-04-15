@@ -1,32 +1,41 @@
-# Vertex-Core AI Instructions & Rules
+# Vertex-Core | Master AI Instructions & Guardrails
 
-## 1. THE "LIVING MANUAL" RULE (CRITICAL)
+## 1. THE DOCUMENTATION PROTOCOL (STRICT)
 
-- After completing ANY task, you MUST update `PROJECT_MAP.md`.
-- The manual must contain two layers for every feature:
-  1. **User Guide:** How a human uses the feature (UI/UX).
-  2. **Technical Specs:** The Firestore paths, role logic, and data structures.
-- Move completed items to "Build History" and update the "Current Focus."
+- **Categorized Updates:** NEVER just append to the bottom of `PROJECT_MAP.md`.
+- **Placement:** You must categorize every update into its functional section:
+  1. System Philosophy & Architecture
+  2. Dispatcher Operations
+  3. Field Operations
+  4. Client Experience & Invoicing
+- **The Format:** Every feature entry must have:
+  - **User Guide:** (The "How-to" for a human).
+  - **Technical Specs:** (Paths, hooks, and logic for the AI).
+- **History Sync:** Check off the corresponding Phase in the **Build History** and update the **Current Focus** after every task.
 
 ## 2. ARCHITECTURAL GUARDRAILS
 
-- **Tenant Isolation:** All data MUST be sandboxed. Use `tenants/{tenantId}/` for all Firestore writes.
-- **The Bridge:** Follow the "Lazy Migration" pattern (Read Tenant -> Fallback to Root -> Lift to Tenant on save).
+- **Tenant Isolation:** All writes must be sandboxed under `tenants/{tenantId}/`.
+- **The Lazy Bridge:** Follow the "Read Tenant -> Fallback Root -> Write Tenant" pattern for `TWIN_PILLARS`.
+- **Offline First:** Assume the user has no signal. Use Firestore Persistence and `queryGetCacheFirst` logic for all field app reads.
 - **Sandbox Mode:** If `VC_SANDBOX_DATA` is true, route data to `/sandbox/default/` sub-paths.
 
-## 3. TERMINOLOGY & UI STANDARDS
+## 3. UI & BRANDING STANDARDS
 
-- **Naming:** Never use "Dark Channel." Use "Inter-Office Comms."
-- **Visuals:** Follow the "Twin Pillar" select design (orange focus ring, chevron, specific padding).
-- **Mobile First:** Keep AI-generated notes concise. No fluff. Use bolding for scannability.
-- **LaTeX:** Use ONLY for complex math/formulas ($inline$ or $$display$$). Use Markdown for everything else.
+- **Twin Pillar Logic:** Use the standardized pill-selects with the orange focus ring (`#f39c12`), chevron icons, and specific padding.
+- **Terminology:** - USE: "Inter-Office Comms", "Site Intel", "Field Bible", "Shadow Mode".
+  - AVOID: "ServiceTitan", "BuildOps", "Dark Channel".
+- **Mobile First:** Technician UI must be optimized for one-handed use. Buttons must be descriptive (e.g., "🎤 Hold to dictate").
+- **No LaTeX Prose:** Use LaTeX ONLY for math/formulas. Use standard Markdown for all regular text.
 
 ## 4. ROLE-BASED ACCESS CONTROL (RBAC)
 
-- Always respect the four roles: `admin`, `tech`, `sales`, `time_tracking_only`.
-- **Lite Seats:** Users with `time_tracking_only` must be strictly restricted to the Time-Tracker UI and Read-Only job views.
+- **Roles:** `admin`, `tech`, `sales`, `time_tracking_only`.
+- **Lite Seats:** Users with `time_tracking_only` are strictly jailed to the Time-Tracker UI and Read-Only job views.
+- **Shadow Mode:** Shadowing is always **Read-Only**. Prevent the dispatcher from triggering time-clock or sync actions in the mirror.
 
-## 5. CODE STYLE
+## 5. CODE QUALITY & SYNC
 
-- Maintain the "Zero Learning Curve" philosophy. Buttons should be descriptive (e.g., "🎤 Hold to speak customer name").
-- Use `writeBatch` for any operations involving more than 5 documents.
+- **Batching:** Use `writeBatch` for operations involving more than 5 document changes.
+- **Cache Busting:** Always bump the `?v=N` query param in `index.html` when modifying JS or CSS files.
+- **Geo-Snapshots:** Every "Clock" or "Complete" action must await a 5-second `captureGeoSnapshot`.

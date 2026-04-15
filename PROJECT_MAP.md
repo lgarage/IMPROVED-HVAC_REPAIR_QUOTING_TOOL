@@ -1,16 +1,92 @@
 # Vertex-Core Project Map
 
-## System Overview
+Audited snapshot of what is **implemented and wired today**. Each feature lists **User Guide** (how to use it) and **Technical Specs** (paths, data, hooks).
+
+---
+
+## 1. System Philosophy & Architecture
+
+### System overview
 
 - **Tenant Architecture:** `tenants/{tenantId}/` (Isolated)
 - **Roles:** Admin, Tech, Sales, Time-Tracking Only.
 - **Data Bridge:** Lazy migration from Root to Tenant paths.
 
-## Manual — Functional Inventory
+### Tenant isolation `tenants/{tenantId}/…`
 
-Audited snapshot of what is **implemented and wired today**. Each feature lists **User Guide** (how to use it) and **Technical Specs** (paths, data, hooks).
+**User Guide**
+
+- Office and field apps read **tenant id** from branding config (`APP_CONFIG.tenantId`, overridable via `localStorage` `vc_active_tenant_id`). Default demo tenant id is **TWIN_PILLARS**.
+
+**Technical Specs**
+
+- `shared/firebase_logic.js`: `tenantRoot(db) → db.collection("tenants").doc(getTenantId())`; collections include `service_calls`, `site_intelligence`, `completed_reports`, `field_quotes`, `users`, `imported_equipment`, etc.
+- All `tenantCollection` writes keep SaaS data partitioned by `tenantId`.
+
+### Lazy Migration bridge (TWIN_PILLARS) — Data Bridge
+
+**User Guide**
+
+- For the legacy **TWIN_PILLARS** tenant, the app **reads** both new tenant-scoped documents and **old root** collections so existing production data still appears while you migrate.
+
+**Technical Specs**
+
+- `isBridgeTenant()` when `getTenantId() === "TWIN_PILLARS"`.
+- **Read:** `subscribeServiceCallsMerged`, `subscribeSiteIntelligenceMerged`, `getServiceCallOnceBridged`, `getSiteIntelDocOnceBridged`, etc. — merge tenant snapshot with `root` collection snapshot (tenant wins on conflicts where implemented).
+- **Write:** `setServiceCallMerged`, `setSiteIntelMerged` write the **tenant** path and can **delete** the root copy after migrate for that doc (lazy lift).
+
+### Sandbox / training accounts
+
+**User Guide**
+
+- **Training** users (or `+training` email pattern in import helpers) can be flagged so the Field app uses **sandbox** data instead of live tenant collections.
+- **Lite / time-tracking-only** users get a dedicated **Time** tab (stopwatch UI) instead of History; read-only job view from the schedule (no dictation).
+
+**Technical Specs**
+
+- `technician/js/vc_entitlements.js`: loads `tenants/{tenantId}/users` by `payrollNameUpper`; sets `global.VC_SANDBOX_DATA = true` when `isTrainingAccount === true`; sets `localStorage` `vc_time_tracking_only` when `timeTrackingOnly === true` **or** `role === "time_tracking_only"`.
+- `shared/firebase_logic.js`: when `VC_SANDBOX_DATA === true`, `isSandboxDataPath()` routes to `tenants/{tenantId}/sandbox/default/{collection}` instead of the live tenant subcollections.
+
+### User Roles — definitions
+
+Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `tech`, `sales`, `time_tracking_only` (Lite / yellow seat).
+
+#### Admin
+
+**User Guide**
+
+- **Dispatcher office app:** “Admin” access to **tenant branding / PIN-protected admin block** is via **PIN unlock** (`sessionStorage` `vc_admin_unlocked`), not automatically tied to the `isAdmin` field on a user row.
+- Unlocked admins can edit tenant id, brand colors, logo, **Enterprise Data Onboarding** (import wizard), **Labor & payroll** CSV export, and related controls in the **Admin** disclosure.
+
+**Technical Specs**
+
+- PIN: `APP_CONFIG.adminUnlockPin` (default in `shared/config.js`); UI `#vcAdminUnlockBtn`, `#vcAdminForm`.
+- User CSV import stores `isAdmin` on `tenants/{tenantId}/users/{docId}` (`dispatcher/js/user_import.js`) for enterprise directory / future enforcement.
+- **Labor export:** `dispatcher/js/payroll_manager.js` — date range → queries `tenants/{tenantId}/labor_logs` by `dateYmd`, resolves job sites via `getServiceCallOnceBridged`, downloads CSV (employee, date, hours, sites, overtime over 8h).
+
+#### Tech
+
+**User Guide**
+
+- Full **Field App**: schedule, workspace, Dictation Hub, Site Intel, Equipment Hub, forms, PM/repair flows, sync to Firestore — subject to **entitlements** (training sandbox or time-tracking-only overrides).
+
+**Technical Specs**
+
+- `isTech` (and related flags) stored on tenant user documents from import; Field App enforcement today centers on **`timeTrackingOnly`** and **`isTrainingAccount`** via `applyVcFieldEntitlements`.
+
+#### Sales
+
+**User Guide**
+
+- **Quoting Tool & CRM** and customer-facing flows live in the office app sidebar; there is **no separate “sales-only” navigation shell** gated by the `isSales` flag in the current static UI.
+
+**Technical Specs**
+
+- CSV import persists `isSales` on tenant users for directory / downstream use (`user_import.js`); **role-based UI hiding for sales is not fully wired** in the dispatcher SPA beyond data model support.
 
 ---
+
+## 2. Dispatcher Operations
 
 ### Dispatcher navigation (`index.html` sidebar)
 
@@ -25,8 +101,6 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 
 - Tab switching: global `switchTab()` in `index.html` (inline script); Reports submenu: `dispatcher/js/navigation.js` (`toggleReportsSubmenu`, `closeReportsSubmenu`, flyout positioning). Invoicing submenu logic remains in `index.html`; both cross-close when opening the other.
 - Styles: `dispatcher/css/sidebar.css` (submenu flyouts, `sidebar-reports-active` / `sidebar-reports-open`, Invoicing parent states).
-
----
 
 ### Dispatcher Board (`index.html` + `service_call.js` + `dispatcher/js/ticket_manager.js`)
 
@@ -44,7 +118,7 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 - Release guard: `ticket_manager.js` wires validation to `#scIssueInput` / release flow; messages reference **✨ Clean up & structure with AI** when text is too short.
 - Tickets are written through `VCFirestore.serviceCalls` / `setServiceCallMerged` where applicable (tenant path; bridge for legacy tenant — see Data Architecture).
 
-#### Service windows & capacity (weekly tech availability)
+#### Service windows & capacity (weekly tech availability) — Phase 23
 
 **User Guide**
 
@@ -93,23 +167,6 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 - Writes (quick reply): `getServiceCallOnceBridged` → merge into `internal_comms` + `internal_comms_updatedAt` → `setServiceCallMerged`.
 - CSS: `dispatcher/css/activity_feed.css`.
 
-#### Executive Insights & Revenue dashboard
-
-**User Guide**
-
-- Sidebar: **Reports** → **Executive Insights** opens `#view-insights`. Set **From** / **To** (defaults to last 30 days), optional **Default billable rate ($/hr)** (saved in `localStorage` as `vc_insights_default_rate`), then **Refresh dashboard**.
-- **Fleet capacity:** a **meter** under the toolbar compares **scheduled jobs today** to **available techs today** (roster + weekday availability), with a **weekly** jobs vs **tech-days** summary — use it to see if the week has headroom.
-- **Profitability by pillar:** table and bar comparison of **scheduled billable hours** (from ticket `Total_Billable_Hours` or `DispatcherTicketManager.computeTotalBillableHours`) vs **clocked hours** attributed to jobs (`labor_logs` entries: IN carries `ticketId`, OUT closes the pair). Job types map to pillars **PM, QR, SC, IN, WC** via the same rules as ticket prefixes (`getPrefixForJobType` in `service_call.js`). A **manager insight** callout flags pillars where clocked time exceeds billable by ~8%+.
-- **Tech efficiency:** ranks technicians using **completed_reports** in range (timestamp on report), **median hours from ticket `date` to report** as a simple “close speed” signal, **verification %** among tickets in range with status **Completed** or **Client Verified / Ready for Billing** (counts per assigned tech), and **total shift hours** from `labor_logs`. **Rockstar** / **Coaching** badges are heuristic vs peer median verification and close-time thresholds.
-- **Unbilled revenue:** lists tickets with status **Client Verified / Ready for Billing** and shows **potential revenue = billable hours × default rate**. Ticket links switch to Service Call Intake and call `loadServiceCall`.
-- **System health:** counts **portal verification sends this calendar week** (non-empty `clientPortalMemo` with `portalVerificationSentAt` in the Mon–Sun window), **all-time memo count** in the loaded dataset, and **site intelligence** docs with `updatedAt` in that week (tenant + root merged for bridge tenant).
-
-**Technical Specs**
-
-- `dispatcher/js/insights_manager.js` (`VcInsightsManager`), `dispatcher/css/insights.css`; **Fleet capacity** strip: `#insightsFleetCapacity`, `renderFleetCapacityCard` (today + week tech-days vs jobs), uses `getTechAvailabilityForJobDate` and merged service-call tickets.
-- Reads: `VCFirestore.loadServiceCallsMergedOnce`, `VCFirestore.laborLogs` (`dateYmd` range query), merged `completed_reports` (tenant + root for `TWIN_PILLARS`), merged `site_intelligence` for health stats.
-- Pillar job-type mapping: `Quoted Repair`→QR, `Install`→IN, `Preventative Maintenance`→PM, `Warranty Call`→WC, default→SC.
-
 #### AI “Clean up & structure with AI”
 
 **User Guide**
@@ -123,7 +180,82 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 - Function: `improveIssueTextWithAI()` in `service_call.js`; button `#scIssueImproveAiBtn`, target `#scIssueInput`.
 - API: `generativelanguage.googleapis.com` `generateContent`, model from `GEMINI_GENERATE_MODEL` or default `gemini-2.5-flash`.
 
+### Executive Insights & Revenue dashboard (includes visual analytics — Phase 15 & Phase 17)
+
+**User Guide**
+
+- Sidebar: **Reports** → **Executive Insights** opens `#view-insights`. Set **From** / **To** (defaults to last 30 days), optional **Default billable rate ($/hr)** (saved in `localStorage` as `vc_insights_default_rate`), then **Refresh dashboard**.
+- **Fleet capacity:** a **meter** under the toolbar compares **scheduled jobs today** to **available techs today** (roster + weekday availability), with a **weekly** jobs vs **tech-days** summary — use it to see if the week has headroom.
+- **Profitability by pillar:** table and bar comparison of **scheduled billable hours** (from ticket `Total_Billable_Hours` or `DispatcherTicketManager.computeTotalBillableHours`) vs **clocked hours** attributed to jobs (`labor_logs` entries: IN carries `ticketId`, OUT closes the pair). Job types map to pillars **PM, QR, SC, IN, WC** via the same rules as ticket prefixes (`getPrefixForJobType` in `service_call.js`). A **manager insight** callout flags pillars where clocked time exceeds billable by ~8%+.
+- **Tech efficiency:** ranks technicians using **completed_reports** in range (timestamp on report), **median hours from ticket `date` to report** as a simple “close speed” signal, **verification %** among tickets in range with status **Completed** or **Client Verified / Ready for Billing** (counts per assigned tech), and **total shift hours** from `labor_logs`. **Rockstar** / **Coaching** badges are heuristic vs peer median verification and close-time thresholds.
+- **Unbilled revenue:** lists tickets with status **Client Verified / Ready for Billing** and shows **potential revenue = billable hours × default rate**. Ticket links switch to Service Call Intake and call `loadServiceCall`.
+- **System health:** counts **portal verification sends this calendar week** (non-empty `clientPortalMemo` with `portalVerificationSentAt` in the Mon–Sun window), **all-time memo count** in the loaded dataset, and **site intelligence** docs with `updatedAt` in that week (tenant + root merged for bridge tenant).
+- **Charts (Phase 17):** From **Reports** → **Executive Insights**, charts include a **Revenue mix** pie (billable dollars by pillar / job type) and a **Labor efficiency** bar chart for the **last 30 days**: quoted billable hours vs. clocked labor hours per pillar, so managers can spot bleed.
+- Default billable rate for dollar estimates matches the **Default billable rate ($/hr)** field on the same view (stored in `localStorage`).
+
+**Technical Specs**
+
+- `dispatcher/js/insights_manager.js` (`VcInsightsManager`), `dispatcher/css/insights.css`; **Fleet capacity** strip: `#insightsFleetCapacity`, `renderFleetCapacityCard` (today + week tech-days vs jobs), uses `getTechAvailabilityForJobDate` and merged service-call tickets.
+- Reads: `VCFirestore.loadServiceCallsMergedOnce`, `VCFirestore.laborLogs` (`dateYmd` range query), merged `completed_reports` (tenant + root for `TWIN_PILLARS`), merged `site_intelligence` for health stats.
+- Pillar job-type mapping: `Quoted Repair`→QR, `Install`→IN, `Preventative Maintenance`→PM, `Warranty Call`→WC, default→SC.
+- Chart.js (CDN) in root `index.html`; canvases `#insightsChartPie`, `#insightsChartBar` in `#view-insights`.
+- `dispatcher/js/insights_manager.js` — `laborSnap30` query for last-30-day labor; `destroyInsightsCharts` on refresh.
+
+### Remote coaching & Shadow Mode (dispatcher mirror) — Phases 19–20
+
+**User Guide**
+
+- **Remote coaching:** dispatchers use **Shadow View** on the **Service Call Intake** dashboard (top bar) to open a **read-only** live preview of a field user’s app in a phone-style frame. Use it when a tech is **stuck** (talk them through the next step while watching their screen) or to **verify a Lite Seat** apprentice’s progress (time-tracking–only users still appear in the roster when they are not admins).
+- The dropdown lists **non-admin** users from **`tenants/{tenantId}/users`** (labels: **`payrollFullName`**; values: **`presenceKey`**). Changing the selection **swaps** the shadow target: the iframe reloads, the coaching prompt field clears, and the modal title reads **Shadowing: [Tech Name]**.
+- If the tech’s **`live_presence.updatedAt`** is older than **5 minutes**, their name is **dimmed** in the dropdown and **Device Offline** shows in the Shadow modal — the device may be asleep, offline, or the app not open.
+- **Send prompt** delivers a short message (e.g. “Don’t forget the nameplate photo!”) as a **toast** on the technician’s device.
+- **Force app refresh** asks the Field App to **reload** (writes `forceSyncAt` on `live_presence`); the tech’s app reloads when that timestamp is **newer than the app’s load time** (useful after a bad cache state or stale UI).
+- Shadow is **not** a substitute for dispatch: the preview is for **training and supervision**, not for billing or time-clock actions (dispatcher cannot clock the tech out).
+
+**Technical Specs**
+
+- `dispatcher/js/shadow_mode.js` (`VcShadowMode`), `#vcDispatchDashboardBar` + `#vcShadowModal` + iframe in `index.html`.
+- Presence: `VCFirestore.livePresence(db)` → `tenants/{tenantId}/live_presence/{presenceKey}` with `presenceKey` on user docs (import) + same `payrollKeyFromName` as `VcTimeTracker` / labor logs (`techDisplayName`, `screen`, `activeTicketId`, `updatedAt`; coach: `coachPrompt`, `coachPromptAt`; remote refresh: `forceSyncAt`).
+- Field `technician/index.html`: `VC_FIELD_APP_LOADED_AT` at load; `writeLivePresence()` on screen/ticket changes + 15s interval; `wireCoachingInbox()` listener handles **coach prompts** and **`forceSyncAt` → `location.reload()`** when newer than load time; `?vc_shadow_viewer=1&vc_presence_key=…` → `VC_SHADOW_VIEWER` + read-only UI + `applyShadowPresenceFromDoc` mirroring.
+- `shared/firebase_logic.js`: `livePresence` collection helper.
+
+### Custom Report Studio & printable reports (Phase 16 & Phase 17)
+
+#### Custom Report Studio (dispatcher)
+
+**User Guide**
+
+- Sidebar: **Reports** → **Custom Report Studio** — set **From** / **To**, optional **Ticket IDs** (comma-separated; leave blank for all tickets in range), choose **blocks**, then **Generate & print**. A new window opens with printable HTML; use the browser **Print** dialog → **Save as PDF**.
+
+**Technical Specs**
+
+- `dispatcher/js/report_builder.js` (`VcReportStudio`), `#view-report-studio` in `index.html`.
+- Loads `VCFirestore.loadServiceCallsMergedOnce`, filters by `date` and optional IDs; optional blocks: job details, public-facing notes (issue / `techNotes` / `clientPortalMemo`), equipment + `getSiteIntelDocOnceBridged` for the hashed site key, `filterPublicEvidencePhotoUrls` for photos, labor hours via `labor_logs` IN/OUT pairs with `ticketId` on IN.
+
+#### Custom Report Studio & print (Phase 17 extensions)
+
+**User Guide**
+
+- **Generate & print** opens a window with **branded header**, optional **summary charts** (same mix + labor bars for the report’s ticket slice), and per-ticket **site health** (rolling trend line + meter) when the **Site intel** block is included.
+
+**Technical Specs**
+
+- `dispatcher/js/report_builder.js` — embeds Chart.js + `dispatcher/css/report_builder.css`, JSON `chartPayload` for inline chart script after load.
+- `dispatcher/css/report_builder.css` — Inter/Roboto, meter styles, `@media print` (margins, `print-color-adjust`, avoid breaks inside chart cards).
+
+### Labor & payroll (dispatcher)
+
+**User Guide**
+
+- **Admin tools** (PIN) → **Labor & payroll** — pick **From** / **To** dates → **Download labor CSV**.
+
+**Technical Specs**
+
+- `dispatcher/js/payroll_manager.js`; CSV columns: Employee Name, Date, Total Shift Hours, Job Site(s), Overtime (if over 8hrs). Shift hours computed from paired IN/OUT entries; overtime = hours − 8 when hours exceed 8.
+
 ---
+
+## 3. Field Operations
 
 ### Field App (`technician/index.html` + `dictation_hub.js` + `technician/js/workspace_ui.js` + `equipment_hub.js`)
 
@@ -183,103 +315,7 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 - Prefetch: `prefetchSiteResourcesForTicket` in `technician/index.html` — `VCFirestore.getSiteIntelDocOnceBridged` + `queryCompletedReportsWhereMerged` per ticket; deduped with `vcPrefetchedTicketIds` on schedule merge and on workspace open.
 - Offline badge: `updateVcFieldOfflineBadge`, `app_config/api_keys` `onSnapshot({ includeMetadataChanges: true })`, `online`/`offline` window events.
 
-#### Remote coaching & Shadow Mode (dispatcher mirror) — Phases 19–20
-
-**User Guide**
-
-- **Remote coaching:** dispatchers use **Shadow View** on the **Service Call Intake** dashboard (top bar) to open a **read-only** live preview of a field user’s app in a phone-style frame. Use it when a tech is **stuck** (talk them through the next step while watching their screen) or to **verify a Lite Seat** apprentice’s progress (time-tracking–only users still appear in the roster when they are not admins).
-- The dropdown lists **non-admin** users from **`tenants/{tenantId}/users`** (labels: **`payrollFullName`**; values: **`presenceKey`**). Changing the selection **swaps** the shadow target: the iframe reloads, the coaching prompt field clears, and the modal title reads **Shadowing: [Tech Name]**.
-- If the tech’s **`live_presence.updatedAt`** is older than **5 minutes**, their name is **dimmed** in the dropdown and **Device Offline** shows in the Shadow modal — the device may be asleep, offline, or the app not open.
-- **Send prompt** delivers a short message (e.g. “Don’t forget the nameplate photo!”) as a **toast** on the technician’s device.
-- **Force app refresh** asks the Field App to **reload** (writes `forceSyncAt` on `live_presence`); the tech’s app reloads when that timestamp is **newer than the app’s load time** (useful after a bad cache state or stale UI).
-- Shadow is **not** a substitute for dispatch: the preview is for **training and supervision**, not for billing or time-clock actions (dispatcher cannot clock the tech out).
-
-**Technical Specs**
-
-- `dispatcher/js/shadow_mode.js` (`VcShadowMode`), `#vcDispatchDashboardBar` + `#vcShadowModal` + iframe in `index.html`.
-- Presence: `VCFirestore.livePresence(db)` → `tenants/{tenantId}/live_presence/{presenceKey}` with `presenceKey` on user docs (import) + same `payrollKeyFromName` as `VcTimeTracker` / labor logs (`techDisplayName`, `screen`, `activeTicketId`, `updatedAt`; coach: `coachPrompt`, `coachPromptAt`; remote refresh: `forceSyncAt`).
-- Field `technician/index.html`: `VC_FIELD_APP_LOADED_AT` at load; `writeLivePresence()` on screen/ticket changes + 15s interval; `wireCoachingInbox()` listener handles **coach prompts** and **`forceSyncAt` → `location.reload()`** when newer than load time; `?vc_shadow_viewer=1&vc_presence_key=…` → `VC_SHADOW_VIEWER` + read-only UI + `applyShadowPresenceFromDoc` mirroring.
-- `shared/firebase_logic.js`: `livePresence` collection helper.
-
----
-
-### Data Architecture
-
-#### Tenant isolation `tenants/{tenantId}/…`
-
-**User Guide**
-
-- Office and field apps read **tenant id** from branding config (`APP_CONFIG.tenantId`, overridable via `localStorage` `vc_active_tenant_id`). Default demo tenant id is **TWIN_PILLARS**.
-
-**Technical Specs**
-
-- `shared/firebase_logic.js`: `tenantRoot(db) → db.collection("tenants").doc(getTenantId())`; collections include `service_calls`, `site_intelligence`, `completed_reports`, `field_quotes`, `users`, `imported_equipment`, etc.
-- All `tenantCollection` writes keep SaaS data partitioned by `tenantId`.
-
-#### Lazy Migration bridge (TWIN_PILLARS)
-
-**User Guide**
-
-- For the legacy **TWIN_PILLARS** tenant, the app **reads** both new tenant-scoped documents and **old root** collections so existing production data still appears while you migrate.
-
-**Technical Specs**
-
-- `isBridgeTenant()` when `getTenantId() === "TWIN_PILLARS"`.
-- **Read:** `subscribeServiceCallsMerged`, `subscribeSiteIntelligenceMerged`, `getServiceCallOnceBridged`, `getSiteIntelDocOnceBridged`, etc. — merge tenant snapshot with `root` collection snapshot (tenant wins on conflicts where implemented).
-- **Write:** `setServiceCallMerged`, `setSiteIntelMerged` write the **tenant** path and can **delete** the root copy after migrate for that doc (lazy lift).
-
-#### Sandbox / training accounts
-
-**User Guide**
-
-- **Training** users (or `+training` email pattern in import helpers) can be flagged so the Field app uses **sandbox** data instead of live tenant collections.
-- **Lite / time-tracking-only** users get a dedicated **Time** tab (stopwatch UI) instead of History; read-only job view from the schedule (no dictation).
-
-**Technical Specs**
-
-- `technician/js/vc_entitlements.js`: loads `tenants/{tenantId}/users` by `payrollNameUpper`; sets `global.VC_SANDBOX_DATA = true` when `isTrainingAccount === true`; sets `localStorage` `vc_time_tracking_only` when `timeTrackingOnly === true` **or** `role === "time_tracking_only"`.
-- `shared/firebase_logic.js`: when `VC_SANDBOX_DATA === true`, `isSandboxDataPath()` routes to `tenants/{tenantId}/sandbox/default/{collection}` instead of the live tenant subcollections.
-
----
-
-### User Roles
-
-Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `tech`, `sales`, `time_tracking_only` (Lite / yellow seat).
-
-#### Admin
-
-**User Guide**
-
-- **Dispatcher office app:** “Admin” access to **tenant branding / PIN-protected admin block** is via **PIN unlock** (`sessionStorage` `vc_admin_unlocked`), not automatically tied to the `isAdmin` field on a user row.
-- Unlocked admins can edit tenant id, brand colors, logo, **Enterprise Data Onboarding** (import wizard), **Labor & payroll** CSV export, and related controls in the **Admin** disclosure.
-
-**Technical Specs**
-
-- PIN: `APP_CONFIG.adminUnlockPin` (default in `shared/config.js`); UI `#vcAdminUnlockBtn`, `#vcAdminForm`.
-- User CSV import stores `isAdmin` on `tenants/{tenantId}/users/{docId}` (`dispatcher/js/user_import.js`) for enterprise directory / future enforcement.
-- **Labor export:** `dispatcher/js/payroll_manager.js` — date range → queries `tenants/{tenantId}/labor_logs` by `dateYmd`, resolves job sites via `getServiceCallOnceBridged`, downloads CSV (employee, date, hours, sites, overtime over 8h).
-
-#### Tech
-
-**User Guide**
-
-- Full **Field App**: schedule, workspace, Dictation Hub, Site Intel, Equipment Hub, forms, PM/repair flows, sync to Firestore — subject to **entitlements** (training sandbox or time-tracking-only overrides).
-
-**Technical Specs**
-
-- `isTech` (and related flags) stored on tenant user documents from import; Field App enforcement today centers on **`timeTrackingOnly`** and **`isTrainingAccount`** via `applyVcFieldEntitlements`.
-
-#### Sales
-
-**User Guide**
-
-- **Quoting Tool & CRM** and customer-facing flows live in the office app sidebar; there is **no separate “sales-only” navigation shell** gated by the `isSales` flag in the current static UI.
-
-**Technical Specs**
-
-- CSV import persists `isSales` on tenant users for directory / downstream use (`user_import.js`); **role-based UI hiding for sales is not fully wired** in the dispatcher SPA beyond data model support.
-
-#### Time-tracking only (Lite seat)
+### Time-tracking only (Lite seat)
 
 **User Guide**
 
@@ -294,17 +330,19 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - Labor writes: `tenants/{tenantId}/labor_logs/{payrollKey}_{YYYY_MM_DD}` via `VCFirestore.laborLogs`; document fields `dateYmd`, `payrollKey`, `employeeName`, `entries[]` (each: `at` ISO, `action` IN/OUT, `lat`, `lng`, `ticketId` optional). Geolocation via `navigator.geolocation.getCurrentPosition`.
 - Read-only workspace: `#vcLiteReadonlyWorkspace` + `workspace--lite-readonly` on `#screen-workspace` hides `#workspaceLockScope` and FAB; `openWorkspace` delegates to `openWorkspaceLiteReadonly` when lite.
 
-#### Labor & payroll (dispatcher)
+---
+
+## 4. Client Experience & Invoicing
+
+### Office billing & quoting (sidebar access)
 
 **User Guide**
 
-- **Admin tools** (PIN) → **Labor & payroll** — pick **From** / **To** dates → **Download labor CSV**.
+- **Quoting Tool** and **Invoicing** (expand for **Invoicing Tool** / **Invoice Archive**) are available from the main dispatcher sidebar order (see **Dispatcher navigation**). Detailed invoicing and quoting implementations live in the corresponding app modules linked from those views.
 
 **Technical Specs**
 
-- `dispatcher/js/payroll_manager.js`; CSV columns: Employee Name, Date, Total Shift Hours, Job Site(s), Overtime (if over 8hrs). Shift hours computed from paired IN/OUT entries; overtime = hours − 8 when hours exceed 8.
-
----
+- Navigation and tab wiring: **Dispatcher navigation** (`index.html`, `switchTab()`); Invoicing submenu states in `dispatcher/css/sidebar.css`.
 
 ### Proof of Service & client verification (Phase 14)
 
@@ -342,9 +380,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 - `generateClientSummaryForPortal()` in `service_call.js`; `clientPortalMemo` on the service call document via normal save/merge.
 
----
-
-### Evidence filtering & Custom Report Studio (Phase 16)
+### Evidence filtering & client-visible field photos (Phase 16)
 
 #### Field evidence — public vs internal
 
@@ -362,43 +398,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - `shared/client_portal_logic.js` — `normalizeEvidenceEntry`, `normalizeEvidencePhotoArray`, `filterPublicEvidencePhotoUrls`.
 - `service_call.js` — `renderDispatcherFieldEvidenceOverrides`, `persistDispatcherEvidenceOverride` (Firestore + local cache sync).
 
-#### Custom Report Studio (dispatcher)
-
-**User Guide**
-
-- Sidebar: **Reports** → **Custom Report Studio** — set **From** / **To**, optional **Ticket IDs** (comma-separated; leave blank for all tickets in range), choose **blocks**, then **Generate & print**. A new window opens with printable HTML; use the browser **Print** dialog → **Save as PDF**.
-
-**Technical Specs**
-
-- `dispatcher/js/report_builder.js` (`VcReportStudio`), `#view-report-studio` in `index.html`.
-- Loads `VCFirestore.loadServiceCallsMergedOnce`, filters by `date` and optional IDs; optional blocks: job details, public-facing notes (issue / `techNotes` / `clientPortalMemo`), equipment + `getSiteIntelDocOnceBridged` for the hashed site key, `filterPublicEvidencePhotoUrls` for photos, labor hours via `labor_logs` IN/OUT pairs with `ticketId` on IN.
-
-### Visual analytics & “gold standard” reporting (Phase 17)
-
-#### Executive Insights — charts
-
-**User Guide**
-
-- From **Reports** → **Executive Insights**, charts include a **Revenue mix** pie (billable dollars by pillar / job type) and a **Labor efficiency** bar chart for the **last 30 days**: quoted billable hours vs. clocked labor hours per pillar, so managers can spot bleed.
-- Default billable rate for dollar estimates matches the **Default billable rate ($/hr)** field on the same view (stored in `localStorage`).
-
-**Technical Specs**
-
-- Chart.js (CDN) in root `index.html`; canvases `#insightsChartPie`, `#insightsChartBar` in `#view-insights`.
-- `dispatcher/js/insights_manager.js` — `laborSnap30` query for last-30-day labor; `destroyInsightsCharts` on refresh.
-
-#### Custom Report Studio & print
-
-**User Guide**
-
-- **Generate & print** opens a window with **branded header**, optional **summary charts** (same mix + labor bars for the report’s ticket slice), and per-ticket **site health** (rolling trend line + meter) when the **Site intel** block is included.
-
-**Technical Specs**
-
-- `dispatcher/js/report_builder.js` — embeds Chart.js + `dispatcher/css/report_builder.css`, JSON `chartPayload` for inline chart script after load.
-- `dispatcher/css/report_builder.css` — Inter/Roboto, meter styles, `@media print` (margins, `print-color-adjust`, avoid breaks inside chart cards).
-
-#### Proof of Service — site trend
+### Proof of Service — site trend (Phase 17)
 
 **User Guide**
 
@@ -410,7 +410,9 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 ---
 
-## Build History
+## 5. Technical Build History
+
+### Build History
 
 - [v] Phase 10: Tenant Isolation & Branding
 - [v] Phase 11: Terminology Pivot (Inter-Office Comms) & Data Bridge
@@ -424,7 +426,9 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - [v] Phase 18: Offline sync & geo-snapshotting (`firebase-config.js`, `shared/firebase_config.js`, `technician/js/time_tracker.js`, `technician/js/data_provider.js`, Field header badge + prefetch in `technician/index.html`)
 - [v] Phase 19: Shadow Mode (`shared/firebase_logic.js` `livePresence`, `dispatcher/js/shadow_mode.js`, Office top bar + modal in `index.html`, `technician/index.html` presence + coaching + read-only viewer)
 - [v] Phase 20: Shadow switcher & force sync (`dispatcher/js/shadow_mode.js`, Service Call Intake dashboard bar + Shadow modal in `index.html`, `forceSyncAt` + `VC_FIELD_APP_LOADED_AT` reload in `technician/index.html` — non-admin roster, idle styling, **Force app refresh**)
+- [v] Phase 23: Service windows & weekly tech availability (`settings.js`, `user_import.js` `availability`, `ticket_manager.js` / `service_call.js` smart tech selector)
+- [v] Phase 24: Schedule conflict detection & fleet capacity (`ticket_manager.js` job counts + toasts, `insights_manager.js` fleet meter, lead-day verification in `service_call.js`)
 
-## Current Focus
+### Current Focus
 
 - Next: production Firestore rules for `portal_tokens` (public read + controlled approval write) and `labor_logs`; optional short URL / custom domain for `proof_of_service.html`; optional composite Firestore index if `labor_logs` range queries require it at scale; validate print/PDF chart timing across browsers; field-test Firestore persistence across Safari/Chrome on iOS/Android.
