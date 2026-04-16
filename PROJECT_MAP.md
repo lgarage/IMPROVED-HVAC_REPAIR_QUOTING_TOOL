@@ -16,7 +16,7 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 
 **User Guide**
 
-- Office and field apps read **tenant id** from branding config (`APP_CONFIG.tenantId`, overridable via `localStorage` `vc_active_tenant_id`). Default demo tenant id is **TWIN_PILLARS**.
+- Office and field apps read **tenant id** from branding config (`APP_CONFIG.tenantId`, overridable via `localStorage` `vc_active_tenant_id`). Default tenant id in `shared/config.js` is **USA_HEATING_COOLING** (legacy **TWIN_PILLARS** remains supported for the lazy data bridge when that id is active).
 
 **Technical Specs**
 
@@ -259,11 +259,46 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 ### Field App (`technician/index.html` + `dictation_hub.js` + `technician/js/workspace_ui.js` + `equipment_hub.js`)
 
+#### Intelligent workspace — USA Heating and Cooling branding & Obsidian UI (Phase 27)
+
+**User Guide**
+
+- Default **Vertex Core** tenant branding is **USA Heating and Cooling** with the **Obsidian** palette: background **#0f172a**, primary accent **#0ea5e9**, muted text **#94a3b8** (also exposed as CSS variables `--vc-bg-obsidian`, `--vc-text-muted` from `applyVcBranding`).
+- The **site banner** (customer name, **Site Intel**, tappable address, ticket line) sits in a **sticky** strip at the **top of the job workspace** (`workspace-site-banner-sticky`) so it stays visible while scrolling the rest of the form.
+- **✨ Improve with AI** (formerly “Process notes”) rewrites **Public export** notes using Gemini: professional/direct tone, typo fixes, **no first-person** — refer to the worker only as **“The technician”** — plus the existing Rosetta JSON mapping (asset ids, `locationTransposed`, `visitSummary`).
+
+**Technical Specs**
+
+- `shared/config.js`: `brandName` / `shortBrand`, `tenantId` default `USA_HEATING_COOLING`, `primaryColor` `#0ea5e9`; logo tint class `vc-brand-logo-primary-tint` (cyan filter for default Vertex PNGs).
+- `technician/index.html`: Obsidian-oriented `body` / schedule / nav colors; site `<nav class="dictation-site-nav">` moved **above** the Dictation Hub shell inside `#workspaceLockScope`; Vision Hub markup `#visionHubAddEquipment` + styles.
+- `dictation_hub.js`: `SYSTEM_INSTRUCTION` merges **improvedNotes** rules with Rosetta; `processVisitNotes` writes `improvedNotes` back into `#dictationHubNotes` when present; **+ Add Equipment** opens Vision Hub (no manual prompt-only flow).
+
+#### Vision Hub — full-screen Add Equipment (Phase 27)
+
+**User Guide**
+
+- Tap **+ Add Equipment** in the action tray to open **Vision Hub** (full-screen overlay). **Capture nameplate photo** runs **Gemini Vision** preview (`dictationPreviewNameplateFromFile`) to fill manufacturer, model, serial, and **capacity (BTU / tons)**; edit **Unit ID**, then **Save equipment** to merge the Firestore asset and upload the nameplate via `dictationPromoteAssetPhoto` (same pipeline as tray captures).
+
+**Technical Specs**
+
+- `equipment_manager.js`: `buildDictationPlateOcrPrompt` / `pickDictationPlateOcrFields` include **`heatingCapacityBtu`**; `window.dictationPreviewNameplateFromFile` for pre-save OCR; existing upload path still merges OCR after Storage.
+- `dictation_hub.js`: `openVisionHubAddEquipment`, `visionHubSaveEquipment`, `wireVisionHubOnce` (Escape + backdrop close).
+
+#### Legacy unit-tag accordion removed (Phase 27)
+
+**User Guide**
+
+- The **“Unit nameplate (optional)”** accordion is removed to reduce clutter. **Tag OCR** modal flows remain for power users who open it from code paths that still call `openTagOcrModal`; draft fields `unitTagMake` … `unitTagInstallDate` persist as **hidden** inputs so reports and local draft JSON stay compatible.
+
+**Technical Specs**
+
+- `technician/index.html`: hidden inputs preserve `getFields` / `setFields` / `collectUnitTagFields`; `openTagOcrBtn` removed — `runTagOcrOnFile` / `initUnitTagOcr` guard null controls.
+
 #### Dictation Hub — Public vs Inter-Office
 
 **User Guide**
 
-- **Dictation Hub** is the primary notes area on the workspace: **Process notes**, raw textarea, and the **dynamic action tray** (units on site from Firestore).
+- **Dictation Hub** is the primary notes area on the workspace: **✨ Improve with AI**, raw textarea, and the **dynamic action tray** (units on site from Firestore).
 - Two channels: **Public export** vs **Inter-Office Comms**. Only one is active at a time; the choice controls whether processed / synced text is treated as **customer-facing export** vs **office-only** content on the ticket (`internal_comms`).
 
 **Technical Specs**
@@ -428,7 +463,8 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - [v] Phase 20: Shadow switcher & force sync (`dispatcher/js/shadow_mode.js`, Service Call Intake dashboard bar + Shadow modal in `index.html`, `forceSyncAt` + `VC_FIELD_APP_LOADED_AT` reload in `technician/index.html` — non-admin roster, idle styling, **Force app refresh**)
 - [v] Phase 23: Service windows & weekly tech availability (`settings.js`, `user_import.js` `availability`, `ticket_manager.js` / `service_call.js` smart tech selector)
 - [v] Phase 24: Schedule conflict detection & fleet capacity (`ticket_manager.js` job counts + toasts, `insights_manager.js` fleet meter, lead-day verification in `service_call.js`)
+- [v] Phase 27: Intelligent workspace — USA Heating and Cooling + Obsidian palette (`shared/config.js`, `technician/index.html`, dispatcher CSS/JS color pass), sticky site banner, **✨ Improve with AI** prompt rules (`dictation_hub.js`), Vision Hub full-screen Add Equipment + BTU on nameplate OCR (`equipment_manager.js`, `dictation_hub.js`), removal of unit-tag accordion (hidden draft fields), `manifest.json`, `settings.js` restock copy
 
 ### Current Focus
 
-- Next: production Firestore rules for `portal_tokens` (public read + controlled approval write) and `labor_logs`; optional short URL / custom domain for `proof_of_service.html`; optional composite Firestore index if `labor_logs` range queries require it at scale; validate print/PDF chart timing across browsers; field-test Firestore persistence across Safari/Chrome on iOS/Android.
+- Next: production Firestore rules for `portal_tokens` (public read + controlled approval write) and `labor_logs`; optional short URL / custom domain for `proof_of_service.html`; optional composite Firestore index if `labor_logs` range queries require it at scale; validate print/PDF chart timing across browsers; field-test Firestore persistence across Safari/Chrome on iOS/Android; confirm existing deployments that need `TWIN_PILLARS` tenant id + `vc_app_config` override after Phase 27 default tenant change.

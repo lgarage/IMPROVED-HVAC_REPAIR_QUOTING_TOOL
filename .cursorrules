@@ -22,7 +22,7 @@
 
 ## 3. UI & BRANDING STANDARDS
 
-- **Twin Pillar Logic:** Use the standardized pill-selects with the orange focus ring (`#f39c12`), chevron icons, and specific padding.
+- **Vertex pillar selects:** Use the standardized pill-selects with the orange focus ring (`#f39c12`), chevron icons, and specific padding.
 - **Terminology:** - USE: "Inter-Office Comms", "Site Intel", "Field Bible", "Shadow Mode".
   - AVOID: "ServiceTitan", "BuildOps", "Dark Channel".
 - **Mobile First:** Technician UI must be optimized for one-handed use. Buttons must be descriptive (e.g., "🎤 Hold to dictate").

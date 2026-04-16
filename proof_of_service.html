@@ -9,13 +9,13 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="firebase-config.js?v=4"></script>
     <script src="shared/firebase_config.js?v=1"></script>
-    <script src="shared/config.js?v=2"></script>
+    <script src="shared/config.js?v=3"></script>
     <script src="shared/firebase_logic.js"></script>
     <script src="shared/client_portal_logic.js?v=2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
       :root {
-        --vc-pri: #1e4b85;
+        --vc-pri: #0ea5e9;
         --vc-accent: #c89b53;
       }
       * {
@@ -206,7 +206,7 @@
           var canvas = document.getElementById("vcPosTrendCanvas");
           var meter = document.getElementById("vcPosMeterFill");
           if (!canvas) return;
-          var stroke = priColor || "#1e4b85";
+          var stroke = priColor || "#0ea5e9";
           VCFirestore.loadServiceCallsMergedOnce(db)
             .then(function (snap) {
               var rows = [];
@@ -316,7 +316,7 @@
                 return;
               }
               var job = got.data;
-              var pri = meta.primaryColor || "#1e4b85";
+              var pri = meta.primaryColor || "#0ea5e9";
               document.documentElement.style.setProperty("--vc-pri", pri);
 
               var memoOnly = String(job.clientPortalMemo || "").trim();

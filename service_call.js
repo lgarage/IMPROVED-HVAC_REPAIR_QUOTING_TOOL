@@ -731,7 +731,7 @@ function addCustomPin(coords, sc) {
             : escapeHtmlDispatchMap("Unassigned");
     var popupHtml =
         "<div style=\"min-width:190px;\">" +
-        "<strong style=\"color:#1e4b85;\">" +
+        "<strong style=\"color:#0ea5e9;\">" +
         escapeHtmlDispatchMap(sc.customerName) +
         "</strong><br>" +
         "<span style=\"font-size:12px;color:#444;\">Status: " +
@@ -740,7 +740,7 @@ function addCustomPin(coords, sc) {
         "<span style=\"font-size:12px;color:#444;line-height:1.35;\">" +
         techPopup +
         "</span><br>" +
-        "<button type=\"button\" class=\"gen-btn dispatch-map-view-ticket-btn\" style=\"margin-top:10px;padding:8px 10px;font-size:12px;width:100%;background:#1e4b85;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;\">🔍 View Ticket</button>" +
+        "<button type=\"button\" class=\"gen-btn dispatch-map-view-ticket-btn\" style=\"margin-top:10px;padding:8px 10px;font-size:12px;width:100%;background:#0ea5e9;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;\">🔍 View Ticket</button>" +
         "</div>";
     marker.bindPopup(popupHtml);
     marker.on("popupopen", function () {
@@ -1079,7 +1079,7 @@ function gatherServiceData() {
 function clearServiceForm() {
     // Reset UI to "New Ticket" Mode
     document.getElementById('serviceFormTitle').innerText = "Log New Service Call";
-    document.getElementById('serviceFormTitle').style.color = "#1e4b85";
+    document.getElementById('serviceFormTitle').style.color = "#0ea5e9";
     document.getElementById('serviceFormBadge').style.display = "none";
     document.getElementById('scClearBtn').style.display = "block";
 
@@ -2578,7 +2578,7 @@ function showSearchResultsModal(titleText, subtitleText) {
                 displayHtml = `
                     <div style="padding: 15px; border-bottom: 1px solid #eaeaea; cursor: pointer; transition: background 0.2s; border-left: 4px solid #2ecc71;" 
                          onmouseover="this.style.background='#f4f7f6'" onmouseout="this.style.background='#fff'" onclick="selectSearchResult(${index})">
-                        <strong style="color: #1e4b85; font-size: 16px;">${result.custName}</strong>
+                        <strong style="color: #0ea5e9; font-size: 16px;">${result.custName}</strong>
                         <span style="color:#e74c3c; font-size:12px; font-weight:bold; margin-left:10px;">👤 Contact: ${result.contact || "None"}</span><br>
                         <span style="color: #555; font-size: 13px;">📍 ${result.street}, ${result.city}, ${result.state} ${result.zip}</span><br>
                         <span style="color: #999; font-size: 11px;">Cust #: ${result.custId} | Loc #: ${result.locId}</span>
@@ -2588,7 +2588,7 @@ function showSearchResultsModal(titleText, subtitleText) {
                 displayHtml = `
                     <div style="padding: 15px; border-bottom: 1px solid #eaeaea; cursor: pointer; transition: background 0.2s; border-left: 4px solid #f39c12;" 
                          onmouseover="this.style.background='#f4f7f6'" onmouseout="this.style.background='#fff'" onclick="selectSearchResult(${index})">
-                        <strong style="color: #1e4b85; font-size: 16px;">${result.custName}</strong> <span style="font-size:11px; color:#f39c12; font-weight:bold;">(New from Google)</span><br>
+                        <strong style="color: #0ea5e9; font-size: 16px;">${result.custName}</strong> <span style="font-size:11px; color:#f39c12; font-weight:bold;">(New from Google)</span><br>
                         <span style="color: #555; font-size: 13px;">📍 ${result.rawAddress}</span>
                     </div>
                 `;
@@ -3233,7 +3233,7 @@ function setupTicketDetailsCustomerEvidence(ticketId) {
                     : '<span style="font-size:22px;">📄</span>';
                 return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:8px;background:#fafafa;border:1px solid #e5e5e5;border-radius:4px;">
                     ${thumb}
-                    <a href="${safe}" target="_blank" rel="noopener" style="flex:1;word-break:break-all;font-size:12px;color:#1e4b85;">Open file</a>
+                    <a href="${safe}" target="_blank" rel="noopener" style="flex:1;word-break:break-all;font-size:12px;color:#0ea5e9;">Open file</a>
                     <button type="button" class="gen-btn" style="padding:6px 10px;background:#e74c3c;font-size:12px;" data-td-ev-i="${i}">Remove</button>
                 </div>`;
             })
@@ -3314,7 +3314,7 @@ function loadFieldQuotesForTicketIntoModal(ticketId) {
             const rows = [];
             snap.forEach((doc) => rows.push({ id: doc.id, data: doc.data() || {} }));
             rows.sort((a, b) => String(b.data.savedAt || "").localeCompare(String(a.data.savedAt || "")));
-            let html = '<div style="margin-top:4px;padding-top:12px;border-top:1px solid #eaeaea;"><strong style="color:#1e4b85;font-size:14px;">Field repair quotes (from app)</strong></div>';
+            let html = '<div style="margin-top:4px;padding-top:12px;border-top:1px solid #eaeaea;"><strong style="color:#0ea5e9;font-size:14px;">Field repair quotes (from app)</strong></div>';
             rows.forEach(({ data: q }) => {
                 const plateUrl = q.dataPlatePhotoUrl && String(q.dataPlatePhotoUrl).trim();
                 const overallUrl = q.overallPhotoUrl && String(q.overallPhotoUrl).trim();

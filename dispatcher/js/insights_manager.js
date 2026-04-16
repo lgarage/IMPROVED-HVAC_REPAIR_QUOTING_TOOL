@@ -16,7 +16,7 @@
   var LS_RATE_KEY = "vc_insights_default_rate";
 
   /** Professional palette: deep blues, orange accent, slate. */
-  var INSIGHTS_PALETTE = ["#1e4b85", "#c89b53", "#475569", "#0ea5e9", "#ea580c"];
+  var INSIGHTS_PALETTE = ["#0ea5e9", "#c89b53", "#475569", "#0ea5e9", "#ea580c"];
 
   var insightsChartInstances = { pie: null, bar: null };
 
@@ -115,7 +115,7 @@
             label: "Quoted billable (h)",
             data: barQ,
             backgroundColor: "rgba(30, 75, 133, 0.85)",
-            borderColor: "#1e4b85",
+            borderColor: "#0ea5e9",
             borderWidth: 1,
           },
           {

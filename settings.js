@@ -649,7 +649,7 @@ function renderOnCallPanel() {
     const pause = onCallState.pauseRotation;
     const elig = getEligibleOnCallTechsOrdered();
     let html = "";
-    html += '<div style="font-weight:bold;color:#1e4b85;margin-bottom:8px;">On-Call Management</div>';
+    html += '<div style="font-weight:bold;color:#0ea5e9;margin-bottom:8px;">On-Call Management</div>';
     html += '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin-bottom:12px;">';
     html += '<div style="min-width:220px;"><span style="color:#555;font-size:12px;">Current on-call</span><br/>';
     html += '<strong style="font-size:16px;">' + escapeHTML(effective || "—") + '</strong>';
@@ -835,7 +835,7 @@ function renderTechSettings() {
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
                     <button type="button" class="gen-btn" style="background:#16a085; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="openPtoModal(${index})">Manage PTO</button>
-                    <button type="button" class="gen-btn" style="background:#1e4b85; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="openTruckInventoryByIndex(${index})">🎒 Inventory</button>
+                    <button type="button" class="gen-btn" style="background:#0ea5e9; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="openTruckInventoryByIndex(${index})">🎒 Inventory</button>
                     <button type="button" class="gen-btn" style="background:#3498db; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="editTechnician(${index})">Edit</button>
                     <button type="button" class="gen-btn" style="background:#e74c3c; padding:6px 12px; font-size:12px; border-radius:4px;" onclick="removeTechnician(${index})">Remove</button>
                 </div>
@@ -1077,7 +1077,7 @@ function renderMasterTemplates() {
         let displayName = key.replace(/_/g, ' ').toUpperCase();
         container.innerHTML += `
             <div style="background:#fff; border:1px solid #e1e8ed; padding:12px 15px; border-radius:6px; display:flex; align-items:center; gap:15px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                <strong style="color:#1e4b85; min-width: 170px;">${displayName}</strong>
+                <strong style="color:#0ea5e9; min-width: 170px;">${displayName}</strong>
                 <button class="gen-btn btn-sm" style="background:#f39c12; padding:6px 15px;" onclick="openMasterTemplateEditor('${key}')">Edit List</button>
             </div>
         `;
@@ -1834,7 +1834,7 @@ function saveAndCloseTruckInventory(silent = false) {
                             <button class="gen-btn" style="background:#f39c12; padding: 6px 12px; font-size: 12px;" onclick="copyVMIReportToClipboard()">📋 Copy Text</button>
                             <button class="gen-btn" style="background:#ea4335; padding: 6px 12px; font-size: 12px;" onclick="emailVMIReport('gmail')">✉️ Gmail</button>
                             <button class="gen-btn" style="background:#27ae60; padding: 6px 12px; font-size: 12px;" onclick="emailVMIReport('desktop')">📧 Outlook</button>
-                            <button class="gen-btn" style="background:#1e4b85; padding: 6px 12px; font-size: 12px;" onclick="printVMIReport()">🖨️ Print/PDF</button>
+                            <button class="gen-btn" style="background:#0ea5e9; padding: 6px 12px; font-size: 12px;" onclick="printVMIReport()">🖨️ Print/PDF</button>
                             <span class="close-modal" style="margin-left: 10px;" onclick="document.getElementById('vmiReportModal').style.display='none'">×</span>
                         </div>
                     </div>
@@ -1846,7 +1846,7 @@ function saveAndCloseTruckInventory(silent = false) {
             <div id="bulkImportModal" class="modal-overlay" style="z-index: 10030;">
                 <div class="modal-content" style="max-width: 700px;">
                     <div class="modal-header">
-                        <h2 style="color: #1e4b85; margin: 0;">📋 Bulk Paste from Excel</h2>
+                        <h2 style="color: #0ea5e9; margin: 0;">📋 Bulk Paste from Excel</h2>
                         <span class="close-modal" onclick="document.getElementById('bulkImportModal').style.display='none'">×</span>
                     </div>
                     <p style="font-size: 13px; color: #555; margin-top: 5px;" id="bulkImportInstructions">
@@ -1866,11 +1866,11 @@ function saveAndCloseTruckInventory(silent = false) {
                     100% { transform: scale(1); }
                 }
                 .vmi-vendor-block { background: #fff; border: 1px solid #c89b53; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
-                .vmi-vendor-header { background: #1e4b85; color: #fff; padding: 12px 15px; font-weight: bold; font-size: 16px; display: flex; justify-content: space-between; }
+                .vmi-vendor-header { background: #0ea5e9; color: #fff; padding: 12px 15px; font-weight: bold; font-size: 16px; display: flex; justify-content: space-between; }
                 .vmi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
                 .vmi-table th, .vmi-table td { padding: 10px; text-align: left; border-bottom: 1px solid #eaeaea; }
                 .vmi-table th { background: #f4f6f7; color: #555; }
-                .vmi-tech-header { cursor: pointer; color: #1e4b85; display: inline-flex; align-items: center; gap: 6px; }
+                .vmi-tech-header { cursor: pointer; color: #0ea5e9; display: inline-flex; align-items: center; gap: 6px; }
                 .vmi-tech-header:hover { color: #2563eb; text-decoration: underline; }
                 .vmi-tech-edit-icon { cursor: pointer; color: #2563eb; font-size: 14px; user-select: none; }
                 .vmi-tech-edit-icon:hover { color: #1d4ed8; }
@@ -2032,7 +2032,7 @@ function openVMIReport() {
             
             vendorHtml += `
                 <tr>
-                    <td colspan="6" style="background:#eaf2f8; color:#1e4b85; font-weight:bold; font-size:14px; padding:8px 10px; border-top: 2px solid #bdc3c7;">
+                    <td colspan="6" style="background:#eaf2f8; color:#0ea5e9; font-weight:bold; font-size:14px; padding:8px 10px; border-top: 2px solid #bdc3c7;">
                         <span class="vmi-tech-header" role="button" tabindex="0" title="Open truck inventory"
                             onclick="closeVmiAndOpenInventoryFromEncoded('${encTech}')"
                             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeVmiAndOpenInventoryFromEncoded('${encTech}');}">
@@ -2104,7 +2104,7 @@ function generateVMIEmailText() {
     });
 
     let todayStr = new Date().toLocaleDateString();
-    let emailBody = `Twin Pillars Heating & Cooling - Parts Restock Order\nDate: ${todayStr}\n\nPlease pull the following parts and organize them into the respective Technician Bins:\n\n`;
+    let emailBody = `USA Heating and Cooling - Parts Restock Order\nDate: ${todayStr}\n\nPlease pull the following parts and organize them into the respective Technician Bins:\n\n`;
 
     for (let vendor in groupedByVendor) {
         emailBody += `=========================================\n`;
@@ -2122,9 +2122,9 @@ function generateVMIEmailText() {
             emailBody += `\n`;
         }
     }
-    emailBody += `Thank you,\nTwin Pillars Dispatch`;
+    emailBody += `Thank you,\nUSA Heating and Cooling Dispatch`;
     
-    return { subject: `Twin Pillars Parts Restock Order - ${todayStr}`, body: emailBody };
+    return { subject: `USA Heating and Cooling Parts Restock Order - ${todayStr}`, body: emailBody };
 }
 
 function emailVMIReport(clientType) {
@@ -2158,7 +2158,7 @@ function printVMIReport() {
 
     document.body.innerHTML = `
         <div style="padding: 40px; font-family: sans-serif;">
-            <h1 style="color:#1e4b85;">Twin Pillars - Vendor Replenishment Report</h1>
+            <h1 style="color:#0ea5e9;">USA Heating and Cooling - Vendor Replenishment Report</h1>
             <p>Generated on: ${new Date().toLocaleString()}</p>
             <hr style="margin-bottom: 30px;">
             ${printContents}
@@ -2490,7 +2490,7 @@ function buildFieldFormPreviewHtml(doc) {
     let html =
         '<div style="background:#f4f7fa;border-radius:16px;padding:12px;max-width:390px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">';
     html += '<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);">';
-    html += `<h3 style="margin:0 0 12px 0;font-size:17px;color:#1e4b85;">${name}</h3>`;
+    html += `<h3 style="margin:0 0 12px 0;font-size:17px;color:#0ea5e9;">${name}</h3>`;
     html +=
         '<label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Equipment</label>';
     html +=
@@ -2544,7 +2544,7 @@ function buildFieldFormPreviewHtml(doc) {
     html +=
         '<button type="button" disabled style="flex:1;padding:12px;border:1px solid #ccc;border-radius:8px;background:#f4f4f4;color:#999;">Cancel</button>';
     html +=
-        '<button type="button" disabled style="flex:1;padding:12px;border:none;border-radius:8px;background:#1e4b85;color:#fff;">Save</button>';
+        '<button type="button" disabled style="flex:1;padding:12px;border:none;border-radius:8px;background:#0ea5e9;color:#fff;">Save</button>';
     html += "</div>";
     html += "</div></div>";
     return html;
@@ -2640,7 +2640,7 @@ async function hydrateFieldFormTemplatesList() {
             const nf = Array.isArray(r.fields) ? r.fields.length : 0;
             html += `<div style="background:#fff;border:1px solid #e1e8ed;border-radius:10px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.04);">`;
             html += `<div style="min-width:200px;flex:1;">`;
-            html += `<div style="font-weight:800;color:#1e4b85;font-size:15px;">${nm}</div>`;
+            html += `<div style="font-weight:800;color:#0ea5e9;font-size:15px;">${nm}</div>`;
             html += `<div style="font-size:12px;color:#64748b;margin-top:4px;">AI trigger: <strong style="color:#334155;">${kw}</strong> · ${nf} field(s) · `;
             html += active
                 ? '<span style="color:#16a085;font-weight:700;">Active</span>'

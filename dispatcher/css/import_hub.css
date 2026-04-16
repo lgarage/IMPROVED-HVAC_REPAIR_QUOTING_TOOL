@@ -41,7 +41,7 @@
 .vc-import-hub-header h2 {
   margin: 0;
   font-size: 1.1rem;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 
 .vc-import-hub-sub {
@@ -90,7 +90,7 @@
 }
 
 .vc-import-hub-step.active {
-  background: #1e4b85;
+  background: #0ea5e9;
   color: #fff;
 }
 
@@ -127,7 +127,7 @@
 
 .vc-import-hub-dropzone:hover,
 .vc-import-hub-dropzone-active {
-  border-color: #1e4b85;
+  border-color: #0ea5e9;
   background: #eff6ff;
 }
 
@@ -234,7 +234,7 @@
 
 .vc-import-hub-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #1e4b85, #3b82f6);
+  background: linear-gradient(90deg, #0ea5e9, #3b82f6);
   transition: width 0.2s ease;
 }
 
@@ -267,9 +267,9 @@
 }
 
 .vc-import-hub-btn.primary {
-  background: #1e4b85;
+  background: #0ea5e9;
   color: #fff;
-  border-color: #1e4b85;
+  border-color: #0ea5e9;
 }
 
 .vc-import-hub-btn.primary:hover {

@@ -1,18 +1,18 @@
 {
-  "name": "Twin Pillars Field App",
-  "short_name": "TP Tech",
+  "name": "USA Heating and Cooling Field App",
+  "short_name": "USA HVAC",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f0f2f5",
-  "theme_color": "#1e4b85",
+  "background_color": "#0f172a",
+  "theme_color": "#0ea5e9",
   "icons": [
     {
-      "src": "https://via.placeholder.com/192/1e4b85/ffffff?text=TP",
+      "src": "https://via.placeholder.com/192/0ea5e9/0f172a?text=USA",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://via.placeholder.com/512/1e4b85/ffffff?text=TP",
+      "src": "https://via.placeholder.com/512/0ea5e9/0f172a?text=USA",
       "sizes": "512x512",
       "type": "image/png"
     }

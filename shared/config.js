@@ -6,14 +6,14 @@
   "use strict";
 
   var BASE = {
-    tenantId: "TWIN_PILLARS",
-    brandName: "Twin Pillars Heating & Cooling LLC",
-    shortBrand: "Twin Pillars",
+    tenantId: "USA_HEATING_COOLING",
+    brandName: "USA Heating and Cooling",
+    shortBrand: "USA Heating and Cooling",
     /** Default Vertex Core asset; override per tenant via Settings → Branding (URL or path). */
     logoUrl: "vertex_core_logo.png",
     /** Mark-only asset for collapsed dispatcher sidebar (no wordmark). */
     logoUrlMini: "vertex_core_logo_only.png",
-    primaryColor: "#1e4b85",
+    primaryColor: "#0ea5e9",
     accentColor: "#c89b53",
     adminUnlockPin: "beta",
   };
@@ -136,14 +136,14 @@
     return slash >= 0 ? s.slice(slash + 1).toLowerCase() : s.toLowerCase();
   }
 
-  /** Navy #1e4b85 tint for default monochrome Vertex PNGs (matches Twin Pillars primary). */
+  /** Cyan #0ea5e9 tint for default monochrome Vertex PNGs (Vertex Core Obsidian accent). */
   function vcSetVertexLogoTint(el, resolvedUrl) {
     if (!el) return;
     var f = vcLogoFilenameFromResolved(resolvedUrl);
     if (f === "vertex_core_logo.png" || f === "vertex_core_logo_only.png") {
-      el.classList.add("vc-brand-logo-twin-tint");
+      el.classList.add("vc-brand-logo-primary-tint");
     } else {
-      el.classList.remove("vc-brand-logo-twin-tint");
+      el.classList.remove("vc-brand-logo-primary-tint");
     }
   }
 
@@ -151,8 +151,10 @@
     var cfg = global.APP_CONFIG;
     if (!cfg) return;
     var root = document.documentElement;
-    root.style.setProperty("--vc-brand-primary", cfg.primaryColor || "#1e4b85");
+    root.style.setProperty("--vc-brand-primary", cfg.primaryColor || "#0ea5e9");
     root.style.setProperty("--vc-brand-accent", cfg.accentColor || "#c89b53");
+    root.style.setProperty("--vc-bg-obsidian", "#0f172a");
+    root.style.setProperty("--vc-text-muted", "#94a3b8");
 
     var resolvedLogo = resolveLogoUrl(cfg.logoUrl);
     var miniRaw = cfg.logoUrlMini != null ? String(cfg.logoUrlMini).trim() : "";
@@ -215,7 +217,7 @@
     try {
       var next = Object.assign({}, global.APP_CONFIG, patch || {});
       localStorage.setItem("vc_app_config", JSON.stringify(next));
-      localStorage.setItem("vc_active_tenant_id", String(next.tenantId || "TWIN_PILLARS"));
+      localStorage.setItem("vc_active_tenant_id", String(next.tenantId || "USA_HEATING_COOLING"));
       global.location.reload();
     } catch (e) {
       console.error("[VC config] save", e);

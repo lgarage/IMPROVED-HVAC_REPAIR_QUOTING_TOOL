@@ -16,7 +16,7 @@
 
 .pulse-dashboard__header h2 {
   margin: 0 0 6px 0;
-  color: #1e4b85;
+  color: #0ea5e9;
   font-size: 1.45rem;
 }
 
@@ -27,7 +27,7 @@
 
 .pulse-quick-reply label .fa-solid {
   margin-right: 6px;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 
 .pulse-dashboard__sub {
@@ -73,7 +73,7 @@
 }
 
 .pulse-feed-item:focus {
-  outline: 2px solid #1e4b85;
+  outline: 2px solid #0ea5e9;
   outline-offset: -2px;
 }
 
@@ -87,7 +87,7 @@
   justify-content: center;
   font-size: 16px;
   background: #e8f0f8;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 
 .pulse-feed-item--intel .pulse-feed-item__icon {
@@ -160,13 +160,13 @@
 
 .pulse-quick-reply__row input:focus {
   outline: none;
-  border-color: #1e4b85;
+  border-color: #0ea5e9;
   box-shadow: 0 0 0 2px rgba(30, 75, 133, 0.2);
 }
 
 .pulse-quick-reply__row button {
   padding: 10px 20px;
-  background: #1e4b85;
+  background: #0ea5e9;
   color: #fff;
   border: none;
   border-radius: 8px;

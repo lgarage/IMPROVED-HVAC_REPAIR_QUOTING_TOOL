@@ -281,7 +281,7 @@
         : "<p style=\"margin:0 0 10px 0;font-size:13px;color:#95a5a6;\">📍 No address on file</p>";
 
     var head =
-      "<h3 style=\"margin:0 0 8px 0;color:#1e4b85;\">" +
+      "<h3 style=\"margin:0 0 8px 0;color:#0ea5e9;\">" +
       escapeHtml(String(job.ticketNum || ticketId)) +
       "</h3>" +
       "<p style=\"margin:0 0 6px 0;font-size:14px;\"><strong>" +
@@ -421,7 +421,7 @@
             filesHtml +=
               "<a href=\"" +
               escapeHtml(String(url)) +
-              "\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"display:block;color:#1e4b85;font-weight:600;margin-top:4px;font-size:13px;\">Attachment " +
+              "\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"display:block;color:#0ea5e9;font-weight:600;margin-top:4px;font-size:13px;\">Attachment " +
               (i + 1) +
               "</a>";
           });
@@ -432,8 +432,8 @@
               "</div>";
           }
           addendumBlock +=
-            "<div style=\"background:#fff;border:1px solid #e1e8ed;border-radius:10px;padding:12px 14px;border-left:4px solid #1e4b85;\">" +
-            "<div style=\"font-size:12px;font-weight:700;color:#1e4b85;margin-bottom:8px;\">" +
+            "<div style=\"background:#fff;border:1px solid #e1e8ed;border-radius:10px;padding:12px 14px;border-left:4px solid #0ea5e9;\">" +
+            "<div style=\"font-size:12px;font-weight:700;color:#0ea5e9;margin-bottom:8px;\">" +
             escapeHtml(when) +
             " · " +
             who +

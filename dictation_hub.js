@@ -40,9 +40,22 @@
   var verifiedModalContext = null;
 
   var SYSTEM_INSTRUCTION = [
-    "You are a master HVAC data-mapper. Follow these rules exactly.",
+    "You are an HVAC field-notes assistant and data-mapper. Follow every rule below.",
     "",
-    "SLANG → STANDARD CODES:",
+    "OUTPUT: Return ONLY valid JSON (no markdown fences) with exactly these keys:",
+    '- "improvedNotes": string — polished plain text for the customer-facing record.',
+    '- "identifiedAssetIds": array of strings like ["RTU1","RTU2","VH1","EF1"]',
+    '- "locationTransposed": string, standardized as "CUSTOMER - CITY - STREET" using ALL CAPS for the three parts; use hyphens with spaces as shown. If unknown, use best effort from context or empty string "".',
+    '- "visitSummary": one short sentence summarizing the visit.',
+    "",
+    "RULES FOR improvedNotes:",
+    "- Tone: professional, conversational, highly direct.",
+    "- Fix all typos and common HVAC shorthand mistakes (e.g. van → fan when context implies fan).",
+    "- Remove all first-person language (I, I've, me, my, we, our, us). Never use those words.",
+    '- Always refer to the worker as "The technician" (third person) when the actor must be named.',
+    "- Keep improvedNotes short and direct.",
+    "",
+    "SLANG → STANDARD CODES (for identifiedAssetIds):",
     '- "Entrance Heater" / "Vestibule Heater" → VH',
     '- "Roof Fan" / "Exhaust Fan" → EF',
     '- "Hanging Heater" / "Unit Heater" → UH',
@@ -55,12 +68,6 @@
     'The words "both", "pair", or "a pair" mean 2 units of the preceding or implied equipment type.',
     'The word "handful" means 3 units.',
     "If quantity is unclear, infer conservatively from context or use a single unit (…1).",
-    "",
-    "OUTPUT:",
-    "Return ONLY valid JSON (no markdown fences) with exactly these keys:",
-    '- "identifiedAssetIds": array of strings like ["RTU1","RTU2","VH1","EF1"]',
-    '- "locationTransposed": string, standardized as "CUSTOMER - CITY - STREET" using ALL CAPS for the three parts; use hyphens with spaces as shown. If unknown, use best effort from context or empty string "".',
-    '- "visitSummary": one clean sentence summarizing work mentioned in the notes.',
   ].join("\n");
 
   function sanitizePathSegment(s) {
@@ -469,7 +476,7 @@
       '<article class="dictation-asset-card dictation-asset-card--add" id="dictationAddEquipmentCard" data-add-equipment="1">' +
       '<div class="dictation-asset-card-body dictation-add-card-body">' +
       '<button type="button" class="dictation-add-equipment-btn">+ Add Equipment</button>' +
-      '<p class="dictation-add-card-hint">Manual entry — then capture photos</p>' +
+      '<p class="dictation-add-card-hint">Vision Hub — full-screen photo + AI nameplate</p>' +
       "</div></article>"
     );
   }
@@ -801,39 +808,7 @@
       if (addBtn) {
         e.preventDefault();
         e.stopPropagation();
-        var name = window.prompt("Unit ID (e.g. EF3):", "");
-        if (name == null || !String(name).trim()) return;
-        var logical = String(name).trim();
-        var docId = sanitizePathSegment(logical);
-        var site = getDictationSiteContext();
-        if (!site.customerId || !site.siteId) {
-          alert("Set location on this ticket first.");
-          return;
-        }
-        if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
-          alert("Firebase not available.");
-          return;
-        }
-        firebase
-          .firestore()
-          .collection("customers")
-          .doc(site.customerId)
-          .collection("sites")
-          .doc(site.siteId)
-          .collection("assets")
-          .doc(docId)
-          .set(
-            {
-              id: logical,
-              type: "",
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            },
-            { merge: true }
-          )
-          .catch(function (err) {
-            console.error(err);
-            alert(err && err.message ? err.message : String(err));
-          });
+        openVisionHubAddEquipment();
         return;
       }
 
@@ -1148,7 +1123,7 @@
       locEl && locEl.value ? String(locEl.value).trim() : "";
 
     var userPayload =
-      "Technician dictation / notes:\n" +
+      "Raw technician notes to improve and map:\n" +
       raw +
       "\n\nCurrent location field (may help standardize locationTransposed):\n" +
       (locCtx || "(empty)") +
@@ -1218,6 +1193,20 @@
     if (locationTransposed && locEl) {
       locEl.value = locationTransposed;
       if (typeof saveDraft === "function") saveDraft();
+    }
+
+    var improvedNotes =
+      parsed.improvedNotes != null
+        ? String(parsed.improvedNotes).trim()
+        : parsed.improved_notes != null
+          ? String(parsed.improved_notes).trim()
+          : "";
+    if (improvedNotes) {
+      var notesElImprove = getNotesEl();
+      if (notesElImprove) {
+        notesElImprove.value = improvedNotes;
+        schedulePersistNotes();
+      }
     }
 
     rosettaState.ids = identified
@@ -1467,7 +1456,7 @@
     if (!hasDocs) {
       if (rosettaState.ids === null) {
         tray.innerHTML =
-          '<p class="dictation-action-tray-empty">No assets for this customer/site yet. Use <strong>+ Add Equipment</strong> or process dictation to discover units.</p>';
+          '<p class="dictation-action-tray-empty">No assets for this customer/site yet. Use <strong>+ Add Equipment</strong> or <strong>✨ Improve with AI</strong> on your notes to discover units.</p>';
         tray.insertAdjacentHTML("beforeend", buildAddEquipmentCardHtml());
         applyRosettaOverlay();
         return;
@@ -1642,6 +1631,7 @@
   };
   window.startDictationHubFromWorkspace = function () {
     wireProcessButton();
+    wireVisionHubOnce();
     ensureDictationChannelUi();
     updateDictationChannelStyles();
     if (!document.documentElement.dataset.dictationPlateOcrEvt) {
@@ -1652,4 +1642,246 @@
     }
     startDictationHubAssetsListener();
   };
+
+  var visionHubPendingFile = null;
+  var visionHubWired = false;
+
+  function closeVisionHubAddEquipment() {
+    var overlay = document.getElementById("visionHubAddEquipment");
+    if (overlay) {
+      overlay.classList.add("hidden");
+    }
+    document.body.style.overflow = "";
+    visionHubPendingFile = null;
+    var prev = document.getElementById("visionHubPreviewImg");
+    if (prev) {
+      try {
+        if (prev.src && prev.src.indexOf("blob:") === 0) {
+          URL.revokeObjectURL(prev.src);
+        }
+      } catch (eRev) {}
+      prev.removeAttribute("src");
+    }
+    var wrap = document.getElementById("visionHubPreviewWrap");
+    if (wrap) wrap.classList.add("hidden");
+    var intro = document.getElementById("visionHubCaptureIntro");
+    var form = document.getElementById("visionHubStepForm");
+    if (intro) intro.classList.remove("hidden");
+    if (form) form.classList.add("hidden");
+    var cam = document.getElementById("visionHubCameraInput");
+    if (cam) cam.value = "";
+    var st = document.getElementById("visionHubStatus");
+    if (st) st.textContent = "";
+  }
+
+  function openVisionHubAddEquipment() {
+    wireVisionHubOnce();
+    var site = getDictationSiteContext();
+    if (!site.customerId || !site.siteId) {
+      alert("Set location on this ticket first.");
+      return;
+    }
+    var overlay = document.getElementById("visionHubAddEquipment");
+    if (!overlay) {
+      alert("Vision Hub is not available. Reload the Field App.");
+      return;
+    }
+    visionHubPendingFile = null;
+    var prev = document.getElementById("visionHubPreviewImg");
+    if (prev) {
+      try {
+        if (prev.src && prev.src.indexOf("blob:") === 0) {
+          URL.revokeObjectURL(prev.src);
+        }
+      } catch (ePrev) {}
+      prev.removeAttribute("src");
+    }
+    var wrap = document.getElementById("visionHubPreviewWrap");
+    if (wrap) wrap.classList.add("hidden");
+    var intro = document.getElementById("visionHubCaptureIntro");
+    var form = document.getElementById("visionHubStepForm");
+    if (intro) intro.classList.remove("hidden");
+    if (form) form.classList.add("hidden");
+    var st = document.getElementById("visionHubStatus");
+    if (st) st.textContent = "";
+    ["visionHubUnitId", "visionHubModel", "visionHubSerial", "visionHubBtu", "visionHubMake"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    var cam = document.getElementById("visionHubCameraInput");
+    if (cam) cam.value = "";
+    overlay.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+  }
+
+  function visionHubOnFileSelected(file) {
+    if (!file || !file.type || !file.type.startsWith("image/")) return;
+    if (isVcTimeTrackingOnlySeat()) {
+      alert("Time tracking seat — Vision Hub is disabled.");
+      return;
+    }
+    if (typeof window.dictationPreviewNameplateFromFile !== "function") {
+      alert("Equipment engine not loaded. Refresh the page.");
+      return;
+    }
+    visionHubPendingFile = file;
+    var intro = document.getElementById("visionHubCaptureIntro");
+    var form = document.getElementById("visionHubStepForm");
+    var prev = document.getElementById("visionHubPreviewImg");
+    var wrap = document.getElementById("visionHubPreviewWrap");
+    if (wrap) wrap.classList.remove("hidden");
+    if (prev) {
+      try {
+        prev.src = URL.createObjectURL(file);
+      } catch (eBlob) {}
+    }
+    var st = document.getElementById("visionHubStatus");
+    if (st) st.textContent = "⏳ Reading nameplate…";
+    if (intro) intro.classList.add("hidden");
+    window
+      .dictationPreviewNameplateFromFile(file)
+      .then(function (fields) {
+        if (st) st.textContent = "";
+        var mk = document.getElementById("visionHubMake");
+        var md = document.getElementById("visionHubModel");
+        var sn = document.getElementById("visionHubSerial");
+        var bt = document.getElementById("visionHubBtu");
+        var uid = document.getElementById("visionHubUnitId");
+        if (mk && fields.manufacturer) mk.value = fields.manufacturer;
+        if (md && fields.modelNumber) md.value = fields.modelNumber;
+        if (sn && fields.serialNumber) sn.value = fields.serialNumber;
+        if (bt && fields.heatingCapacityBtu) bt.value = fields.heatingCapacityBtu;
+        if (uid && !uid.value) {
+          var guess = "RTU1";
+          if (fields.modelNumber && String(fields.modelNumber).trim()) {
+            guess =
+              "UNIT_" +
+              String(fields.modelNumber)
+                .trim()
+                .replace(/[^A-Za-z0-9]+/g, "_")
+                .slice(0, 24);
+          }
+          uid.value = guess;
+        }
+        if (form) form.classList.remove("hidden");
+      })
+      .catch(function (err) {
+        if (st) st.textContent = "";
+        console.error("[VisionHub] preview OCR", err);
+        alert(err && err.message ? err.message : "Could not read nameplate. Enter fields manually.");
+        if (form) form.classList.remove("hidden");
+        var uid = document.getElementById("visionHubUnitId");
+        if (uid && !uid.value) uid.value = "RTU1";
+      });
+  }
+
+  function visionHubSaveEquipment() {
+    if (!visionHubPendingFile) {
+      alert("Capture a nameplate photo first.");
+      return;
+    }
+    var site = getDictationSiteContext();
+    if (!site.customerId || !site.siteId) {
+      alert("Set location on this ticket first.");
+      return;
+    }
+    var uidEl = document.getElementById("visionHubUnitId");
+    var logical = uidEl && uidEl.value ? String(uidEl.value).trim() : "";
+    if (!logical) {
+      alert("Enter a unit ID for this equipment (e.g. RTU1).");
+      return;
+    }
+    var docKey = sanitizePathSegment(logical);
+    var mk = document.getElementById("visionHubMake");
+    var md = document.getElementById("visionHubModel");
+    var sn = document.getElementById("visionHubSerial");
+    var bt = document.getElementById("visionHubBtu");
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      alert("Firebase not available.");
+      return;
+    }
+    if (typeof window.dictationPromoteAssetPhoto !== "function") {
+      alert("Asset engine not loaded.");
+      return;
+    }
+    var patch = {
+      id: logical,
+      type: "",
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    if (mk && mk.value && String(mk.value).trim()) patch.manufacturer = String(mk.value).trim();
+    if (md && md.value && String(md.value).trim()) patch.modelNumber = String(md.value).trim();
+    if (sn && sn.value && String(sn.value).trim()) patch.serialNumber = String(sn.value).trim();
+    if (bt && bt.value && String(bt.value).trim()) patch.heatingCapacityBtu = String(bt.value).trim();
+
+    var st = document.getElementById("visionHubStatus");
+    if (st) st.textContent = "⏳ Saving…";
+    firebase
+      .firestore()
+      .collection("customers")
+      .doc(site.customerId)
+      .collection("sites")
+      .doc(site.siteId)
+      .collection("assets")
+      .doc(docKey)
+      .set(patch, { merge: true })
+      .then(function () {
+        return window.dictationPromoteAssetPhoto(
+          {
+            logicalId: docKey,
+            customerId: site.customerId,
+            siteId: site.siteId,
+            kind: "nameplate",
+          },
+          visionHubPendingFile
+        );
+      })
+      .then(function () {
+        if (st) st.textContent = "";
+        setProcessStatus("done", "✓ Equipment saved");
+        closeVisionHubAddEquipment();
+        if (typeof saveDraft === "function") saveDraft();
+      })
+      .catch(function (err) {
+        if (st) st.textContent = "";
+        console.error("[VisionHub] save", err);
+        alert(err && err.message ? err.message : String(err));
+      });
+  }
+
+  function wireVisionHubOnce() {
+    if (visionHubWired) return;
+    var overlay = document.getElementById("visionHubAddEquipment");
+    if (!overlay) return;
+    visionHubWired = true;
+    var closeBtn = document.getElementById("visionHubCloseBtn");
+    if (closeBtn) closeBtn.addEventListener("click", closeVisionHubAddEquipment);
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) closeVisionHubAddEquipment();
+    });
+    var cam = document.getElementById("visionHubCameraInput");
+    var capBtn = document.getElementById("visionHubCaptureBtn");
+    if (capBtn && cam) {
+      capBtn.addEventListener("click", function () {
+        cam.value = "";
+        cam.click();
+      });
+    }
+    if (cam) {
+      cam.addEventListener("change", function () {
+        var f = cam.files && cam.files[0];
+        if (f) visionHubOnFileSelected(f);
+      });
+    }
+    var saveBtn = document.getElementById("visionHubSaveBtn");
+    if (saveBtn) saveBtn.addEventListener("click", visionHubSaveEquipment);
+    if (!document.documentElement.dataset.visionHubEsc) {
+      document.documentElement.dataset.visionHubEsc = "1";
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        var o = document.getElementById("visionHubAddEquipment");
+        if (o && !o.classList.contains("hidden")) closeVisionHubAddEquipment();
+      });
+    }
+  }
 })();

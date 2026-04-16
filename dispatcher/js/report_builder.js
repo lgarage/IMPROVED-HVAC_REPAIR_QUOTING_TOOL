@@ -131,7 +131,7 @@
   }
 
   var PILLAR_ORDER = ["PM", "QR", "SC", "IN", "WC"];
-  var RPT_PALETTE = ["#1e4b85", "#c89b53", "#475569", "#0ea5e9", "#ea580c"];
+  var RPT_PALETTE = ["#0ea5e9", "#c89b53", "#475569", "#0ea5e9", "#ea580c"];
 
   function reportCssHref() {
     try {
@@ -342,7 +342,7 @@
                 label: "Quoted billable (h)",
                 data: barQuoted,
                 backgroundColor: "rgba(30, 75, 133, 0.85)",
-                borderColor: "#1e4b85",
+                borderColor: "#0ea5e9",
                 borderWidth: 1,
               },
               {
@@ -512,7 +512,7 @@
       var payloadJson = JSON.stringify(chartPayload).replace(/</g, "\\u003c");
       html += '<script type="application/json" id="vc-rpt-chart-json">' + payloadJson + "<\/script>";
       html +=
-        "<script>(function(){function run(){var el=document.getElementById('vc-rpt-chart-json');if(!el||typeof Chart==='undefined')return;var d=JSON.parse(el.textContent);if(d.pie&&document.getElementById('rptPie'))new Chart(document.getElementById('rptPie'),d.pie);if(d.bar&&document.getElementById('rptBar'))new Chart(document.getElementById('rptBar'),d.bar);(d.siteTrends||[]).forEach(function(s){var c=document.getElementById(s.canvasId);if(!c)return;new Chart(c,{type:'line',data:{labels:s.labels,datasets:[{label:'Visits',data:s.counts,borderColor:'#1e4b85',backgroundColor:'rgba(30,75,133,0.12)',fill:true,tension:0.25}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});});}if(document.readyState==='complete')run();else window.addEventListener('load',run);})();<\/script>";
+        "<script>(function(){function run(){var el=document.getElementById('vc-rpt-chart-json');if(!el||typeof Chart==='undefined')return;var d=JSON.parse(el.textContent);if(d.pie&&document.getElementById('rptPie'))new Chart(document.getElementById('rptPie'),d.pie);if(d.bar&&document.getElementById('rptBar'))new Chart(document.getElementById('rptBar'),d.bar);(d.siteTrends||[]).forEach(function(s){var c=document.getElementById(s.canvasId);if(!c)return;new Chart(c,{type:'line',data:{labels:s.labels,datasets:[{label:'Visits',data:s.counts,borderColor:'#0ea5e9',backgroundColor:'rgba(14,165,233,0.12)',fill:true,tension:0.25}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});});}if(document.readyState==='complete')run();else window.addEventListener('load',run);})();<\/script>";
       html += "</body></html>";
 
       var w = global.open("", "_blank");

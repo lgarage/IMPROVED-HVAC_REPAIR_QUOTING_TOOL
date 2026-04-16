@@ -31,7 +31,7 @@
   margin: 0;
   font-size: 1.35rem;
   font-weight: 700;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 
 .vc-print-header__titles p {
@@ -100,7 +100,7 @@
 .vc-rpt-meter__fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #1e4b85, #c89b53);
+  background: linear-gradient(90deg, #0ea5e9, #c89b53);
   transition: width 0.3s ease;
 }
 
@@ -151,7 +151,7 @@
   }
 
   a {
-    color: #1e4b85;
+    color: #0ea5e9;
     text-decoration: none;
   }
 

@@ -833,8 +833,8 @@
 
   function buildDictationPlateOcrPrompt() {
     return [
-      'You are an expert HVAC technician reading a data plate. Extract the following fields and return ONLY a valid JSON object. If a field cannot be read, return null for that key.',
-      'Schema: { "manufacturer": "string", "modelNumber": "string", "serialNumber": "string", "voltage": "string", "phase": "string", "refrigerant": "string" }',
+      "You are an expert HVAC technician reading a data plate. Extract the following fields and return ONLY a valid JSON object. If a field cannot be read, return null for that key.",
+      'Schema: { "manufacturer": "string", "modelNumber": "string", "serialNumber": "string", "heatingCapacityBtu": "string or null (BTU, MBH, or cooling tons as labeled)", "voltage": "string", "phase": "string", "refrigerant": "string" }',
       "Do not include markdown fences. Do not invent values that are not visible on the plate.",
     ].join("\n");
   }
@@ -852,6 +852,7 @@
       "manufacturer",
       "modelNumber",
       "serialNumber",
+      "heatingCapacityBtu",
       "voltage",
       "phase",
       "refrigerant",
@@ -1360,8 +1361,21 @@
     init();
   }
 
+  function dictationPreviewNameplateFromFile(file) {
+    if (!file || !file.type || !file.type.startsWith("image/")) {
+      return Promise.reject(new Error("Choose a photo."));
+    }
+    return fileToBase64(file).then(function (b64) {
+      return callGeminiVision(b64, file.type || "image/jpeg", buildDictationPlateOcrPrompt());
+    }).then(function (text) {
+      var parsed = parseGeminiJson(text);
+      return pickDictationPlateOcrFields(parsed);
+    });
+  }
+
   window.processOcrQueue = processOcrQueue;
   window.dictationPromoteAssetPhoto = dictationPromoteAssetPhoto;
+  window.dictationPreviewNameplateFromFile = dictationPreviewNameplateFromFile;
   window.applyWatermark = applyWatermark;
   window.dictationRetireCurrentAsset = dictationRetireCurrentAsset;
   window.dictationAssetHasRetiredHistory = dictationAssetHasRetiredHistory;

@@ -199,7 +199,7 @@ async function saveCustomerFromDirectory() {
             finalParentId = selectedParentId;
         }
 
-        // 2. Normal Twin Pillars Local/Cloud Save Logic
+        // 2. Normal USA Heating and Cooling Local/Cloud Save Logic
         let db = getCustomerDB();
         let custId = `CST-${Math.floor(1000+Math.random()*9000)}`;
         if (!db[name]) db[name] = { id: custId, locations: {} };
@@ -374,7 +374,7 @@ function renderCustomerDirectory() {
                 <tr class="customer-row" style="background-color: #f2f4f6; cursor: pointer; border-bottom: 1px solid #ddd;" onclick="toggleLocs('${safeCustName}')">
                     <td><strong>${custName}</strong></td>
                     <td>${custId}</td>
-                    <td style="color: #1e4b85;"><em>${locCount} Location${locCount !== 1 ? 's' : ''}</em></td>
+                    <td style="color: #0ea5e9;"><em>${locCount} Location${locCount !== 1 ? 's' : ''}</em></td>
                     <td style="text-align: right;">
                         <button class="gen-btn" style="background-color: #7f8c8d; padding: 6px 10px; font-size: 11px;" onclick="event.stopPropagation(); deleteCustomerEntirely('${safeRawName}')">Delete Cust</button>
                         <span id="icon-${safeCustName}" style="margin-left: 10px; font-size: 14px;">${expandIcon}</span>
@@ -382,7 +382,7 @@ function renderCustomerDirectory() {
                 </tr>
             `;
 
-            let locsHTML = `<tr id="locs-${safeCustName}" style="display: ${displayStyle}; border-bottom: 2px solid #1e4b85;"><td colspan="4" style="padding: 0;"><table class="submenu-table" style="width: 100%; background: #fff; font-size: 13px;">`;
+            let locsHTML = `<tr id="locs-${safeCustName}" style="display: ${displayStyle}; border-bottom: 2px solid #0ea5e9;"><td colspan="4" style="padding: 0;"><table class="submenu-table" style="width: 100%; background: #fff; font-size: 13px;">`;
             
             if (locCount > 0) {
                 locIds.forEach(locId => {

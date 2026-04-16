@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
 <script src="../firebase-config.js?v=4"></script>
 <script src="../shared/firebase_config.js?v=1"></script>
-<script src="../shared/config.js?v=2"></script>
+<script src="../shared/config.js?v=3"></script>
 <script src="../shared/firebase_logic.js"></script>
 <script src="../shared/client_portal_logic.js?v=2"></script>
 <script src="js/vc_entitlements.js?v=1"></script>
@@ -20,16 +20,16 @@
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <style>
-/* Default Vertex monochrome PNGs → Twin Pillars navy (#1e4b85) */
-.vc-brand-logo-twin-tint {
-  filter: brightness(0) saturate(100%) invert(16%) sepia(58%) saturate(2500%) hue-rotate(191deg)
-    brightness(0.92) contrast(1.02);
+/* Default Vertex monochrome PNGs → Obsidian accent cyan (#0ea5e9) */
+.vc-brand-logo-primary-tint {
+  filter: brightness(0) saturate(100%) invert(54%) sepia(98%) saturate(2476%) hue-rotate(171deg)
+    brightness(0.98) contrast(0.96);
 }
 
 /* --- BASE APP STYLES --- */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  margin: 0; padding: 0; background: #f4f7fa; color: #333; -webkit-font-smoothing: antialiased;
+  margin: 0; padding: 0; background: #0f172a; color: #cbd5e1; -webkit-font-smoothing: antialiased;
 }
 * { box-sizing: border-box; }
 .visually-hidden {
@@ -49,8 +49,9 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: #fff;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+  background: #0f172a;
+  border-bottom: 1px solid #1e293b;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
   padding-top: env(safe-area-inset-top);
   overflow: visible;
 }
@@ -92,8 +93,8 @@ body {
   bottom: calc(12px + env(safe-area-inset-bottom));
   z-index: 30000;
   padding: 14px 16px;
-  background: #1e4b85;
-  color: #fff;
+  background: #0ea5e9;
+  color: #0f172a;
   font-weight: 700;
   font-size: 14px;
   line-height: 1.35;
@@ -269,8 +270,8 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   padding: 10px 8px;
   border: none;
   border-radius: 10px;
-  background: #eef1f4;
-  color: #5a6c7d;
+  background: #1e293b;
+  color: #94a3b8;
   font-size: 12px;
   font-weight: 800;
   font-family: inherit;
@@ -280,12 +281,12 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   line-height: 1.2;
 }
 .app-main-nav .nav-item.active {
-  background: #1e4b85;
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(30, 75, 133, 0.35);
+  background: #0ea5e9;
+  color: #0f172a;
+  box-shadow: 0 2px 12px rgba(14, 165, 233, 0.45);
 }
 .app-main-nav .nav-item:active:not(.active) {
-  background: #e2e8f0;
+  background: #334155;
 }
 
 /* --- SIGN-IN (roster synced from office Dispatch → Settings → Technicians) --- */
@@ -303,7 +304,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 .login-hint { font-size: 12px; color: #7f8c8d; margin: 12px 0 0 0; line-height: 1.4; }
 .login-btn {
   width: 100%; margin-top: 20px; padding: 16px; border: none; border-radius: 10px;
-  background: #1e4b85; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;
+  background: #0ea5e9; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;
 }
 .login-btn:active { transform: scale(0.99); }
 
@@ -317,25 +318,25 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 
 /* --- JOB CARDS (SCHEDULE) --- */
 .job-card {
-  background: #ffffff; border: 1px solid #e1e8ed; border-radius: 12px; padding: 16px;
-  margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border-left: 6px solid #1e4b85;
+  background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px;
+  margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border-left: 6px solid #0ea5e9;
   cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
 }
 .job-card:active { transform: scale(0.98); box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
 .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.card-time { font-weight: 800; color: #1e4b85; font-size: 16px; }
-.card-badge { background: #e8f0fe; color: #1e4b85; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+.card-time { font-weight: 800; color: #0ea5e9; font-size: 16px; }
+.card-badge { background: #e8f0fe; color: #0ea5e9; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
 .badge-emergency { background: #fdedec; color: #e74c3c; border: 1px solid #fadbd8; }
 .card-location-primary {
   font-size: 17px;
   font-weight: 800;
-  color: #1e4b85;
+  color: #f1f5f9;
   line-height: 1.3;
   margin-bottom: 6px;
 }
 .card-work-desc {
   font-size: 14px;
-  color: #34495e;
+  color: #94a3b8;
   line-height: 1.45;
   margin-bottom: 10px;
 }
@@ -358,7 +359,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 .job-card-meta-panel > summary::-webkit-details-marker { display: none; }
 .job-card-meta-panel > summary::before {
   content: "ⓘ ";
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .job-card-meta-body {
   padding: 0 10px 10px;
@@ -374,7 +375,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   word-break: break-word;
 }
 .schedule-day-label {
-  font-size: 13px; font-weight: 800; color: #1e4b85;
+  font-size: 13px; font-weight: 800; color: #0ea5e9;
   margin: 18px 0 10px 0; padding-bottom: 6px;
   border-bottom: 2px solid #e1e8ed; letter-spacing: 0.02em;
 }
@@ -390,7 +391,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   font-family: inherit;
 }
 .schedule-day-chip.active {
-  border-color: #1e4b85; background: #e8f0fe; color: #1e4b85;
+  border-color: #0ea5e9; background: #e8f0fe; color: #0ea5e9;
 }
 .schedule-day-chip.schedule-day-chip--past {
   background: #eef1f4;
@@ -401,7 +402,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 .schedule-day-chip.schedule-day-chip--past.active {
   background: #dfe7f0;
   color: #34495e;
-  border-color: #1e4b85;
+  border-color: #0ea5e9;
 }
 .schedule-day-chip.schedule-day-chip--future {
   border: 1px solid #e1e8ed;
@@ -427,7 +428,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   padding: 6px 10px;
   border: none;
   background: transparent;
-  color: #1e4b85;
+  color: #0ea5e9;
   font-weight: 800;
   font-size: 13px;
   font-family: inherit;
@@ -453,7 +454,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   padding: 12px 14px;
   border: none;
   border-radius: 10px;
-  background: #1e4b85;
+  background: #0ea5e9;
   color: #fff;
   font-weight: 800;
   font-size: 14px;
@@ -489,7 +490,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   cursor: pointer;
   text-align: left;
   font: inherit;
-  color: #1e4b85;
+  color: #0ea5e9;
   border-radius: 8px;
   box-sizing: border-box;
   -webkit-tap-highlight-color: rgba(30, 75, 133, 0.12);
@@ -510,7 +511,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   width: 18px;
   height: 18px;
   margin-top: 2px;
-  color: #1e4b85;
+  color: #0ea5e9;
   pointer-events: none;
 }
 
@@ -558,12 +559,12 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 .map-pref-label input {
   width: auto;
   margin: 0;
-  accent-color: #1e4b85;
+  accent-color: #0ea5e9;
 }
 .map-pref-label.map-pref-label--checked {
-  border-color: #1e4b85;
+  border-color: #0ea5e9;
   background: #e8f0fe;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 
 .map-nav-toast {
@@ -622,7 +623,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 }
 .workspace-addendum-section {
   background: #fff;
-  border: 2px solid #1e4b85;
+  border: 2px solid #0ea5e9;
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
@@ -637,7 +638,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 .workspace-addendum-title {
   margin: 0 0 8px 0;
   font-size: 17px;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .workspace-addendum-hint {
   margin: 0 0 12px 0;
@@ -678,14 +679,14 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   border: 1px solid #e1e8ed;
   border-radius: 10px;
   padding: 12px 14px;
-  border-left: 4px solid #1e4b85;
+  border-left: 4px solid #0ea5e9;
   font-size: 14px;
   line-height: 1.45;
 }
 .addendum-timeline-meta {
   font-size: 12px;
   font-weight: 700;
-  color: #1e4b85;
+  color: #0ea5e9;
   margin-bottom: 8px;
 }
 .addendum-timeline-text {
@@ -701,7 +702,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 }
 .addendum-timeline-files a {
   display: block;
-  color: #1e4b85;
+  color: #0ea5e9;
   font-weight: 600;
   margin-top: 4px;
 }
@@ -876,10 +877,10 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 }
 .dictation-capture-btn {
   padding: 8px 10px;
-  border: 1px solid #1e4b85;
+  border: 1px solid #0ea5e9;
   border-radius: 8px;
   background: #fff;
-  color: #1e4b85;
+  color: #0ea5e9;
   font-size: 12px;
   font-weight: 700;
   font-family: inherit;
@@ -931,10 +932,10 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 }
 .dictation-btn-add-photo {
   padding: 10px 12px;
-  border: 1px solid #1e4b85;
+  border: 1px solid #0ea5e9;
   border-radius: 10px;
   background: #fff;
-  color: #1e4b85;
+  color: #0ea5e9;
   font-size: 12px;
   font-weight: 800;
   font-family: inherit;
@@ -1240,7 +1241,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 .dictation-asset-card-meta {
   font-size: 12px;
   font-weight: 700;
-  color: #1e4b85;
+  color: #0ea5e9;
   margin-bottom: 4px;
 }
 .dictation-asset-card-loc {
@@ -1297,12 +1298,19 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   display: block;
 }
 .dictation-site-nav {
-  background: #1e4b85;
-  color: #fff;
+  background: #0f172a;
+  color: #94a3b8;
   padding: 16px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-bottom: 2px solid #0ea5e9;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
-.dictation-site-nav .ws-customer { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+.workspace-site-banner-sticky {
+  position: sticky;
+  /* Stay below the sticky app shell (logo row + main nav) while scrolling the workspace */
+  top: calc(env(safe-area-inset-top) + 118px);
+  z-index: 95;
+}
+.dictation-site-nav .ws-customer { font-size: 20px; font-weight: 800; margin-bottom: 6px; color: #f1f5f9; }
 .dictation-site-nav .ws-ticket { font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold; }
 .dictation-site-nav .ws-address { margin-bottom: 12px; }
 .dictation-site-nav .ws-site-intel-row {
@@ -1363,9 +1371,9 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   -webkit-tap-highlight-color: transparent;
 }
 .dictation-channel-btn.dictation-channel-btn--active {
-  background: #1e4b85;
+  background: #0ea5e9;
   color: #fff;
-  border-color: #1e4b85;
+  border-color: #0ea5e9;
 }
 .dictation-channel-btn .dictation-channel-icon {
   margin-right: 4px;
@@ -1484,7 +1492,7 @@ body.vc-sandbox-session .vc-entitlements-banner {
 .vc-modal-head h2 {
   margin: 0;
   font-size: 18px;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .vc-modal-close {
   border: none;
@@ -1552,7 +1560,7 @@ body.vc-sandbox-session .vc-entitlements-banner {
 .vc-muted { color: #95a5a6; }
 
 .workspace-header {
-  background: #1e4b85; color: #fff; padding: 20px; border-radius: 12px; margin-bottom: 20px;
+  background: #0ea5e9; color: #fff; padding: 20px; border-radius: 12px; margin-bottom: 20px;
   box-shadow: 0 4px 15px rgba(30,75,133,0.2);
 }
 .ws-customer { font-size: 22px; font-weight: 800; margin-bottom: 5px; }
@@ -1636,7 +1644,7 @@ button.ws-address.ws-address--link:active {
   border-radius: 10px;
   font-size: 13px;
   font-weight: 700;
-  color: #1e4b85;
+  color: #0ea5e9;
   text-decoration: none;
 }
 .customer-evidence-panel--field {
@@ -1740,13 +1748,13 @@ button.ws-address.ws-address--link:active {
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
-  color: #1e4b85;
+  color: #0ea5e9;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
   font-family: inherit;
 }
 .location-map-btn:hover {
   background: #fdfaf2;
-  border-color: #1e4b85;
+  border-color: #0ea5e9;
 }
 .location-map-btn:active {
   transform: scale(0.97);
@@ -1788,12 +1796,12 @@ textarea { min-height: 80px; resize: vertical; }
 .pillbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 5px; }
 .pillbar button {
   width: auto; padding: 8px 14px; font-size: 13px; background: #f0f4f8;
-  border: 1px solid #d1d9e0; color: #1e4b85; font-weight: 700; border-radius: 20px; cursor: pointer; margin-top: 0;
+  border: 1px solid #d1d9e0; color: #0ea5e9; font-weight: 700; border-radius: 20px; cursor: pointer; margin-top: 0;
 }
 .pillbar button:active { background: #e1e8ed; transform: scale(0.95); }
 .inline { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
 .inline .grow { flex: 1 1 200px; }
-.inline button { width: auto; background: #1e4b85; color: #fff; border: none; padding: 14px; border-radius: 8px; margin-top: 6px; font-weight: bold;}
+.inline button { width: auto; background: #0ea5e9; color: #fff; border: none; padding: 14px; border-radius: 8px; margin-top: 6px; font-weight: bold;}
 
 /* --- FLOATING ACTION BUTTON --- */
 .fab-container {
@@ -1819,7 +1827,7 @@ textarea { min-height: 80px; resize: vertical; }
   box-sizing: border-box;
 }
 .btn.btn-primary {
-  background: #1e4b85;
+  background: #0ea5e9;
   color: #fff;
   border: none;
   width: 100%;
@@ -1849,7 +1857,7 @@ textarea { min-height: 80px; resize: vertical; }
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  background: #1e4b85;
+  background: #0ea5e9;
   color: #fff;
 }
 .equipment-hub-topbar h2 {
@@ -1900,7 +1908,7 @@ textarea { min-height: 80px; resize: vertical; }
 .equipment-hub-coverage-label {
   font-size: 13px;
   font-weight: 700;
-  color: #1e4b85;
+  color: #0ea5e9;
   margin: 0 0 8px 0;
 }
 .equipment-hub-progress {
@@ -1933,7 +1941,7 @@ textarea { min-height: 80px; resize: vertical; }
   flex-shrink: 0;
   font-size: 12px;
   font-weight: 800;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .equipment-verified-shield {
   font-size: 14px;
@@ -1967,7 +1975,7 @@ textarea { min-height: 80px; resize: vertical; }
   display: block;
   font-weight: 800;
   font-size: 16px;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .equipment-hub-card-sub {
   display: block;
@@ -2023,14 +2031,14 @@ textarea { min-height: 80px; resize: vertical; }
   border: 1px solid #d1d9e0;
   border-radius: 8px;
   background: #fff;
-  color: #1e4b85;
+  color: #0ea5e9;
   font-weight: 700;
   cursor: pointer;
 }
 .equipment-hub-unit-title {
   margin: 0 0 8px 0;
   font-size: 20px;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .equipment-hub-unit-specs {
   margin: 0 0 10px 0;
@@ -2051,7 +2059,7 @@ textarea { min-height: 80px; resize: vertical; }
 .equipment-hub-tl-date {
   font-weight: 800;
   font-size: 13px;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .equipment-hub-tl-tech {
   font-size: 12px;
@@ -2070,7 +2078,7 @@ textarea { min-height: 80px; resize: vertical; }
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #1e4b85;
+  color: #0ea5e9;
   background: #e8f0fe;
   padding: 4px 8px;
   border-radius: 6px;
@@ -2144,7 +2152,7 @@ textarea { min-height: 80px; resize: vertical; }
 .field-form-sheet h2 {
   margin: 0 0 14px 0;
   font-size: 18px;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .field-form-label {
   display: block;
@@ -2212,7 +2220,7 @@ textarea.field-form-input {
 }
 .quote-evidence-title {
   font-weight: 800;
-  color: #1e4b85;
+  color: #0ea5e9;
   font-size: 15px;
   margin-bottom: 6px;
 }
@@ -2277,7 +2285,7 @@ textarea.field-form-input {
   display: flex; justify-content: space-between; align-items: center; gap: 12px;
   margin-bottom: 10px; flex-shrink: 0;
 }
-.report-preview-header h2 { margin: 0; font-size: 18px; color: #1e4b85; }
+.report-preview-header h2 { margin: 0; font-size: 18px; color: #0ea5e9; }
 .report-preview-close {
   border: none; background: #f0f4f8; color: #2c3e50; width: 40px; height: 40px;
   border-radius: 10px; font-size: 24px; line-height: 1; cursor: pointer; flex-shrink: 0;
@@ -2308,7 +2316,7 @@ textarea.field-form-input {
 /* Unit tag OCR */
 .tag-ocr-open-btn {
   width: 100%; margin-top: 12px; padding: 14px; border-radius: 10px; border: none;
-  background: #1e4b85; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer;
+  background: #0ea5e9; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer;
   box-shadow: 0 2px 8px rgba(30,75,133,0.25);
 }
 .tag-ocr-open-btn:active { transform: scale(0.99); }
@@ -2324,7 +2332,7 @@ textarea.field-form-input {
   position: relative; flex: 1; min-height: 48px;
   display: flex; align-items: center; justify-content: center;
   padding: 14px 12px; border-radius: 10px; box-sizing: border-box;
-  border: 2px dashed #c89b53; background: #fdfaf2; color: #1e4b85;
+  border: 2px dashed #c89b53; background: #fdfaf2; color: #0ea5e9;
   font-weight: 700; font-size: 15px; text-align: center; line-height: 1.2;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
@@ -2337,7 +2345,7 @@ textarea.field-form-input {
   background: #f0f7f2; border: 1px solid #b8dfc4;
 }
 .tag-ocr-result-heading {
-  margin: 0 0 10px 0; font-size: 13px; font-weight: 800; color: #1e4b85;
+  margin: 0 0 10px 0; font-size: 13px; font-weight: 800; color: #0ea5e9;
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 .tag-ocr-result-body { display: flex; flex-direction: column; gap: 10px; }
@@ -2361,7 +2369,7 @@ textarea.field-form-input {
   margin: 10px 0 0 0; font-size: 12px; color: #7f8c8d;
 }
 .tag-ocr-raw-details summary {
-  cursor: pointer; font-weight: 600; color: #1e4b85; padding: 8px 0;
+  cursor: pointer; font-weight: 600; color: #0ea5e9; padding: 8px 0;
   list-style-position: outside;
 }
 .tag-ocr-raw-pre {
@@ -2375,7 +2383,7 @@ textarea.field-form-input {
 }
 .tag-ocr-spinner {
   width: 44px; height: 44px; border-radius: 50%;
-  border: 4px solid #e1e8ed; border-top-color: #1e4b85;
+  border: 4px solid #e1e8ed; border-top-color: #0ea5e9;
   animation: tagOcrSpin 0.75s linear infinite;
 }
 @keyframes tagOcrSpin { to { transform: rotate(360deg); } }
@@ -2392,7 +2400,7 @@ textarea.field-form-input {
 .history-item { border: 1px solid #e1e8ed; border-radius: 8px; background: #fafbfc; padding: 15px; cursor: pointer; transition: all 0.2s; }
 .history-item:hover { background: #f0f4f8; }
 .history-item.active { border-color: #c89b53; background: #fdfaf2; }
-.history-title { font-weight: 700; color: #1e4b85; }
+.history-title { font-weight: 700; color: #0ea5e9; }
 .history-sub { font-size: 14px; opacity: .8; margin-top: 6px; }
 
 .history-mode-tabs {
@@ -2413,9 +2421,9 @@ textarea.field-form-input {
   font-family: inherit;
 }
 .history-mode-tab.active {
-  border-color: #1e4b85;
+  border-color: #0ea5e9;
   background: #e8f0fe;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .tech-job-back-btn {
   width: 100%;
@@ -2425,7 +2433,7 @@ textarea.field-form-input {
   border: 1px solid #e1e8ed;
   background: #fff;
   font-weight: 700;
-  color: #1e4b85;
+  color: #0ea5e9;
   cursor: pointer;
   font-family: inherit;
 }
@@ -2448,7 +2456,7 @@ textarea.field-form-input {
   box-sizing: border-box;
 }
 .tech-job-card:focus {
-  outline: 2px solid #1e4b85;
+  outline: 2px solid #0ea5e9;
   outline-offset: 2px;
 }
 .tech-job-card-map-line {
@@ -2461,7 +2469,7 @@ textarea.field-form-input {
   text-decoration: underline;
   text-decoration-color: rgba(30, 75, 133, 0.35);
 }
-.tech-job-card-title { font-weight: 800; color: #1e4b85; font-size: 15px; }
+.tech-job-card-title { font-weight: 800; color: #0ea5e9; font-size: 15px; }
 .tech-job-card-sub { font-size: 13px; color: #555; line-height: 1.35; }
 .tech-job-card-meta { font-size: 11px; color: #95a5a6; text-transform: uppercase; }
 .tech-job-detail-actions { display: flex; flex-direction: column; gap: 8px; }
@@ -2510,7 +2518,7 @@ textarea.field-form-input {
   gap: 8px;
   font-weight: 800;
   font-size: 15px;
-  color: #1e4b85;
+  color: #0ea5e9;
   margin-bottom: 6px;
 }
 .quote-verified-check {
@@ -2564,9 +2572,9 @@ textarea.field-form-input {
   width: 100%;
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid #1e4b85;
+  border: 1px solid #0ea5e9;
   background: #fff;
-  color: #1e4b85;
+  color: #0ea5e9;
   font-weight: 800;
   font-size: 14px;
   cursor: pointer;
@@ -2592,7 +2600,7 @@ textarea.field-form-input {
 .field-checkbox-label { text-transform: none; letter-spacing: normal; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .field-checkbox-label input { width: auto; margin: 0; }
 .summary-card { border: 1px solid #e1e8ed; border-radius: 10px; background: #fafbfc; padding: 20px; margin-top: 15px; }
-.summary-card h3 { margin: 0 0 15px 0; font-size: 18px; color: #1e4b85; border-bottom: 2px solid #e1e8ed; padding-bottom: 10px; }
+.summary-card h3 { margin: 0 0 15px 0; font-size: 18px; color: #0ea5e9; border-bottom: 2px solid #e1e8ed; padding-bottom: 10px; }
 .summary-row { margin-top: 10px; font-size: 15px; }
 .summary-label { font-weight: 700; color: #555; }
 hr.soft { border: none; border-top: 1px solid #e1e8ed; margin: 25px 0; }
@@ -2643,10 +2651,10 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
-  border: 2px solid #1e4b85;
+  border: 2px solid #0ea5e9;
 }
 .vc-lite-ro-badge { font-size: 11px; font-weight: 800; color: #b45309; text-transform: uppercase; margin: 0 0 8px; }
-.vc-lite-ro-title { margin: 0 0 6px; color: #1e4b85; font-size: 20px; }
+.vc-lite-ro-title { margin: 0 0 6px; color: #0ea5e9; font-size: 20px; }
 .vc-lite-ro-sub { margin: 0 0 14px; font-size: 13px; color: #64748b; }
 .vc-lite-ro-block { white-space: pre-wrap; font-size: 14px; line-height: 1.45; margin-bottom: 12px; }
 .vc-lite-ro-h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; margin: 14px 0 6px; }
@@ -2699,7 +2707,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 .em-modal-header h2 {
   margin: 0 0 8px 0;
   font-size: 1.2rem;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .em-context-line {
   font-size: 13px;
@@ -2745,7 +2753,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   cursor: pointer;
 }
 .em-btn-primary {
-  background: #1e4b85;
+  background: #0ea5e9;
   color: #fff;
 }
 .em-btn-secondary {
@@ -2763,7 +2771,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   gap: 10px;
   margin: 10px 0;
   font-size: 14px;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .em-spinner-wrap.em-active {
   display: flex;
@@ -2772,7 +2780,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   width: 22px;
   height: 22px;
   border: 3px solid #e1e8ed;
-  border-top-color: #1e4b85;
+  border-top-color: #0ea5e9;
   border-radius: 50%;
   animation: em-spin 0.75s linear infinite;
 }
@@ -2789,7 +2797,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 }
 .em-health-score {
   font-weight: 800;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .em-proposal {
   display: none;
@@ -2820,7 +2828,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 .em-prop-card h4 {
   margin: 0 0 8px 0;
   font-size: 14px;
-  color: #1e4b85;
+  color: #0ea5e9;
 }
 .em-prop-card .em-price {
   font-size: 1.25rem;
@@ -2848,13 +2856,143 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   color: #27ae60;
   margin-top: 6px;
 }
+
+/* --- Vision Hub (full-screen Add Equipment) --- */
+#visionHubAddEquipment.vision-hub-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20050;
+  background: rgba(15, 23, 42, 0.94);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  box-sizing: border-box;
+}
+#visionHubAddEquipment.vision-hub-overlay.hidden {
+  display: none !important;
+}
+.vision-hub-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-left: 1px solid #1e293b;
+  border-right: 1px solid #1e293b;
+  overflow: hidden;
+}
+.vision-hub-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 2px solid #0ea5e9;
+  background: #020617;
+  flex-shrink: 0;
+}
+.vision-hub-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #f1f5f9;
+}
+.vision-hub-close {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.vision-hub-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+.vision-hub-lead {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+.vision-hub-primary-btn {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 12px;
+  background: #0ea5e9;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+.vision-hub-preview-wrap {
+  margin: 12px 0 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #334155;
+  background: #020617;
+}
+.vision-hub-preview-wrap img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 42vh;
+  object-fit: contain;
+}
+.vision-hub-form label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-top: 12px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.vision-hub-form input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #f1f5f9;
+  font-size: 15px;
+}
+.vision-hub-save-btn {
+  margin-top: 20px;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: #22c55e;
+  color: #052e16;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.vision-hub-status {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #94a3b8;
+  min-height: 1.2em;
+}
 </style>
 </head>
 <body>
 
 <div id="loginShell" class="login-shell hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
   <div class="login-card">
-    <h1 id="loginTitle" style="margin:0 0 8px 0; color:#1e4b85; font-size:22px;">Sign in</h1>
+    <h1 id="loginTitle" style="margin:0 0 8px 0; color:#0ea5e9; font-size:22px;">Sign in</h1>
     <p style="margin:0 0 20px 0; color:#555; font-size:14px;">Use the same technician name assigned to jobs in Dispatch.</p>
     <label for="loginTechSelect">Technician</label>
     <select id="loginTechSelect"></select>
@@ -2866,7 +3004,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 
 <header class="app-top-shell" role="banner">
   <div class="app-header-row">
-    <img id="vcBrandLogo" src="../vertex_core_logo.png" alt="" width="120" height="40" onerror="this.outerHTML='<span style=\'font-weight:800;color:#1e4b85;font-size:14px;\'>FIELD APP</span>'">
+    <img id="vcBrandLogo" src="../vertex_core_logo.png" alt="" width="120" height="40" onerror="this.outerHTML='<span style=\'font-weight:800;color:#0ea5e9;font-size:14px;\'>FIELD APP</span>'">
     <div class="app-header-meta">
       <span id="vcFieldOfflineBadge" class="vc-field-offline-badge hidden" role="status" aria-live="polite" title="Firestore is reading from local cache or the device is offline. Data syncs when signal returns."></span>
       <span id="techDisplayLabel" class="tech-profile-badge">Loading…</span>
@@ -2906,8 +3044,8 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 
 <div id="screen-schedule" class="screen active">
   <div style="margin-bottom: 15px;">
-    <h2 style="margin: 0; color: #2c3e50; font-size: 24px;">Your schedule</h2>
-    <span style="font-size: 12px; color: #7f8c8d;">Past 30 days · Today · Next 7 days</span>
+    <h2 style="margin: 0; color: #f1f5f9; font-size: 24px;">Your schedule</h2>
+    <span style="font-size: 12px; color: #94a3b8;">Past 30 days · Today · Next 7 days</span>
   </div>
 
   <div class="schedule-day-strip-wrap">
@@ -2953,6 +3091,19 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   </div>
 
   <div id="workspaceLockScope" class="workspace-lock-scope">
+  <div class="workspace-site-banner-sticky">
+    <nav class="dictation-site-nav" aria-label="Customer and site">
+      <div id="ws-customer" class="ws-customer">Select a Job</div>
+      <div class="ws-site-intel-row">
+        <button type="button" id="wsSiteIntelBtn" class="ws-site-intel-btn" title="Site-specific intel (roof access, etc.)">Site Intel</button>
+      </div>
+      <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
+        Return to Schedule to pick a ticket
+      </button>
+      <div id="ws-ticket" class="ws-ticket">NO TICKET</div>
+    </nav>
+  </div>
+
   <div id="successCard" class="alert-card">
     <h3>✓ Ticket Synced</h3>
     <p>Saved successfully. You can return to your schedule.</p>
@@ -2962,7 +3113,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     <div class="dictation-hub-top">
       <h2 class="dictation-hub-title">Dictation Hub</h2>
       <div class="dictation-hub-process-wrap">
-        <button type="button" id="dictationProcessBtn" class="dictation-hub-process-btn">Process notes</button>
+        <button type="button" id="dictationProcessBtn" class="dictation-hub-process-btn">✨ Improve with AI</button>
         <span id="dictationProcessStatus" class="dictation-process-status" aria-live="polite"></span>
       </div>
     </div>
@@ -2983,16 +3134,6 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
         <p class="dictation-action-tray-empty">Open a job to load site assets.</p>
       </div>
     </div>
-    <nav class="dictation-site-nav" aria-label="Customer and site">
-      <div id="ws-customer" class="ws-customer">Select a Job</div>
-      <div class="ws-site-intel-row">
-        <button type="button" id="wsSiteIntelBtn" class="ws-site-intel-btn" title="Site-specific intel (roof access, etc.)">Site Intel</button>
-      </div>
-      <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
-        Return to Schedule to pick a ticket
-      </button>
-      <div id="ws-ticket" class="ws-ticket">NO TICKET</div>
-    </nav>
   </section>
 
   <div id="workspaceCustomerEvidence" class="hidden" aria-live="polite"></div>
@@ -3037,24 +3178,13 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
      </div>
   </div>
 
-  <div class="accordion" id="acc-tag-ocr" style="margin-bottom: 15px;">
-    <div class="accordion-header" onclick="toggleAccordion('acc-tag-ocr')">Unit nameplate (optional)</div>
-    <div class="accordion-body">
-      <p style="font-size:12px;color:#7f8c8d;margin:0 0 12px 0;line-height:1.45;">Scan a manufacturer tag with your camera. Text is read on this device only (Tesseract.js).</p>
-      <label style="margin-top:0;">Make (manufacturer)</label>
-      <input type="text" id="unitTagMake" placeholder="OCR or type" autocomplete="off" autocapitalize="words">
-      <label>Model #</label>
-      <input type="text" id="unitTagModel" placeholder="OCR or type" autocomplete="off" autocapitalize="characters">
-      <label>Serial #</label>
-      <input type="text" id="unitTagSerial" placeholder="OCR or type" autocomplete="off" autocapitalize="characters">
-      <label>Job #</label>
-      <input type="text" id="unitTagJob" placeholder="OCR or type" autocomplete="off" autocapitalize="characters">
-      <label>Unit # (sharpie, e.g. EF3)</label>
-      <input type="text" id="unitTagMarker" placeholder="e.g. EF3" autocomplete="off" autocapitalize="characters">
-      <label>Install date</label>
-      <input type="text" id="unitTagInstallDate" placeholder="e.g. 6-7-2023" autocomplete="off" inputmode="numeric">
-      <button type="button" id="openTagOcrBtn" class="tag-ocr-open-btn">Scan nameplate photo</button>
-    </div>
+  <div class="hidden" aria-hidden="true">
+    <input type="text" id="unitTagMake" tabindex="-1" autocomplete="off">
+    <input type="text" id="unitTagModel" tabindex="-1" autocomplete="off">
+    <input type="text" id="unitTagSerial" tabindex="-1" autocomplete="off">
+    <input type="text" id="unitTagJob" tabindex="-1" autocomplete="off">
+    <input type="text" id="unitTagMarker" tabindex="-1" autocomplete="off">
+    <input type="text" id="unitTagInstallDate" tabindex="-1" autocomplete="off">
   </div>
 
   <div id="pmSection" class="hidden">
@@ -3184,7 +3314,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
         Tie this visit to a unit from the Equipment Hub so future history shows on that unit.
       </p>
       <label>Select Final Status</label>
-      <select id="finalJobStatus" style="font-weight: bold; border-color: #1e4b85;">
+      <select id="finalJobStatus" style="font-weight: bold; border-color: #0ea5e9;">
         <option value="Completed">Completed (Ready to Bill)</option>
         <option value="Needs Repair Quote">Needs Repair Quote</option>
         <option value="Parts on Order">Parts on Order / Return Trip Needed</option>
@@ -3322,7 +3452,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Settings</h2>
   <div style="background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e1e8ed;">
     <label style="margin-top:0;">Logged In As</label>
-    <input type="text" id="profileNameInput" readonly style="background: #f4f7fa; font-weight: bold; color: #1e4b85;">
+    <input type="text" id="profileNameInput" readonly style="background: #f4f7fa; font-weight: bold; color: #0ea5e9;">
     <p style="font-size: 13px; color: #666; margin: 14px 0 0 0; line-height: 1.45;">Technician names are managed in the office Dispatch app under <strong>Settings → Technicians</strong>. That list syncs here so your sign-in matches job assignments.</p>
     <button type="button" style="background: #e74c3c; color: #fff; border: none; margin-top: 20px; font-weight: bold;" onclick="switchUser()">Log Out / Switch User</button>
   </div>
@@ -4784,12 +4914,10 @@ function openWorkspace(ticketId) {
 
   document.getElementById('ticketSelector').value = ticketId;
   document.getElementById('location').value = `${activeTicket.customerName} - ${activeTicket.locationAddress}`;
-  document.getElementById('unitTagMake').value = '';
-  document.getElementById('unitTagModel').value = '';
-  document.getElementById('unitTagSerial').value = '';
-  document.getElementById('unitTagJob').value = '';
-  document.getElementById('unitTagMarker').value = '';
-  document.getElementById('unitTagInstallDate').value = '';
+  ["unitTagMake", "unitTagModel", "unitTagSerial", "unitTagJob", "unitTagMarker", "unitTagInstallDate"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.value = "";
+  });
 
   if (activeTicket.jobType === 'Preventative Maintenance') {
     currentMode = "PM";
@@ -5762,13 +5890,14 @@ async function runTagOcrOnFile(file){
   }
 
   tagOcrBusy = true;
-  document.getElementById("openTagOcrBtn").disabled = true;
+  var _ocrOpen = document.getElementById("openTagOcrBtn");
+  if (_ocrOpen) _ocrOpen.disabled = true;
   const loading = document.getElementById("tagOcrLoading");
   const statusEl = document.getElementById("tagOcrStatusText");
   const rawPre = document.getElementById("tagOcrRawPreview");
   const rawDetails = document.getElementById("tagOcrRawDetails");
   const resultPanel = document.getElementById("tagOcrResultPanel");
-  loading.classList.remove("hidden");
+  if (loading) loading.classList.remove("hidden");
   if (resultPanel) resultPanel.classList.add("hidden");
   if (rawDetails){
     rawDetails.classList.add("hidden");
@@ -5846,10 +5975,10 @@ async function runTagOcrOnFile(file){
     const jobEl = document.getElementById("unitTagJob");
     const markerEl = document.getElementById("unitTagMarker");
     const installEl = document.getElementById("unitTagInstallDate");
-    if (parsed.make) makeEl.value = parsed.make;
-    if (parsed.model) modelEl.value = parsed.model;
-    if (parsed.serial) serialEl.value = parsed.serial;
-    if (parsed.jobNumber) jobEl.value = parsed.jobNumber;
+    if (makeEl && parsed.make) makeEl.value = parsed.make;
+    if (modelEl && parsed.model) modelEl.value = parsed.model;
+    if (serialEl && parsed.serial) serialEl.value = parsed.serial;
+    if (jobEl && parsed.jobNumber) jobEl.value = parsed.jobNumber;
     if (parsed.marker && markerEl) markerEl.value = parsed.marker;
     if (parsed.installDate && installEl) installEl.value = parsed.installDate;
     saveDraft();
@@ -5862,9 +5991,10 @@ async function runTagOcrOnFile(file){
     alert("OCR failed: " + (err && err.message ? err.message : String(err)));
   } finally {
     tagOcrBusy = false;
-    document.getElementById("openTagOcrBtn").disabled = false;
-    loading.classList.add("hidden");
-    statusEl.textContent = "Reading image…";
+    var _ocrOpen2 = document.getElementById("openTagOcrBtn");
+    if (_ocrOpen2) _ocrOpen2.disabled = false;
+    if (loading) loading.classList.add("hidden");
+    if (statusEl) statusEl.textContent = "Reading image…";
   }
 }
 
@@ -7223,7 +7353,7 @@ window.onload = async function(){
         </div>
 
         <div id="emProposalSection" class="em-proposal">
-          <h3 style="margin: 0 0 8px 0; color: #1e4b85; font-size: 1rem">
+          <h3 style="margin: 0 0 8px 0; color: #0ea5e9; font-size: 1rem">
             Customer proposal options
           </h3>
           <div class="em-proposal-cols">
@@ -7285,16 +7415,49 @@ window.onload = async function(){
       </div>
     </div>
 
-    <script src="../equipment_manager.js?v=7"></script>
+    <div id="visionHubAddEquipment" class="vision-hub-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="visionHubTitle">
+      <div class="vision-hub-panel">
+        <div class="vision-hub-head">
+          <h2 id="visionHubTitle">Vision Hub</h2>
+          <button type="button" id="visionHubCloseBtn" class="vision-hub-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="vision-hub-body">
+          <p class="vision-hub-lead">Capture a manufacturer nameplate. AI reads model, serial, and BTU; confirm or edit, then save to the site.</p>
+          <div id="visionHubCaptureIntro">
+            <input type="file" id="visionHubCameraInput" class="visually-hidden" accept="image/*" capture="environment" tabindex="-1" aria-hidden="true">
+            <button type="button" id="visionHubCaptureBtn" class="vision-hub-primary-btn">📸 Capture nameplate photo</button>
+          </div>
+          <div id="visionHubPreviewWrap" class="vision-hub-preview-wrap hidden">
+            <img id="visionHubPreviewImg" alt="Nameplate preview">
+          </div>
+          <p id="visionHubStatus" class="vision-hub-status" aria-live="polite"></p>
+          <div id="visionHubStepForm" class="vision-hub-form hidden">
+            <label for="visionHubUnitId">Unit ID (site label)</label>
+            <input type="text" id="visionHubUnitId" placeholder="e.g. RTU1" autocomplete="off" autocapitalize="characters">
+            <label for="visionHubMake">Manufacturer</label>
+            <input type="text" id="visionHubMake" placeholder="From AI or type" autocomplete="off">
+            <label for="visionHubModel">Model #</label>
+            <input type="text" id="visionHubModel" placeholder="From AI or type" autocomplete="off">
+            <label for="visionHubSerial">Serial #</label>
+            <input type="text" id="visionHubSerial" placeholder="From AI or type" autocomplete="off">
+            <label for="visionHubBtu">Capacity (BTU / tons)</label>
+            <input type="text" id="visionHubBtu" placeholder="From AI or type" autocomplete="off">
+            <button type="button" id="visionHubSaveBtn" class="vision-hub-save-btn">Save equipment</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="../equipment_manager.js?v=8"></script>
     <script src="../equipment_smart_select.js"></script>
     <script src="js/ufx_adapter.js"></script>
     <script src="js/data_provider.js"></script>
     <script src="js/workspace_ui.js"></script>
     <script src="js/location_manager.js"></script>
-    <script src="../dictation_hub.js"></script>
+    <script src="../dictation_hub.js?v=2"></script>
     <script src="../equipment_hub.js"></script>
     <script src="../field_forms.js"></script>
-    <script src="../tech_job_history.js"></script>
+    <script src="../tech_job_history.js?v=2"></script>
     <script>
       if (typeof initGlobalSiteDirectory === "function") initGlobalSiteDirectory();
     </script>
