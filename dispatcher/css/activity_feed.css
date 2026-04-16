@@ -9,20 +9,23 @@
 }
 
 .pulse-dashboard__header {
-  margin-bottom: 20px;
-  border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 16px;
+  margin: 0 0 20px 0;
+  padding: 16px 18px;
+  background: #0f172a;
+  border-radius: 10px;
+  border-bottom: none;
 }
 
 .pulse-dashboard__header h2 {
   margin: 0 0 6px 0;
-  color: #0ea5e9;
+  color: #ffffff;
   font-size: 1.45rem;
 }
 
 .pulse-dashboard__header h2 .fa-solid {
   margin-right: 8px;
-  opacity: 0.92;
+  opacity: 0.95;
+  color: #ffffff;
 }
 
 .pulse-quick-reply label .fa-solid {
@@ -33,7 +36,7 @@
 .pulse-dashboard__sub {
   margin: 0;
   font-size: 13px;
-  color: #64748b;
+  color: #cbd5e1;
 }
 
 .pulse-feed-list {

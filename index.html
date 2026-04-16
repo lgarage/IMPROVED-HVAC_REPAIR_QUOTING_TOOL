@@ -14,11 +14,11 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <link rel="stylesheet" href="dispatcher/css/activity_feed.css?v=2" />
-    <link rel="stylesheet" href="dispatcher/css/import_hub.css?v=2" />
-    <link rel="stylesheet" href="dispatcher/css/insights.css?v=4" />
-    <link rel="stylesheet" href="dispatcher/css/report_builder.css?v=2" />
-    <link rel="stylesheet" href="dispatcher/css/sidebar.css?v=3" />
+    <link rel="stylesheet" href="dispatcher/css/activity_feed.css?v=4" />
+    <link rel="stylesheet" href="dispatcher/css/import_hub.css?v=4" />
+    <link rel="stylesheet" href="dispatcher/css/insights.css?v=6" />
+    <link rel="stylesheet" href="dispatcher/css/report_builder.css?v=4" />
+    <link rel="stylesheet" href="dispatcher/css/sidebar.css?v=5" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
@@ -116,7 +116,7 @@
       .vc-dispatch-dashboard-bar-title {
         font-weight: 800;
         font-size: 15px;
-        color: #0ea5e9;
+        color: #0f172a;
       }
       .vc-shadow-controls {
         display: flex;
@@ -133,9 +133,9 @@
         max-width: min(420px, 100%);
         padding: 8px 10px;
         border-radius: 8px;
-        border: 1px solid #ccc;
+        border: 1px solid #cbd5e1;
         background: #fff;
-        color: #0ea5e9;
+        color: #0f172a;
         font-weight: 700;
         font-size: 13px;
       }
@@ -178,7 +178,7 @@
         justify-content: space-between;
         gap: 8px;
         padding: 12px 14px;
-        background: #0ea5e9;
+        background: #0f172a;
         color: #fff;
       }
       .vc-shadow-modal-head-inner {
@@ -216,9 +216,9 @@
       .vc-shadow-force-btn {
         padding: 8px 12px;
         border-radius: 8px;
-        border: 1px solid #c89b53;
-        background: #fdfaf2;
-        color: #0ea5e9;
+        border: 1px solid #0ea5e9;
+        background: #f0f9ff;
+        color: #0f172a;
         font-weight: 800;
         font-size: 12px;
         cursor: pointer;
@@ -255,7 +255,7 @@
         padding: 8px 12px;
         border-radius: 8px;
         border: none;
-        background: #c89b53;
+        background: #0ea5e9;
         color: #fff;
         font-weight: 800;
         cursor: pointer;
@@ -341,7 +341,7 @@
       input:focus,
       select:focus,
       textarea:focus {
-        border-color: #c89b53;
+        border-color: #0ea5e9;
         outline: none;
       }
       label {
@@ -361,7 +361,7 @@
         padding: 0 15px;
       }
       .gen-btn:hover {
-        background: #153661;
+        background: #0284c7;
       }
       .parts-grid-layout {
         display: grid;
@@ -427,8 +427,8 @@
       }
       .view-toggle {
         background: #f4f6f7;
-        color: #0ea5e9;
-        border: 1px solid #c89b53;
+        color: #0f172a;
+        border: 1px solid #cbd5e1;
         padding: 4px 12px;
         cursor: pointer;
         font-weight: bold;
@@ -441,6 +441,20 @@
       .view-toggle.active {
         background: #0ea5e9;
         color: #fff;
+        border-color: #0ea5e9;
+      }
+      /* Day / Week / Month toggles on Obsidian dispatch bar */
+      .schedule-header-bar .view-toggle {
+        background: rgba(255, 255, 255, 0.12);
+        color: #f1f5f9;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+      }
+      .schedule-header-bar .view-toggle:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .schedule-header-bar .view-toggle.active {
+        background: #0ea5e9;
+        color: #0f172a;
         border-color: #0ea5e9;
       }
       #saveIndicator {
@@ -487,8 +501,8 @@
         vertical-align: middle;
       }
       .db-table th {
-        background: #0ea5e9;
-        color: #fff;
+        background: #0f172a;
+        color: #ffffff;
         position: sticky;
         top: 0;
         z-index: 10;
@@ -549,15 +563,15 @@
         overflow: hidden;
       }
       .panel-header {
-        background: #0ea5e9;
-        color: #fff;
+        background: #0f172a;
+        color: #ffffff;
         padding: 12px 15px;
         font-weight: bold;
         font-size: 14px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
       }
       .panel-content {
         flex: 1;
@@ -581,7 +595,7 @@
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        border: 1px solid #c89b53;
+        border: 1px solid #cbd5e1;
         box-sizing: border-box;
         position: relative;
         padding-bottom: 12px;
@@ -611,8 +625,8 @@
         line-height: 0;
       }
       .schedule-header-bar {
-        background: #0ea5e9;
-        color: #fff;
+        background: #0f172a;
+        color: #ffffff;
         padding: 8px 15px;
         font-weight: bold;
         font-size: 14px;
@@ -696,7 +710,7 @@
         height: 28px;
         font-size: 12px;
         border-radius: 50%;
-        background: #c89b53;
+        background: #0ea5e9;
         color: #fff;
         display: flex;
         justify-content: center;
@@ -1272,9 +1286,9 @@
       .sc-input-with-voice .sc-voice-btn {
         flex-shrink: 0;
         touch-action: none;
-        background: #f39c12;
+        background: #0ea5e9;
         color: #fff;
-        border: 1px solid #e67e22;
+        border: 1px solid #0284c7;
         border-left: none;
         border-radius: 0 8px 8px 0;
         padding: 10px 14px;
@@ -1363,7 +1377,7 @@
         }
       }
       .sc-issue-field-toolbar .sc-issue-voice-btn {
-        background: #f39c12;
+        background: #0ea5e9;
         color: #fff;
         border: none;
         border-radius: 8px;
@@ -1376,15 +1390,15 @@
         user-select: none;
       }
       .sc-issue-field-toolbar .sc-issue-ai-btn {
-        background: linear-gradient(180deg, #234a7c 0%, #0ea5e9 100%);
+        background: linear-gradient(180deg, #0f172a 0%, #0ea5e9 100%);
         color: #fff;
-        border: 2px solid #c89b53;
+        border: 2px solid #0ea5e9;
         border-radius: 8px;
         padding: 10px 16px;
         font-size: 13px;
         font-weight: 700;
         cursor: pointer;
-        box-shadow: 0 4px 12px rgba(30, 75, 133, 0.25);
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
         transition: transform 0.1s, filter 0.15s;
         user-select: none;
       }
@@ -1624,7 +1638,7 @@
         border-bottom: 1px solid #eaeaea;
       }
       .print-table.quote-style th {
-        background-color: #c89b53;
+        background-color: #0ea5e9;
         color: #fff;
         font-weight: bold;
       }
@@ -2138,19 +2152,24 @@
 
     <div class="sidebar collapsed" id="appSidebar">
       <div class="sidebar-header">
-        <img
-          id="vcBrandLogo"
-          src="vertex_core_logo.png"
-          alt=""
-          class="full-logo"
-        />
-        <img
-          id="vcBrandLogoMini"
-          src="vertex_core_logo_only.png"
-          alt=""
-          class="mini-logo"
-        />
+        <div class="sidebar-brand-lockup">
+          <img
+            id="vcBrandLogo"
+            src="vertex_core_logo.png"
+            alt=""
+            class="full-logo"
+          />
+          <span class="sidebar-wordmark" aria-hidden="true">Vertex Core</span>
+          <img
+            id="vcBrandLogoMini"
+            src="vertex_core_logo_only.png"
+            alt=""
+            class="mini-logo"
+          />
+          <span class="sidebar-vc-abbrev" aria-hidden="true">VC</span>
+        </div>
         <button
+          type="button"
           class="sidebar-toggle-btn"
           onclick="toggleSidebar()"
           title="Collapse/Expand Menu"
@@ -2552,7 +2571,7 @@
                   class="badge"
                   style="
                     background: #fff;
-                    color: #0ea5e9;
+                    color: #0f172a;
                     margin-left: 8px;
                     padding: 2px 6px;
                     border-radius: 12px;
@@ -2566,6 +2585,7 @@
                 class="gen-btn"
                 style="
                   background: #0ea5e9;
+                  color: #fff;
                   padding: 4px 10px;
                   font-size: 12px;
                   margin-right: 6px;
@@ -2579,7 +2599,8 @@
                 type="button"
                 class="gen-btn"
                 style="
-                  background: #7f8c8d;
+                  background: #64748b;
+                  color: #fff;
                   padding: 4px 10px;
                   font-size: 12px;
                   margin-right: 6px;
@@ -2591,7 +2612,7 @@
               </button>
               <button
                 class="gen-btn"
-                style="background: #2ecc71; padding: 4px 10px; font-size: 12px"
+                style="background: #0ea5e9; color: #fff; padding: 4px 10px; font-size: 12px"
                 onclick="scrollToServiceForm()"
               >
                 + New
@@ -2603,7 +2624,7 @@
           <div class="dispatch-right-panel">
             <div class="dispatch-schedule-full">
               <div class="schedule-header-bar" style="align-items: center">
-                <div style="font-size: 16px">Dispatch Board</div>
+                <div style="font-size: 16px; color: #ffffff">Dispatch Board</div>
                 <div
                   style="
                     display: flex;
@@ -2655,7 +2676,7 @@
                   <button
                     class="gen-btn"
                     style="
-                      background: #f39c12;
+                      background: #0ea5e9;
                       color: #fff;
                       padding: 4px 10px;
                       margin-left: 5px;
@@ -2703,7 +2724,7 @@
                   text-align: center;
                   padding: 6px;
                   font-weight: bold;
-                  color: #0ea5e9;
+                  color: #0f172a;
                   border-bottom: 1px solid #ccc;
                   font-size: 15px;
                   letter-spacing: 1px;
@@ -3130,7 +3151,7 @@
                 type="button"
                 class="gen-btn"
                 style="
-                  background: #f39c12;
+                  background: #0ea5e9;
                   padding: 10px 20px;
                   font-size: 13px;
                   width: auto;
@@ -3884,7 +3905,7 @@
                 type="button"
                 class="gen-btn"
                 style="
-                  background: #f39c12;
+                  background: #0ea5e9;
                   padding: 10px 20px;
                   font-size: 13px;
                   width: auto;
@@ -4304,7 +4325,7 @@
               style="
                 min-height: 120px;
                 background: #fffde7;
-                border-color: #c89b53;
+                border-color: #0ea5e9;
               "
               onblur="parsePastedNotes()"
             ></textarea>
@@ -4608,7 +4629,7 @@
                 type="button"
                 class="gen-btn"
                 style="
-                  background: #f39c12;
+                  background: #0ea5e9;
                   padding: 10px 20px;
                   font-size: 13px;
                   width: auto;
@@ -4749,7 +4770,7 @@
               <button
                 type="button"
                 style="
-                  background: #f39c12;
+                  background: #0ea5e9;
                   color: #fff;
                   font-weight: bold;
                   font-size: 18px;
@@ -5431,7 +5452,7 @@
               width: 100%;
               box-sizing: border-box;
               padding: 10px 12px;
-              border: 1px solid #c89b53;
+              border: 1px solid #0ea5e9;
               border-radius: 6px;
               font-size: 14px;
               margin-bottom: 14px;
@@ -5618,7 +5639,7 @@
           <button
             type="button"
             class="gen-btn"
-            style="background: #f39c12; padding: 10px 20px; color: #fff"
+            style="background: #0ea5e9; padding: 10px 20px; color: #fff"
             id="tdEditBtn"
           >
             Edit Ticket Form
@@ -5681,9 +5702,9 @@
                 background: rgba(255, 255, 255, 0.2);
                 border-radius: 4px;
                 overflow: hidden;
-                border: 1px solid #c89b53;
-                display: flex;
-              "
+              border: 1px solid #cbd5e1;
+              display: flex;
+            "
             >
               <button
                 class="view-toggle active"
@@ -5830,7 +5851,7 @@
           style="
             display: none;
             background: #f7f9fb;
-            border: 1px solid #c89b53;
+            border: 1px solid #cbd5e1;
             padding: 15px;
             border-radius: 6px;
             margin-bottom: 15px;
