@@ -12,6 +12,23 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 - **Roles:** Admin, Tech, Sales, Time-Tracking Only.
 - **Data Bridge:** Lazy migration from Root to Tenant paths.
 
+### System Architecture & Tech Stack
+
+- **Tech Stack:** Vanilla HTML/JS/CSS, Firebase (Firestore, Auth, Storage), Leaflet.js. **CRITICAL:** NO React, NO Node backend, NO build tools (Webpack/Vite).
+- **Folder Structure:**
+  - `/dispatcher` — The office/admin application.
+  - `/technician` — The field application (Mobile First).
+  - `/shared` — Global configurations, shared UI logic, and Firebase initialization.
+- **Core Database Schema** (`tenants/{tenantId}/...`):
+  - `users`: Roster, roles, entitlements (e.g., time-tracking-only, sandbox flags), weekly availability.
+  - `service_calls`: Service tickets, statuses, assigned techs, internal/public notes, and invoice data.
+  - `equipment`: Customer assets, photos, and AI-parsed OCR nameplates.
+  - `customers`: Customer profiles and associated sites/locations.
+  - `live_presence`: Field tech online status, screen position, and active ticket tracking for Shadow Mode.
+  - `labor_logs`: Clock IN/OUT pairs, geolocation data for time tracking, payroll, and efficiency reports.
+  - `portal_tokens`: Secure tokens and branding snapshots for Proof of Service client links.
+- **AI & APIs:** Gemini AI (via `generativelanguage.googleapis.com`) for text dictation parsing, professional note cleanup, and Vision (nameplate OCR). Leaflet.js for all map integrations.
+
 ### Tenant isolation `tenants/{tenantId}/…`
 
 **User Guide**
@@ -467,4 +484,5 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 ### Current Focus
 
-- Next: production Firestore rules for `portal_tokens` (public read + controlled approval write) and `labor_logs`; optional short URL / custom domain for `proof_of_service.html`; optional composite Firestore index if `labor_logs` range queries require it at scale; validate print/PDF chart timing across browsers; field-test Firestore persistence across Safari/Chrome on iOS/Android; confirm existing deployments that need `TWIN_PILLARS` tenant id + `vc_app_config` override after Phase 27 default tenant change.
+- **Next phase decision:** Currently deciding between **Phase 28: Command Map / TV Mode** (Large-scale map and pulse feed for office monitors) or **Phase 28: Field Inventory (Truck Stock)** (Parts & materials ledger for technicians).
+- **Ongoing maintenance:** Production Firestore rules for `portal_tokens` (public read + controlled approval write) and `labor_logs`; optional short URL / custom domain for `proof_of_service.html`; optional composite Firestore index if `labor_logs` range queries require it at scale; validate print/PDF chart timing across browsers; field-test Firestore persistence across Safari/Chrome on iOS/Android; confirm existing deployments that need `TWIN_PILLARS` tenant id + `vc_app_config` override after Phase 27 default tenant change.
