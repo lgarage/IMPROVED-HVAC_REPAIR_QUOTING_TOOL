@@ -235,6 +235,23 @@ function gatherAssignedTechsFromServiceForm() {
     return out;
 }
 
+/** Statuses we do not override when syncing crew ↔ Dispatched/Unassigned. */
+var SC_STATUS_AUTO_SKIP = {
+    Completed: true,
+    "Client Verified / Ready for Billing": true,
+    Canceled: true,
+};
+
+function applyAutoDispatchStatusFromCrew() {
+    var sel = document.getElementById("scStatusInput");
+    if (!sel) return;
+    var cur = String(sel.value || "").trim();
+    if (SC_STATUS_AUTO_SKIP[cur]) return;
+    var crew = gatherAssignedTechsFromServiceForm();
+    var next = crew.length > 0 ? "Dispatched" : "Unassigned";
+    if (sel.value !== next) sel.value = next;
+}
+
 /** Options HTML for duration &lt;select&gt;s (main form + ticket modal). */
 function buildDispatcherDurationSelectOptions(selectedValue) {
     var choices =
@@ -403,6 +420,7 @@ function wireDispatcherAssignmentControlsOnce() {
         if (e.target && e.target.classList && e.target.classList.contains("sc-tech-cb")) {
             updateLeadTechRowVisibility();
             updateDispatcherLaborFields();
+            applyAutoDispatchStatusFromCrew();
         }
     });
     var dur = document.getElementById("scDurationInput");
@@ -411,7 +429,10 @@ function wireDispatcherAssignmentControlsOnce() {
     }
     var lead = document.getElementById("scPrimaryTechInput");
     if (lead) {
-        lead.addEventListener("change", updateDispatcherLaborFields);
+        lead.addEventListener("change", function () {
+            updateDispatcherLaborFields();
+            applyAutoDispatchStatusFromCrew();
+        });
     }
     var dateEl = document.getElementById("scDateInput");
     if (dateEl && !dateEl.dataset.availabilityWired) {
@@ -2059,6 +2080,20 @@ function allowDrop(ev) {
     ev.preventDefault();
 }
 
+/** Dispatch board timeline is 7:00–17:00 (10 h); snap to 30-minute increments. */
+function snapBoardDecimalHoursToHalfHour(decimalHours) {
+    var d = Math.round(Number(decimalHours) * 2) / 2;
+    if (d < 7) d = 7;
+    if (d > 16.5) d = 16.5;
+    return d;
+}
+
+function snapBoardDurationToHalfHour(durHours) {
+    var d = Math.round(Number(durHours) * 2) / 2;
+    if (d < 0.5) d = 0.5;
+    return d;
+}
+
 function handleTimelineDrop(e) {
     e.preventDefault();
     
@@ -2116,9 +2151,7 @@ function handleTimelineDrop(e) {
         newDateStr = newD.toISOString().split('T')[0];
     }
 
-    dropTimeDecimal = Math.round(dropTimeDecimal * 4) / 4;
-    if(dropTimeDecimal < 7) dropTimeDecimal = 7;
-    if(dropTimeDecimal > 16.5) dropTimeDecimal = 16.5;
+    dropTimeDecimal = snapBoardDecimalHoursToHalfHour(dropTimeDecimal);
 
     let h = Math.floor(dropTimeDecimal);
     let m = Math.round((dropTimeDecimal - h) * 60);
@@ -2295,12 +2328,8 @@ function timelineMouseUp(e) {
         newDateStr = newD.toISOString().split('T')[0];
     }
 
-    newStartDecimal = Math.round(newStartDecimal * 4) / 4;
-    newDuration = Math.round(newDuration * 4) / 4;
-
-    if (newStartDecimal < 7) newStartDecimal = 7;
-    if (newStartDecimal > 16.5) newStartDecimal = 16.5;
-    if (newDuration < 0.5) newDuration = 0.5;
+    newStartDecimal = snapBoardDecimalHoursToHalfHour(newStartDecimal);
+    newDuration = snapBoardDurationToHalfHour(newDuration);
 
     let h = Math.floor(newStartDecimal);
     let m = Math.round((newStartDecimal - h) * 60);
