@@ -29,11 +29,9 @@
   var notesDebounce = null;
   var locationBlurBound = false;
   var trayDelegationWired = false;
-  /** "public" = compiled for export / UFX-facing notes; "internal" = Inter-Office Comms (internal_comms). */
-  var dictationChannel = "public";
+  /** All technician notes sync to service call `internal_comms` (office / AI Report Reviewer). */
   var internalCloudDebounce = null;
-  var channelUiWired = false;
-  /** Avoid resetting Public/Internal when the hub refreshes for the same ticket (e.g. location blur). */
+  /** Avoid reloading notes when the hub refreshes for the same ticket (e.g. location blur). */
   var dictationNotesBoundTicketId = null;
   var pendingCapture = null;
   /** @type {{ logicalId: string, row: object } | null} */
@@ -1250,25 +1248,17 @@
     return "dictationHubNotes_" + activeTicket.id;
   }
 
-  function storageKeyInternalForTicket() {
-    if (typeof activeTicket === "undefined" || !activeTicket || !activeTicket.id) {
-      return "dictationHubInternal_draft";
+  /** Prefer unified key; fall back to legacy Inter-Office-only cache. */
+  function loadNotesTextForTicketId(ticketId) {
+    if (!ticketId) return "";
+    try {
+      var u = localStorage.getItem("dictationHubNotes_" + ticketId);
+      if (u != null && String(u).trim() !== "") return u;
+      var leg = localStorage.getItem("dictationHubInternal_" + ticketId);
+      return leg != null ? leg : "";
+    } catch (e) {
+      return "";
     }
-    return "dictationHubInternal_" + activeTicket.id;
-  }
-
-  function updateDictationChannelStyles() {
-    var el = getNotesEl();
-    if (!el) return;
-    if (dictationChannel === "internal") {
-      el.classList.add("dictation-hub-notes--internal");
-    } else {
-      el.classList.remove("dictation-hub-notes--internal");
-    }
-    var pub = document.getElementById("dictationChannelPublic");
-    var intl = document.getElementById("dictationChannelInternal");
-    if (pub) pub.classList.toggle("dictation-channel-btn--active", dictationChannel === "public");
-    if (intl) intl.classList.toggle("dictation-channel-btn--active", dictationChannel === "internal");
   }
 
   function persistCurrentBufferToStorage() {
@@ -1279,15 +1269,11 @@
         localStorage.setItem("dictationHubNotes_draft", el.value);
         return;
       }
-      if (dictationChannel === "public") {
-        localStorage.setItem("dictationHubNotes_" + activeTicket.id, el.value);
-      } else {
-        localStorage.setItem("dictationHubInternal_" + activeTicket.id, el.value);
-      }
+      localStorage.setItem("dictationHubNotes_" + activeTicket.id, el.value);
     } catch (e) {}
   }
 
-  function loadBufferForCurrentChannel() {
+  function loadNotesBuffer() {
     var el = getNotesEl();
     if (!el) return;
     try {
@@ -1296,17 +1282,10 @@
         el.value = d != null ? d : "";
         return;
       }
-      if (dictationChannel === "public") {
-        var p = localStorage.getItem("dictationHubNotes_" + activeTicket.id);
-        el.value = p != null ? p : "";
-      } else {
-        var i = localStorage.getItem("dictationHubInternal_" + activeTicket.id);
-        el.value = i != null ? i : "";
-      }
+      el.value = loadNotesTextForTicketId(activeTicket.id);
     } catch (e) {
       el.value = "";
     }
-    updateDictationChannelStyles();
   }
 
   function scheduleInternalCloudSave(text) {
@@ -1363,10 +1342,9 @@
             ? String(got.data.internal_comms)
             : "";
         try {
-          localStorage.setItem("dictationHubInternal_" + ticketId, t);
+          localStorage.setItem("dictationHubNotes_" + ticketId, t);
         } catch (e) {}
         if (
-          dictationChannel === "internal" &&
           typeof activeTicket !== "undefined" &&
           activeTicket &&
           activeTicket.id === ticketId
@@ -1378,44 +1356,18 @@
       .catch(function () {});
   }
 
-  function applyDictationChannel(next) {
-    if (next !== "public" && next !== "internal") return;
-    persistCurrentBufferToStorage();
-    dictationChannel = next;
-    loadBufferForCurrentChannel();
-  }
-
-  function ensureDictationChannelUi() {
-    if (channelUiWired) return;
-    var pub = document.getElementById("dictationChannelPublic");
-    var intl = document.getElementById("dictationChannelInternal");
-    if (!pub || !intl) return;
-    channelUiWired = true;
-    pub.addEventListener("click", function () {
-      applyDictationChannel("public");
-    });
-    intl.addEventListener("click", function () {
-      applyDictationChannel("internal");
-    });
-  }
-
   function loadNotesFromStorageForNewTicket() {
-    dictationChannel = "public";
     var el = getNotesEl();
     if (!el) return;
-    ensureDictationChannelUi();
     try {
       if (typeof activeTicket === "undefined" || !activeTicket || !activeTicket.id) {
         var v = localStorage.getItem("dictationHubNotes_draft");
         if (v != null) el.value = v;
-        updateDictationChannelStyles();
         return;
       }
-      var pubv = localStorage.getItem("dictationHubNotes_" + activeTicket.id);
-      el.value = pubv != null ? pubv : "";
+      el.value = loadNotesTextForTicketId(activeTicket.id);
       fetchInternalCommsFromCloud(activeTicket.id);
     } catch (e) {}
-    updateDictationChannelStyles();
   }
 
   function schedulePersistNotes() {
@@ -1429,12 +1381,8 @@
           localStorage.setItem("dictationHubNotes_draft", el.value);
           return;
         }
-        if (dictationChannel === "public") {
-          localStorage.setItem("dictationHubNotes_" + activeTicket.id, el.value);
-        } else {
-          localStorage.setItem("dictationHubInternal_" + activeTicket.id, el.value);
-          scheduleInternalCloudSave(el.value);
-        }
+        localStorage.setItem("dictationHubNotes_" + activeTicket.id, el.value);
+        scheduleInternalCloudSave(el.value);
       } catch (e) {}
     }, 400);
   }
@@ -1514,8 +1462,7 @@
       dictationNotesBoundTicketId = tid;
       loadNotesFromStorageForNewTicket();
     } else {
-      ensureDictationChannelUi();
-      loadBufferForCurrentChannel();
+      loadNotesBuffer();
     }
     wireNotesPersistence();
     wireLocationResubscribe();
@@ -1590,12 +1537,6 @@
       alert("Time tracking seat — AI processing is disabled. Contact the office to upgrade.");
       return;
     }
-    if (dictationChannel !== "public") {
-      alert(
-        "Switch to Public Export to run AI on notes that can go to the customer-facing record. Inter-Office Comms stay private."
-      );
-      return;
-    }
     var el = getNotesEl();
     var raw = el ? el.value : "";
     var btn = document.getElementById("dictationProcessBtn");
@@ -1626,7 +1567,7 @@
   window.evaluateAssetState = evaluateAssetState;
   window.teardownDictationHub = teardownDictationHub;
   window.getDictationExportMode = function () {
-    return dictationChannel;
+    return "internal";
   };
   window.getPublicDictationNotesForReport = function () {
     if (typeof activeTicket === "undefined" || !activeTicket || !activeTicket.id) {
@@ -1637,7 +1578,11 @@
       }
     }
     try {
-      return (localStorage.getItem("dictationHubNotes_" + activeTicket.id) || "").trim();
+      var id = activeTicket.id;
+      var u = localStorage.getItem("dictationHubNotes_" + id);
+      if (u != null && String(u).trim() !== "") return String(u).trim();
+      var leg = localStorage.getItem("dictationHubInternal_" + id);
+      return (leg != null ? String(leg) : "").trim();
     } catch (e2) {
       return "";
     }
@@ -1645,8 +1590,6 @@
   window.startDictationHubFromWorkspace = function () {
     wireProcessButton();
     wireVisionHubOnce();
-    ensureDictationChannelUi();
-    updateDictationChannelStyles();
     if (!document.documentElement.dataset.dictationPlateOcrEvt) {
       document.documentElement.dataset.dictationPlateOcrEvt = "1";
       document.addEventListener("dictationHubNameplateImageSaved", function () {

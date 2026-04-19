@@ -1345,48 +1345,6 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   50% { filter: brightness(1.08); }
 }
 
-.dictation-channel-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 0 0 10px 0;
-  font-size: 12px;
-  font-weight: 700;
-  color: #5a6c7d;
-}
-.dictation-channel-bar .dictation-channel-label {
-  margin-right: 4px;
-}
-.dictation-channel-btn {
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 800;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid #d1d9e0;
-  background: #fff;
-  color: #34495e;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.dictation-channel-btn.dictation-channel-btn--active {
-  background: #0ea5e9;
-  color: #fff;
-  border-color: #0ea5e9;
-}
-.dictation-channel-btn .dictation-channel-icon {
-  margin-right: 4px;
-}
-#dictationHubNotes.dictation-hub-notes--internal {
-  background: #1e293b;
-  color: #e2e8f0;
-  border-color: #334155;
-}
-#dictationHubNotes.dictation-hub-notes--internal::placeholder {
-  color: #94a3b8;
-}
-
 .vc-entitlements-banner {
   background: linear-gradient(90deg, #fef3c7, #fffbeb);
   border-bottom: 1px solid #f59e0b;
@@ -3109,25 +3067,16 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     <p>Saved successfully. You can return to your schedule.</p>
   </div>
 
-  <section class="dictation-hub-shell" aria-label="Dictation and site assets">
+  <section class="dictation-hub-shell" aria-label="Technician notes and site assets">
     <div class="dictation-hub-top">
-      <h2 class="dictation-hub-title">Dictation Hub</h2>
+      <h2 class="dictation-hub-title">Technician notes</h2>
       <div class="dictation-hub-process-wrap">
         <button type="button" id="dictationProcessBtn" class="dictation-hub-process-btn">✨ Improve with AI</button>
         <span id="dictationProcessStatus" class="dictation-process-status" aria-live="polite"></span>
       </div>
     </div>
-    <div class="dictation-channel-bar" role="group" aria-label="Note visibility">
-      <span class="dictation-channel-label">Notes</span>
-      <button type="button" id="dictationChannelPublic" class="dictation-channel-btn dictation-channel-btn--active">
-        <span class="dictation-channel-icon" aria-hidden="true"><i class="fa-solid fa-file-export"></i></span>Public export
-      </button>
-      <button type="button" id="dictationChannelInternal" class="dictation-channel-btn">
-        <span class="dictation-channel-icon" aria-hidden="true"><i class="fa-solid fa-building-user"></i></span>Inter-Office Comms
-      </button>
-    </div>
-    <label for="dictationHubNotes" class="visually-hidden">Raw visit notes</label>
-    <textarea id="dictationHubNotes" placeholder="Raw visit notes — speak, type, or paste here. This field stays on screen for the whole visit." rows="6" autocomplete="off"></textarea>
+    <label for="dictationHubNotes" class="visually-hidden">Technician notes</label>
+    <textarea id="dictationHubNotes" placeholder="Technician notes — speak, type, or paste here. The office will format this for the customer." rows="6" autocomplete="off"></textarea>
     <div class="dictation-action-tray-wrap">
       <div class="dictation-action-tray-head">Dynamic action tray — units on site</div>
       <div id="dictationActionTray" class="dictation-action-tray">
@@ -6382,8 +6331,10 @@ async function uploadReportToCloud(visitData, fullReportText) {
         const ticketUpdate = { status: finalStatus, techNotes: fullReportText };
         if (linkedEquipmentId) ticketUpdate.Linked_Equipment_ID = linkedEquipmentId;
         try {
-          const internalOnly = localStorage.getItem('dictationHubInternal_' + ticketId) || '';
-          if (internalOnly.trim()) ticketUpdate.internal_comms = internalOnly;
+          var _notesKey = 'dictationHubNotes_' + ticketId;
+          var _hubNotes = localStorage.getItem(_notesKey) || '';
+          if (!_hubNotes.trim()) _hubNotes = localStorage.getItem('dictationHubInternal_' + ticketId) || '';
+          if (_hubNotes.trim()) ticketUpdate.internal_comms = _hubNotes;
         } catch (e) {}
         scUp.doc(ticketId).set(ticketUpdate, { merge: true }).catch(e => console.error("Ticket update queued."));
         if (typeof window.UFXAdapter !== 'undefined' && typeof window.UFXAdapter.pushTicketSummary === 'function') {
@@ -6526,7 +6477,7 @@ async function buildReportFromForm() {
     ? window.getPublicDictationNotesForReport()
     : "";
   if (pubDict) {
-    report += "\n\n--- Visit notes (dictation hub — public) ---\n" + pubDict;
+    report += "\n\n--- Visit notes (technician notes / dictation hub) ---\n" + pubDict;
   }
 
   return { report, visit };
@@ -7452,9 +7403,9 @@ window.onload = async function(){
     <script src="../equipment_smart_select.js"></script>
     <script src="js/ufx_adapter.js"></script>
     <script src="js/data_provider.js"></script>
-    <script src="js/workspace_ui.js"></script>
+    <script src="js/workspace_ui.js?v=1"></script>
     <script src="js/location_manager.js"></script>
-    <script src="../dictation_hub.js?v=3"></script>
+    <script src="../dictation_hub.js?v=4"></script>
     <script src="../equipment_hub.js"></script>
     <script src="../field_forms.js"></script>
     <script src="../tech_job_history.js?v=2"></script>

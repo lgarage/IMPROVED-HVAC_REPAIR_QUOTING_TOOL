@@ -322,7 +322,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 - Default **Vertex Core** tenant branding is **USA Heating and Cooling** with the **Obsidian** palette: background **#0f172a**, primary accent **#0ea5e9**, muted text **#94a3b8** (also exposed as CSS variables `--vc-bg-obsidian`, `--vc-text-muted` from `applyVcBranding`).
 - The **site banner** (customer name, **Site Intel**, tappable address, ticket line) sits in a **sticky** strip at the **top of the job workspace** (`workspace-site-banner-sticky`) so it stays visible while scrolling the rest of the form.
-- **✨ Improve with AI** (formerly “Process notes”) rewrites **Public export** notes using Gemini: professional/direct tone, typo fixes, **no first-person** — refer to the worker only as **“The technician”** — plus the existing Rosetta JSON mapping (asset ids, `locationTransposed`, `visitSummary`).
+- **✨ Improve with AI** (formerly “Process notes”) rewrites **technician notes** using Gemini: professional/direct tone, typo fixes, **no first-person** — refer to the worker only as **“The technician”** — plus the existing Rosetta JSON mapping (asset ids, `locationTransposed`, `visitSummary`). Notes sync to the office as **`internal_comms`** (single unified notes box).
 
 **Technical Specs**
 
@@ -351,17 +351,16 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 - `technician/index.html`: hidden inputs preserve `getFields` / `setFields` / `collectUnitTagFields`; `openTagOcrBtn` removed — `runTagOcrOnFile` / `initUnitTagOcr` guard null controls.
 
-#### Dictation Hub — Public vs Inter-Office
+#### Dictation Hub (Simplified Notes)
 
 **User Guide**
 
-- **Dictation Hub** is the primary notes area on the workspace: **✨ Improve with AI**, raw textarea, and the **dynamic action tray** (units on site from Firestore).
-- Two channels: **Public export** vs **Inter-Office Comms**. Only one is active at a time; the choice controls whether processed / synced text is treated as **customer-facing export** vs **office-only** content on the ticket (`internal_comms`).
+- **Technician notes** (header on the workspace) is the primary notes area: **✨ Improve with AI**, a single textarea, and the **dynamic action tray** (units on site from Firestore). There is **no** public vs. internal toggle — techs use one unified notes box; content is synced to the office for Inter-Office / dispatcher workflows (including **AI Report Reviewer** on raw `internal_comms`). The office formats customer-facing copy on the dispatcher side.
 
 **Technical Specs**
 
-- `dictation_hub.js`: `dictationChannel` is `"public"` or `"internal"`; wired to `#dictationChannelPublic` / `#dictationChannelInternal`.
-- Inter-Office content flows to service call **`internal_comms`** (and related timestamps) per existing sync paths; public path aligns with export / report-facing compilation (Rosetta JSON mapping, tray assets, etc.).
+- `dictation_hub.js`: `localStorage` key `dictationHubNotes_{ticketId}` (draft: `dictationHubNotes_draft`); legacy `dictationHubInternal_*` is read as fallback when migrating. Notes debounce to **`internal_comms`** + `internal_comms_updatedAt` via `setServiceCallMerged` (`scheduleInternalCloudSave`).
+- **`getDictationExportMode`** returns `"internal"` for compatibility; **`getPublicDictationNotesForReport`** reads the unified technician notes buffer (name retained for callers).
 - **Time-tracking-only** seat: `vc_entitlements.js` dims and disables the Dictation Hub shell (`pointer-events`, `aria-disabled`).
 
 #### Site Intelligence (“Field Bible”)
@@ -412,7 +411,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 **User Guide**
 
 - Banner: **Lite seat** — use the **Time** tab for **CLOCK IN / CLOCK OUT**; status card shows duty state, **hours today**, and **lead tech** (first assigned tech on the crew who is not you, when viewing a job).
-- **Schedule** tab is unchanged; tapping a job opens a **read-only** job screen: reported issue + equipment scope only; **Dictation Hub**, Inter-Office channel, and full workspace are not available.
+- **Schedule** tab is unchanged; tapping a job opens a **read-only** job screen: reported issue + equipment scope only; **technician notes / Dictation Hub** and full workspace are not available.
 - After sign-in, the app opens the **Time** screen first (not History).
 
 **Technical Specs**
@@ -479,14 +478,14 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 **User Guide**
 
 - In the **Field app** workspace, pasted/uploaded field photos are stored under **Field Evidence**. Each row has **Show client? Yes/No**, an optional **caption**, and a badge (Client vs Internal).
-- **Default visibility:** With **Public export** selected in the Dictation Hub channel bar, new pastes default to **client-visible**. With **Inter-Office Comms** selected, new pastes default to **internal** (not shown on Proof of Service).
+- **Default visibility:** New field evidence photos default to **internal** (`isPublic: false`); the dispatcher can mark photos public before Proof of Service.
 - **Dispatcher override:** On the service ticket form, **Field evidence — client visibility** lists each field photo with **Show on Proof of Service?** so the office can flip a photo internal before **Send verification to client**.
 
 **Technical Specs**
 
 - `evidencePhotoUrls`: array of `{ url: string, isPublic: boolean, caption: string }`; legacy string URLs normalize to **public** in `VCClientPortal.normalizeEvidencePhotoArray`.
 - `technician/index.html` — paste pipeline, `persistFieldEvidencePhotoUrlToFirestore` (`arrayUnion` object), `updateFieldEvidenceFirestoreAtIndex` (transaction), `renderWorkspaceFieldEvidence`.
-- `technician/js/workspace_ui.js` — `getFieldEvidenceDefaultIsPublic()` reads `#dictationChannelInternal` active state.
+- `technician/js/workspace_ui.js` — `getFieldEvidenceDefaultIsPublic()` returns **false** (internal by default) after the Dictation Hub channel toggle removal.
 - `shared/client_portal_logic.js` — `normalizeEvidenceEntry`, `normalizeEvidencePhotoArray`, `filterPublicEvidencePhotoUrls`.
 - `service_call.js` — `renderDispatcherFieldEvidenceOverrides`, `persistDispatcherEvidenceOverride` (Firestore + local cache sync).
 

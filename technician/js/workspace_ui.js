@@ -218,15 +218,11 @@
   }
 
   /**
-   * Field evidence default visibility: Inter-Office Comms tab → internal-only;
-   * Public export tab → client-safe.
+   * Field evidence default visibility: technician Dictation Hub no longer has a public/internal toggle;
+   * new photos default to internal; dispatcher can mark public before client send.
    */
   function getFieldEvidenceDefaultIsPublic() {
-    var intl = document.getElementById("dictationChannelInternal");
-    if (intl && intl.classList.contains("dictation-channel-btn--active")) {
-      return false;
-    }
-    return true;
+    return false;
   }
 
   function workspaceUiOnOpen() {
