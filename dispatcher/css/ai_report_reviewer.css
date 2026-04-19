@@ -1,0 +1,208 @@
+/* Transparent AI Report Reviewer — side-by-side modal */
+.vc-ai-review-modal.modal-overlay {
+  z-index: 10022;
+}
+
+.vc-ai-review-content.modal-content {
+  max-width: 1200px;
+  width: 94%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  margin: 2% auto;
+}
+
+.vc-ai-review-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.vc-ai-review-toolbar button {
+  background: #0ea5e9;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vc-ai-review-toolbar button:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.vc-ai-review-toolbar button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+#vcAiReviewJobTypeBadge {
+  font-size: 12px;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 6px 10px;
+  border-radius: 4px;
+}
+
+.vc-ai-review-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  flex: 1;
+  min-height: 280px;
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .vc-ai-review-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.vc-ai-review-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.vc-ai-review-col > label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.vc-ai-review-raw {
+  flex: 1;
+  margin: 0;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+  max-height: min(52vh, 560px);
+}
+
+.vc-ai-review-parsed {
+  flex: 1;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow: auto;
+  max-height: min(52vh, 560px);
+}
+
+.vc-ai-schema h4 {
+  margin: 16px 0 8px 0;
+  font-size: 13px;
+  color: #0ea5e9;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+}
+
+.vc-ai-schema h4:first-child {
+  margin-top: 0;
+}
+
+.vc-ai-schema h5 {
+  margin: 10px 0 6px 0;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.vc-ai-equip-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #fafbfc;
+}
+
+.vc-ai-field {
+  margin-bottom: 8px;
+}
+
+.vc-ai-field strong {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.vc-ai-field-text {
+  margin: 0;
+}
+
+.vc-ai-cite {
+  cursor: help;
+  outline: none;
+  border-radius: 2px;
+  transition: background-color 0.12s ease;
+}
+
+.vc-ai-cite:hover,
+.vc-ai-cite:focus {
+  background-color: rgba(14, 165, 233, 0.12);
+}
+
+.vc-ai-supply-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.vc-ai-supply-list li {
+  margin-bottom: 6px;
+}
+
+.vc-ai-muted {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+mark.vc-highlight-quote {
+  background-color: #fef08a;
+  color: #1e293b;
+  padding: 0 1px;
+}
+
+.vc-ai-review-actions {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+#vcAiReviewApproveBtn {
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#vcAiReviewApproveBtn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+#vcAiReviewApproveBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

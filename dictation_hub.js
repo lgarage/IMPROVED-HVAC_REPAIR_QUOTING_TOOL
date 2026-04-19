@@ -355,11 +355,17 @@
     return "gemini-2.5-flash";
   }
 
+  /** Strip markdown code fences (```json / ```) before JSON.parse; used by processVisitNotes and similar. */
+  function cleanGeminiJsonString(text) {
+    var t = String(text || "").trim();
+    if (!t) return t;
+    t = t.replace(/```json/gi, "").replace(/```/g, "").trim();
+    return t;
+  }
+
   function parseGeminiJson(text) {
     if (!text) return null;
-    var t = String(text).trim();
-    var fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fence) t = fence[1].trim();
+    var t = cleanGeminiJsonString(text);
     try {
       return JSON.parse(t);
     } catch (e) {
@@ -368,7 +374,14 @@
       if (o >= 0 && c > o) {
         try {
           return JSON.parse(t.slice(o, c + 1));
-        } catch (e2) {}
+        } catch (e2) { /* continue */ }
+      }
+      o = t.indexOf("[");
+      c = t.lastIndexOf("]");
+      if (o >= 0 && c > o) {
+        try {
+          return JSON.parse(t.slice(o, c + 1));
+        } catch (e3) { /* continue */ }
       }
       return null;
     }

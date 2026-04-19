@@ -167,6 +167,46 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - `service_call.js`: passes `excludeTicketId` from `#scCurrentId` (modal: `sc.id`); lead verification listener on main select + delegated handler on ticket modal for `tdPrimaryTechSelect`.
 - `dispatcher/js/insights_manager.js`: `renderFleetCapacityCard`, `countScheduledJobsOnDate`, `countAvailableTechsForYmd`, `sumFleetWeek`; container `#insightsFleetCapacity`. Styles: `dispatcher/css/insights.css` (`.insights-fleet*`).
 
+#### Dispatch Board QoL (Phase 28)
+
+**Feature 1: Auto-status on crew / lead**
+
+**User Guide**
+
+- The system **automatically** toggles **Ticket Status** to **Dispatched** when at least one technician is assigned (crew checkboxes), and to **Unassigned** when the crew is cleared, so intake status stays aligned with assignment without extra clicks.
+
+**Technical Specs**
+
+- `applyAutoDispatchStatusFromCrew()` in `service_call.js`, invoked from `wireDispatcherAssignmentControlsOnce` on **crew checkbox** (`.sc-tech-cb`) `change` and **Lead technician** `#scPrimaryTechInput` `change`.
+- Does **not** override terminal workflow statuses: **Completed**, **Client Verified / Ready for Billing**, or **Canceled** (`SC_STATUS_AUTO_SKIP`).
+
+**Feature 2: 30-minute snap on timeline**
+
+**User Guide**
+
+- **Dragging** and **resizing** tickets on the dispatch **timeline** (and **dropping** cards onto the board) **snaps** start time and duration to **30-minute** intervals so scheduled blocks stay visually aligned and consistent.
+
+**Technical Specs**
+
+- `snapBoardDecimalHoursToHalfHour()` and `snapBoardDurationToHalfHour()` in `service_call.js` — applied in `handleTimelineDrop` and `timelineMouseUp` (drag/resize commit after `initTimelineAction` / `timelineMouseMove`).
+
+#### Transparent AI Report Reviewer — side-by-side confidence UI (Phase 29)
+
+**User Guide**
+
+- On **Service Call Intake**, next to the other AI tools on the reported-issue toolbar, open **🔍 AI Report Reviewer**. You must have a **saved ticket** loaded (Firestore id) and **Inter-Office Comms** (`internal_comms`) worth extracting — field dictation / Pulse / internal thread content.
+- The modal shows **two columns:** left = **raw Inter-Office Comms** (read-only “truth”); right = **AI-structured JSON** rendered as readable sections. **Job type** on the loaded ticket drives the schema: **Preventative Maintenance** uses a **PM** layout (work completed, per-unit equipment rows, consolidated future PM supply list); **all other job types** use a **diagnostic** layout (issue, diagnosis, work performed, recommended repairs).
+- **Hover** (or keyboard focus) on any **cited** value on the right to **highlight the exact source substring** in the left column (yellow mark). Review citations before publishing.
+- Click **Approve & Save to Portal** to write the formatted plain-text summary into **Client portal memo** (`clientPortalMemo`) via the tenant merge path, update the intake textarea, and sync local + cloud like other dispatcher saves.
+
+**Technical Specs**
+
+- `dispatcher/js/ai_report_reviewer.js` — `VcAiReportReviewer`: loads ticket with `VCFirestore.getServiceCallOnceBridged(firestore, ticketId)`; normalizes `internal_comms` (string or array → single string); reads `jobType` for **PM** vs **diagnostic** prompts.
+- **Gemini:** `getGeminiApiKey()` + `generativelanguage.googleapis.com` `generateContent`; `generationConfig` prefers `responseMimeType: "application/json"` with fallback if the API rejects MIME mode; dynamic prompts embed strict JSON shapes with mandatory `sourceQuote` siblings for extractable facts; PM schema includes `workCompleted`, `equipmentDetails[]`, `consolidatedFuturePMSupplyList[]`; diagnostic schema includes `issueReported`, `diagnosis`, `workPerformed`, `recommendedRepairs[]`.
+- **UI:** `index.html` — `#vcAiReportReviewerModal`, `#vcAiReviewRaw`, `#vcAiReviewParsed`; `dispatcher/css/ai_report_reviewer.css` — split grid, `.vc-ai-cite` hover styling, `mark.vc-highlight-quote` for source match.
+- **Hover:** Vanilla JS `mouseenter` / `mouseleave` / `focus` / `blur` on `[data-vc-qidx]` → `quoteRegistry` index → substring highlight in `#vcAiReviewRaw` via temporary `<mark class="vc-highlight-quote">`.
+- **Persist:** `VCFirestore.setServiceCallMerged` with `{ clientPortalMemo }`; `localStorage` `twinPillarsServiceDB` row update; optional `syncSingleServiceCallToCloud` (`service_call.js`).
+
 #### Live Inter-Office Feed (Pulse)
 
 **User Guide**
@@ -481,8 +521,10 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - [v] Phase 23: Service windows & weekly tech availability (`settings.js`, `user_import.js` `availability`, `ticket_manager.js` / `service_call.js` smart tech selector)
 - [v] Phase 24: Schedule conflict detection & fleet capacity (`ticket_manager.js` job counts + toasts, `insights_manager.js` fleet meter, lead-day verification in `service_call.js`)
 - [v] Phase 27: Intelligent workspace — USA Heating and Cooling + Obsidian palette (`shared/config.js`, `technician/index.html`, dispatcher CSS/JS color pass), sticky site banner, **✨ Improve with AI** prompt rules (`dictation_hub.js`), Vision Hub full-screen Add Equipment + BTU on nameplate OCR (`equipment_manager.js`, `dictation_hub.js`), removal of unit-tag accordion (hidden draft fields), `manifest.json`, `settings.js` restock copy
+- [v] Phase 28: Dispatch Board QoL (Auto-status & 30-min timeline snap).
+- [v] Phase 29: Transparent AI Report Reviewer (`dispatcher/js/ai_report_reviewer.js`, `dispatcher/css/ai_report_reviewer.css`, `#vcAiReportReviewerModal` in `index.html`).
 
 ### Current Focus
 
-- **Next phase decision:** Currently deciding between **Phase 28: Command Map / TV Mode** (Large-scale map and pulse feed for office monitors) or **Phase 28: Field Inventory (Truck Stock)** (Parts & materials ledger for technicians).
+- **Immediate next step:** Choose and execute the next roadmap phase (e.g. **Command Map / TV Mode**, **Field Inventory (Truck Stock)**) or continue **Ongoing maintenance** items below.
 - **Ongoing maintenance:** Production Firestore rules for `portal_tokens` (public read + controlled approval write) and `labor_logs`; optional short URL / custom domain for `proof_of_service.html`; optional composite Firestore index if `labor_logs` range queries require it at scale; validate print/PDF chart timing across browsers; field-test Firestore persistence across Safari/Chrome on iOS/Android; confirm existing deployments that need `TWIN_PILLARS` tenant id + `vc_app_config` override after Phase 27 default tenant change.

@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="dispatcher/css/insights.css?v=6" />
     <link rel="stylesheet" href="dispatcher/css/report_builder.css?v=4" />
     <link rel="stylesheet" href="dispatcher/css/sidebar.css?v=5" />
+    <link rel="stylesheet" href="dispatcher/css/ai_report_reviewer.css?v=1" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
@@ -3414,6 +3415,17 @@
                   >
                     ✉ Generate Client Summary
                   </button>
+                  <button
+                    type="button"
+                    id="scAiReportReviewerBtn"
+                    class="sc-issue-ai-btn"
+                    onclick="typeof VcAiReportReviewer !== 'undefined' && VcAiReportReviewer.openModal()"
+                    title="Side-by-side AI extraction from Inter-Office Comms with source citations (job-type aware)"
+                    onmouseenter="this.style.filter='brightness(1.06)'"
+                    onmouseleave="this.style.filter='none'"
+                  >
+                    🔍 AI Report Reviewer
+                  </button>
                 </div>
                 <textarea
                   id="scIssueInput"
@@ -5648,6 +5660,52 @@
       </div>
     </div>
 
+    <div
+      id="vcAiReportReviewerModal"
+      class="modal-overlay vc-ai-review-modal"
+      aria-hidden="true"
+    >
+      <div class="modal-content vc-ai-review-content">
+        <div class="modal-header">
+          <h2>Transparent AI Report Reviewer</h2>
+          <span
+            class="close-modal"
+            onclick="typeof VcAiReportReviewer !== 'undefined' && VcAiReportReviewer.closeModal()"
+            >×</span
+          >
+        </div>
+        <p style="font-size: 13px; color: #64748b; margin: 0 0 12px 0">
+          Compare raw <strong>Inter-Office Comms</strong> to the AI extraction. Hover
+          cited fields to highlight the matching substring in the source.
+        </p>
+        <div class="vc-ai-review-toolbar">
+          <button type="button" id="vcAiReviewGenerateBtn">
+            Generate from Inter-Office notes
+          </button>
+          <span id="vcAiReviewJobTypeBadge"></span>
+        </div>
+        <div class="vc-ai-review-split">
+          <div class="vc-ai-review-col vc-ai-review-col--raw">
+            <label for="vcAiReviewRaw">Inter-Office Comms (source)</label>
+            <pre id="vcAiReviewRaw" class="vc-ai-review-raw"></pre>
+          </div>
+          <div class="vc-ai-review-col vc-ai-review-col--parsed">
+            <label for="vcAiReviewParsed">AI extraction (hover for source highlight)</label>
+            <div
+              id="vcAiReviewParsed"
+              class="vc-ai-review-parsed"
+              aria-live="polite"
+            ></div>
+          </div>
+        </div>
+        <div class="vc-ai-review-actions">
+          <button type="button" id="vcAiReviewApproveBtn" disabled>
+            Approve &amp; Save to Portal
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div id="archivedServiceModal" class="modal-overlay" style="z-index: 10002">
       <div
         class="modal-content"
@@ -6676,6 +6734,7 @@
       }
     </script>
     <script src="service_call.js?v=62"></script>
+    <script src="dispatcher/js/ai_report_reviewer.js?v=2"></script>
     <script src="dispatcher/js/insights_manager.js?v=4"></script>
     <script src="dispatcher/js/report_builder.js?v=3"></script>
     <script>
