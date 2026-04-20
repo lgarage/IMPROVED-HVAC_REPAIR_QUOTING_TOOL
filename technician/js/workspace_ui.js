@@ -248,6 +248,57 @@
     }
   }
 
+  /** Snapshot from Dispatcher iframe: `postMessage({ type: 'VC_OFFICE_OVERRIDE', active })`. */
+  var _vcPostMessageOverrideSnap = null;
+
+  function snapshotInput(el) {
+    if (!el) return null;
+    return { readonly: el.readOnly, disabled: el.disabled };
+  }
+
+  function applyInputSnapshot(el, snap) {
+    if (!el || !snap) return;
+    if (snap.readonly) el.setAttribute("readonly", "readonly");
+    else el.removeAttribute("readonly");
+    el.disabled = !!snap.disabled;
+  }
+
+  function handleOfficeOverride(active) {
+    var on = !!active;
+    var notes = document.getElementById("dictationHubNotes");
+    var siteIntel = document.getElementById("vcSiteIntelBody");
+    if (on) {
+      if (!_vcPostMessageOverrideSnap) {
+        _vcPostMessageOverrideSnap = {
+          dictation: snapshotInput(notes),
+          siteIntel: snapshotInput(siteIntel),
+        };
+      }
+      if (document.body) document.body.classList.add("vc-override-active");
+      if (notes) {
+        notes.removeAttribute("readonly");
+        notes.removeAttribute("disabled");
+      }
+      if (siteIntel) {
+        siteIntel.removeAttribute("readonly");
+        siteIntel.removeAttribute("disabled");
+      }
+    } else {
+      if (document.body) document.body.classList.remove("vc-override-active");
+      if (_vcPostMessageOverrideSnap) {
+        applyInputSnapshot(notes, _vcPostMessageOverrideSnap.dictation);
+        applyInputSnapshot(siteIntel, _vcPostMessageOverrideSnap.siteIntel);
+        _vcPostMessageOverrideSnap = null;
+      }
+    }
+  }
+
+  window.addEventListener("message", function (event) {
+    var d = event.data;
+    if (!d || d.type !== "VC_OFFICE_OVERRIDE") return;
+    handleOfficeOverride(!!d.active);
+  });
+
   function workspaceUiOnOpen() {
     ensureOfficeOverrideWorkspaceUnlocked();
     subscribeSiteIntelPulse();
@@ -263,6 +314,7 @@
   window.workspaceUiOnOpen = workspaceUiOnOpen;
   window.ensureOfficeOverrideWorkspaceUnlocked = ensureOfficeOverrideWorkspaceUnlocked;
   window.lockWorkspaceControls = lockWorkspaceControls;
+  window.handleOfficeOverride = handleOfficeOverride;
   window.openSiteIntelForLocation = openSiteIntelModal;
   window.teardownWorkspaceSiteIntel = teardownSiteIntelListener;
   window.getFieldEvidenceDefaultIsPublic = getFieldEvidenceDefaultIsPublic;

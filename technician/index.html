@@ -126,6 +126,16 @@ body.vc-shadow-viewer .nav-item {
   pointer-events: auto !important;
   opacity: 1 !important;
 }
+/* Dispatcher postMessage: Office Override toggle — orange frame + editable notes in Shadow preview */
+body.vc-override-active {
+  outline: 8px solid #f39c12 !important;
+  box-sizing: border-box;
+}
+body.vc-shadow-viewer.vc-override-active textarea#dictationHubNotes,
+body.vc-shadow-viewer.vc-override-active textarea#vcSiteIntelBody {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
 .tech-profile-badge {
   font-size: 12px;
   font-weight: 800;
@@ -7499,7 +7509,7 @@ window.onload = async function(){
     <script src="../equipment_smart_select.js"></script>
     <script src="js/ufx_adapter.js"></script>
     <script src="js/data_provider.js?v=1"></script>
-    <script src="js/workspace_ui.js?v=3"></script>
+    <script src="js/workspace_ui.js?v=4"></script>
     <script src="js/location_manager.js"></script>
     <script src="../dictation_hub.js?v=7"></script>
     <script src="../equipment_hub.js"></script>

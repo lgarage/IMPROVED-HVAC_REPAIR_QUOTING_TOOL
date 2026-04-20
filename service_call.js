@@ -3466,6 +3466,34 @@ document.addEventListener(
     true
 );
 
+/** Dispatcher: Office Override toggle — `postMessage` to Field App iframes (phone preview + Office modal). */
+var vcDispatcherOfficeOverrideActive = false;
+
+function toggleOfficeOverride(active) {
+    vcDispatcherOfficeOverrideActive = !!active;
+    var btn = document.getElementById("btnOfficeOverride");
+    if (btn) {
+        btn.textContent = active
+            ? "Office Override (ACTIVE)"
+            : "Office Override (Inactive)";
+        btn.setAttribute("aria-pressed", active ? "true" : "false");
+    }
+    var payload = { type: "VC_OFFICE_OVERRIDE", active: !!active };
+    var frames = [
+        document.getElementById("fieldAppSimulatorFrame"),
+        document.getElementById("vcFieldAppOfficeIframe"),
+    ];
+    for (var i = 0; i < frames.length; i++) {
+        try {
+            var f = frames[i];
+            if (f && f.contentWindow) {
+                f.contentWindow.postMessage(payload, "*");
+            }
+        } catch (e) {}
+    }
+}
+window.toggleOfficeOverride = toggleOfficeOverride;
+
 /** Dispatcher: open interactive Field App in iframe (Office Override — not Shadow viewer). */
 function openFieldAppOfficeModal() {
     var idEl = document.getElementById("scCurrentId");
@@ -3477,6 +3505,7 @@ function openFieldAppOfficeModal() {
     var iframe = document.getElementById("vcFieldAppOfficeIframe");
     var modal = document.getElementById("vcFieldAppOfficeModal");
     if (!iframe || !modal) return;
+    toggleOfficeOverride(false);
     iframe.src =
         "technician/index.html?forceTicketId=" +
         encodeURIComponent(tid) +
@@ -3485,6 +3514,7 @@ function openFieldAppOfficeModal() {
 }
 
 function closeFieldAppOfficeModal() {
+    toggleOfficeOverride(false);
     var iframe = document.getElementById("vcFieldAppOfficeIframe");
     var modal = document.getElementById("vcFieldAppOfficeModal");
     if (modal) modal.style.display = "none";
@@ -3493,3 +3523,34 @@ function closeFieldAppOfficeModal() {
 
 window.openFieldAppOfficeModal = openFieldAppOfficeModal;
 window.closeFieldAppOfficeModal = closeFieldAppOfficeModal;
+
+(function wireDispatcherOfficeOverrideUi() {
+    var docPointerWired = false;
+    function init() {
+        var btn = document.getElementById("btnOfficeOverride");
+        if (btn && !btn.dataset.vcWiredOfficeOverride) {
+            btn.dataset.vcWiredOfficeOverride = "1";
+            btn.addEventListener("click", function () {
+                toggleOfficeOverride(!vcDispatcherOfficeOverrideActive);
+            });
+        }
+        if (!docPointerWired) {
+            docPointerWired = true;
+            document.addEventListener(
+                "pointerdown",
+                function (e) {
+                    var modal = document.getElementById("fieldAppSimulatorModal");
+                    if (!modal || modal.classList.contains("hidden")) return;
+                    if (modal.contains(e.target)) return;
+                    toggleOfficeOverride(false);
+                },
+                true
+            );
+        }
+    }
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();
