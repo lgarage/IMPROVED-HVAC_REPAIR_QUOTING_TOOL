@@ -305,13 +305,15 @@
   });
 
   /**
-   * Cross-device override: subscribe to the active ticket doc and reflect
-   * `officeOverrideActive` on the technician's real phone (not just the dispatcher iframe).
-   * The dispatcher writes `officeOverrideActive: true` in `service_call.js#toggleOfficeOverride`.
+   * Cross-device override (global): the tech's schedule listener already streams every ticket
+   * assigned to them via `runScheduleMergeAndRender`; if any of those tickets has
+   * `officeOverrideActive: true` (set by `service_call.js#toggleOfficeOverride`), apply the
+   * orange bezel + top strip on the tech's actual phone — regardless of which screen they're on
+   * and immediately on page load.
    */
-  var _vcOfficeOverrideTicketUnsub = null;
-  var _vcOfficeOverrideTicketId = null;
   var _vcOfficeOverrideRemoteActive = false;
+  var _vcOfficeOverrideRemoteBy = "";
+  var _vcOfficeOverrideRemoteTicketId = "";
 
   function updateOverrideStripLabel(byName, on) {
     var label = document.querySelector(
@@ -325,49 +327,28 @@
     }
   }
 
-  function teardownOfficeOverrideTicketListener() {
-    if (typeof _vcOfficeOverrideTicketUnsub === "function") {
-      try { _vcOfficeOverrideTicketUnsub(); } catch (e) {}
+  /**
+   * Called by `runScheduleMergeAndRender` (technician/index.html) every time the tech's
+   * ticket snapshots merge. Picks the first ticket with `officeOverrideActive === true`
+   * and reflects the orange override frame + strip; clears it when no ticket has the flag.
+   */
+  function applyOfficeOverrideFromTickets(tickets) {
+    var arr = Array.isArray(tickets) ? tickets : [];
+    var hit = null;
+    for (var i = 0; i < arr.length; i++) {
+      var t = arr[i];
+      if (t && t.officeOverrideActive === true) { hit = t; break; }
     }
-    _vcOfficeOverrideTicketUnsub = null;
-    _vcOfficeOverrideTicketId = null;
-    if (_vcOfficeOverrideRemoteActive) {
-      _vcOfficeOverrideRemoteActive = false;
-      handleOfficeOverride(false);
+    var on = !!hit;
+    var by = on && hit && hit.officeOverrideBy ? String(hit.officeOverrideBy).trim() : "";
+    var tid = on && hit && hit.id ? String(hit.id) : "";
+    if (on !== _vcOfficeOverrideRemoteActive) {
+      _vcOfficeOverrideRemoteActive = on;
+      handleOfficeOverride(on);
     }
-  }
-
-  function subscribeOfficeOverrideForTicket(ticketId) {
-    var tid = String(ticketId || "").trim();
-    if (!tid) return;
-    if (_vcOfficeOverrideTicketId === tid && typeof _vcOfficeOverrideTicketUnsub === "function") return;
-    teardownOfficeOverrideTicketListener();
-    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
-    var db = firebase.firestore();
-    var ref =
-      typeof VCFirestore !== "undefined" && VCFirestore.serviceCalls
-        ? VCFirestore.serviceCalls(db).doc(tid)
-        : db.collection("service_calls").doc(tid);
-    _vcOfficeOverrideTicketId = tid;
-    try {
-      _vcOfficeOverrideTicketUnsub = ref.onSnapshot(
-        function (snap) {
-          var data = snap && snap.exists ? snap.data() || {} : {};
-          var on = data.officeOverrideActive === true;
-          var by = on ? String(data.officeOverrideBy || "").trim() : "";
-          if (on !== _vcOfficeOverrideRemoteActive) {
-            _vcOfficeOverrideRemoteActive = on;
-            handleOfficeOverride(on);
-          }
-          updateOverrideStripLabel(by, on);
-        },
-        function (err) {
-          console.warn("[OfficeOverride] active-ticket listener", err);
-        }
-      );
-    } catch (e) {
-      console.warn("[OfficeOverride] subscribe failed", e);
-    }
+    _vcOfficeOverrideRemoteBy = by;
+    _vcOfficeOverrideRemoteTicketId = tid;
+    updateOverrideStripLabel(by, on);
   }
 
   function workspaceUiOnOpen() {
@@ -380,18 +361,13 @@
         openSiteIntelModal();
       });
     }
-    try {
-      var t = (typeof window !== "undefined" && window.activeTicket) || null;
-      if (t && t.id) subscribeOfficeOverrideForTicket(t.id);
-    } catch (e) {}
   }
 
   window.workspaceUiOnOpen = workspaceUiOnOpen;
   window.ensureOfficeOverrideWorkspaceUnlocked = ensureOfficeOverrideWorkspaceUnlocked;
   window.lockWorkspaceControls = lockWorkspaceControls;
   window.handleOfficeOverride = handleOfficeOverride;
-  window.subscribeOfficeOverrideForTicket = subscribeOfficeOverrideForTicket;
-  window.teardownOfficeOverrideTicketListener = teardownOfficeOverrideTicketListener;
+  window.applyOfficeOverrideFromTickets = applyOfficeOverrideFromTickets;
   window.openSiteIntelForLocation = openSiteIntelModal;
   window.teardownWorkspaceSiteIntel = teardownSiteIntelListener;
   window.getFieldEvidenceDefaultIsPublic = getFieldEvidenceDefaultIsPublic;
