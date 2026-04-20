@@ -3818,6 +3818,9 @@ function switchScreen(screenName) {
     applyWorkspaceHistoricalMode(false);
     if (typeof teardownDictationHub === 'function') teardownDictationHub();
     if (typeof teardownWorkspaceSiteIntel === 'function') teardownWorkspaceSiteIntel();
+    if (typeof window.teardownOfficeOverrideTicketListener === 'function') {
+      window.teardownOfficeOverrideTicketListener();
+    }
     const ws = document.getElementById('screen-workspace');
     if (ws) {
       ws.classList.remove('workspace--lite-readonly');
@@ -7579,9 +7582,9 @@ window.onload = async function(){
     <script src="../equipment_smart_select.js"></script>
     <script src="js/ufx_adapter.js"></script>
     <script src="js/data_provider.js?v=1"></script>
-    <script src="js/workspace_ui.js?v=5"></script>
+    <script src="js/workspace_ui.js?v=6"></script>
     <script src="js/location_manager.js"></script>
-    <script src="../dictation_hub.js?v=7"></script>
+    <script src="../dictation_hub.js?v=8"></script>
     <script src="../equipment_hub.js"></script>
     <script src="../field_forms.js"></script>
     <script src="../tech_job_history.js?v=2"></script>

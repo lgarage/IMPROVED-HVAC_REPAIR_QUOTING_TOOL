@@ -28,6 +28,8 @@
   var trayRowCache = {};
 
   var assetsUnsub = null;
+  var internalCommsUnsub = null;
+  var internalCommsBoundTicketId = null;
   var notesInputBound = false;
   var notesDebounce = null;
   var locationBlurBound = false;
@@ -1359,6 +1361,62 @@
     }, 800);
   }
 
+  /**
+   * Live mirror of `internal_comms` for the active ticket so the technician sees
+   * what office staff is typing during Office Override (and vice versa). We avoid
+   * clobbering the textarea while the local user is actively typing in it.
+   */
+  function unsubscribeInternalCommsOnly() {
+    if (typeof internalCommsUnsub === "function") {
+      try { internalCommsUnsub(); } catch (e) {}
+    }
+    internalCommsUnsub = null;
+    internalCommsBoundTicketId = null;
+  }
+
+  function subscribeInternalCommsForTicket(ticketId) {
+    var tid = String(ticketId || "").trim();
+    if (!tid) return;
+    if (internalCommsBoundTicketId === tid && typeof internalCommsUnsub === "function") return;
+    unsubscribeInternalCommsOnly();
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+    var db = firebase.firestore();
+    var ref =
+      typeof VCFirestore !== "undefined" && VCFirestore.serviceCalls
+        ? VCFirestore.serviceCalls(db).doc(tid)
+        : db.collection("service_calls").doc(tid);
+    internalCommsBoundTicketId = tid;
+    try {
+      internalCommsUnsub = ref.onSnapshot(
+        function (snap) {
+          if (
+            typeof activeTicket === "undefined" ||
+            !activeTicket ||
+            activeTicket.id !== tid
+          ) {
+            return;
+          }
+          var data = snap && snap.exists ? snap.data() || {} : {};
+          var t = data.internal_comms != null ? String(data.internal_comms) : "";
+          try { localStorage.setItem("dictationHubNotes_" + tid, t); } catch (e) {}
+          var el = getNotesEl();
+          if (!el) return;
+          /* Don't clobber the user's in-progress typing or a pending local save. */
+          if (document.activeElement === el) return;
+          if (internalCloudDebounce) return;
+          if (notesDebounce) return;
+          if (el.value === t) return;
+          el.value = t;
+        },
+        function (err) {
+          console.warn("[DictationHub] internal_comms listener", err);
+        }
+      );
+    } catch (e) {
+      console.warn("[DictationHub] internal_comms subscribe failed", e);
+    }
+  }
+
   function fetchInternalCommsFromCloud(ticketId) {
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
     var _db2 = firebase.firestore();
@@ -1410,6 +1468,7 @@
       }
       el.value = loadNotesTextForTicketId(activeTicket.id);
       fetchInternalCommsFromCloud(activeTicket.id);
+      subscribeInternalCommsForTicket(activeTicket.id);
     } catch (e) {}
   }
 
@@ -1485,6 +1544,7 @@
 
   function teardownDictationHub() {
     unsubscribeAssetsOnly();
+    unsubscribeInternalCommsOnly();
     lastDictationTicketId = null;
     dictationNotesBoundTicketId = null;
     clearRosettaUi();

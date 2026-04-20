@@ -3491,6 +3491,32 @@ function toggleOfficeOverride(active) {
             }
         } catch (e) {}
     }
+    /* Sync to Firestore so the tech's real phone (not just the iframe) sees the orange override frame. */
+    try {
+        var idEl2 = document.getElementById("scCurrentId");
+        var tid = idEl2 && idEl2.value ? String(idEl2.value).trim() : "";
+        if (tid && typeof firebase !== "undefined" && firebase.apps && firebase.apps.length) {
+            var db = firebase.firestore();
+            var byName = "";
+            try {
+                byName = String(localStorage.getItem("pulse_manager_name") || "").trim();
+            } catch (e) {}
+            if (!byName) byName = "Office";
+            var FV = firebase.firestore.FieldValue;
+            var patch = {
+                officeOverrideActive: !!active,
+                officeOverrideBy: !!active ? byName : FV.delete(),
+                officeOverrideAt: !!active ? FV.serverTimestamp() : FV.delete(),
+            };
+            var p =
+                typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged
+                    ? VCFirestore.setServiceCallMerged(db, tid, patch, true)
+                    : db.collection("service_calls").doc(tid).set(patch, { merge: true });
+            p.catch(function (err) {
+                console.warn("[OfficeOverride] flag write", err);
+            });
+        }
+    } catch (e2) {}
 }
 window.toggleOfficeOverride = toggleOfficeOverride;
 
@@ -3523,6 +3549,17 @@ function closeFieldAppOfficeModal() {
 
 window.openFieldAppOfficeModal = openFieldAppOfficeModal;
 window.closeFieldAppOfficeModal = closeFieldAppOfficeModal;
+
+/* Safety: clear Firestore officeOverrideActive on tab unload so a stuck flag doesn't keep the tech's phone framed orange. */
+try {
+    window.addEventListener("beforeunload", function () {
+        if (vcDispatcherOfficeOverrideActive) {
+            try {
+                toggleOfficeOverride(false);
+            } catch (e) {}
+        }
+    });
+} catch (e) {}
 
 (function wireDispatcherOfficeOverrideUi() {
     var docPointerWired = false;

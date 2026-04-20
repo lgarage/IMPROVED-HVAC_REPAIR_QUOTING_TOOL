@@ -304,6 +304,72 @@
     handleOfficeOverride(!!d.active);
   });
 
+  /**
+   * Cross-device override: subscribe to the active ticket doc and reflect
+   * `officeOverrideActive` on the technician's real phone (not just the dispatcher iframe).
+   * The dispatcher writes `officeOverrideActive: true` in `service_call.js#toggleOfficeOverride`.
+   */
+  var _vcOfficeOverrideTicketUnsub = null;
+  var _vcOfficeOverrideTicketId = null;
+  var _vcOfficeOverrideRemoteActive = false;
+
+  function updateOverrideStripLabel(byName, on) {
+    var label = document.querySelector(
+      "#vcOfficeOverrideGlobalStrip .vc-office-override-global-strip__label"
+    );
+    if (!label) return;
+    if (on && byName) {
+      label.textContent = "Office Override active — " + byName + " may be editing";
+    } else {
+      label.textContent = "Office Override active — dispatch may be editing";
+    }
+  }
+
+  function teardownOfficeOverrideTicketListener() {
+    if (typeof _vcOfficeOverrideTicketUnsub === "function") {
+      try { _vcOfficeOverrideTicketUnsub(); } catch (e) {}
+    }
+    _vcOfficeOverrideTicketUnsub = null;
+    _vcOfficeOverrideTicketId = null;
+    if (_vcOfficeOverrideRemoteActive) {
+      _vcOfficeOverrideRemoteActive = false;
+      handleOfficeOverride(false);
+    }
+  }
+
+  function subscribeOfficeOverrideForTicket(ticketId) {
+    var tid = String(ticketId || "").trim();
+    if (!tid) return;
+    if (_vcOfficeOverrideTicketId === tid && typeof _vcOfficeOverrideTicketUnsub === "function") return;
+    teardownOfficeOverrideTicketListener();
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+    var db = firebase.firestore();
+    var ref =
+      typeof VCFirestore !== "undefined" && VCFirestore.serviceCalls
+        ? VCFirestore.serviceCalls(db).doc(tid)
+        : db.collection("service_calls").doc(tid);
+    _vcOfficeOverrideTicketId = tid;
+    try {
+      _vcOfficeOverrideTicketUnsub = ref.onSnapshot(
+        function (snap) {
+          var data = snap && snap.exists ? snap.data() || {} : {};
+          var on = data.officeOverrideActive === true;
+          var by = on ? String(data.officeOverrideBy || "").trim() : "";
+          if (on !== _vcOfficeOverrideRemoteActive) {
+            _vcOfficeOverrideRemoteActive = on;
+            handleOfficeOverride(on);
+          }
+          updateOverrideStripLabel(by, on);
+        },
+        function (err) {
+          console.warn("[OfficeOverride] active-ticket listener", err);
+        }
+      );
+    } catch (e) {
+      console.warn("[OfficeOverride] subscribe failed", e);
+    }
+  }
+
   function workspaceUiOnOpen() {
     ensureOfficeOverrideWorkspaceUnlocked();
     subscribeSiteIntelPulse();
@@ -314,12 +380,18 @@
         openSiteIntelModal();
       });
     }
+    try {
+      var t = (typeof window !== "undefined" && window.activeTicket) || null;
+      if (t && t.id) subscribeOfficeOverrideForTicket(t.id);
+    } catch (e) {}
   }
 
   window.workspaceUiOnOpen = workspaceUiOnOpen;
   window.ensureOfficeOverrideWorkspaceUnlocked = ensureOfficeOverrideWorkspaceUnlocked;
   window.lockWorkspaceControls = lockWorkspaceControls;
   window.handleOfficeOverride = handleOfficeOverride;
+  window.subscribeOfficeOverrideForTicket = subscribeOfficeOverrideForTicket;
+  window.teardownOfficeOverrideTicketListener = teardownOfficeOverrideTicketListener;
   window.openSiteIntelForLocation = openSiteIntelModal;
   window.teardownWorkspaceSiteIntel = teardownSiteIntelListener;
   window.getFieldEvidenceDefaultIsPublic = getFieldEvidenceDefaultIsPublic;
