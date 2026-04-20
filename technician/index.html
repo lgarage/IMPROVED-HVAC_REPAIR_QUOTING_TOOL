@@ -610,6 +610,18 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   font-weight: 700;
   line-height: 1.45;
 }
+.vc-office-override-banner {
+  background: linear-gradient(90deg, #0ea5e9 0%, #0369a1 100%);
+  color: #f8fafc;
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.4;
+  box-shadow: 0 2px 12px rgba(14, 165, 233, 0.35);
+}
 #screen-workspace.is-historical-job .workspace-lock-scope {
   pointer-events: none;
   user-select: none;
@@ -3032,6 +3044,9 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 </div>
 
 <div id="screen-workspace" class="screen hidden">
+  <div id="vcOfficeOverrideBanner" class="vc-office-override-banner hidden" role="status">
+    Office Override Mode — interactive Field App; edits sync to Firestore for the assigned technician.
+  </div>
   <div id="workspaceHistoricalBanner" class="workspace-historical-banner hidden" role="status">
     ⚠️ Historical Record: Viewing Read-Only. Use Addendum section below for updates.
   </div>
@@ -3591,6 +3606,15 @@ let currentHistorySelectedIndex = 0;
 let currentTechProfile = "";
 let myTickets = [];
 let activeTicket = null;
+/** True when opened from Dispatcher iframe: `?forceTicketId=&office_override=1` — full interactive workspace (not Shadow read-only). */
+try {
+  var _vcOfficeParams = new URLSearchParams(window.location.search);
+  window.VC_OFFICE_OVERRIDE =
+    _vcOfficeParams.get("office_override") === "1" &&
+    !!String(_vcOfficeParams.get("forceTicketId") || "").trim();
+} catch (e) {
+  window.VC_OFFICE_OVERRIDE = false;
+}
 /** Unsubscribe fns for Firestore listeners (multi-tech + legacy assignedTech). */
 let scheduleUnsubscribeFns = [];
 /** Site intel + visit history prefetched per ticket id (offline-ready drive to job). */
@@ -3680,6 +3704,8 @@ function switchScreen(screenName) {
       const ro = document.getElementById('vcLiteReadonlyWorkspace');
       if (ro) ro.classList.add('hidden');
     }
+    const ob = document.getElementById('vcOfficeOverrideBanner');
+    if (ob) ob.classList.add('hidden');
   }
   document.querySelectorAll('.screen').forEach(s => { s.classList.add('hidden'); s.classList.remove('active'); });
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -4531,7 +4557,9 @@ async function saveSupplementalUpdate() {
 
 async function maybeOpenDeepLinkedTicket() {
   const params = new URLSearchParams(window.location.search);
-  const tid = params.get("ticketId") || params.get("id");
+  const tid =
+    params.get("ticketId") || params.get("id") || params.get("forceTicketId");
+  const officeOverride = params.get("office_override") === "1";
   if (!tid || typeof firebase === "undefined" || !firebase.apps.length) return false;
   try {
     let t = myTickets.find((x) => x.id === tid);
@@ -4553,7 +4581,7 @@ async function maybeOpenDeepLinkedTicket() {
       if (!got.exists) return false;
       const data = got.data;
       if (data.archived) return false;
-      if (data.releasedToTech === false) {
+      if (data.releasedToTech === false && !officeOverride) {
         alert("This job has not been released by dispatch yet. It will open here after they enable Release to Field app.");
         return false;
       }
@@ -4843,7 +4871,12 @@ function openWorkspaceLiteReadonly(ticketId) {
 
 function openWorkspace(ticketId) {
   try {
-    if (typeof VcTimeTracker !== 'undefined' && VcTimeTracker.isLiteSeat && VcTimeTracker.isLiteSeat()) {
+    if (
+      window.VC_OFFICE_OVERRIDE !== true &&
+      typeof VcTimeTracker !== 'undefined' &&
+      VcTimeTracker.isLiteSeat &&
+      VcTimeTracker.isLiteSeat()
+    ) {
       openWorkspaceLiteReadonly(ticketId);
       return;
     }
@@ -4901,6 +4934,8 @@ function openWorkspace(ticketId) {
   if (typeof window.workspaceUiOnOpen === "function") window.workspaceUiOnOpen();
   prefetchSiteResourcesForTicket(activeTicket);
   if (typeof writeLivePresence === 'function') writeLivePresence();
+  var obBanner = document.getElementById('vcOfficeOverrideBanner');
+  if (obBanner) obBanner.classList.toggle('hidden', window.VC_OFFICE_OVERRIDE !== true);
 }
 
 /* ---------- location local formatting fallback ---------- */
@@ -7402,10 +7437,10 @@ window.onload = async function(){
     <script src="../equipment_manager.js?v=8"></script>
     <script src="../equipment_smart_select.js"></script>
     <script src="js/ufx_adapter.js"></script>
-    <script src="js/data_provider.js"></script>
-    <script src="js/workspace_ui.js?v=1"></script>
+    <script src="js/data_provider.js?v=1"></script>
+    <script src="js/workspace_ui.js?v=2"></script>
     <script src="js/location_manager.js"></script>
-    <script src="../dictation_hub.js?v=4"></script>
+    <script src="../dictation_hub.js?v=5"></script>
     <script src="../equipment_hub.js"></script>
     <script src="../field_forms.js"></script>
     <script src="../tech_job_history.js?v=2"></script>

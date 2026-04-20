@@ -3465,3 +3465,31 @@ document.addEventListener(
     },
     true
 );
+
+/** Dispatcher: open interactive Field App in iframe (Office Override — not Shadow viewer). */
+function openFieldAppOfficeModal() {
+    var idEl = document.getElementById("scCurrentId");
+    var tid = idEl && idEl.value ? String(idEl.value).trim() : "";
+    if (!tid) {
+        alert("Open or save a ticket in Service Call Intake first (ticket id required).");
+        return;
+    }
+    var iframe = document.getElementById("vcFieldAppOfficeIframe");
+    var modal = document.getElementById("vcFieldAppOfficeModal");
+    if (!iframe || !modal) return;
+    iframe.src =
+        "technician/index.html?forceTicketId=" +
+        encodeURIComponent(tid) +
+        "&office_override=1";
+    modal.style.display = "block";
+}
+
+function closeFieldAppOfficeModal() {
+    var iframe = document.getElementById("vcFieldAppOfficeIframe");
+    var modal = document.getElementById("vcFieldAppOfficeModal");
+    if (modal) modal.style.display = "none";
+    if (iframe) iframe.src = "about:blank";
+}
+
+window.openFieldAppOfficeModal = openFieldAppOfficeModal;
+window.closeFieldAppOfficeModal = closeFieldAppOfficeModal;

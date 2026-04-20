@@ -207,6 +207,19 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - **Hover:** Vanilla JS `mouseenter` / `mouseleave` / `focus` / `blur` on `[data-vc-qidx]` → `quoteRegistry` index → substring highlight in `#vcAiReviewRaw` via temporary `<mark class="vc-highlight-quote">`.
 - **Persist:** `VCFirestore.setServiceCallMerged` with `{ clientPortalMemo }`; `localStorage` `twinPillarsServiceDB` row update; optional `syncSingleServiceCallToCloud` (`service_call.js`).
 
+#### Interactive Field App View (Office Override) — Phase 30
+
+**User Guide**
+
+- On **Service Call Intake**, next to the other AI tools on the reported-issue toolbar, use **📱 Edit in Field App UI** after a ticket is loaded (saved Firestore id). A large modal opens with the **Field App** in an **iframe** so dispatch can work in the **same interactive workspace** a technician uses: technician notes (synced to **`internal_comms`**), equipment, forms, etc. This is **not** Shadow Mode — you are editing live tenant data; sign in with a normal field account if the iframe shows the login shell.
+- Use this to inject or fix notes, add equipment, or adjust formatting **on behalf of** the crew when needed; the tech’s device will see updates through existing Firestore sync.
+
+**Technical Specs**
+
+- `index.html` — `#vcFieldAppOfficeModal`, `#vcFieldAppOfficeIframe`; `service_call.js` — `openFieldAppOfficeModal` / `closeFieldAppOfficeModal`, iframe `src` = `technician/index.html?forceTicketId={id}&office_override=1` (same origin as dispatcher).
+- `technician/index.html` — `window.VC_OFFICE_OVERRIDE` from URL; `maybeOpenDeepLinkedTicket` accepts `forceTicketId` and, with `office_override=1`, loads the ticket via `getServiceCallOnceBridged` even when **`releasedToTech === false`**; `openWorkspace` skips Lite read-only when `VC_OFFICE_OVERRIDE` is true; **does not** set `vc_shadow_viewer` (Shadow read-only remains `?vc_shadow_viewer=1` only).
+- UI: `#vcOfficeOverrideBanner` in the workspace shell when in Office Override mode.
+
 #### Live Inter-Office Feed (Pulse)
 
 **User Guide**
@@ -522,6 +535,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - [v] Phase 27: Intelligent workspace — USA Heating and Cooling + Obsidian palette (`shared/config.js`, `technician/index.html`, dispatcher CSS/JS color pass), sticky site banner, **✨ Improve with AI** prompt rules (`dictation_hub.js`), Vision Hub full-screen Add Equipment + BTU on nameplate OCR (`equipment_manager.js`, `dictation_hub.js`), removal of unit-tag accordion (hidden draft fields), `manifest.json`, `settings.js` restock copy
 - [v] Phase 28: Dispatch Board QoL (Auto-status & 30-min timeline snap).
 - [v] Phase 29: Transparent AI Report Reviewer (`dispatcher/js/ai_report_reviewer.js`, `dispatcher/css/ai_report_reviewer.css`, `#vcAiReportReviewerModal` in `index.html`).
+- [v] Phase 30: Interactive Field App View — Office Override iframe (`index.html` `#vcFieldAppOfficeModal`, `service_call.js` open/close; `technician/index.html` `forceTicketId` + `office_override=1` routing).
 
 ### Current Focus
 

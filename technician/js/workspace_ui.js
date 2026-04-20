@@ -1,6 +1,7 @@
 /**
  * Active job workspace UI: Site Intel (Firebase site_intelligence), header affordances.
  * Inter-office site notes; does not depend on UFX.
+ * Office Override iframe (?forceTicketId=&office_override=1): banner + routing live in technician/index.html; Shadow viewer uses ?vc_shadow_viewer=1 only.
  */
 (function () {
   "use strict";
