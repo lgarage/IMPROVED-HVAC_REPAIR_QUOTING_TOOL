@@ -213,12 +213,15 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 - On **Service Call Intake**, next to the other AI tools on the reported-issue toolbar, use **📱 Edit in Field App UI** after a ticket is loaded (saved Firestore id). A large modal opens with the **Field App** in an **iframe** so dispatch can work in the **same interactive workspace** a technician uses: technician notes (synced to **`internal_comms`**), equipment, forms, etc. This is **not** Shadow Mode — you are editing live tenant data; sign in with a normal field account if the iframe shows the login shell.
 - Use this to inject or fix notes, add equipment, or adjust formatting **on behalf of** the crew when needed; the tech’s device will see updates through existing Firestore sync.
+- **Locks:** In Office Override, dispatchers can bypass the usual **historical-job** / **lite-seat** interaction rules that would block typing in the workspace (including **`#dictationHubNotes`**). Use **✍️ Insert Office Note** next to **✨ Improve with AI** to append a clean **`[Office Note]: `** stamp so office additions are easy to spot.
 
 **Technical Specs**
 
 - `index.html` — `#vcFieldAppOfficeModal`, `#vcFieldAppOfficeIframe`; `service_call.js` — `openFieldAppOfficeModal` / `closeFieldAppOfficeModal`, iframe `src` = `technician/index.html?forceTicketId={id}&office_override=1` (same origin as dispatcher).
 - `technician/index.html` — `window.VC_OFFICE_OVERRIDE` from URL; `maybeOpenDeepLinkedTicket` accepts `forceTicketId` and, with `office_override=1`, loads the ticket via `getServiceCallOnceBridged` even when **`releasedToTech === false`**; `openWorkspace` skips Lite read-only when `VC_OFFICE_OVERRIDE` is true; **does not** set `vc_shadow_viewer` (Shadow read-only remains `?vc_shadow_viewer=1` only).
 - UI: `#vcOfficeOverrideBanner` in the workspace shell when in Office Override mode.
+- **Historical lock bypass:** `#screen-workspace` gets `vc-office-override-unlock` when `VC_OFFICE_OVERRIDE` is true; CSS overrides `#screen-workspace.is-historical-job .workspace-lock-scope` `pointer-events` so the workspace stays interactive. `applyWorkspaceHistoricalMode` calls `lockWorkspaceControls` (`technician/js/workspace_ui.js`); that function **returns immediately** when `VC_OFFICE_OVERRIDE` is true so imperative locks are not applied. `ensureOfficeOverrideWorkspaceUnlocked` / `workspaceUiOnOpen` clear **`readonly` / `disabled`** on `#dictationHubNotes` if needed.
+- **`dictation_hub.js`:** `isVcTimeTrackingOnlySeat()` treats Office Override as **not** a lite seat so **`internal_comms`** debounce (`schedulePersistNotes` → `scheduleInternalCloudSave`) still runs. **`#btnInsertOfficeNote`** is shown when `VC_OFFICE_OVERRIDE` is true; click appends **`[Office Note]: `** and calls **`schedulePersistNotes()`**.
 
 #### Live Inter-Office Feed (Pulse)
 

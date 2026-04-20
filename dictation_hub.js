@@ -13,6 +13,9 @@
 
   function isVcTimeTrackingOnlySeat() {
     try {
+      if (typeof window !== "undefined" && window.VC_OFFICE_OVERRIDE === true) {
+        return false;
+      }
       return localStorage.getItem("vc_time_tracking_only") === "1";
     } catch (e) {
       return false;
@@ -387,6 +390,31 @@
 
   function getNotesEl() {
     return document.getElementById("dictationHubNotes");
+  }
+
+  function unlockDictationNotesForOfficeOverride() {
+    if (typeof window === "undefined" || window.VC_OFFICE_OVERRIDE !== true) return;
+    var el = getNotesEl();
+    if (!el) return;
+    el.removeAttribute("readonly");
+    el.removeAttribute("disabled");
+  }
+
+  function wireOfficeNoteButton() {
+    var btn = document.getElementById("btnInsertOfficeNote");
+    if (!btn) return;
+    btn.style.display = window.VC_OFFICE_OVERRIDE === true ? "inline-block" : "none";
+    if (btn.dataset.vcOfficeNoteWired === "1") return;
+    btn.dataset.vcOfficeNoteWired = "1";
+    btn.addEventListener("click", function () {
+      var el = getNotesEl();
+      if (!el) return;
+      var cur = el.value || "";
+      var stamp = "\n\n[Office Note]: ";
+      el.value = cur.trim() ? cur + stamp : "[Office Note]: ";
+      el.focus();
+      schedulePersistNotes();
+    });
   }
 
   function setProcessStatus(kind, message) {
@@ -1588,6 +1616,8 @@
     }
   };
   window.startDictationHubFromWorkspace = function () {
+    unlockDictationNotesForOfficeOverride();
+    wireOfficeNoteButton();
     wireProcessButton();
     wireVisionHubOnce();
     if (!document.documentElement.dataset.dictationPlateOcrEvt) {

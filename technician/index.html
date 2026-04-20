@@ -627,6 +627,12 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   user-select: none;
   opacity: 0.94;
 }
+/* Office Override (dispatcher iframe): allow full interaction inside lock scope on historical jobs */
+#screen-workspace.is-historical-job.vc-office-override-unlock .workspace-lock-scope {
+  pointer-events: auto;
+  user-select: auto;
+  opacity: 1;
+}
 #screen-workspace.is-historical-job .workspace-original-fab {
   display: none !important;
 }
@@ -783,6 +789,23 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   box-shadow: 0 2px 10px rgba(56, 189, 248, 0.35);
 }
 .dictation-hub-process-btn:active {
+  transform: scale(0.98);
+  opacity: 0.95;
+}
+.dictation-hub-process-wrap .vc-btn-secondary {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border: 1px solid #64748b;
+  border-radius: 10px;
+  background: #334155;
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dictation-hub-process-wrap .vc-btn-secondary:active {
   transform: scale(0.98);
   opacity: 0.95;
 }
@@ -3087,6 +3110,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
       <h2 class="dictation-hub-title">Technician notes</h2>
       <div class="dictation-hub-process-wrap">
         <button type="button" id="dictationProcessBtn" class="dictation-hub-process-btn">✨ Improve with AI</button>
+        <button type="button" id="btnInsertOfficeNote" style="display: none;" class="vc-btn-secondary">✍️ Insert Office Note</button>
         <span id="dictationProcessStatus" class="dictation-process-status" aria-live="polite"></span>
       </div>
     </div>
@@ -3701,6 +3725,7 @@ function switchScreen(screenName) {
     const ws = document.getElementById('screen-workspace');
     if (ws) {
       ws.classList.remove('workspace--lite-readonly');
+      ws.classList.remove('vc-office-override-unlock');
       const ro = document.getElementById('vcLiteReadonlyWorkspace');
       if (ro) ro.classList.add('hidden');
     }
@@ -4393,10 +4418,24 @@ function applyWorkspaceHistoricalMode(isHistorical) {
   const gen = document.getElementById('generate');
   const syncBtn = document.getElementById('reportPreviewSyncBtn');
   if (ws) ws.classList.toggle('is-historical-job', !!isHistorical);
-  if (banner) banner.classList.toggle('hidden', !isHistorical);
+  if (banner) {
+    banner.classList.toggle('hidden', !isHistorical);
+    if (isHistorical) {
+      if (window.VC_OFFICE_OVERRIDE === true) {
+        banner.textContent =
+          '⚠️ Historical record: original report fields stay locked. You can type internal notes below; use ✍️ Insert Office Note to stamp office additions. Use Addendum for formal supplemental updates.';
+      } else {
+        banner.textContent =
+          '⚠️ Historical Record: Viewing Read-Only. Use Addendum section below for updates.';
+      }
+    }
+  }
   if (addSec) addSec.classList.toggle('hidden', !isHistorical);
   if (gen) gen.disabled = !!isHistorical;
   if (syncBtn) syncBtn.disabled = !!isHistorical;
+  if (isHistorical && typeof window.lockWorkspaceControls === 'function') {
+    window.lockWorkspaceControls();
+  }
   if (!isHistorical) {
     const notes = document.getElementById('addendumSupplementalNotes');
     const files = document.getElementById('addendumFilesInput');
@@ -4864,7 +4903,10 @@ function openWorkspaceLiteReadonly(ticketId) {
   const ro = document.getElementById('vcLiteReadonlyWorkspace');
   if (ro) ro.classList.remove('hidden');
   const ws = document.getElementById('screen-workspace');
-  if (ws) ws.classList.add('workspace--lite-readonly');
+  if (ws) {
+    ws.classList.add('workspace--lite-readonly');
+    ws.classList.remove('vc-office-override-unlock');
+  }
   switchScreen('workspace');
   if (typeof writeLivePresence === 'function') writeLivePresence();
 }
@@ -4888,7 +4930,10 @@ function openWorkspace(ticketId) {
   var roPanel = document.getElementById('vcLiteReadonlyWorkspace');
   if (roPanel) roPanel.classList.add('hidden');
   var wsEl = document.getElementById('screen-workspace');
-  if (wsEl) wsEl.classList.remove('workspace--lite-readonly');
+  if (wsEl) {
+    wsEl.classList.remove('workspace--lite-readonly');
+    wsEl.classList.toggle('vc-office-override-unlock', window.VC_OFFICE_OVERRIDE === true);
+  }
 
   document.getElementById('ws-customer').innerText = activeTicket.customerName;
   document.getElementById('ws-address').innerText = buildTicketNavAddress(activeTicket) || '—';
@@ -7438,9 +7483,9 @@ window.onload = async function(){
     <script src="../equipment_smart_select.js"></script>
     <script src="js/ufx_adapter.js"></script>
     <script src="js/data_provider.js?v=1"></script>
-    <script src="js/workspace_ui.js?v=2"></script>
+    <script src="js/workspace_ui.js?v=3"></script>
     <script src="js/location_manager.js"></script>
-    <script src="../dictation_hub.js?v=5"></script>
+    <script src="../dictation_hub.js?v=6"></script>
     <script src="../equipment_hub.js"></script>
     <script src="../field_forms.js"></script>
     <script src="../tech_job_history.js?v=2"></script>

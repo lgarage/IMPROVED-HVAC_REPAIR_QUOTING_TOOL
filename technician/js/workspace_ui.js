@@ -226,7 +226,30 @@
     return false;
   }
 
+  /**
+   * Reserved hook for imperative workspace locks; Office Override must remain editable.
+   * Historical jobs use CSS (`#screen-workspace.is-historical-job .workspace-lock-scope`); bypass via
+   * `vc-office-override-unlock` + `ensureOfficeOverrideWorkspaceUnlocked`.
+   */
+  function lockWorkspaceControls() {
+    if (typeof window !== "undefined" && window.VC_OFFICE_OVERRIDE === true) {
+      return;
+    }
+  }
+
+  function ensureOfficeOverrideWorkspaceUnlocked() {
+    if (typeof window === "undefined" || window.VC_OFFICE_OVERRIDE !== true) return;
+    var ws = document.getElementById("screen-workspace");
+    if (ws) ws.classList.add("vc-office-override-unlock");
+    var notes = document.getElementById("dictationHubNotes");
+    if (notes) {
+      notes.removeAttribute("readonly");
+      notes.removeAttribute("disabled");
+    }
+  }
+
   function workspaceUiOnOpen() {
+    ensureOfficeOverrideWorkspaceUnlocked();
     subscribeSiteIntelPulse();
     var btn = document.getElementById("wsSiteIntelBtn");
     if (btn && !btn.dataset.wired) {
@@ -238,6 +261,8 @@
   }
 
   window.workspaceUiOnOpen = workspaceUiOnOpen;
+  window.ensureOfficeOverrideWorkspaceUnlocked = ensureOfficeOverrideWorkspaceUnlocked;
+  window.lockWorkspaceControls = lockWorkspaceControls;
   window.openSiteIntelForLocation = openSiteIntelModal;
   window.teardownWorkspaceSiteIntel = teardownSiteIntelListener;
   window.getFieldEvidenceDefaultIsPublic = getFieldEvidenceDefaultIsPublic;
