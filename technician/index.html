@@ -118,7 +118,8 @@ body.vc-shadow-viewer input:not([type="hidden"]) {
   opacity: 0.85;
 }
 /* Office Override (URL office_override=1): Shadow phone preview also sets vc_shadow_viewer — re-enable notes */
-body.vc-shadow-viewer.vc-office-override textarea#dictationHubNotes {
+body.vc-shadow-viewer.vc-office-override textarea#dictationHubNotes,
+body.vc-shadow-viewer.vc-office-override textarea#vcSiteIntelBody {
   pointer-events: auto !important;
   opacity: 1 !important;
 }
@@ -126,10 +127,62 @@ body.vc-shadow-viewer .nav-item {
   pointer-events: auto !important;
   opacity: 1 !important;
 }
-/* Dispatcher postMessage: Office Override toggle — orange frame + editable notes in Shadow preview */
+/* Office Override (URL or dispatcher postMessage): full-screen orange frame + top strip on tech phone */
+body.vc-office-override,
 body.vc-override-active {
   outline: 8px solid #f39c12 !important;
+  outline-offset: -8px;
   box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: calc(40px + env(safe-area-inset-top, 0px));
+}
+.vc-office-override-global-strip {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 280;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: calc(40px + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 14px 8px;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #f39c12 0%, #d97706 100%);
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-align: center;
+  line-height: 1.25;
+  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.45);
+  border-bottom: 2px solid rgba(15, 23, 42, 0.12);
+}
+body.vc-office-override .vc-office-override-global-strip,
+body.vc-override-active .vc-office-override-global-strip {
+  display: flex;
+}
+.vc-office-override-global-strip__pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.25);
+  flex-shrink: 0;
+  animation: vc-office-override-pulse 1.4s ease-in-out infinite;
+}
+@keyframes vc-office-override-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(0.92);
+  }
 }
 body.vc-shadow-viewer.vc-override-active textarea#dictationHubNotes,
 body.vc-shadow-viewer.vc-override-active textarea#vcSiteIntelBody {
@@ -636,6 +689,10 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   text-align: center;
   line-height: 1.4;
   box-shadow: 0 2px 12px rgba(14, 165, 233, 0.35);
+}
+body.vc-office-override #vcOfficeOverrideBanner,
+body.vc-override-active #vcOfficeOverrideBanner {
+  display: none !important;
 }
 #screen-workspace.is-historical-job .workspace-lock-scope {
   pointer-events: none;
@@ -2998,6 +3055,17 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 </head>
 <body>
 
+<div
+  id="vcOfficeOverrideGlobalStrip"
+  class="vc-office-override-global-strip"
+  role="status"
+  aria-live="polite"
+  aria-hidden="true"
+>
+  <span class="vc-office-override-global-strip__pulse" aria-hidden="true"></span>
+  <span class="vc-office-override-global-strip__label">Office Override active — dispatch may be editing</span>
+</div>
+
 <div id="loginShell" class="login-shell hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
   <div class="login-card">
     <h1 id="loginTitle" style="margin:0 0 8px 0; color:#0ea5e9; font-size:22px;">Sign in</h1>
@@ -3658,6 +3726,8 @@ try {
   function go() {
     if (window.VC_OFFICE_OVERRIDE === true && document.body) {
       document.body.classList.add("vc-office-override");
+      var strip = document.getElementById("vcOfficeOverrideGlobalStrip");
+      if (strip) strip.setAttribute("aria-hidden", "false");
     }
   }
   go();
@@ -7509,7 +7579,7 @@ window.onload = async function(){
     <script src="../equipment_smart_select.js"></script>
     <script src="js/ufx_adapter.js"></script>
     <script src="js/data_provider.js?v=1"></script>
-    <script src="js/workspace_ui.js?v=4"></script>
+    <script src="js/workspace_ui.js?v=5"></script>
     <script src="js/location_manager.js"></script>
     <script src="../dictation_hub.js?v=7"></script>
     <script src="../equipment_hub.js"></script>

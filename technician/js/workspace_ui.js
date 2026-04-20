@@ -267,6 +267,7 @@
     var on = !!active;
     var notes = document.getElementById("dictationHubNotes");
     var siteIntel = document.getElementById("vcSiteIntelBody");
+    var strip = document.getElementById("vcOfficeOverrideGlobalStrip");
     if (on) {
       if (!_vcPostMessageOverrideSnap) {
         _vcPostMessageOverrideSnap = {
@@ -275,6 +276,7 @@
         };
       }
       if (document.body) document.body.classList.add("vc-override-active");
+      if (strip) strip.setAttribute("aria-hidden", "false");
       if (notes) {
         notes.removeAttribute("readonly");
         notes.removeAttribute("disabled");
@@ -285,6 +287,9 @@
       }
     } else {
       if (document.body) document.body.classList.remove("vc-override-active");
+      if (strip && typeof window !== "undefined" && window.VC_OFFICE_OVERRIDE !== true) {
+        strip.setAttribute("aria-hidden", "true");
+      }
       if (_vcPostMessageOverrideSnap) {
         applyInputSnapshot(notes, _vcPostMessageOverrideSnap.dictation);
         applyInputSnapshot(siteIntel, _vcPostMessageOverrideSnap.siteIntel);
