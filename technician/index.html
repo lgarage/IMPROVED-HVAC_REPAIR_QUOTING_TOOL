@@ -117,6 +117,11 @@ body.vc-shadow-viewer input:not([type="hidden"]) {
   pointer-events: none !important;
   opacity: 0.85;
 }
+/* Office Override (URL office_override=1): Shadow phone preview also sets vc_shadow_viewer — re-enable notes */
+body.vc-shadow-viewer.vc-office-override textarea#dictationHubNotes {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
 body.vc-shadow-viewer .nav-item {
   pointer-events: auto !important;
   opacity: 1 !important;
@@ -3639,6 +3644,17 @@ try {
 } catch (e) {
   window.VC_OFFICE_OVERRIDE = false;
 }
+(function vcApplyOfficeOverrideBodyClass() {
+  function go() {
+    if (window.VC_OFFICE_OVERRIDE === true && document.body) {
+      document.body.classList.add("vc-office-override");
+    }
+  }
+  go();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", go);
+  }
+})();
 /** Unsubscribe fns for Firestore listeners (multi-tech + legacy assignedTech). */
 let scheduleUnsubscribeFns = [];
 /** Site intel + visit history prefetched per ticket id (offline-ready drive to job). */
@@ -7485,7 +7501,7 @@ window.onload = async function(){
     <script src="js/data_provider.js?v=1"></script>
     <script src="js/workspace_ui.js?v=3"></script>
     <script src="js/location_manager.js"></script>
-    <script src="../dictation_hub.js?v=6"></script>
+    <script src="../dictation_hub.js?v=7"></script>
     <script src="../equipment_hub.js"></script>
     <script src="../field_forms.js"></script>
     <script src="../tech_job_history.js?v=2"></script>

@@ -6524,6 +6524,13 @@
         const url = new URL("technician/index.html", window.location.href);
         url.searchParams.set("vc_shadow_viewer", "1");
         url.searchParams.set("_vc_sim", String(Date.now()));
+        const scIdEl = document.getElementById("scCurrentId");
+        const scTid =
+          scIdEl && scIdEl.value ? String(scIdEl.value).trim() : "";
+        if (scTid) {
+          url.searchParams.set("forceTicketId", scTid);
+          url.searchParams.set("office_override", "1");
+        }
         const shadowSel = document.getElementById("vcShadowUserSelect");
         if (shadowSel && shadowSel.value) {
           const opt = shadowSel.options[shadowSel.selectedIndex];

@@ -392,7 +392,21 @@
     return document.getElementById("dictationHubNotes");
   }
 
+  /** Re-sync from URL (iframe navigation) and set body class so Shadow + Office Override CSS applies. */
+  function syncVcOfficeOverrideFromUrl() {
+    try {
+      var p = new URLSearchParams(window.location.search);
+      window.VC_OFFICE_OVERRIDE =
+        p.get("office_override") === "1" &&
+        !!String(p.get("forceTicketId") || "").trim();
+      if (window.VC_OFFICE_OVERRIDE === true && document.body) {
+        document.body.classList.add("vc-office-override");
+      }
+    } catch (e) {}
+  }
+
   function unlockDictationNotesForOfficeOverride() {
+    syncVcOfficeOverrideFromUrl();
     if (typeof window === "undefined" || window.VC_OFFICE_OVERRIDE !== true) return;
     var el = getNotesEl();
     if (!el) return;
@@ -401,6 +415,7 @@
   }
 
   function wireOfficeNoteButton() {
+    syncVcOfficeOverrideFromUrl();
     var btn = document.getElementById("btnInsertOfficeNote");
     if (!btn) return;
     btn.style.display = window.VC_OFFICE_OVERRIDE === true ? "inline-block" : "none";
