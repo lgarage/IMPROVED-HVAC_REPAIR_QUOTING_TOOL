@@ -19,28 +19,35 @@
   - **Cross-device write-skip alarm** in `service_call.js#toggleOfficeOverride` (red outline + alert + console warn when `#scCurrentId.value` is empty on activate).
   - **Cyan synced-ticket badge** `#vcSimulatorTicketBadge` in the phone-simulator toolbar — driven by `dispatcher/js/shadow_mode.js#syncDispatcherTicketIdToActiveTech()` (exposed as `window.vcSyncDispatcherTicketIdToActiveTech`). Auto-loads the shadow-target tech's `live_presence.activeTicketId` into `#scCurrentId` so Office Override always targets the ticket the tech is viewing, with a `lastSyncedTicketId` watermark so manual ticket loads in Service Call Intake always win.
   - **Lazy-inject pattern** for any UI element that needs to ship in the inline `technician/index.html` HTML — `workspace_ui.js#ensureConsentButtonInDom()` is the reference implementation. Use this for any future tech-side UI element so a stale cached entry-point HTML can never break new features.
-- **Live two-way notes:** `dictation_hub.js#subscribeInternalCommsForTicket` mirrors `internal_comms` in real time; verified working on real devices.
-- **Default tenant:** `USA_HEATING_COOLING` (legacy `TWIN_PILLARS` still bridged via lazy migration).
+- **Live two-way notes:** `dictation_hub.js#subscribeInternalCommsForTicket` mirrors `internal_comms` in real time; verified working on real devices. **Conflict resolution: last writer wins** (per user 2026-04-25); do not add merge logic.
+- **Default tenant:** `USA_HEATING_COOLING`. **TWIN_PILLARS branding is dead** (per user 2026-04-25) — purge any remaining `"TWIN_PILLARS"` defaults during the next sweep (see KI-002 Plan E2). Lazy-migration bridge in `shared/firebase_logic.js` can stay quiet for now (no live consumers needing it).
 
 ## Active Blocker
 
 *(None.)*
 
-## Immediate Next Step
+## Immediate Next Step — Sync Hardening Backlog (KI-002), then Phase 33
 
-**Pick the next phase from the On Deck list below**, or surface a new request. The Office Override workstream (Phases 30 → 31 → 32 → 32a → 32b → 32c) is fully shipped and verified end-to-end on real hardware. Suggested decision tree:
+The Office Override workstream is fully shipped. **Before adding new features, the user explicitly asked for a sync repair pass** — done as a 2026-04-25 audit, captured in `KNOWN_ISSUES.md → KI-002` with four prioritized plans (A/B/C/E). The order to ship:
 
-- If office staff want **at-a-glance situational awareness across all techs at once** → start **Command Map (TV Mode)**. Visible win, builds on the live-presence infrastructure already in place.
-- If technicians have asked **"how much of part X is on my truck"** or you keep getting parts surprises → start **Field Inventory (Truck Stock)**.
-- If you want a planning pass before either Next Up phase → consider scoping the **Unified Contextual Modes (Service vs. Project / `ticketClass`)** epic from `ROADMAP.md → Icebox`. That one is architectural and will touch multiple existing surfaces; worth a dedicated planning session before code.
+1. **Plan A — Stop the silent failures** (~1 day, single commit batch). Highest field impact: `uploadReportToCloud`, `writeLivePresence`, dictation autosave, override consent ack, and other writes currently swallow errors. Standardize on two new helpers in `shared/firebase_logic.js`: `VCRequireTicketId(tid, label)` and `VCSurfaceWriteFailure(ctx, err)`. Then convert the listed sites in KI-002 to use them. Bump `service_call.js` and `technician/index.html` `VC_BUILD` once for the whole batch.
+2. **Plan B (subset: B1+B2+B3+B4)** — version `shared/firebase_logic.js`, version unversioned tech bundle scripts, unify `equipment_manager.js` to `?v=8`, add a dispatcher BUILD chip mirroring the iPhone overlay. ~2 hours.
+3. **Plan C3** — fix the Shadow-mirror 40×350ms polling stall by falling back to `getServiceCallOnceBridged(tid)` after exhaustion. ~30 min.
+4. **Plan E2** — TWIN_PILLARS branding purge across the codebase (start with `client_notifications.js#getTenantIdSafe`, then grep). ~30 min.
+5. Verify on iPhone using the always-on debug overlay + new dispatcher BUILD chip. Mark the relevant KI-002 checklist items, flip KI-002 itself if all of A is done.
+6. **Then Phase 33 — Field-Add Equipment** (see `ROADMAP.md → Next Up`). Lock the data-path decision (write to `imported_equipment` only vs. mirror to legacy `customers/.../assets`) before code. Hierarchy: parent company → customer name → customer location → unit number.
+
+**Also queued (small, do whenever):** move `dispatcher/index.html` (30-line redirect stub, no codebase references) to `ARCHIVE_SYSTEM_FILES/dispatcher/index.html` per user 2026-04-25. Only consequence is anyone with a stale `/dispatcher/` bookmark gets a 404. Confirm with user before doing if uncertain.
 
 ## On Deck
 
 From `ROADMAP.md → Next Up`:
+- **Phase 33 — Field-Add Equipment (No-Info Capture)** — three-path equipment data: CSV import + legacy + on-site field-add by tech.
+- **Sync hardening backlog (KI-002)** — Plans A/B/C/E from 2026-04-25 audit, *do this first*.
 - **Command Map (TV Mode)** — large-scale map + Pulse feed for office monitors.
 - **Field Inventory (Truck Stock)** — parts and materials ledger for technicians.
 
-There is also the larger architectural epic in `ROADMAP.md → Icebox` (**Unified Contextual Modes — Service vs. Project / `ticketClass`**) that may warrant a planning pass before either of the Next Up phases.
+Larger epic in `ROADMAP.md → Icebox`: **Unified Contextual Modes — Service vs. Project / `ticketClass`** — architectural, touches multiple surfaces, plan before code.
 
 ## Ongoing Maintenance Threads
 

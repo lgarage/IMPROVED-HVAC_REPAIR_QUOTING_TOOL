@@ -8,7 +8,53 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
-*(None.)*
+### KI-002 — Sync Risk Audit (2026-04-25): silent-failure & cache-versioning repair backlog
+
+A comprehensive audit of dispatcher ↔ field sync surfaces (Firestore reads/writes, real-time listeners, postMessage contracts, silent error handling, cache versioning) was completed 2026-04-25 immediately after Phase 32c shipped. It surfaced ~25 actionable repair items grouped into four plans. **None of these are blocking the Office Override workstream that just shipped** — they are pre-existing risks that were accepted for speed and now deserve dedicated attention before piling on more features. The user explicitly requested this audit before continuing with new feature work.
+
+**User decisions made during audit (locks scope):**
+- TWIN_PILLARS branding is gone — all paths are Vertex Core / `USA_HEATING_COOLING`. Bridge cleanup (originally Plan D) drops to nice-to-have; bridge-aware listeners are not required for live consumers.
+- `internal_comms` conflict resolution: **last writer wins** (no merge logic). Document this in code comments anywhere two paths can write the same field.
+- Equipment data path going forward: **CSV import + legacy + new field-add capture** (see Phase 33 in `ROADMAP.md`).
+
+**Plan A — Stop the silent failures (highest user impact, ~1 day):**
+- [ ] A1: `technician/index.html:6926-6976` (`uploadReportToCloud`) — show error state on `#successCard` when `crCol.add()` or `scUp.doc().set()` fails, do NOT show green sync.
+- [ ] A2: `technician/index.html:7290-7296` (`writeLivePresence`) — log + retry; surface persistent failure to debug overlay; visible "presence offline" chip.
+- [ ] A3: `dictation_hub.js:1336-1360` (`scheduleInternalCloudSave`) — inline "⚠ note not synced — tap to retry" affordance below textarea on save failure.
+- [ ] A4: `service_call.js:3553-3559` — extend the 32b alarm pattern to Firestore write failures (not just empty-tid).
+- [ ] A5: `technician/index.html:3955-3958` & `workspace_ui.js:427-431` — show inline error on consent button title on ack-write failure.
+- [ ] A6: `technician/index.html:7656-7659` — log + one retry attempt on coach-field delete failure.
+- [ ] A7: `customer_directory.js:53-68` — `showSaveCue` failure variant on `syncSingleCustomerToCloud` failure.
+- [ ] A8: `shared/firebase_logic.js:309-318` — guard `setServiceCallMerged` against empty `tid` (return rejected Promise).
+- [ ] A9: `dispatcher/js/shadow_mode.js:310-349` — toast on coach-prompt and force-sync failure.
+- [ ] **Standardize:** Add `VCRequireTicketId(tid, label)` and `VCSurfaceWriteFailure(ctx, err)` helpers to `shared/firebase_logic.js`. Replace ad-hoc `if (tid)` skips and `.catch(console.warn)` calls with these helpers across all files.
+
+**Plan B — Cache & version hygiene (~2 hours):**
+- [ ] B1: `index.html:30` & `technician/index.html:15` — add `?v=1` to `shared/firebase_logic.js` (currently unversioned; this is the heart of the merge bridge). Add load-time `console.info("[VC] firebase_logic v=N loaded")`.
+- [ ] B2: Add `?v=1` to all unversioned tech bundle scripts: `equipment_smart_select.js`, `ufx_adapter.js`, `location_manager.js`, `equipment_hub.js`, `field_forms.js`.
+- [ ] B3: Unify `equipment_manager.js` to `?v=8` on both dispatcher and tech (currently `v=7` dispatcher / `v=8` tech).
+- [ ] B4: Add `window.VC_BUILD = "<phase>-<date>"` to `index.html` + small chip in dispatcher top bar / sidebar footer. Match the iPhone overlay pattern.
+- [ ] B5: `dispatcher/js/report_builder.js:138-140` loads `report_builder.css?v=1` while `index.html:20` loads `?v=4` — consolidate to one source.
+- [ ] B6: `sw.js` cache hygiene — bump `CACHE_NAME` on each deploy; add activate handler to delete old caches; consider network-first for `index.html`.
+- [ ] B7: Document the dispatcher-SW vs tech-no-SW asymmetry in `sw.js` and here under Environmental Gotchas.
+
+**Plan C — Listener hygiene & polling fixes (~half day):**
+- [ ] C1: `dispatcher/js/shadow_mode.js:147-167` — refcount + unsubscribe `subscribeLivePresenceIdle` (consumers: shadow modal, take-over button, syncDispatcherTicketIdToActiveTech).
+- [ ] C2: `field_forms.js:496-510` — store unsub for `form_templates` listener; call on tab leave.
+- [ ] C3: `technician/index.html:7663-7683` — Shadow mirror polls 40×350ms then silently stalls if ticket id is outside the schedule date window. Add fallback to one-shot `getServiceCallOnceBridged(tid)` after polling exhausts.
+- [ ] C4: postMessage receivers (`workspace_ui.js:301`, `technician/index.html:4163`, `shadow_mode.js:355`) — validate `event.origin === window.location.origin`.
+
+**Plan E — Schema/typing cleanups (trivial):**
+- [ ] E1: `dispatcher/js/activity_feed.js:44-55` (`normalizeInternal`) — normalize `internal_comms` to a single canonical type on every write (string, per "last writer wins").
+- [ ] E2: `dispatcher/js/client_notifications.js:16-20` (`getTenantIdSafe`) — remove `"TWIN_PILLARS"` fallback default; use `VCFirestore.getTenantId()` only. Plus broader sweep for any remaining `TWIN_PILLARS` defaults across the codebase (per user decision: TWIN_PILLARS branding is dead).
+- [ ] E3: `settings.js:614-617` & `:632-635` — wrap dual roster + on-call writes in a `WriteBatch` so both succeed atomically (or neither).
+- [ ] E4: `dispatcher/js/ai_report_reviewer.js:563-583` — drop the redundant `syncSingleServiceCallToCloud(localRow)` after `setServiceCallMerged(memo)` (or refresh `localRow` from server first).
+
+**Recommended ship order:** A (full plan, one commit batch) → B1+B2+B3+B4 → C3 → E2 → ship + verify on iPhone. Then B6 + the rest of E.
+
+**Decision deferred:** equipment data path long-term (legacy `customers/.../assets` vs tenant `imported_equipment`). Phase 33 (Field-Add Equipment) will need to settle this. Until then the existing parallel paths stay.
+
+*(Once a plan completes, flip its checklist items, then mark KI-002 resolved and move it to the Resolved section with a dated summary.)*
 
 ---
 

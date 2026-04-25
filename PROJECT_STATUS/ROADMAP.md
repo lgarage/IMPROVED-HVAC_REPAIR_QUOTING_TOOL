@@ -6,6 +6,8 @@ A place to park ideas, feature requests, and future phases so they do not get lo
 
 ## 🚀 Next Up (Ready to Build)
 
+* **Phase 33 — Field-Add Equipment (No-Info Capture).** Three-path equipment data going forward: (1) **CSV import** in dispatcher (existing), (2) **legacy `customers/.../sites/.../assets`** tree (existing), and (3) **on-site field-add** by the tech when arriving at a site with zero asset records. The Dynamic Action Tray's existing **+ Add Equipment** entry point gets first-class treatment: tech can capture make/model/serial/install-date/nameplate-photo and file it under the correct hierarchy — *parent company → customer name → customer location → unit number*. Decide before build: should field-adds write only to `imported_equipment` (single forward path) or be mirrored to the legacy assets tree so existing dispatcher reports see them immediately. Spec, dispatcher visibility surface, and conflict semantics with CSV import all need to be locked before code. (Logged in response to user 2026-04-25 sync audit conversation.)
+* **Sync hardening backlog (KI-002 in `KNOWN_ISSUES.md`).** Plans A/B/C/E from the 2026-04-25 audit. Knock these out **before** new feature work — they prevent silent data-loss in the field. ~2 days total.
 * **Command Map (TV Mode):** Large-scale map and pulse feed for office monitors.
 * **Field Inventory (Truck Stock):** Parts and materials ledger for technicians.
 
