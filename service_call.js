@@ -3491,10 +3491,46 @@ function toggleOfficeOverride(active) {
             }
         } catch (e) {}
     }
-    /* Sync to Firestore so the tech's real phone (not just the iframe) sees the orange override frame. */
+    /* Sync to Firestore so the tech's real phone (not just the iframe) sees the orange override frame.
+       Phase 32b — if `#scCurrentId.value` is empty, the cross-device write is SKIPPED and the iframe
+       toggle is local-only. This is the #1 cause of "the consent button doesn't show on the tech's
+       phone" — the dispatcher opened the phone simulator without loading a ticket in Service Call
+       Intake first, so there's no ticket id to flag. Warn loudly so the dispatcher knows. */
     try {
         var idEl2 = document.getElementById("scCurrentId");
         var tid = idEl2 && idEl2.value ? String(idEl2.value).trim() : "";
+        if (!tid && !!active) {
+            try {
+                console.warn(
+                    "[OfficeOverride] No ticket loaded in Service Call Intake (#scCurrentId is empty). " +
+                    "Cross-device flag write SKIPPED — the tech's real phone will NOT see a consent button. " +
+                    "Open the ticket in the Service Call Intake panel first, then toggle Office Override."
+                );
+            } catch (eW) {}
+            try {
+                var btnW = document.getElementById("btnOfficeOverride");
+                if (btnW) {
+                    btnW.title =
+                        "WARNING: No ticket loaded — cross-device write skipped. Open a service call " +
+                        "in Intake first, then re-toggle.";
+                    btnW.style.outline = "3px solid #dc2626";
+                    setTimeout(function () {
+                        try { btnW.style.outline = ""; } catch (eS) {}
+                    }, 4000);
+                }
+            } catch (eB) {}
+            try {
+                /* Single, dismissable alert — only on activate, not on deactivate, and only if no tid. */
+                alert(
+                    "Office Override: no ticket loaded in Service Call Intake.\n\n" +
+                    "The phone simulator preview will toggle locally, but the technician's REAL phone " +
+                    "will NOT see a consent button because there is no ticket id to write the flag to.\n\n" +
+                    "To activate cross-device Office Override:\n" +
+                    "1. Open the ticket in the Service Call Intake panel (so #scCurrentId is set).\n" +
+                    "2. Then click Office Override again."
+                );
+            } catch (eA) {}
+        }
         if (tid && typeof firebase !== "undefined" && firebase.apps && firebase.apps.length) {
             var db = firebase.firestore();
             var byName = "";

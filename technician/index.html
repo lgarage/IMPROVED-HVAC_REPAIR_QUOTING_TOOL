@@ -3970,7 +3970,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "32a-2026-04-25";
+window.VC_BUILD = "32b-2026-04-25";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -4071,10 +4071,23 @@ window.VC_BUILD = "32a-2026-04-25";
           }
         }
         lines.push("myTickets: " + tickets.length + " (override: " + ovCount + ", ack: " + ackCount + ")");
-        if (firstHit) {
+        /* Phase 32b — Always dump the first ticket's override-related fields, even if officeOverrideActive
+           is missing/false. This is the smoking gun for "dispatcher write didn't reach this doc": if the
+           tech's first ticket shows `ovActive=undefined`, the dispatcher's write went to a different doc
+           (different ticket id, different collection root, different tenant). If it shows `ovActive=false`,
+           Phase 32 reset behavior already cleared it. Only `ovActive=true` should produce a consent button. */
+        if (tickets.length > 0 && tickets[0]) {
+          var t0 = tickets[0];
+          lines.push("t#0: " + (t0.id || "?"));
+          lines.push("  ovActive=" + JSON.stringify(t0.officeOverrideActive));
+          lines.push("  ovBy=" + JSON.stringify(t0.officeOverrideBy || null));
+          lines.push("  ack=" + JSON.stringify(t0.officeOverrideAcknowledged));
+        }
+        if (firstHit && firstHit !== tickets[0]) {
           lines.push("hit ticket: " + (firstHit.id || "?"));
           lines.push("hit by: " + (firstHit.officeOverrideBy || "?"));
         }
+        lines.push("last decision: " + (window._vcOverrideLastDecision || "(none yet)"));
       } catch (e) { lines.push("myTickets: ?"); }
       try {
         var at = (typeof activeTicket !== "undefined" && activeTicket && activeTicket.id) ? activeTicket.id : "(none)";
@@ -7997,7 +8010,7 @@ window.onload = async function(){
     <script src="../equipment_smart_select.js"></script>
     <script src="js/ufx_adapter.js"></script>
     <script src="js/data_provider.js?v=1"></script>
-    <script src="js/workspace_ui.js?v=9"></script>
+    <script src="js/workspace_ui.js?v=10"></script>
     <script src="js/location_manager.js"></script>
     <script src="../dictation_hub.js?v=8"></script>
     <script src="../equipment_hub.js"></script>

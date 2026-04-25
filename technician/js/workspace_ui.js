@@ -472,6 +472,13 @@
     var tid = hit && hit.id ? String(hit.id) : "";
     var ack = !!(hit && hit.officeOverrideAcknowledged === true);
     var state = !hit ? "off" : (ack ? "active" : "pending");
+    /* Phase 32b — record the last decision for the on-device debug overlay so we can see in real time
+       what `applyOfficeOverrideFromTickets` is concluding from each Firestore snapshot. The overlay
+       reads `window._vcOverrideLastDecision` and renders it on a `last decision:` line. */
+    try {
+      window._vcOverrideLastDecision = state +
+        " (n=" + arr.length + ", hit=" + (tid || "none") + ", by=" + (by || "?") + ", ack=" + ack + ")";
+    } catch (e) {}
     setRemoteOverrideState(state, tid, by);
   }
 
