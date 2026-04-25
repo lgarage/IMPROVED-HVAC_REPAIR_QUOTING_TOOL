@@ -2,6 +2,8 @@
 
 A place to park ideas, feature requests, and future phases so they do not get lost.
 
+> **This file is for unbuilt ideas only.** Once a phase enters active build, it is tracked in `CURRENT_STATE.md`; once it ships, it moves into `PROJECT_MAP.md → Build History`.
+
 ## 🚀 Next Up (Ready to Build)
 
 * **Command Map (TV Mode):** Large-scale map and pulse feed for office monitors.

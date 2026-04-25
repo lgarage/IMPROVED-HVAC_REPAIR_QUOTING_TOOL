@@ -2,6 +2,29 @@
 
 ## 1. THE DOCUMENTATION PROTOCOL (STRICT)
 
+### 1A. Memory Architecture & Read Order
+
+The repo uses a **layered markdown memory system**. At the start of every session, read in this order:
+
+1. **`CURRENT_STATE.md`** — single source of truth for *where we are right now*: active phase, last shipped step, active blocker pointer, immediate next step. **Read this first, every session.**
+2. **`.cursorrules`** (this file) — hard rules.
+3. **`KNOWN_ISSUES.md`** — open bugs (`KI-NNN` ids), standing environmental gotchas, and resolved-for-reference history.
+4. **`PROJECT_MAP.md`** — canonical catalog of *implemented* features by domain + Build History. Search as needed; do not read end-to-end unless onboarding.
+5. **`ROADMAP.md`** — unbuilt ideas: Next Up / Icebox / Minor Tweaks.
+6. **`DECISIONS.md`** — append-only ADR-lite log. Read before reversing or contradicting a past architectural choice.
+7. **`AI_CONTEXT_PROJECT_OVERVIEW.md`** — stable high-level architecture handoff. Read only when you need the deep architecture model. Treat as historical context; current naming conventions live in `PROJECT_MAP.md`.
+
+### 1B. File Responsibilities
+
+- **`CURRENT_STATE.md`:** Active phase, last shipped step, active blocker (by `KI-NNN`), immediate next step, on-deck phases. Update at the end of every working session, even if the only change is "no progress." When a phase fully ships, move it from here into `PROJECT_MAP.md → Build History`.
+- **`KNOWN_ISSUES.md`:** Open bugs, standing environmental gotchas, resolved-for-reference. New bugs get a `KI-NNN` id with severity, affected files, what works, what's broken, investigation checklist, and (when known) directive fix. Resolved bugs move to the **Resolved (Reference)** section with a date and one-line summary; do not delete.
+- **`DECISIONS.md`:** Append-only. When you make a non-obvious architectural choice (or reverse one), add an `ADR-NNN` entry with Context / Decision / Alternatives considered / Consequences. Never edit a past entry; supersede it with a new one and mark the old as `Superseded by ADR-MMM`.
+- **`PROJECT_MAP.md`:** Implemented features only, organized by domain. `Current Focus` at the bottom collapses to a 3-line pointer into `CURRENT_STATE.md` and `KNOWN_ISSUES.md`. Do not let it grow into a debugging journal again.
+- **`ROADMAP.md`:** Unbuilt ideas only. Once a phase enters active build it is tracked in `CURRENT_STATE.md`; once it ships, it moves into `PROJECT_MAP.md → Build History`.
+- **`AI_CONTEXT_PROJECT_OVERVIEW.md`:** Stable high-level architecture handoff. Update only on major architectural shifts.
+
+### 1C. PROJECT_MAP.md Editing Rules
+
 - **Preserve the Structure:** NEVER delete the "System Architecture & Tech Stack" or "System Philosophy" sections of `PROJECT_MAP.md`.
 - **Categorized Updates:** NEVER just append to the bottom of `PROJECT_MAP.md`. When adding new features, append them to the appropriate category (do not overwrite or delete past feature descriptions).
 - **Placement:** You must categorize every update into its functional section:
@@ -12,11 +35,10 @@
 - **The Format:** Every feature entry must have:
   - **User Guide:** (The "How-to" for a human).
   - **Technical Specs:** (Paths, hooks, and logic for the AI).
-- **The Idea Board (`ROADMAP.md`):** Use `PROJECT_MAP.md` ONLY for features that are actively being built or completed. All future feature ideas, backlog items, "shower thoughts", or unstarted epic plans MUST be routed to `ROADMAP.md` under the "Icebox" or "Next Up" sections.
 - **Tone:** Keep updates concise, technical, and formatted with markdown bullet points and bold text for readability.
 - **History Sync Protocol:** Always locate the current Phase in the **Build History** and change the `[ ]` to `[v]` after every task.
-- **Current Focus:** Always update the "Current Focus" at the very bottom of the document to reflect the immediate next steps or current blockers.
-- **Handling Pivots:** If the development focus shifts or a phase is paused to address a bug, explicitly state the pivot in the "Current Focus" section and leave the original phase unchecked in the Build History until it is truly completed.
+- **Current Focus pointer:** Keep the `Current Focus` block at the bottom of `PROJECT_MAP.md` to **3 lines maximum** that point into `CURRENT_STATE.md` and `KNOWN_ISSUES.md`. Detailed blocker write-ups belong in `KNOWN_ISSUES.md`, not here.
+- **Handling Pivots:** If the development focus shifts or a phase is paused to address a bug, log the pivot in `CURRENT_STATE.md` and (if architectural) add a `DECISIONS.md` ADR. Leave the original phase unchecked in `PROJECT_MAP.md → Build History` until it is truly completed.
 
 ## 2. ARCHITECTURAL GUARDRAILS
 

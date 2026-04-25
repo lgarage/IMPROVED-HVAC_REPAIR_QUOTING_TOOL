@@ -2,6 +2,13 @@
 
 Audited snapshot of what is **implemented and wired today**. Each feature lists **User Guide** (how to use it) and **Technical Specs** (paths, data, hooks).
 
+> **This file is the implemented-feature catalog.**
+>
+> - For *where we are right now* and the active blocker, read `CURRENT_STATE.md` first.
+> - For open bugs and environmental gotchas, read `KNOWN_ISSUES.md`.
+> - For why a given architectural choice was made, read `DECISIONS.md`.
+> - For unbuilt ideas, read `ROADMAP.md`.
+
 ---
 
 ## 1. System Philosophy & Architecture
@@ -551,5 +558,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 ### Current Focus
 
-- **Immediate next step:** Choose and execute the next roadmap phase (e.g. **Command Map / TV Mode**, **Field Inventory (Truck Stock)**) or continue **Ongoing maintenance** items below.
-- **Ongoing maintenance:** Production Firestore rules for `portal_tokens` (public read + controlled approval write) and `labor_logs`; optional short URL / custom domain for `proof_of_service.html`; optional composite Firestore index if `labor_logs` range queries require it at scale; validate print/PDF chart timing across browsers; field-test Firestore persistence across Safari/Chrome on iOS/Android; confirm existing deployments that need `TWIN_PILLARS` tenant id + `vc_app_config` override after Phase 27 default tenant change.
+- **Active phase:** **30 — Interactive Field App View (Office Override iframe).** Functionally complete on the data path; visual chrome on physical mobile devices is the open blocker.
+- **Active blocker:** **KI-001 — Office Override visual chrome missing on physical mobile devices.** Full reproduction, investigation checklist, and the agreed-on directive fix live in `KNOWN_ISSUES.md → KI-001`. Session-level snapshot is in `CURRENT_STATE.md`.
+- **Next phase candidates** (after blocker clears): see `ROADMAP.md → Next Up` (Command Map / TV Mode; Field Inventory / Truck Stock).
+- **Ongoing maintenance threads** are tracked in `CURRENT_STATE.md`, not here, so this catalog stays focused on shipped functionality.
