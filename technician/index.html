@@ -140,6 +140,14 @@ body.vc-override-active {
   padding-top: 56px;
   padding-top: calc(40px + env(safe-area-inset-top, 0px));
 }
+/* Phase 32 — pending state shifts content down for the larger consent button (taller than the strip). */
+body.vc-override-pending {
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: 78px;
+  padding-top: calc(78px + env(safe-area-inset-top, 0px));
+}
 #vcOfficeOverrideFrame {
   display: none;
   position: fixed;
@@ -209,6 +217,59 @@ body.vc-shadow-viewer.vc-override-active textarea#dictationHubNotes,
 body.vc-shadow-viewer.vc-override-active textarea#vcSiteIntelBody {
   pointer-events: auto !important;
   opacity: 1 !important;
+}
+/* Phase 32 — Office Override consent button. When the dispatcher activates Office Override on a ticket
+   assigned to this tech (officeOverrideActive === true), the chrome does NOT auto-apply on the tech's
+   real phone. Instead this large pulsing orange button replaces the top strip and the tech taps it to
+   acknowledge consent. The Field App writes officeOverrideAcknowledged: true to the ticket; the next
+   applyOfficeOverrideFromTickets snapshot transitions the body class from vc-override-pending to
+   vc-override-active and lights up the KI-001 chrome (frame + strip). Direct child of <body> for the
+   same fixed-position discipline as KI-001. */
+.vc-override-consent-btn {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100003;
+  border: none;
+  padding: 14px 18px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  background: linear-gradient(180deg, #f39c12 0%, #d97706 100%);
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.3;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(217, 119, 6, 0.55);
+  border-bottom: 2px solid rgba(15, 23, 42, 0.18);
+  animation: vc-consent-pulse 1.4s ease-in-out infinite;
+  -webkit-tap-highlight-color: transparent;
+  font-family: inherit;
+}
+body.vc-override-pending .vc-override-consent-btn { display: block; }
+.vc-override-consent-btn__title { display: block; font-size: 16px; }
+.vc-override-consent-btn__sub {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+.vc-override-consent-btn:disabled {
+  opacity: 0.85;
+  animation: none;
+  cursor: default;
+}
+@keyframes vc-consent-pulse {
+  0%, 100% { box-shadow: 0 6px 24px rgba(217, 119, 6, 0.55); }
+  50%      { box-shadow: 0 6px 28px rgba(217, 119, 6, 0.95); }
+}
+/* While pending, hide the existing chrome — the consent button takes its place visually. */
+body.vc-override-pending #vcOfficeOverrideFrame,
+body.vc-override-pending .vc-office-override-global-strip {
+  display: none !important;
 }
 /* In-app debug overlay (URL flag ?vc_debug=1). Standing aid for iOS-only testing without remote DevTools. */
 .vc-debug-overlay {
@@ -3165,6 +3226,21 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   <span class="vc-office-override-global-strip__label">Office Override active — dispatch may be editing</span>
 </div>
 
+<!-- Phase 32 — Office Override consent button. Visible only when body has class vc-override-pending
+     (set by workspace_ui.js#setRemoteOverrideState when a ticket has officeOverrideActive: true but
+     officeOverrideAcknowledged is not yet true). Tap → write acknowledgment to Firestore → next snapshot
+     flips body class to vc-override-active and the existing KI-001 chrome (frame + strip) appears.
+     Must be a direct child of <body> for the same iOS fixed-position reasons as #vcOfficeOverrideFrame. -->
+<button
+  type="button"
+  id="vcOfficeOverrideConsentBtn"
+  class="vc-override-consent-btn"
+  aria-live="polite"
+>
+  <span class="vc-override-consent-btn__title">🟠 Tap to acknowledge — Dispatch is editing this job</span>
+  <span class="vc-override-consent-btn__sub" id="vcOfficeOverrideConsentSub">Office Override is active. Tap to confirm you see this.</span>
+</button>
+
 <!-- Debug overlay: only visible when URL has ?vc_debug=1. Direct child of <body> for the same fixed-position
      reasons as #vcOfficeOverrideFrame (KI-001). Lets the tech / tester read live state on a real iPhone
      without a Mac for remote DevTools. -->
@@ -3846,6 +3922,49 @@ try {
     document.addEventListener("DOMContentLoaded", go);
   }
 })();
+/** Phase 32 — Office Override consent flow. The tech taps the orange consent button → write
+ *  officeOverrideAcknowledged + ack timestamp + ack name to the ticket. The next
+ *  applyOfficeOverrideFromTickets snapshot from `runScheduleMergeAndRender` will transition the body
+ *  class from vc-override-pending to vc-override-active and light up the KI-001 chrome (frame + strip).
+ *  The button's data-ticket-id is set by `setRemoteOverrideState` in workspace_ui.js (Phase 32). */
+(function vcOfficeOverrideConsentBoot() {
+  function init() {
+    var btn = document.getElementById("vcOfficeOverrideConsentBtn");
+    if (!btn || btn.dataset.vcWired === "1") return;
+    btn.dataset.vcWired = "1";
+    btn.addEventListener("click", function () {
+      var tid = btn.dataset.ticketId || "";
+      if (!tid) return;
+      if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+      var db = firebase.firestore();
+      var byName = (typeof currentTechProfile !== "undefined" && currentTechProfile)
+        ? String(currentTechProfile)
+        : "Technician";
+      var FV = firebase.firestore.FieldValue;
+      var patch = {
+        officeOverrideAcknowledged: true,
+        officeOverrideAcknowledgedAt: FV.serverTimestamp(),
+        officeOverrideAcknowledgedBy: byName,
+      };
+      var p = (typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged)
+        ? VCFirestore.setServiceCallMerged(db, tid, patch, true)
+        : db.collection("service_calls").doc(tid).set(patch, { merge: true });
+      btn.disabled = true;
+      var titleEl = btn.querySelector(".vc-override-consent-btn__title");
+      if (titleEl) titleEl.textContent = "✓ Acknowledging…";
+      p.catch(function (e) {
+        console.warn("[OfficeOverride] ack write", e);
+        btn.disabled = false;
+        if (titleEl) titleEl.textContent = "🟠 Tap to acknowledge — Dispatch is editing this job";
+      });
+    });
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
 /** ?vc_debug=1 — tiny on-device inspector. Renders a fixed corner box with live state values so we can
  *  diagnose Office Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Lives in the same <script> block as `myTickets` / `activeTicket` so it can read them via lexical scope. */
@@ -3881,10 +4000,14 @@ try {
       try {
         var tickets = (typeof myTickets !== "undefined" && Array.isArray(myTickets)) ? myTickets : [];
         var ovCount = 0;
+        var ackCount = 0;
         for (var i = 0; i < tickets.length; i++) {
-          if (tickets[i] && tickets[i].officeOverrideActive === true) ovCount++;
+          if (tickets[i] && tickets[i].officeOverrideActive === true) {
+            ovCount++;
+            if (tickets[i].officeOverrideAcknowledged === true) ackCount++;
+          }
         }
-        lines.push("myTickets: " + tickets.length + " (override flag: " + ovCount + ")");
+        lines.push("myTickets: " + tickets.length + " (override: " + ovCount + ", ack: " + ackCount + ")");
       } catch (e) { lines.push("myTickets: ?"); }
       try {
         var at = (typeof activeTicket !== "undefined" && activeTicket && activeTicket.id) ? activeTicket.id : "(none)";
@@ -7807,7 +7930,7 @@ window.onload = async function(){
     <script src="../equipment_smart_select.js"></script>
     <script src="js/ufx_adapter.js"></script>
     <script src="js/data_provider.js?v=1"></script>
-    <script src="js/workspace_ui.js?v=7"></script>
+    <script src="js/workspace_ui.js?v=8"></script>
     <script src="js/location_manager.js"></script>
     <script src="../dictation_hub.js?v=8"></script>
     <script src="../equipment_hub.js"></script>

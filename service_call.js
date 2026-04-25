@@ -3503,10 +3503,16 @@ function toggleOfficeOverride(active) {
             } catch (e) {}
             if (!byName) byName = "Office";
             var FV = firebase.firestore.FieldValue;
+            /* Phase 32 — consent gate. On activate: set acknowledged=false (fresh consent required) and
+               clear any stale ack timestamps. On deactivate: delete every override field including the
+               ack ones so a future re-activation starts in `pending` state and the tech must tap again. */
             var patch = {
                 officeOverrideActive: !!active,
                 officeOverrideBy: !!active ? byName : FV.delete(),
                 officeOverrideAt: !!active ? FV.serverTimestamp() : FV.delete(),
+                officeOverrideAcknowledged: !!active ? false : FV.delete(),
+                officeOverrideAcknowledgedAt: FV.delete(),
+                officeOverrideAcknowledgedBy: FV.delete(),
             };
             var p =
                 typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged

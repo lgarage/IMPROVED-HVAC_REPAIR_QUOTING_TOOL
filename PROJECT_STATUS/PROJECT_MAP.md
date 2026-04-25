@@ -288,7 +288,42 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
   - `#vcDebugOverlay` is injected as a **direct child of `<body>`** (same fixed-position discipline as `#vcOfficeOverrideFrame` from KI-001 — any transformed/filtered/perspective ancestor would break `position: fixed` containment on iOS).
   - CSS: `.vc-debug-overlay` is `position: fixed; right: 6px; bottom: 6px; z-index: 100002;` (just above the override strip at `100001`), `max-width: 240px`, dark semi-transparent background, monospace 11px text, `pointer-events: auto`, `user-select: text` so the user can long-press to select.
   - JS IIFE `vcDebugOverlayBoot` lives in the same large `<script>` block as `myTickets` / `activeTicket` so it can read them via lexical scope. Bails immediately if `?vc_debug` !== `"1"`. Calls `setInterval(snapshot, 1000)` and a Copy handler that uses `navigator.clipboard.writeText` with a `document.execCommand("copy")` fallback for older Safari.
-  - Lines logged: `body.className`, `getComputedStyle(#vcOfficeOverrideFrame).display`, `getComputedStyle(#vcOfficeOverrideGlobalStrip).display`, `myTickets.length` + `officeOverrideActive` count, `activeTicket.id`, current screen id, `location.search`, `Date.now`.
+  - Lines logged: `body.className`, `getComputedStyle(#vcOfficeOverrideFrame).display`, `getComputedStyle(#vcOfficeOverrideGlobalStrip).display`, `myTickets.length` with `(override: N, ack: M)` counts (Phase 32), `activeTicket.id`, current screen id, `location.search`, `Date.now`.
+
+#### Office Override Consent Gate — Phase 32
+
+**User Guide**
+
+- Dispatcher activating Office Override no longer immediately frames the tech's phone in orange. The tech first sees a **large pulsing orange button at the top of every screen** of the field app: *"🟠 Tap to acknowledge — Dispatch is editing this job"* with a subtitle naming the dispatcher (when known).
+- Tech taps the button → field app writes the acknowledgment to Firestore → the orange frame + top strip from KI-001 light up (existing chrome, now gated by consent).
+- Dispatcher toggling Office Override OFF clears both the consent button **and** the chrome on the tech's phone within ~1s. Re-activating later starts in `pending` again — fresh consent required every time.
+- The dispatcher's own iframes (`?office_override=1` URL or in-portal phone preview) **skip** the consent gate — they are the dispatcher by definition. The gate applies only to the tech's actual physical device via the Firestore-flag path.
+
+**Technical Specs**
+
+- **Firestore ticket fields (new):** `officeOverrideAcknowledged: boolean`, `officeOverrideAcknowledgedAt: serverTimestamp`, `officeOverrideAcknowledgedBy: string`. Set by the tech's tap; cleared with `FieldValue.delete()` whenever the dispatcher toggles Office Override OFF.
+- **Three-state cross-device path (`technician/js/workspace_ui.js?v=8`):**
+  - `applyOfficeOverrideFromTickets(tickets)` — picks the first ticket with `officeOverrideActive === true`, computes `state = !hit ? 'off' : (hit.officeOverrideAcknowledged === true ? 'active' : 'pending')`, dispatches to `setRemoteOverrideState(state, ticketId, byName)`.
+  - `setRemoteOverrideState(state, ticketId, byName)` — toggles `body.vc-override-pending` / `body.vc-override-active` and calls `handleOfficeOverride(true|false)` only on transitions in/out of `'active'` so input snapshots and strip aria are managed correctly. Tracks state in `_vcOfficeOverrideRemoteState` (`'off' | 'pending' | 'active'`).
+  - `setConsentButtonForState(state, ticketId, byName)` — writes `data-ticketId` + subtitle text on the consent button when entering `pending`; clears `data-ticketId` and resets the title in any other state so a stale tap can't write to the wrong doc.
+  - The local **postMessage** path (`handleOfficeOverride(active)`) is unchanged — dispatcher iframes (live preview + Office Override modal) still flip directly to `vc-override-active` because they are the dispatcher.
+- **Consent button (`technician/index.html`):**
+  - `#vcOfficeOverrideConsentBtn` is a `<button>` injected as a **direct child of `<body>`** (same KI-001 fixed-position discipline). Hidden by default; visible only when `body.vc-override-pending` is set (`.vc-override-consent-btn { display: none }` → `body.vc-override-pending .vc-override-consent-btn { display: block }`).
+  - CSS: `position: fixed; top: 0; left: 0; right: 0; z-index: 100003;` (just above the strip at 100001 and the debug overlay at 100002), orange gradient, 14–18px padding with `padding-top: calc(14px + env(safe-area-inset-top, 0px))` for the iOS notch, `vc-consent-pulse` keyframe on `box-shadow`, `-webkit-tap-highlight-color: transparent`. `body.vc-override-pending` adds `padding-top: 78px` (with safe-area fallback) so content shifts down under the taller button. While pending, `#vcOfficeOverrideFrame` and `.vc-office-override-global-strip` are forced `display: none !important` so the chrome doesn't double-render.
+  - JS IIFE `vcOfficeOverrideConsentBoot` (inline, same `<script>` block as `currentTechProfile`): on click, reads `dataset.ticketId`, builds a `{ officeOverrideAcknowledged: true, officeOverrideAcknowledgedAt: serverTimestamp(), officeOverrideAcknowledgedBy: currentTechProfile }` patch, writes via `VCFirestore.setServiceCallMerged` (falls back to raw `service_calls/{id}.set({...}, { merge: true })`), disables itself with title *"✓ Acknowledging…"* and re-enables on error. The next snapshot from `runScheduleMergeAndRender` calls `applyOfficeOverrideFromTickets` again and the state machine flips `pending` → `active`.
+- **Dispatcher reset (`service_call.js?v=66`):** `toggleOfficeOverride(active)` writes a single merged patch:
+  ```js
+  {
+    officeOverrideActive: !!active,
+    officeOverrideBy: !!active ? byName : FV.delete(),
+    officeOverrideAt: !!active ? FV.serverTimestamp() : FV.delete(),
+    officeOverrideAcknowledged: !!active ? false : FV.delete(),
+    officeOverrideAcknowledgedAt: FV.delete(),
+    officeOverrideAcknowledgedBy: FV.delete(),
+  }
+  ```
+  On activate: `officeOverrideAcknowledged: false` (reset) + clear stale ack timestamps. On deactivate: delete every override field including the ack ones. Plus the existing `beforeunload` safety still calls `toggleOfficeOverride(false)` to prevent a stuck flag.
+- **Decision:** see `DECISIONS.md → ADR-010` for why the consent gate runs only on the cross-device Firestore path and not on the local postMessage path.
 
 #### Live Inter-Office Feed (Pulse)
 
@@ -607,10 +642,11 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - [v] Phase 29: Transparent AI Report Reviewer (`dispatcher/js/ai_report_reviewer.js`, `dispatcher/css/ai_report_reviewer.css`, `#vcAiReportReviewerModal` in `index.html`).
 - [v] Phase 30: Interactive Field App View — Office Override iframe (`index.html` `#vcFieldAppOfficeModal`, `service_call.js` open/close; `technician/index.html` `forceTicketId` + `office_override=1` routing; `#vcOfficeOverrideFrame` overlay div + `#vcOfficeOverrideGlobalStrip` `z-index: 100001` from KI-001 close-out).
 - [ ] Phase 31: Watch + Take Over (Shadow → Office Override) + Historical-job Addendum CTA + `?vc_debug=1` in-app debug overlay (`dispatcher/js/shadow_mode.js?v=4` `takeOverActiveTicket` / `updateTakeOverButtonState` + `#vcShadowTakeOverBtn` in `index.html`; `technician/index.html` `#workspaceHistoricalAddUpdateBtn` + `vc-addendum-flash` keyframe + `#vcDebugOverlay` direct-child-of-`<body>` overlay). **Awaiting on-device verification** — see `CURRENT_STATE.md`.
+- [ ] Phase 32: Office Override **consent gate** on the tech's real phone (`#vcOfficeOverrideConsentBtn` direct child of `<body>` + `body.vc-override-pending` CSS state in `technician/index.html`; 3-state refactor of `applyOfficeOverrideFromTickets` + new `setRemoteOverrideState` in `technician/js/workspace_ui.js?v=8`; `service_call.js?v=66` `toggleOfficeOverride` resets/clears `officeOverrideAcknowledged*` fields; new ticket fields `officeOverrideAcknowledged` / `officeOverrideAcknowledgedAt` / `officeOverrideAcknowledgedBy`). **Awaiting on-device verification** — see `CURRENT_STATE.md` and `DECISIONS.md → ADR-010`.
 
 ### Current Focus
 
-- **Active phase:** **Phase 31** — shipped to repo 2026-04-25; pending real-iPhone verification (use `technician/index.html?vc_debug=1` to inspect live state on-device since no Mac is available for remote DevTools).
-- **Active blocker:** None. See `CURRENT_STATE.md → Immediate Next Step` for the verification checklist and `DECISIONS.md → ADR-009` for the take-over architecture choice.
+- **Active phase:** **Phase 32** (consent gate) stacked on **Phase 31** — both shipped to repo 2026-04-25 in the same commit batch; pending real-iPhone verification. Use `technician/index.html?vc_debug=1` to inspect live state on-device since no Mac is available for remote DevTools.
+- **Active blocker:** None. See `CURRENT_STATE.md → Immediate Next Step` for the verification checklist and `DECISIONS.md → ADR-009 / ADR-010` for the architecture choices.
 - **Next phase candidates:** see `ROADMAP.md → Next Up` (Command Map / TV Mode; Field Inventory / Truck Stock).
 - **Ongoing maintenance threads** are tracked in `CURRENT_STATE.md`, not here, so this catalog stays focused on shipped functionality.

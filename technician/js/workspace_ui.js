@@ -307,11 +307,26 @@
   /**
    * Cross-device override (global): the tech's schedule listener already streams every ticket
    * assigned to them via `runScheduleMergeAndRender`; if any of those tickets has
-   * `officeOverrideActive: true` (set by `service_call.js#toggleOfficeOverride`), apply the
-   * orange bezel + top strip on the tech's actual phone — regardless of which screen they're on
-   * and immediately on page load.
+   * `officeOverrideActive: true` (set by `service_call.js#toggleOfficeOverride`), reflect that
+   * state on the tech's actual phone — regardless of which screen they're on and immediately
+   * on page load.
+   *
+   * Phase 32 — Consent gate: this is now a 3-state path:
+   *   - `off`     → no override flag → no chrome
+   *   - `pending` → `officeOverrideActive: true` AND `officeOverrideAcknowledged !== true`
+   *                 → show the orange consent button (CSS-driven via `body.vc-override-pending`),
+   *                   but do NOT apply the KI-001 frame/strip and do NOT touch input snapshots
+   *   - `active`  → `officeOverrideActive: true` AND `officeOverrideAcknowledged === true`
+   *                 → apply the existing KI-001 chrome (frame + strip) via `handleOfficeOverride(true)`
+   *
+   * The consent button click handler in `technician/index.html` writes
+   * `officeOverrideAcknowledged: true` to the ticket; the next snapshot from
+   * `runScheduleMergeAndRender` calls `applyOfficeOverrideFromTickets` again and we transition
+   * pending → active. The dispatcher's `service_call.js#toggleOfficeOverride(false)` clears all
+   * override fields (including the ack ones) so any subsequent re-activation starts in `pending`
+   * again, requiring a fresh tap.
    */
-  var _vcOfficeOverrideRemoteActive = false;
+  var _vcOfficeOverrideRemoteState = "off"; // "off" | "pending" | "active"
   var _vcOfficeOverrideRemoteBy = "";
   var _vcOfficeOverrideRemoteTicketId = "";
 
@@ -327,10 +342,32 @@
     }
   }
 
+  function setConsentButtonForState(state, ticketId, byName) {
+    var btn = document.getElementById("vcOfficeOverrideConsentBtn");
+    if (!btn) return;
+    var titleEl = btn.querySelector(".vc-override-consent-btn__title");
+    var subEl = document.getElementById("vcOfficeOverrideConsentSub");
+    if (state === "pending") {
+      btn.dataset.ticketId = ticketId || "";
+      btn.disabled = false;
+      if (titleEl) titleEl.textContent = "🟠 Tap to acknowledge — Dispatch is editing this job";
+      if (subEl) {
+        subEl.textContent = byName
+          ? "Office Override active — " + byName + " may be editing. Tap to confirm you see this."
+          : "Office Override is active. Tap to confirm you see this.";
+      }
+    } else {
+      /* off or active — clear the button's ticket binding so a stale tap can't write to the wrong doc. */
+      btn.dataset.ticketId = "";
+      btn.disabled = false;
+      if (titleEl) titleEl.textContent = "🟠 Tap to acknowledge — Dispatch is editing this job";
+    }
+  }
+
   /**
    * Called by `runScheduleMergeAndRender` (technician/index.html) every time the tech's
    * ticket snapshots merge. Picks the first ticket with `officeOverrideActive === true`
-   * and reflects the orange override frame + strip; clears it when no ticket has the flag.
+   * and dispatches to `setRemoteOverrideState` with the computed 3-state.
    */
   function applyOfficeOverrideFromTickets(tickets) {
     var arr = Array.isArray(tickets) ? tickets : [];
@@ -339,16 +376,62 @@
       var t = arr[i];
       if (t && t.officeOverrideActive === true) { hit = t; break; }
     }
-    var on = !!hit;
-    var by = on && hit && hit.officeOverrideBy ? String(hit.officeOverrideBy).trim() : "";
-    var tid = on && hit && hit.id ? String(hit.id) : "";
-    if (on !== _vcOfficeOverrideRemoteActive) {
-      _vcOfficeOverrideRemoteActive = on;
-      handleOfficeOverride(on);
+    var by = hit && hit.officeOverrideBy ? String(hit.officeOverrideBy).trim() : "";
+    var tid = hit && hit.id ? String(hit.id) : "";
+    var ack = !!(hit && hit.officeOverrideAcknowledged === true);
+    var state = !hit ? "off" : (ack ? "active" : "pending");
+    setRemoteOverrideState(state, tid, by);
+  }
+
+  function setRemoteOverrideState(state, ticketId, byName) {
+    var prev = _vcOfficeOverrideRemoteState;
+    _vcOfficeOverrideRemoteBy = byName || "";
+    _vcOfficeOverrideRemoteTicketId = ticketId || "";
+
+    if (state === "off") {
+      if (document.body) {
+        document.body.classList.remove("vc-override-pending");
+        /* `vc-override-active` is removed inside handleOfficeOverride(false) below. */
+      }
+      setConsentButtonForState("off");
+      if (prev === "active") {
+        handleOfficeOverride(false);
+      } else if (document.body) {
+        /* Defensive: if we were pending, the active class shouldn't be set, but make sure. */
+        document.body.classList.remove("vc-override-active");
+      }
+      _vcOfficeOverrideRemoteState = "off";
+      updateOverrideStripLabel("", false);
+      return;
     }
-    _vcOfficeOverrideRemoteBy = by;
-    _vcOfficeOverrideRemoteTicketId = tid;
-    updateOverrideStripLabel(by, on);
+
+    if (state === "pending") {
+      if (document.body) {
+        document.body.classList.add("vc-override-pending");
+      }
+      /* If we were `active` and the ack got cleared (e.g. dispatcher reset), tear down active chrome
+         before showing the consent button again. */
+      if (prev === "active") {
+        handleOfficeOverride(false);
+      } else if (document.body) {
+        document.body.classList.remove("vc-override-active");
+      }
+      setConsentButtonForState("pending", ticketId, byName);
+      _vcOfficeOverrideRemoteState = "pending";
+      updateOverrideStripLabel(byName, false);
+      return;
+    }
+
+    /* state === "active" */
+    if (document.body) {
+      document.body.classList.remove("vc-override-pending");
+    }
+    setConsentButtonForState("active");
+    if (prev !== "active") {
+      handleOfficeOverride(true);
+    }
+    _vcOfficeOverrideRemoteState = "active";
+    updateOverrideStripLabel(byName, true);
   }
 
   function workspaceUiOnOpen() {
@@ -368,6 +451,7 @@
   window.lockWorkspaceControls = lockWorkspaceControls;
   window.handleOfficeOverride = handleOfficeOverride;
   window.applyOfficeOverrideFromTickets = applyOfficeOverrideFromTickets;
+  window.setRemoteOverrideState = setRemoteOverrideState;
   window.openSiteIntelForLocation = openSiteIntelModal;
   window.teardownWorkspaceSiteIntel = teardownSiteIntelListener;
   window.getFieldEvidenceDefaultIsPublic = getFieldEvidenceDefaultIsPublic;
