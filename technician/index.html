@@ -210,6 +210,51 @@ body.vc-shadow-viewer.vc-override-active textarea#vcSiteIntelBody {
   pointer-events: auto !important;
   opacity: 1 !important;
 }
+/* In-app debug overlay (URL flag ?vc_debug=1). Standing aid for iOS-only testing without remote DevTools. */
+.vc-debug-overlay {
+  position: fixed;
+  right: 6px;
+  bottom: 6px;
+  z-index: 100002;
+  max-width: 240px;
+  padding: 6px 8px;
+  background: rgba(15, 23, 42, 0.88);
+  color: #e2e8f0;
+  font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.vc-debug-overlay__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.vc-debug-overlay__title {
+  font-weight: 700;
+  color: #38bdf8;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.vc-debug-overlay__btn {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.vc-debug-overlay__btn:active {
+  background: rgba(56, 189, 248, 0.35);
+}
 .tech-profile-badge {
   font-size: 12px;
   font-weight: 800;
@@ -698,6 +743,35 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   font-size: 14px;
   font-weight: 700;
   line-height: 1.45;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.workspace-historical-banner.hidden { display: none; }
+.workspace-historical-banner__text { flex: 1 1 220px; min-width: 0; }
+.workspace-historical-banner__cta {
+  flex: 0 0 auto;
+  background: #0ea5e9;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(14, 165, 233, 0.35);
+}
+.workspace-historical-banner__cta:hover { background: #0284c7; }
+.workspace-historical-banner__cta[hidden] { display: none; }
+@keyframes vc-addendum-flash {
+  0%   { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.65); }
+  60%  { box-shadow: 0 0 0 12px rgba(14, 165, 233, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+}
+.workspace-addendum-section.is-flashing {
+  animation: vc-addendum-flash 1.6s ease-out 2;
+  border-color: #0284c7;
 }
 .vc-office-override-banner {
   background: linear-gradient(90deg, #0ea5e9 0%, #0369a1 100%);
@@ -3091,6 +3165,17 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   <span class="vc-office-override-global-strip__label">Office Override active — dispatch may be editing</span>
 </div>
 
+<!-- Debug overlay: only visible when URL has ?vc_debug=1. Direct child of <body> for the same fixed-position
+     reasons as #vcOfficeOverrideFrame (KI-001). Lets the tech / tester read live state on a real iPhone
+     without a Mac for remote DevTools. -->
+<div id="vcDebugOverlay" class="vc-debug-overlay" hidden>
+  <div class="vc-debug-overlay__head">
+    <span class="vc-debug-overlay__title">VC DEBUG</span>
+    <button type="button" class="vc-debug-overlay__btn" id="vcDebugCopyBtn">Copy</button>
+  </div>
+  <div id="vcDebugOverlayBody"></div>
+</div>
+
 <div id="loginShell" class="login-shell hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
   <div class="login-card">
     <h1 id="loginTitle" style="margin:0 0 8px 0; color:#0ea5e9; font-size:22px;">Sign in</h1>
@@ -3179,7 +3264,8 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     Office Override Mode — interactive Field App; edits sync to Firestore for the assigned technician.
   </div>
   <div id="workspaceHistoricalBanner" class="workspace-historical-banner hidden" role="status">
-    ⚠️ Historical Record: Viewing Read-Only. Use Addendum section below for updates.
+    <span id="workspaceHistoricalBannerText" class="workspace-historical-banner__text">⚠️ Historical Record: Viewing Read-Only. Use Addendum section below for updates.</span>
+    <button type="button" id="workspaceHistoricalAddUpdateBtn" class="workspace-historical-banner__cta" hidden>✏️ Add update to this job</button>
   </div>
 
   <div id="vcLiteReadonlyWorkspace" class="vc-lite-readonly-workspace hidden" aria-label="Read-only job overview">
@@ -3758,6 +3844,96 @@ try {
   go();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", go);
+  }
+})();
+/** ?vc_debug=1 — tiny on-device inspector. Renders a fixed corner box with live state values so we can
+ *  diagnose Office Override / shadow / persistence issues on a real iPhone without remote DevTools.
+ *  Lives in the same <script> block as `myTickets` / `activeTicket` so it can read them via lexical scope. */
+(function vcDebugOverlayBoot() {
+  var enabled = false;
+  try {
+    var p = new URLSearchParams(window.location.search);
+    enabled = p.get("vc_debug") === "1";
+  } catch (e) {}
+  if (!enabled) return;
+  function start() {
+    var el = document.getElementById("vcDebugOverlay");
+    var body = document.getElementById("vcDebugOverlayBody");
+    var copyBtn = document.getElementById("vcDebugCopyBtn");
+    if (!el || !body) return;
+    el.hidden = false;
+    function snapshot() {
+      var lines = [];
+      try {
+        var bcn = (document.body && document.body.className) ? String(document.body.className) : "(no body class)";
+        lines.push("body: " + (bcn.length > 80 ? bcn.slice(0, 80) + "…" : bcn));
+      } catch (e) { lines.push("body: ?"); }
+      try {
+        var frame = document.getElementById("vcOfficeOverrideFrame");
+        var disp = frame ? getComputedStyle(frame).display : "(missing)";
+        lines.push("override frame: " + disp);
+      } catch (e) { lines.push("override frame: ?"); }
+      try {
+        var strip = document.getElementById("vcOfficeOverrideGlobalStrip");
+        var sd = strip ? getComputedStyle(strip).display : "(missing)";
+        lines.push("override strip: " + sd);
+      } catch (e) { lines.push("override strip: ?"); }
+      try {
+        var tickets = (typeof myTickets !== "undefined" && Array.isArray(myTickets)) ? myTickets : [];
+        var ovCount = 0;
+        for (var i = 0; i < tickets.length; i++) {
+          if (tickets[i] && tickets[i].officeOverrideActive === true) ovCount++;
+        }
+        lines.push("myTickets: " + tickets.length + " (override flag: " + ovCount + ")");
+      } catch (e) { lines.push("myTickets: ?"); }
+      try {
+        var at = (typeof activeTicket !== "undefined" && activeTicket && activeTicket.id) ? activeTicket.id : "(none)";
+        lines.push("active ticket: " + at);
+      } catch (e) { lines.push("active ticket: ?"); }
+      try {
+        var screen = "?";
+        var screens = document.querySelectorAll(".screen.active, [id^='screen-'].active");
+        for (var j = 0; j < screens.length; j++) {
+          if (screens[j].id) { screen = screens[j].id; break; }
+        }
+        lines.push("screen: " + screen);
+      } catch (e) { lines.push("screen: ?"); }
+      try {
+        var qp = window.location.search || "(no params)";
+        lines.push("url: " + (qp.length > 80 ? qp.slice(0, 80) + "…" : qp));
+      } catch (e) {}
+      try {
+        var t = new Date();
+        lines.push("t: " + t.toLocaleTimeString());
+      } catch (e) {}
+      body.textContent = lines.join("\n");
+    }
+    snapshot();
+    setInterval(snapshot, 1000);
+    if (copyBtn) {
+      copyBtn.addEventListener("click", function () {
+        var txt = body.textContent || "";
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt);
+          } else {
+            var ta = document.createElement("textarea");
+            ta.value = txt;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+          }
+          copyBtn.textContent = "Copied";
+          setTimeout(function () { copyBtn.textContent = "Copy"; }, 1200);
+        } catch (e) {}
+      });
+    }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start);
+  } else {
+    start();
   }
 })();
 /** Unsubscribe fns for Firestore listeners (multi-tech + legacy assignedTech). */
@@ -4538,20 +4714,44 @@ function isTicketDateHistorical(ticket) {
 function applyWorkspaceHistoricalMode(isHistorical) {
   const ws = document.getElementById('screen-workspace');
   const banner = document.getElementById('workspaceHistoricalBanner');
+  const bannerText = document.getElementById('workspaceHistoricalBannerText');
+  const addUpdateBtn = document.getElementById('workspaceHistoricalAddUpdateBtn');
   const addSec = document.getElementById('workspaceAddendumSection');
   const gen = document.getElementById('generate');
   const syncBtn = document.getElementById('reportPreviewSyncBtn');
   if (ws) ws.classList.toggle('is-historical-job', !!isHistorical);
   if (banner) {
     banner.classList.toggle('hidden', !isHistorical);
-    if (isHistorical) {
+    if (isHistorical && bannerText) {
       if (window.VC_OFFICE_OVERRIDE === true) {
-        banner.textContent =
+        bannerText.textContent =
           '⚠️ Historical record: original report fields stay locked. You can type internal notes below; use ✍️ Insert Office Note to stamp office additions. Use Addendum for formal supplemental updates.';
       } else {
-        banner.textContent =
-          '⚠️ Historical Record: Viewing Read-Only. Use Addendum section below for updates.';
+        bannerText.textContent =
+          '⚠️ Historical Record: Viewing Read-Only. Tap "Add update to this job" to add a supplemental note or photo.';
       }
+    }
+  }
+  if (addUpdateBtn) {
+    /* Hide the CTA in Office Override mode (dispatcher already has full inline editing) and on lite seats. */
+    const showCta = !!isHistorical && window.VC_OFFICE_OVERRIDE !== true;
+    addUpdateBtn.hidden = !showCta;
+    if (showCta && !addUpdateBtn.dataset.vcWired) {
+      addUpdateBtn.dataset.vcWired = '1';
+      addUpdateBtn.addEventListener('click', function () {
+        const target = document.getElementById('workspaceAddendumSection');
+        const notes = document.getElementById('addendumSupplementalNotes');
+        if (!target) return;
+        try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { target.scrollIntoView(); }
+        target.classList.remove('is-flashing');
+        /* Re-trigger the keyframe by reading layout once. */
+        void target.offsetWidth;
+        target.classList.add('is-flashing');
+        setTimeout(function () { target.classList.remove('is-flashing'); }, 3400);
+        if (notes) {
+          try { notes.focus({ preventScroll: true }); } catch (e) { notes.focus(); }
+        }
+      });
     }
   }
   if (addSec) addSec.classList.toggle('hidden', !isHistorical);

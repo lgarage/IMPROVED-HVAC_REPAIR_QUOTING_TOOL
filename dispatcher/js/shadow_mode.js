@@ -71,17 +71,76 @@
     if (!sel || !badge) return;
     if (!modal || modal.classList.contains("hidden")) {
       badge.classList.add("hidden");
+      updateTakeOverButtonState();
       return;
     }
     var opt = sel.options[sel.selectedIndex];
     if (!opt || !opt.value) {
       badge.classList.add("hidden");
+      updateTakeOverButtonState();
       return;
     }
     if (opt.classList.contains("vc-shadow-option--idle")) {
       badge.classList.remove("hidden");
     } else {
       badge.classList.add("hidden");
+    }
+    updateTakeOverButtonState();
+  }
+
+  /** Phase 31 — Watch + Take Over: enable the take-over button only when the shadowed tech is on a job. */
+  function updateTakeOverButtonState() {
+    var btn = document.getElementById("vcShadowTakeOverBtn");
+    if (!btn) return;
+    var modal = document.getElementById("vcShadowModal");
+    if (!modal || modal.classList.contains("hidden") || !currentShadowPresenceKey) {
+      btn.disabled = true;
+      btn.title = "Pick a technician to shadow.";
+      return;
+    }
+    var d = presenceStateByKey[currentShadowPresenceKey] || {};
+    var tid = d.activeTicketId ? String(d.activeTicketId) : "";
+    if (!tid) {
+      btn.disabled = true;
+      btn.title = "Tech is not on a job workspace right now — ask them to open a ticket.";
+    } else {
+      btn.disabled = false;
+      btn.title =
+        "Take over the tech's current job (Office Override). Tech sees the orange chrome on their phone.";
+    }
+  }
+
+  /** Phase 31 — Watch + Take Over: flip from read-only Shadow into interactive Office Override on the
+   *  ticket the tech is currently on. Closes the Shadow modal, opens the Office Override modal targeting
+   *  that ticket, and writes `officeOverrideActive: true` to Firestore so the tech's real phone shows
+   *  the orange chrome (the cross-device contract from KI-001). */
+  function takeOverActiveTicket() {
+    if (!currentShadowPresenceKey) {
+      alert("Pick a technician to shadow before taking over.");
+      return;
+    }
+    var d = presenceStateByKey[currentShadowPresenceKey] || {};
+    var tid = d.activeTicketId ? String(d.activeTicketId) : "";
+    if (!tid) {
+      alert(
+        "Tech is not currently on a job workspace. Take-Over needs an active ticket — ask them to open one."
+      );
+      return;
+    }
+    if (typeof global.openFieldAppOfficeModal !== "function") {
+      alert("Office Override modal is unavailable — refresh the dispatcher and try again.");
+      return;
+    }
+    /* openFieldAppOfficeModal() reads the ticket id from #scCurrentId. Pre-load it so we don't have to
+       require the dispatcher to also have the ticket open in Service Call Intake. */
+    var idEl = document.getElementById("scCurrentId");
+    if (idEl) idEl.value = tid;
+    closeShadowModal();
+    global.openFieldAppOfficeModal();
+    /* openFieldAppOfficeModal calls toggleOfficeOverride(false) internally to reset state; flip it on
+       so the tech's real device sees the cross-device flag. */
+    if (typeof global.toggleOfficeOverride === "function") {
+      global.toggleOfficeOverride(true);
     }
   }
 
@@ -99,6 +158,7 @@
         });
         updateSelectIdleClasses();
         updateOfflineBadgeForCurrentSelection();
+        updateTakeOverButtonState();
       },
       function (e) {
         console.warn("[ShadowMode] live_presence:", e);
@@ -182,6 +242,7 @@
     currentShadowPresenceKey = "";
     var badge = document.getElementById("vcShadowOfflineBadge");
     if (badge) badge.classList.add("hidden");
+    updateTakeOverButtonState();
   }
 
   function sendCoachPrompt() {
@@ -269,6 +330,12 @@
       forceBtn.dataset.vcShadowWired = "1";
       forceBtn.addEventListener("click", forceRemoteSync);
     }
+    var takeOverBtn = document.getElementById("vcShadowTakeOverBtn");
+    if (takeOverBtn && !takeOverBtn.dataset.vcShadowWired) {
+      takeOverBtn.dataset.vcShadowWired = "1";
+      takeOverBtn.addEventListener("click", takeOverActiveTicket);
+    }
+    updateTakeOverButtonState();
     var coachInp = document.getElementById("vcShadowCoachInput");
     if (coachInp && !coachInp.dataset.vcShadowWired) {
       coachInp.dataset.vcShadowWired = "1";
@@ -287,6 +354,7 @@
     closeShadowModal: closeShadowModal,
     sendCoachPrompt: sendCoachPrompt,
     forceRemoteSync: forceRemoteSync,
+    takeOverActiveTicket: takeOverActiveTicket,
     payrollKeyFromName: payrollKeyFromName,
   };
 })(typeof window !== "undefined" ? window : this);

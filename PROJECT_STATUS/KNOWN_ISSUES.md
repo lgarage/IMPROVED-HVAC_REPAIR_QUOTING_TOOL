@@ -22,6 +22,7 @@ These are not bugs but recurring traps — keep them in mind whenever editing th
 - **Firestore persistence + multi-tab.** `db.enablePersistence({ synchronizeTabs: true })` is enabled; some browsers (older Safari) can still throw on second-tab init. Catch and continue.
 - **Gemini `responseMimeType: "application/json"` is not universal.** Some prompt/model combos reject it. Always include a fallback path that re-issues the request without `responseMimeType` (see `ai_report_reviewer.js`).
 - **Tenant id pinning.** Existing deployments may need `vc_active_tenant_id` in `localStorage` to stay on `TWIN_PILLARS` after the Phase 27 default-tenant change to `USA_HEATING_COOLING`.
+- **iOS-only testing without a Mac (no remote DevTools).** The dev box is Windows; we cannot attach Safari Web Inspector to a real iPhone. Use the **`?vc_debug=1`** in-app debug overlay on the field app instead — append `?vc_debug=1` to the technician URL and a small fixed bottom-right box renders live values for `body.className`, override-frame display, override-strip display, ticket counts, active ticket id, current screen, and URL params (updated every 1s). Tap **Copy** to paste the snapshot into a chat. Shipped Phase 31; lives in `technician/index.html` (`#vcDebugOverlay`, `vcDebugOverlayBoot` IIFE).
 
 ---
 

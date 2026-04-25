@@ -242,6 +242,54 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - **Cross-device override flag (`officeOverrideActive`):** `service_call.js#toggleOfficeOverride` writes **`{ officeOverrideActive, officeOverrideBy, officeOverrideAt }`** to the open ticket via **`VCFirestore.setServiceCallMerged`**, and clears those fields (with **`FieldValue.delete()`**) when the dispatcher toggles off / closes the preview / unloads the tab. The technician's existing schedule listener (`runScheduleMergeAndRender` in `technician/index.html`, fed by **`subscribeBridgedServiceCallQuery`** on `assignedTechs`/`assignedTech`) calls **`window.applyOfficeOverrideFromTickets(myTickets)`** on every snapshot — including the first one right after page load — so the tech's real phone reflects the override on **any screen** (not just the workspace) and clears it the moment the flag is removed. `applyOfficeOverrideFromTickets` invokes **`handleOfficeOverride(active)`** and updates the top-strip label with the dispatcher name from **`officeOverrideBy`**.
 - **Live `internal_comms` mirror (`dictation_hub.js`):** **`subscribeInternalCommsForTicket(ticketId)`** runs from `loadNotesFromStorageForNewTicket` and `onSnapshot`s the active ticket; updates `#dictationHubNotes` only when **`document.activeElement !== el`** and neither **`internalCloudDebounce`** nor **`notesDebounce`** is pending, so the local typist is never clobbered. `teardownDictationHub()` calls **`unsubscribeInternalCommsOnly()`**.
 
+#### Watch + Take Over (Shadow → Office Override) — Phase 31
+
+**User Guide**
+
+- In the dispatcher Shadow modal toolbar, the orange **🟠 Take over (edit this job)** button stays disabled until you've picked a tech AND that tech is currently on a job workspace. When both conditions hold, the tooltip flips to "Take over the tech's current job (Office Override). Tech sees the orange chrome on their phone."
+- Click it — the Shadow modal closes, the Office Override modal (`#vcFieldAppOfficeModal`) opens on the tech's currently-active ticket, and the tech's real phone immediately shows the orange Office Override chrome (frame + top strip from KI-001 / Phase 30) so they know dispatch is editing.
+- This is the "watch + take over" combo: shadow read-only by default, then one button to flip into editing without first looking up the ticket id.
+
+**Technical Specs**
+
+- `index.html` — `#vcShadowTakeOverBtn` lives in `.vc-shadow-force-row` next to `#vcShadowForceSyncBtn`; uses `.vc-shadow-takeover-btn` (orange gradient, disabled-state grey). `dispatcher/js/shadow_mode.js?v=4` cache-bust.
+- `dispatcher/js/shadow_mode.js`:
+  - `takeOverActiveTicket()` — reads `presenceStateByKey[currentShadowPresenceKey].activeTicketId`, alerts if no presence key or no active ticket, otherwise sets `#scCurrentId.value = tid` (so `openFieldAppOfficeModal` can read it without requiring the dispatcher to also have the ticket open in Service Call Intake), calls `closeShadowModal()`, then `window.openFieldAppOfficeModal()` (which internally calls `toggleOfficeOverride(false)` to reset state and loads the iframe with `?forceTicketId={id}&office_override=1`), then `window.toggleOfficeOverride(true)` to write the cross-device Firestore flag.
+  - `updateTakeOverButtonState()` — runs from `subscribeLivePresenceIdle` (every `live_presence` snapshot), `updateOfflineBadgeForCurrentSelection`, `closeShadowModal`, and `initShadowMode`. Sets `disabled` + tooltip based on (a) modal visible, (b) presence key set, (c) `activeTicketId` present.
+  - Wiring is idempotent (`dataset.vcShadowWired = "1"`).
+- `live_presence` contract: technician writes `activeTicketId: ticketId | null` from `writeLivePresence` in `technician/index.html` whenever the workspace ticket changes.
+- See `DECISIONS.md → ADR-009` for why we reuse the existing Office Override modal instead of editing through the Shadow iframe.
+
+#### Historical-job Addendum CTA — Phase 31
+
+**User Guide**
+
+- When a tech opens a closed/historical job in the field app, the warning banner now reads "⚠️ Historical Record: Viewing Read-Only. Tap **'Add update to this job'** to add a supplemental note or photo." The blue **✏️ Add update to this job** button sits inline in the banner.
+- Tap it — the page smooth-scrolls to the **Supplemental update (addendum)** section, the section glows with a 2-cycle blue pulse (`vc-addendum-flash` keyframe), and the supplemental-notes textarea takes focus so the tech can start typing immediately.
+- The CTA is hidden in Office Override mode (dispatcher already has full inline editing) and on lite seats (read-only by entitlement).
+
+**Technical Specs**
+
+- `technician/index.html`:
+  - Banner refactored from raw `textContent` updates to a structured `<span id="workspaceHistoricalBannerText">` + `<button id="workspaceHistoricalAddUpdateBtn" hidden>` so we can flip text and button visibility independently.
+  - CSS: `.workspace-historical-banner` is now `display: flex; flex-wrap: wrap;` with `.workspace-historical-banner__text` (`flex: 1 1 220px`) and `.workspace-historical-banner__cta` (blue button, `flex: 0 0 auto`). New `@keyframes vc-addendum-flash` and `.workspace-addendum-section.is-flashing` rule for the pulse.
+  - `applyWorkspaceHistoricalMode(isHistorical)` — sets text on the inner span (not on the banner itself), toggles `addUpdateBtn.hidden` based on `isHistorical && window.VC_OFFICE_OVERRIDE !== true`, and lazily wires the click handler (`dataset.vcWired = '1'`) to `scrollIntoView({ behavior: 'smooth', block: 'center' })` + restart the `is-flashing` class via `void target.offsetWidth` reflow + focus the textarea.
+
+#### `?vc_debug=1` In-App Debug Overlay — Phase 31 (standing aid)
+
+**User Guide**
+
+- Append `?vc_debug=1` to any technician URL (e.g. `technician/index.html?vc_debug=1`) to render a small dark monospace box in the bottom-right corner showing live state values that update once per second. Tap **Copy** to copy the snapshot to the clipboard for sharing diagnostics over chat / SMS.
+- Standing diagnostic aid for **iOS-only testing without remote DevTools** (no Mac available). Lets us inspect `body.className`, override-frame visibility, override-strip visibility, ticket counts, active ticket id, current screen, and URL params on a real iPhone in seconds.
+
+**Technical Specs**
+
+- `technician/index.html`:
+  - `#vcDebugOverlay` is injected as a **direct child of `<body>`** (same fixed-position discipline as `#vcOfficeOverrideFrame` from KI-001 — any transformed/filtered/perspective ancestor would break `position: fixed` containment on iOS).
+  - CSS: `.vc-debug-overlay` is `position: fixed; right: 6px; bottom: 6px; z-index: 100002;` (just above the override strip at `100001`), `max-width: 240px`, dark semi-transparent background, monospace 11px text, `pointer-events: auto`, `user-select: text` so the user can long-press to select.
+  - JS IIFE `vcDebugOverlayBoot` lives in the same large `<script>` block as `myTickets` / `activeTicket` so it can read them via lexical scope. Bails immediately if `?vc_debug` !== `"1"`. Calls `setInterval(snapshot, 1000)` and a Copy handler that uses `navigator.clipboard.writeText` with a `document.execCommand("copy")` fallback for older Safari.
+  - Lines logged: `body.className`, `getComputedStyle(#vcOfficeOverrideFrame).display`, `getComputedStyle(#vcOfficeOverrideGlobalStrip).display`, `myTickets.length` + `officeOverrideActive` count, `activeTicket.id`, current screen id, `location.search`, `Date.now`.
+
 #### Live Inter-Office Feed (Pulse)
 
 **User Guide**
@@ -558,10 +606,11 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - [v] Phase 28: Dispatch Board QoL (Auto-status & 30-min timeline snap).
 - [v] Phase 29: Transparent AI Report Reviewer (`dispatcher/js/ai_report_reviewer.js`, `dispatcher/css/ai_report_reviewer.css`, `#vcAiReportReviewerModal` in `index.html`).
 - [v] Phase 30: Interactive Field App View — Office Override iframe (`index.html` `#vcFieldAppOfficeModal`, `service_call.js` open/close; `technician/index.html` `forceTicketId` + `office_override=1` routing; `#vcOfficeOverrideFrame` overlay div + `#vcOfficeOverrideGlobalStrip` `z-index: 100001` from KI-001 close-out).
+- [ ] Phase 31: Watch + Take Over (Shadow → Office Override) + Historical-job Addendum CTA + `?vc_debug=1` in-app debug overlay (`dispatcher/js/shadow_mode.js?v=4` `takeOverActiveTicket` / `updateTakeOverButtonState` + `#vcShadowTakeOverBtn` in `index.html`; `technician/index.html` `#workspaceHistoricalAddUpdateBtn` + `vc-addendum-flash` keyframe + `#vcDebugOverlay` direct-child-of-`<body>` overlay). **Awaiting on-device verification** — see `CURRENT_STATE.md`.
 
 ### Current Focus
 
-- **Active phase:** None — between phases. Phase 30 closed 2026-04-25 with the KI-001 fix.
-- **Active blocker:** None. See `CURRENT_STATE.md` for the immediate next step (field-verify KI-001 on real iOS Safari + Android Chrome, then pick the next phase).
+- **Active phase:** **Phase 31** — shipped to repo 2026-04-25; pending real-iPhone verification (use `technician/index.html?vc_debug=1` to inspect live state on-device since no Mac is available for remote DevTools).
+- **Active blocker:** None. See `CURRENT_STATE.md → Immediate Next Step` for the verification checklist and `DECISIONS.md → ADR-009` for the take-over architecture choice.
 - **Next phase candidates:** see `ROADMAP.md → Next Up` (Command Map / TV Mode; Field Inventory / Truck Stock).
 - **Ongoing maintenance threads** are tracked in `CURRENT_STATE.md`, not here, so this catalog stays focused on shipped functionality.

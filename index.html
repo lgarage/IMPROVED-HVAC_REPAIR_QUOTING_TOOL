@@ -210,9 +210,12 @@
       .vc-shadow-force-row {
         display: flex;
         justify-content: flex-end;
+        align-items: center;
+        gap: 8px;
         padding: 0 12px 8px;
         background: #fff;
         border-bottom: 1px solid #e1e8ed;
+        flex-wrap: wrap;
       }
       .vc-shadow-force-btn {
         padding: 8px 12px;
@@ -226,6 +229,25 @@
       }
       .vc-shadow-force-btn:hover {
         background: #f5e6c8;
+      }
+      .vc-shadow-takeover-btn {
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid #d97706;
+        background: linear-gradient(180deg, #f39c12 0%, #d97706 100%);
+        color: #0f172a;
+        font-weight: 800;
+        font-size: 12px;
+        cursor: pointer;
+        box-shadow: 0 1px 4px rgba(217, 119, 6, 0.45);
+      }
+      .vc-shadow-takeover-btn:hover { filter: brightness(1.05); }
+      .vc-shadow-takeover-btn:disabled {
+        background: #f3f4f6;
+        color: #9ca3af;
+        border-color: #d1d5db;
+        cursor: not-allowed;
+        box-shadow: none;
       }
       .vc-shadow-modal-head button {
         background: transparent;
@@ -2547,6 +2569,15 @@
             </button>
           </div>
           <div class="vc-shadow-force-row">
+            <button
+              type="button"
+              id="vcShadowTakeOverBtn"
+              class="vc-shadow-takeover-btn"
+              title="Pick a technician to shadow."
+              disabled
+            >
+              🟠 Take over (edit this job)
+            </button>
             <button
               type="button"
               id="vcShadowForceSyncBtn"
@@ -6807,7 +6838,7 @@
     <script src="dispatcher/js/navigation.js?v=1"></script>
     <script src="settings.js?v=15"></script>
     <script src="dispatcher/js/user_import.js?v=2"></script>
-    <script src="dispatcher/js/shadow_mode.js?v=3"></script>
+    <script src="dispatcher/js/shadow_mode.js?v=4"></script>
     <script src="customer_directory.js?v=26"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js?v=2"></script>

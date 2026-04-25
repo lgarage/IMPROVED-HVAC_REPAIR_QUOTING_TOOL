@@ -12,8 +12,11 @@
 
 ## Snapshot
 
-- **Active Phase:** None — between phases. **Phase 30 (Interactive Field App View / Office Override) is fully closed** as of 2026-04-25.
-- **Last shipped:** **KI-001 fix** — replaced the `<body>` `outline` with a dedicated fixed-position overlay div `#vcOfficeOverrideFrame` injected as a direct child of `<body>`; bumped `#vcOfficeOverrideGlobalStrip` to `z-index: 100001`; added a fixed `min-height: 56px` fallback before the safe-area `calc()` for older iOS Safari. Frame visibility is CSS-driven from `body.vc-office-override` / `body.vc-override-active`, so both the URL-init code path and the postMessage / Firestore-flag JS path light it up automatically. Files touched: `technician/index.html` only. See `KNOWN_ISSUES.md → Resolved → KI-001` and `DECISIONS.md → ADR-008`.
+- **Active Phase:** **Phase 31 — Watch + Take Over, Addendum CTA, Debug Overlay** (shipped to repo 2026-04-25; **needs on-device verification** before declaring done).
+- **Last shipped (this session):**
+  1. **Shadow Mode → Take Over.** New `🟠 Take over (edit this job)` button in the Shadow modal toolbar. Reads the shadowed tech's `live_presence.activeTicketId`, closes Shadow, opens the Office Override modal (`#vcFieldAppOfficeModal`) targeting that ticket, and writes the cross-device `officeOverrideActive` flag so the tech's real phone shows the orange chrome from KI-001. Disabled with a tooltip when no tech is shadowed or the tech isn't on a workspace. Files: `index.html` (`.vc-shadow-takeover-btn` styles + `#vcShadowTakeOverBtn` button + `?v=4` cache-bust), `dispatcher/js/shadow_mode.js` (`takeOverActiveTicket`, `updateTakeOverButtonState`, integration with `closeShadowModal` / `subscribeLivePresenceIdle`).
+  2. **Historical-job Addendum CTA.** New `✏️ Add update to this job` button injected into `#workspaceHistoricalBanner`. Smooth-scrolls to `#workspaceAddendumSection`, runs a 2-cycle `vc-addendum-flash` keyframe pulse, and focuses `#addendumSupplementalNotes`. Hidden in Office Override mode (dispatcher already has full inline editing). Files: `technician/index.html` only (CSS + banner markup + `applyWorkspaceHistoricalMode` rewrite to set text via a child span).
+  3. **`?vc_debug=1` in-app debug overlay.** New `#vcDebugOverlay` injected as a direct child of `<body>` (same fixed-position discipline as KI-001). Renders a tiny fixed bottom-right monospace box updated every 1s with: `body.className`, `#vcOfficeOverrideFrame` computed `display`, `#vcOfficeOverrideGlobalStrip` computed `display`, `myTickets.length` + count of tickets with `officeOverrideActive: true`, current `activeTicket.id`, current screen id, URL params, time. Tap "Copy" to clipboard for sharing diagnostics. Standing aid for **iOS-only testing without remote DevTools** (no Mac available). Files: `technician/index.html` only.
 - **Live two-way notes:** `dictation_hub.js#subscribeInternalCommsForTicket` mirrors `internal_comms` in real time; verified working on real devices.
 - **Default tenant:** `USA_HEATING_COOLING` (legacy `TWIN_PILLARS` still bridged via lazy migration).
 
@@ -23,13 +26,14 @@
 
 ## Immediate Next Step
 
-1. **Field-verify the KI-001 fix** before declaring it shipped to production users:
-   - Force-reload the field app on a real iOS Safari device and a real Android Chrome device (close PWA / tab, reopen).
-   - Confirm via remote DevTools that `document.body.className` includes `vc-override-active` or `vc-office-override` while a dispatcher has Office Override ACTIVE.
-   - Confirm `#vcOfficeOverrideFrame` is a direct child of `<body>` with `display: block` and that `#vcOfficeOverrideGlobalStrip` renders above every modal.
-2. **Pick the next phase** from `ROADMAP.md → Next Up` (see On Deck below) and seed a new "Active Phase" snapshot.
+1. **Field-verify the three Phase 31 additions** on a real iPhone before flipping Phase 31 to `[v]`:
+   - Open the field app with `technician/index.html?vc_debug=1` and confirm the dark debug box renders bottom-right with live values updating each second. Tap **Copy** to confirm clipboard works.
+   - From dispatcher, open Shadow Mode on a tech who is currently on a job. Confirm the **🟠 Take over** button enables. Click it — Shadow modal closes, Office Override modal opens on that ticket, and (via the debug overlay) confirm the tech's phone shows `body: …vc-override-active…`, `override frame: block`, `override strip: flex`.
+   - Open a closed/historical job on the field app. Confirm the historical banner shows the **✏️ Add update to this job** button, that tapping it scrolls to and pulses the Addendum section, and the supplemental-notes textarea takes focus.
+   - Also re-confirm KI-001 still passes: `body.className` includes the override class while ACTIVE; `#vcOfficeOverrideFrame` is a direct child of `<body>` with `display: block`; `#vcOfficeOverrideGlobalStrip` renders above every modal.
+2. **Once verified**, flip Phase 31 to `[v]` in `PROJECT_MAP.md → Build History` and pick the next phase from `ROADMAP.md → Next Up` (see On Deck below).
 
-## On Deck (Pick the Next Phase)
+## On Deck (Pick the Next Phase After 31)
 
 From `ROADMAP.md → Next Up`:
 - **Command Map (TV Mode)** — large-scale map + Pulse feed for office monitors.
