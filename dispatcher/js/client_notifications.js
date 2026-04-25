@@ -13,11 +13,26 @@
     }
   }
 
+  /**
+   * KI-002 Plan E2 — TWIN_PILLARS branding is dead (per user 2026-04-25).
+   * Defer to the canonical `VCFirestore.getTenantId()` helper instead of
+   * pinning a legacy `"TWIN_PILLARS"` literal here. That helper is the same
+   * source of truth used by every tenant-scoped collection helper in
+   * `shared/firebase_logic.js`, so this metadata stays in lockstep with
+   * actual write paths. Callers tolerate an empty result (today this only
+   * feeds the branding snapshot on the portal_token doc).
+   */
   function getTenantIdSafe() {
+    if (typeof VCFirestore !== "undefined" && typeof VCFirestore.getTenantId === "function") {
+      try {
+        var tid = VCFirestore.getTenantId();
+        if (tid) return String(tid).trim();
+      } catch (e) {}
+    }
     if (typeof APP_CONFIG !== "undefined" && APP_CONFIG.tenantId) {
       return String(APP_CONFIG.tenantId).trim();
     }
-    return "TWIN_PILLARS";
+    return "";
   }
 
   function showVerificationCue(msg) {
