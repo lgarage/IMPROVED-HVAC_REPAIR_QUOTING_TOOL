@@ -8,7 +8,13 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
-### KI-002 — Sync Risk Audit (2026-04-25): silent-failure & cache-versioning repair backlog
+*(No open issues. KI-002 closed 2026-04-25 after C3 + E2 shipped — see Resolved (Reference) below.)*
+
+---
+
+## (Archived in place for traceability — see Resolved (Reference) for the closeout summary)
+
+### KI-002 — Sync Risk Audit (2026-04-25): silent-failure & cache-versioning repair backlog [RESOLVED 2026-04-25]
 
 A comprehensive audit of dispatcher ↔ field sync surfaces (Firestore reads/writes, real-time listeners, postMessage contracts, silent error handling, cache versioning) was completed 2026-04-25 immediately after Phase 32c shipped. It surfaced ~25 actionable repair items grouped into four plans. **None of these are blocking the Office Override workstream that just shipped** — they are pre-existing risks that were accepted for speed and now deserve dedicated attention before piling on more features. The user explicitly requested this audit before continuing with new feature work.
 
@@ -39,22 +45,20 @@ A comprehensive audit of dispatcher ↔ field sync surfaces (Firestore reads/wri
 - [ ] B7: Document the dispatcher-SW vs tech-no-SW asymmetry in `sw.js` and here under Environmental Gotchas.
 
 **Plan C — Listener hygiene & polling fixes (~half day):**
-- [ ] C1: `dispatcher/js/shadow_mode.js:147-167` — refcount + unsubscribe `subscribeLivePresenceIdle` (consumers: shadow modal, take-over button, syncDispatcherTicketIdToActiveTech).
-- [ ] C2: `field_forms.js:496-510` — store unsub for `form_templates` listener; call on tab leave.
-- [ ] C3: `technician/index.html:7663-7683` — Shadow mirror polls 40×350ms then silently stalls if ticket id is outside the schedule date window. Add fallback to one-shot `getServiceCallOnceBridged(tid)` after polling exhausts.
-- [ ] C4: postMessage receivers (`workspace_ui.js:301`, `technician/index.html:4163`, `shadow_mode.js:355`) — validate `event.origin === window.location.origin`.
+- [ ] C1: `dispatcher/js/shadow_mode.js:147-167` — refcount + unsubscribe `subscribeLivePresenceIdle` (consumers: shadow modal, take-over button, syncDispatcherTicketIdToActiveTech). *(Deferred to ROADMAP — listener leak; not field-impact.)*
+- [ ] C2: `field_forms.js:496-510` — store unsub for `form_templates` listener; call on tab leave. *(Deferred to ROADMAP — listener leak; not field-impact.)*
+- [v] C3: `technician/index.html:7768-7789` — Shadow mirror polled 40×350ms then silently stalled if ticket id was outside the schedule date window. **SHIPPED 2026-04-25 (commit f4fe37a):** added `shadowMirrorOpenViaBridgedFetch(tid)` fallback that runs after polling exhausts — calls `VCFirestore.getServiceCallOnceBridged(db, tid)`, pushes the doc into `myTickets`, and calls `openWorkspace(tid)`. Every failure path (no firebase, no bridge helper, doc not found, fetch rejection, exception) routes through `VCSurfaceWriteFailure` so the iPhone debug overlay's `__vcWriteFailures` ring buffer surfaces the stall instead of swallowing it.
+- [ ] C4: postMessage receivers (`workspace_ui.js:301`, `technician/index.html:4163`, `shadow_mode.js:355`) — validate `event.origin === window.location.origin`. *(Deferred to ROADMAP — security hardening, no live exploit.)*
 
 **Plan E — Schema/typing cleanups (trivial):**
-- [ ] E1: `dispatcher/js/activity_feed.js:44-55` (`normalizeInternal`) — normalize `internal_comms` to a single canonical type on every write (string, per "last writer wins").
-- [ ] E2: `dispatcher/js/client_notifications.js:16-20` (`getTenantIdSafe`) — remove `"TWIN_PILLARS"` fallback default; use `VCFirestore.getTenantId()` only. Plus broader sweep for any remaining `TWIN_PILLARS` defaults across the codebase (per user decision: TWIN_PILLARS branding is dead).
-- [ ] E3: `settings.js:614-617` & `:632-635` — wrap dual roster + on-call writes in a `WriteBatch` so both succeed atomically (or neither).
-- [ ] E4: `dispatcher/js/ai_report_reviewer.js:563-583` — drop the redundant `syncSingleServiceCallToCloud(localRow)` after `setServiceCallMerged(memo)` (or refresh `localRow` from server first).
+- [ ] E1: `dispatcher/js/activity_feed.js:44-55` (`normalizeInternal`) — normalize `internal_comms` to a single canonical type on every write (string, per "last writer wins"). *(Deferred to ROADMAP — schema hygiene; reads already tolerate both shapes.)*
+- [v] E2: `dispatcher/js/client_notifications.js:16-20` (`getTenantIdSafe`) — remove `"TWIN_PILLARS"` fallback default; use `VCFirestore.getTenantId()` only. **SHIPPED 2026-04-25 (commit 79eb281):** `getTenantIdSafe` now defers to `VCFirestore.getTenantId()` (canonical helper) with `APP_CONFIG.tenantId` secondary and empty-string final fallback. Codebase grep verified that `dispatcher/js/client_notifications.js` was the **only** caller-side `"TWIN_PILLARS"` default outside the lazy-migration bridge in `shared/firebase_logic.js` (which the 2026-04-25 audit decision says to leave quiet because no live consumers need it). `dispatcher/js/client_notifications.js?v=2` bumped in `index.html`. `shared/firebase_logic.js` intentionally NOT touched (no `?v=2` bump needed).
+- [ ] E3: `settings.js:614-617` & `:632-635` — wrap dual roster + on-call writes in a `WriteBatch` so both succeed atomically (or neither). *(Deferred to ROADMAP — both writes already work; atomicity is a polish item.)*
+- [ ] E4: `dispatcher/js/ai_report_reviewer.js:563-583` — drop the redundant `syncSingleServiceCallToCloud(localRow)` after `setServiceCallMerged(memo)` (or refresh `localRow` from server first). *(Deferred to ROADMAP — perf/clarity; not user-visible.)*
 
-**Recommended ship order:** ~~A (full plan)~~ ✓ shipped 2026-04-25 → ~~B1+B2+B3+B4~~ ✓ shipped 2026-04-25 → C3 (next) → E2 → ship + verify on iPhone. Then B6 + the rest of E. Once all of B/C/E that we care about for this pass is done, flip KI-002 itself to Resolved.
+**Recommended ship order:** ~~A (full plan)~~ ✓ shipped 2026-04-25 → ~~B1+B2+B3+B4~~ ✓ shipped 2026-04-25 → ~~C3~~ ✓ shipped 2026-04-25 (commit f4fe37a) → ~~E2~~ ✓ shipped 2026-04-25 (commit 79eb281). **KI-002 closed 2026-04-25.** Remaining hygiene items (B5/B6/B7, C1, C2, C4, E1, E3, E4) migrated to `ROADMAP.md → Minor Tweaks & Polish` so they don't get lost; none are field-impact and they can be picked off opportunistically when their surrounding code is touched.
 
 **Decision deferred:** equipment data path long-term (legacy `customers/.../assets` vs tenant `imported_equipment`). Phase 33 (Field-Add Equipment) will need to settle this. Until then the existing parallel paths stay.
-
-*(Once a plan completes, flip its checklist items, then mark KI-002 resolved and move it to the Resolved section with a dated summary.)*
 
 ---
 
@@ -75,6 +79,17 @@ These are not bugs but recurring traps — keep them in mind whenever editing th
 ---
 
 ## Resolved (Reference)
+
+### KI-002 — Sync Risk Audit (2026-04-25): silent-failure & cache-versioning repair backlog
+
+- **Resolved:** 2026-04-25 — closed after C3 + E2 shipped on top of the morning's Plan A + Plan B subset (B1+B2+B3+B4). All field-impact items in the four-plan repair backlog from the 2026-04-25 sync audit are landed; remaining hygiene items (B5/B6/B7, C1, C2, C4, E1, E3, E4) were migrated to `ROADMAP.md → Minor Tweaks & Polish` to be picked off opportunistically when their surrounding code is touched. The full per-checkbox shipping inventory is preserved above (in the archived KI-002 block) for traceability.
+- **Closeout commits:**
+  - `e8f5cab` — Plan A (silent-failure repair: new `VCRequireTicketId` + `VCSurfaceWriteFailure` helpers in `shared/firebase_logic.js`, ring-buffered into `__vcWriteFailures` and surfaced in the iPhone debug overlay; A1–A9 call-site conversions; `service_call.js?v=68`; `VC_BUILD = "KI002-A-2026-04-25"`).
+  - `b49eb23` — Plan B subset B1+B2+B3+B4 (cache & version hygiene: `shared/firebase_logic.js?v=1` on all 3 callers + `[VC] firebase_logic v=1 loaded` console.info + `__VC_FIREBASE_LOGIC_VERSION` global; `?v=1` on the 5 unversioned tech bundle scripts; `equipment_manager.js?v=8` unified across dispatcher + tech; new dispatcher `VC_BUILD = "KI002-B-2026-04-25"` + `#vcBuildChip` in sidebar-footer rendering `BUILD <stamp> · fb v<N>`, click-to-copy).
+  - `f4fe37a` — Plan C3 (Shadow mirror polling fallback: `applyShadowPresenceFromDoc` calls new `shadowMirrorOpenViaBridgedFetch(tid)` after 40×350ms polling exhausts, which one-shot-fetches via `VCFirestore.getServiceCallOnceBridged`, pushes into `myTickets`, and opens the workspace; every failure path routes through `VCSurfaceWriteFailure` so the iPhone debug overlay surfaces it).
+  - `79eb281` — Plan E2 (TWIN_PILLARS branding purge: `dispatcher/js/client_notifications.js#getTenantIdSafe` now defers to `VCFirestore.getTenantId()` instead of pinning `"TWIN_PILLARS"`; codebase grep verified this was the only caller-side default outside the lazy-migration bridge in `shared/firebase_logic.js` — bridge intentionally left quiet because it has no live consumers per the 2026-04-25 audit decision; `client_notifications.js?v=2` bumped, dispatcher `VC_BUILD = "KI002-CE-2026-04-25"`).
+- **Standing dev tools shipped during this issue (keep in mind for future work):** `VCRequireTicketId` / `VCSurfaceWriteFailure` standardized failure surfacing (use these instead of `if (tid)` skips and `.catch(console.warn)`), 10-deep `__vcWriteFailures` ring buffer rendered live by the iPhone debug overlay, dispatcher `#vcBuildChip` mirror of the technician `BUILD:` line, `?v=1` on `shared/firebase_logic.js` so a stale shared bridge can no longer silently win on any device, lazy-injected sync-failure UI (`#vcPresenceOfflineChip`, `#dictationHubNotesError`, red `⚠ Sync Failed` card on `#successCard`), and the cyan synced-ticket badge `#vcSimulatorTicketBadge` driven by `syncDispatcherTicketIdToActiveTech`. See `PROJECT_MAP.md → Build History` for the full inventory.
+- **Verification:** Plan A + Plan B subset both verified live on iPhone + dispatcher 2026-04-25 (debug overlay `BUILD:` line + write-failures ring + dispatcher BUILD chip). C3 + E2 verification protocol: tech debug overlay top line should read `BUILD: KI002-CE-2026-04-25`; dispatcher sidebar chip should read `BUILD KI002-CE-2026-04-25 · fb v1`. C3 smoke-test: open a historical or future-dated job from a shadowed tech's phone — the dispatcher's shadow viewer should open that workspace within ~14s instead of staying on the schedule. E2 smoke-test: send a portal verification link — the resulting `portal_token` doc should carry the live tenant id (e.g. `USA_HEATING_COOLING`) instead of `TWIN_PILLARS`.
 
 ### KI-001 — Office Override visual chrome missing on physical mobile devices (Phase 30)
 
