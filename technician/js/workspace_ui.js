@@ -342,8 +342,100 @@
     }
   }
 
-  function setConsentButtonForState(state, ticketId, byName) {
+  /**
+   * Phase 32a — Lazy-inject the consent button + its CSS + body padding rules + click wiring if a
+   * stale, browser-cached `technician/index.html` doesn't have them. This is the single most likely
+   * failure mode on the iPhone: Safari serves a months-old cached HTML for the entry-point URL (which
+   * has no ?v= cache-buster), so the inline `<button id="vcOfficeOverrideConsentBtn">` and its CSS
+   * never reach the device. workspace_ui.js IS cache-busted (?v=N), so by lazy-injecting from here we
+   * can guarantee the consent UI works on the next workspace_ui.js bump regardless of cached HTML.
+   */
+  function ensureConsentButtonInDom() {
     var btn = document.getElementById("vcOfficeOverrideConsentBtn");
+    if (btn) return btn;
+    if (!document.body) return null;
+    /* Inject the CSS first so the button doesn't flash unstyled. */
+    if (!document.getElementById("vcOfficeOverrideConsentInjectedCss")) {
+      var st = document.createElement("style");
+      st.id = "vcOfficeOverrideConsentInjectedCss";
+      st.textContent = [
+        "body.vc-override-pending { padding-top: 78px; }",
+        "@supports (padding-top: env(safe-area-inset-top)) {",
+        "  body.vc-override-pending { padding-top: calc(78px + env(safe-area-inset-top, 0px)); }",
+        "}",
+        ".vc-override-consent-btn {",
+        "  display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 100003;",
+        "  border: none; padding: 14px 18px;",
+        "  padding-top: calc(14px + env(safe-area-inset-top, 0px));",
+        "  background: linear-gradient(180deg, #f39c12 0%, #d97706 100%);",
+        "  color: #0f172a; font-weight: 800; font-size: 15px; text-align: center;",
+        "  line-height: 1.3; cursor: pointer;",
+        "  box-shadow: 0 6px 24px rgba(217,119,6,0.55);",
+        "  border-bottom: 2px solid rgba(15,23,42,0.18);",
+        "  animation: vc-consent-pulse 1.4s ease-in-out infinite;",
+        "  -webkit-tap-highlight-color: transparent; font-family: inherit;",
+        "}",
+        "body.vc-override-pending .vc-override-consent-btn { display: block; }",
+        ".vc-override-consent-btn__title { display: block; font-size: 16px; }",
+        ".vc-override-consent-btn__sub {",
+        "  display: block; font-size: 12px; font-weight: 700; opacity: 0.85; margin-top: 2px;",
+        "}",
+        ".vc-override-consent-btn:disabled { opacity: 0.85; animation: none; cursor: default; }",
+        "@keyframes vc-consent-pulse {",
+        "  0%,100% { box-shadow: 0 6px 24px rgba(217,119,6,0.55); }",
+        "  50%     { box-shadow: 0 6px 28px rgba(217,119,6,0.95); }",
+        "}",
+        "body.vc-override-pending #vcOfficeOverrideFrame,",
+        "body.vc-override-pending .vc-office-override-global-strip { display: none !important; }"
+      ].join("");
+      document.head.appendChild(st);
+    }
+    btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "vcOfficeOverrideConsentBtn";
+    btn.className = "vc-override-consent-btn";
+    btn.dataset.vcLazy = "1";
+    btn.innerHTML =
+      '<span class="vc-override-consent-btn__title">🟠 Tap to acknowledge — Dispatch is editing this job</span>' +
+      '<span class="vc-override-consent-btn__sub" id="vcOfficeOverrideConsentSub">Office Override is active. Tap to confirm you see this.</span>';
+    document.body.appendChild(btn);
+    /* Wire the click handler — mirrors the HTML-side `vcOfficeOverrideConsentBoot` IIFE in
+       technician/index.html. We re-implement it here so a stale cached HTML (no IIFE present) still
+       has working tap-to-ack. */
+    if (btn.dataset.vcWired !== "1") {
+      btn.dataset.vcWired = "1";
+      btn.addEventListener("click", function () {
+        var tid = btn.dataset.ticketId || "";
+        if (!tid) return;
+        if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+        var db = firebase.firestore();
+        var byName = (typeof window.currentTechProfile !== "undefined" && window.currentTechProfile)
+          ? String(window.currentTechProfile)
+          : "Technician";
+        var FV = firebase.firestore.FieldValue;
+        var patch = {
+          officeOverrideAcknowledged: true,
+          officeOverrideAcknowledgedAt: FV.serverTimestamp(),
+          officeOverrideAcknowledgedBy: byName,
+        };
+        var p = (typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged)
+          ? VCFirestore.setServiceCallMerged(db, tid, patch, true)
+          : db.collection("service_calls").doc(tid).set(patch, { merge: true });
+        btn.disabled = true;
+        var titleEl = btn.querySelector(".vc-override-consent-btn__title");
+        if (titleEl) titleEl.textContent = "✓ Acknowledging…";
+        p.catch(function (e) {
+          console.warn("[OfficeOverride] ack write (lazy)", e);
+          btn.disabled = false;
+          if (titleEl) titleEl.textContent = "🟠 Tap to acknowledge — Dispatch is editing this job";
+        });
+      });
+    }
+    return btn;
+  }
+
+  function setConsentButtonForState(state, ticketId, byName) {
+    var btn = ensureConsentButtonInDom();
     if (!btn) return;
     var titleEl = btn.querySelector(".vc-override-consent-btn__title");
     var subEl = document.getElementById("vcOfficeOverrideConsentSub");

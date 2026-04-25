@@ -3965,24 +3965,80 @@ try {
     init();
   }
 })();
-/** ?vc_debug=1 — tiny on-device inspector. Renders a fixed corner box with live state values so we can
- *  diagnose Office Override / shadow / persistence issues on a real iPhone without remote DevTools.
+/** Build / version stamp visible in the debug overlay. Bump this any time you change inline content of
+ *  this file or want to confirm a deploy reached the iPhone. The cache-buster on external assets
+ *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
+ *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
+ *  whether the iPhone is on the latest HTML or still serving a cached copy. */
+window.VC_BUILD = "32a-2026-04-25";
+/** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
+ *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
+ *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
  *  Lives in the same <script> block as `myTickets` / `activeTicket` so it can read them via lexical scope. */
 (function vcDebugOverlayBoot() {
-  var enabled = false;
+  var disabled = false;
   try {
     var p = new URLSearchParams(window.location.search);
-    enabled = p.get("vc_debug") === "1";
+    disabled = p.get("vc_debug") === "0";
   } catch (e) {}
-  if (!enabled) return;
+  if (disabled) return;
   function start() {
     var el = document.getElementById("vcDebugOverlay");
     var body = document.getElementById("vcDebugOverlayBody");
     var copyBtn = document.getElementById("vcDebugCopyBtn");
+    /* Lazy-inject the overlay if a stale cached technician/index.html doesn't have it. We MUST always
+       have a debug overlay so the operator can see what's actually loaded on the iPhone. */
+    if (!el || !body) {
+      try {
+        var inj = document.createElement("div");
+        inj.id = "vcDebugOverlay";
+        inj.className = "vc-debug-overlay";
+        inj.innerHTML =
+          '<div class="vc-debug-overlay__head">' +
+          '<span class="vc-debug-overlay__title">VC DEBUG</span>' +
+          '<button type="button" class="vc-debug-overlay__btn" id="vcDebugCopyBtn">Copy</button>' +
+          '</div><div id="vcDebugOverlayBody"></div>';
+        /* Inject CSS too, in case the cached HTML doesn't have the .vc-debug-overlay rules. */
+        if (!document.getElementById("vcDebugOverlayInjectedCss")) {
+          var st = document.createElement("style");
+          st.id = "vcDebugOverlayInjectedCss";
+          st.textContent =
+            ".vc-debug-overlay{position:fixed;right:6px;bottom:6px;z-index:100002;max-width:240px;" +
+            "padding:6px 8px;background:rgba(15,23,42,0.88);color:#e2e8f0;" +
+            "font:11px/1.35 ui-monospace,Menlo,Consolas,monospace;border-radius:6px;" +
+            "box-shadow:0 2px 8px rgba(0,0,0,0.45);pointer-events:auto;white-space:pre-wrap;" +
+            "word-break:break-word;user-select:text;-webkit-user-select:text}" +
+            ".vc-debug-overlay__head{display:flex;justify-content:space-between;align-items:center;" +
+            "gap:6px;margin-bottom:4px}" +
+            ".vc-debug-overlay__title{font-weight:700;color:#38bdf8;font-size:10px;" +
+            "letter-spacing:0.04em;text-transform:uppercase}" +
+            ".vc-debug-overlay__btn{background:rgba(56,189,248,0.15);color:#38bdf8;" +
+            "border:1px solid rgba(56,189,248,0.45);font-size:10px;padding:1px 6px;" +
+            "border-radius:3px;cursor:pointer}" +
+            ".vc-debug-overlay__btn:active{background:rgba(56,189,248,0.35)}";
+          document.head.appendChild(st);
+        }
+        (document.body || document.documentElement).appendChild(inj);
+        el = inj;
+        body = document.getElementById("vcDebugOverlayBody");
+        copyBtn = document.getElementById("vcDebugCopyBtn");
+      } catch (e) {}
+    }
     if (!el || !body) return;
     el.hidden = false;
     function snapshot() {
       var lines = [];
+      try {
+        lines.push("BUILD: " + (window.VC_BUILD || "?"));
+      } catch (e) {}
+      try {
+        var hasNew = (typeof window.setRemoteOverrideState === "function") ? "yes" : "NO (stale workspace_ui.js)";
+        lines.push("setRemoteOverrideState: " + hasNew);
+      } catch (e) {}
+      try {
+        var consentEl = document.getElementById("vcOfficeOverrideConsentBtn");
+        lines.push("consent btn DOM: " + (consentEl ? "present" : "MISSING (stale HTML)"));
+      } catch (e) {}
       try {
         var bcn = (document.body && document.body.className) ? String(document.body.className) : "(no body class)";
         lines.push("body: " + (bcn.length > 80 ? bcn.slice(0, 80) + "…" : bcn));
@@ -3998,16 +4054,27 @@ try {
         lines.push("override strip: " + sd);
       } catch (e) { lines.push("override strip: ?"); }
       try {
+        var consentBtn = document.getElementById("vcOfficeOverrideConsentBtn");
+        var cd = consentBtn ? getComputedStyle(consentBtn).display : "(missing)";
+        lines.push("consent btn vis: " + cd);
+      } catch (e) { lines.push("consent btn vis: ?"); }
+      try {
         var tickets = (typeof myTickets !== "undefined" && Array.isArray(myTickets)) ? myTickets : [];
         var ovCount = 0;
         var ackCount = 0;
+        var firstHit = null;
         for (var i = 0; i < tickets.length; i++) {
           if (tickets[i] && tickets[i].officeOverrideActive === true) {
             ovCount++;
             if (tickets[i].officeOverrideAcknowledged === true) ackCount++;
+            if (!firstHit) firstHit = tickets[i];
           }
         }
         lines.push("myTickets: " + tickets.length + " (override: " + ovCount + ", ack: " + ackCount + ")");
+        if (firstHit) {
+          lines.push("hit ticket: " + (firstHit.id || "?"));
+          lines.push("hit by: " + (firstHit.officeOverrideBy || "?"));
+        }
       } catch (e) { lines.push("myTickets: ?"); }
       try {
         var at = (typeof activeTicket !== "undefined" && activeTicket && activeTicket.id) ? activeTicket.id : "(none)";
@@ -7930,7 +7997,7 @@ window.onload = async function(){
     <script src="../equipment_smart_select.js"></script>
     <script src="js/ufx_adapter.js"></script>
     <script src="js/data_provider.js?v=1"></script>
-    <script src="js/workspace_ui.js?v=8"></script>
+    <script src="js/workspace_ui.js?v=9"></script>
     <script src="js/location_manager.js"></script>
     <script src="../dictation_hub.js?v=8"></script>
     <script src="../equipment_hub.js"></script>
