@@ -159,6 +159,7 @@
         updateSelectIdleClasses();
         updateOfflineBadgeForCurrentSelection();
         updateTakeOverButtonState();
+        syncDispatcherTicketIdToActiveTech();
       },
       function (e) {
         console.warn("[ShadowMode] live_presence:", e);
@@ -225,7 +226,68 @@
     modal.classList.remove("hidden");
     modal.setAttribute("aria-hidden", "false");
     updateOfflineBadgeForCurrentSelection();
+    syncDispatcherTicketIdToActiveTech();
   }
+
+  /** Phase 32c — Auto-sync `#scCurrentId.value` to the currently-shadowed tech's `activeTicketId` so
+   *  the dispatcher can hit `#btnOfficeOverride` (or any other ticket-targeted action) immediately
+   *  without first opening the ticket in Service Call Intake. Also paints the
+   *  `#vcSimulatorTicketBadge` in the phone simulator toolbar so the dispatcher can SEE which ticket
+   *  will be flagged. Called whenever:
+   *    - the dispatcher changes `#vcShadowUserSelect` (via applyShadowTarget),
+   *    - the in-iframe profile selector posts `vc_shadow_tech_changed`,
+   *    - or `live_presence` snapshot arrives showing the tech moved to a different ticket.
+   *
+   *  We track `lastSyncedTicketId` per-key so we only overwrite `#scCurrentId.value` when the value
+   *  we put there last is still in place. If the dispatcher manually loads a different ticket in
+   *  Service Call Intake, we leave it alone (their input wins). */
+  var lastSyncedTicketId = "";
+  var lastSyncedPresenceKey = "";
+  function syncDispatcherTicketIdToActiveTech() {
+    var sel = document.getElementById("vcShadowUserSelect");
+    var pk = sel && sel.value ? String(sel.value) : (currentShadowPresenceKey || "");
+    var presence = pk ? (presenceStateByKey[pk] || {}) : {};
+    var tid = presence.activeTicketId ? String(presence.activeTicketId) : "";
+    var idEl = document.getElementById("scCurrentId");
+    var badge = document.getElementById("vcSimulatorTicketBadge");
+    /* Only overwrite #scCurrentId if (a) it's empty, OR (b) we set it last and the dispatcher hasn't
+       changed it. Don't clobber a manually-loaded ticket. */
+    if (idEl && tid) {
+      var current = String(idEl.value || "").trim();
+      if (!current || current === lastSyncedTicketId) {
+        idEl.value = tid;
+        lastSyncedTicketId = tid;
+        lastSyncedPresenceKey = pk;
+      }
+    } else if (idEl && !tid && pk && pk === lastSyncedPresenceKey) {
+      /* Same tech, but they've left the workspace (no activeTicketId). Clear OUR sync only — leave
+         a manually-loaded ticket alone. */
+      var cur2 = String(idEl.value || "").trim();
+      if (cur2 && cur2 === lastSyncedTicketId) {
+        idEl.value = "";
+        lastSyncedTicketId = "";
+      }
+    }
+    if (badge) {
+      if (!pk) {
+        badge.textContent = "No tech selected";
+        badge.classList.add("vc-simulator-ticket-badge--empty");
+      } else if (tid) {
+        var label = "";
+        try {
+          var opt = sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+          label = opt ? String(opt.textContent || "").trim() : "";
+        } catch (eL) {}
+        badge.textContent = (label ? label + " — " : "") + "Synced ticket: " + tid;
+        badge.classList.remove("vc-simulator-ticket-badge--empty");
+      } else {
+        badge.textContent = "Tech not on a job — open a ticket on their phone";
+        badge.classList.add("vc-simulator-ticket-badge--empty");
+      }
+    }
+  }
+  /* Expose so index.html / openTechnicianAppPreview can call it after the simulator opens. */
+  global.vcSyncDispatcherTicketIdToActiveTech = syncDispatcherTicketIdToActiveTech;
 
   function openShadowModal(presenceKey, label) {
     applyShadowTarget(presenceKey, label);
@@ -301,7 +363,9 @@
         sel.value = d.presenceKey;
       } catch (e) {}
       delete sel.dataset.vcSuppressChange;
+      currentShadowPresenceKey = String(d.presenceKey);
       updateOfflineBadgeForCurrentSelection();
+      syncDispatcherTicketIdToActiveTech();
     });
   }
 

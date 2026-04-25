@@ -2174,6 +2174,25 @@
         background: #f4f7fa;
         border-bottom: 1px solid #e2e8f0;
       }
+      .vc-simulator-ticket-badge {
+        margin-top: 6px;
+        padding: 4px 8px;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.3;
+        letter-spacing: 0.02em;
+        border-radius: 6px;
+        text-align: center;
+        background: #ecfeff;
+        color: #0e7490;
+        border: 1px solid #67e8f9;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+      }
+      .vc-simulator-ticket-badge--empty {
+        background: #fef3c7;
+        color: #92400e;
+        border-color: #fcd34d;
+      }
       .vc-btn-orange {
         width: 100%;
         margin: 0;
@@ -6632,6 +6651,14 @@
         frame.src = url.toString();
         modal.classList.remove("hidden");
         modal.setAttribute("aria-hidden", "false");
+        /* Phase 32c — Paint the synced-ticket badge in the simulator toolbar from whatever tech is
+           selected in #vcShadowUserSelect right now, and set #scCurrentId.value so the Office Override
+           button writes cross-device to the right ticket without a manual Service Call Intake load. */
+        try {
+          if (typeof window.vcSyncDispatcherTicketIdToActiveTech === "function") {
+            window.vcSyncDispatcherTicketIdToActiveTech();
+          }
+        } catch (eSync) {}
       }
 
       function closeFieldAppSimulator() {
@@ -6838,7 +6865,7 @@
     <script src="dispatcher/js/navigation.js?v=1"></script>
     <script src="settings.js?v=15"></script>
     <script src="dispatcher/js/user_import.js?v=2"></script>
-    <script src="dispatcher/js/shadow_mode.js?v=4"></script>
+    <script src="dispatcher/js/shadow_mode.js?v=5"></script>
     <script src="customer_directory.js?v=26"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js?v=2"></script>
@@ -7023,6 +7050,16 @@
                 >
                   Office Override (Inactive)
                 </button>
+                <!-- Phase 32c — synced ticket id from the active shadow-target tech's live_presence.activeTicketId.
+                     Set by shadow_mode.js#syncDispatcherTicketIdToActiveTech so Office Override always writes
+                     to the ticket the tech is actually viewing, with no manual Service Call Intake step. -->
+                <div
+                  id="vcSimulatorTicketBadge"
+                  class="vc-simulator-ticket-badge vc-simulator-ticket-badge--empty"
+                  aria-live="polite"
+                >
+                  No tech selected
+                </div>
               </div>
               <iframe
                 id="fieldAppSimulatorFrame"
