@@ -3207,6 +3207,87 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   color: #94a3b8;
   min-height: 1.2em;
 }
+/* Phase 33 — unitType + unitNumber identity row in the Vision Hub. */
+.vision-hub-form select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #f1f5f9;
+  font-size: 15px;
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #94a3b8 50%),
+    linear-gradient(135deg, #94a3b8 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 32px;
+}
+.vision-hub-form select:focus {
+  outline: 2px solid #f39c12;
+  outline-offset: 1px;
+}
+.vision-hub-identity-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+.vision-hub-identity-col {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.vision-hub-other-row.hidden {
+  display: none;
+}
+.vision-hub-tag-preview {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #0f172a;
+  border: 1px dashed #334155;
+  color: #94a3b8;
+  font-size: 13px;
+  min-height: 1.2em;
+}
+.vision-hub-tag-preview.has-tag {
+  color: #f1f5f9;
+  border-style: solid;
+  border-color: #475569;
+}
+.vision-hub-tag-preview .vc-tag {
+  font-weight: 700;
+  color: #f59e0b;
+  letter-spacing: 0.02em;
+}
+.vision-hub-tag-preview .vc-tag-mode {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #1e293b;
+  color: #94a3b8;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.vision-hub-tag-preview .vc-tag-mode.is-edit {
+  background: #422006;
+  color: #fbbf24;
+}
+.vision-hub-save-error {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.18);
+  border: 1px solid #ef4444;
+  color: #fecaca;
+  font-size: 13px;
+  white-space: pre-line;
+}
+.vision-hub-save-error.hidden { display: none; }
 </style>
 </head>
 <body>
@@ -8158,8 +8239,26 @@ window.onload = async function(){
           </div>
           <p id="visionHubStatus" class="vision-hub-status" aria-live="polite"></p>
           <div id="visionHubStepForm" class="vision-hub-form hidden">
-            <label for="visionHubUnitId">Unit ID (site label)</label>
-            <input type="text" id="visionHubUnitId" placeholder="e.g. RTU1" autocomplete="off" autocapitalize="characters">
+            <!-- Phase 33 (ADR-011 §4) — unit identity = unitType + unitNumber.
+                 The dropdown is populated from VC_EQUIPMENT_TYPE_PREFIXES at runtime;
+                 "Other" reveals a freeform unitType escape hatch. -->
+            <div class="vision-hub-identity-row">
+              <div class="vision-hub-identity-col">
+                <label for="visionHubUnitType">Unit type</label>
+                <select id="visionHubUnitType" autocomplete="off">
+                  <option value="">— Select —</option>
+                </select>
+              </div>
+              <div class="vision-hub-identity-col">
+                <label for="visionHubUnitNumber">Unit #</label>
+                <input type="text" id="visionHubUnitNumber" placeholder="e.g. 3" autocomplete="off" inputmode="text">
+              </div>
+            </div>
+            <div id="visionHubUnitTypeOtherRow" class="vision-hub-other-row hidden">
+              <label for="visionHubUnitTypeOther">Custom type prefix (e.g. HRV)</label>
+              <input type="text" id="visionHubUnitTypeOther" placeholder="Freeform unit type" autocomplete="off" autocapitalize="characters">
+            </div>
+            <p id="visionHubUnitTagPreview" class="vision-hub-tag-preview" aria-live="polite"></p>
             <label for="visionHubMake">Manufacturer</label>
             <input type="text" id="visionHubMake" placeholder="From AI or type" autocomplete="off">
             <label for="visionHubModel">Model #</label>
@@ -8168,6 +8267,7 @@ window.onload = async function(){
             <input type="text" id="visionHubSerial" placeholder="From AI or type" autocomplete="off">
             <label for="visionHubBtu">Capacity (BTU / tons)</label>
             <input type="text" id="visionHubBtu" placeholder="From AI or type" autocomplete="off">
+            <p id="visionHubSaveError" class="vision-hub-save-error hidden" role="alert" aria-live="assertive"></p>
             <button type="button" id="visionHubSaveBtn" class="vision-hub-save-btn">Save equipment</button>
           </div>
         </div>
@@ -8180,7 +8280,7 @@ window.onload = async function(){
     <script src="js/data_provider.js?v=1"></script>
     <script src="js/workspace_ui.js?v=10"></script>
     <script src="js/location_manager.js?v=1"></script>
-    <script src="../dictation_hub.js?v=9"></script>
+    <script src="../dictation_hub.js?v=10"></script>
     <script src="../equipment_hub.js?v=1"></script>
     <script src="../field_forms.js?v=1"></script>
     <script src="../tech_job_history.js?v=2"></script>

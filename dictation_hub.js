@@ -444,7 +444,7 @@
 
   function getDictationSiteContext() {
     if (typeof activeTicket === "undefined" || !activeTicket) {
-      return { customerId: "", siteId: "" };
+      return { customerId: "", siteId: "", locationLine: "" };
     }
     var locEl = document.getElementById("location");
     var locLine =
@@ -454,6 +454,7 @@
     return {
       customerId: sanitizePathSegment(activeTicket.customerName || ""),
       siteId: sanitizePathSegment(locLine),
+      locationLine: locLine,
     };
   }
 
@@ -1787,6 +1788,235 @@
   var visionHubPendingFile = null;
   var visionHubWired = false;
 
+  /* Phase 33 (ADR-011 §4) — runtime state captured when the Vision Hub form
+     opens or when the unit identity changes. `lastLoadedValues` is the field
+     diff baseline used by visionHubSaveEquipment to decide which fieldEdits
+     to stamp (per the user's "stamp only what the tech actually changed"
+     directive). `lastLoadedDocId` lets us write back into the same
+     `imported_equipment` doc for an existing slot instead of duplicating. */
+  var visionHubIdentityState = {
+    lastLoadedDocId: "",
+    lastLoadedSource: "",
+    lastLoadedValues: {},
+    lastLookupIdentity: "",
+  };
+
+  /** Lower-case canonicalization shared with shared/firebase_logic.js bridge. */
+  function visionHubNormalizeLocationKey(s) {
+    return String(s || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  }
+
+  /** Normalize a string field for diff (treats undefined/null/whitespace as ""). */
+  function visionHubNormFieldValue(v) {
+    if (v == null) return "";
+    return String(v).trim();
+  }
+
+  function visionHubGetUnitType() {
+    var sel = document.getElementById("visionHubUnitType");
+    var v = sel && sel.value ? String(sel.value).trim() : "";
+    if (v === "Other") {
+      var other = document.getElementById("visionHubUnitTypeOther");
+      var raw = other && other.value ? String(other.value).trim().toUpperCase() : "";
+      return raw.replace(/[^A-Z0-9]+/g, "").slice(0, 24);
+    }
+    return v;
+  }
+
+  function visionHubGetUnitNumber() {
+    var n = document.getElementById("visionHubUnitNumber");
+    if (!n || !n.value) return "";
+    return String(n.value).trim().replace(/^\s+|\s+$/g, "");
+  }
+
+  function visionHubBuildUnitTag(unitType, unitNumber) {
+    var ut = String(unitType || "").trim();
+    var un = String(unitNumber || "").trim();
+    if (!ut || !un) return "";
+    return ut + un;
+  }
+
+  function visionHubFieldEditDocId(customerId, siteId, unitTag) {
+    var raw =
+      String(customerId || "") +
+      "|" +
+      String(siteId || "") +
+      "|" +
+      String(unitTag || "");
+    var h = 5381;
+    for (var i = 0; i < raw.length; i++) {
+      h = (h * 33) ^ raw.charCodeAt(i);
+    }
+    return "vc_field_eq_" + (h >>> 0).toString(16);
+  }
+
+  function visionHubPopulateUnitTypeDropdown() {
+    var sel = document.getElementById("visionHubUnitType");
+    if (!sel || sel.dataset.vcPopulated === "1") return;
+    sel.dataset.vcPopulated = "1";
+    while (sel.firstChild) sel.removeChild(sel.firstChild);
+    var opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = "— Select —";
+    sel.appendChild(opt0);
+    var prefixes =
+      typeof window !== "undefined" && Array.isArray(window.VC_EQUIPMENT_TYPE_PREFIXES)
+        ? window.VC_EQUIPMENT_TYPE_PREFIXES
+        : [];
+    prefixes.forEach(function (p) {
+      var o = document.createElement("option");
+      o.value = p && p.id ? String(p.id) : "";
+      o.textContent = p && p.label ? String(p.label) : o.value;
+      if (o.value) sel.appendChild(o);
+    });
+    var optOther = document.createElement("option");
+    optOther.value = "Other";
+    optOther.textContent = "Other (freeform)";
+    sel.appendChild(optOther);
+  }
+
+  function visionHubResetIdentityState() {
+    visionHubIdentityState = {
+      lastLoadedDocId: "",
+      lastLoadedSource: "",
+      lastLoadedValues: {},
+      lastLookupIdentity: "",
+    };
+  }
+
+  function visionHubUpdateTagPreview() {
+    var preview = document.getElementById("visionHubUnitTagPreview");
+    if (!preview) return;
+    var tag = visionHubBuildUnitTag(visionHubGetUnitType(), visionHubGetUnitNumber());
+    if (!tag) {
+      preview.classList.remove("has-tag");
+      preview.textContent = "Pick a unit type + number to set the slot.";
+      return;
+    }
+    preview.classList.add("has-tag");
+    var mode =
+      visionHubIdentityState.lastLookupIdentity === tag &&
+      visionHubIdentityState.lastLoadedDocId
+        ? "edit"
+        : "add";
+    preview.innerHTML =
+      'Slot: <span class="vc-tag">' +
+      escapeHtml(tag) +
+      '</span><span class="vc-tag-mode' +
+      (mode === "edit" ? " is-edit" : "") +
+      '">' +
+      (mode === "edit" ? "Edit existing" : "New slot") +
+      "</span>";
+  }
+
+  function visionHubShowSaveError(msg) {
+    var err = document.getElementById("visionHubSaveError");
+    if (!err) return;
+    if (!msg) {
+      err.classList.add("hidden");
+      err.textContent = "";
+      return;
+    }
+    err.classList.remove("hidden");
+    err.textContent = String(msg);
+  }
+
+  /**
+   * Lookup an existing imported_equipment row for the current site + unit identity.
+   * Resolves to {docId, source, values} or null.
+   * Uses the bridge so it sees both new (customerId/siteId-tagged) and legacy CSV (normalizedLocationKey-tagged) docs.
+   */
+  function visionHubLookupExistingSlot(site, unitTag) {
+    if (!site || !site.customerId || !site.siteId || !unitTag) {
+      return Promise.resolve(null);
+    }
+    if (
+      typeof firebase === "undefined" ||
+      !firebase.apps ||
+      !firebase.apps.length ||
+      typeof VCFirestore === "undefined" ||
+      typeof VCFirestore.getEquipmentForSiteBridged !== "function"
+    ) {
+      return Promise.resolve(null);
+    }
+    return VCFirestore.getEquipmentForSiteBridged(
+      firebase.firestore(),
+      site.customerId,
+      site.siteId,
+      site.locationLine || ""
+    )
+      .then(function (rows) {
+        for (var i = 0; i < rows.length; i++) {
+          if (String(rows[i].id) === String(unitTag)) {
+            return {
+              docId: rows[i].importedDocId || "",
+              source: rows[i].source,
+              values: rows[i].data || {},
+            };
+          }
+        }
+        return null;
+      })
+      .catch(function (err) {
+        if (typeof VCSurfaceWriteFailure === "function") {
+          VCSurfaceWriteFailure("visionHubLookupExistingSlot", err);
+        }
+        return null;
+      });
+  }
+
+  /**
+   * Refresh `visionHubIdentityState` for the current unit identity and pre-fill
+   * empty form fields with the existing values (so the diff at save time sees
+   * what the tech started from). Triggered on unitType / unitNumber change.
+   */
+  function visionHubRefreshIdentityLookup() {
+    var site = getDictationSiteContext();
+    var ut = visionHubGetUnitType();
+    var un = visionHubGetUnitNumber();
+    var tag = visionHubBuildUnitTag(ut, un);
+    if (!tag) {
+      visionHubResetIdentityState();
+      visionHubUpdateTagPreview();
+      return;
+    }
+    if (visionHubIdentityState.lastLookupIdentity === tag) {
+      visionHubUpdateTagPreview();
+      return;
+    }
+    visionHubIdentityState.lastLookupIdentity = tag;
+    visionHubLookupExistingSlot(site, tag).then(function (hit) {
+      if (visionHubIdentityState.lastLookupIdentity !== tag) return;
+      if (!hit) {
+        visionHubIdentityState.lastLoadedDocId = "";
+        visionHubIdentityState.lastLoadedSource = "";
+        visionHubIdentityState.lastLoadedValues = {};
+        visionHubUpdateTagPreview();
+        return;
+      }
+      visionHubIdentityState.lastLoadedDocId = hit.docId || "";
+      visionHubIdentityState.lastLoadedSource = hit.source || "";
+      visionHubIdentityState.lastLoadedValues = hit.values || {};
+      var v = hit.values || {};
+      var prefillMap = {
+        visionHubMake: v.manufacturer || v.brand || "",
+        visionHubModel: v.modelNumber || v.model || "",
+        visionHubSerial: v.serialNumber || "",
+        visionHubBtu: v.heatingCapacityBtu || v.coolingCapacityBtu || "",
+      };
+      Object.keys(prefillMap).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && !el.value && prefillMap[id]) {
+          el.value = String(prefillMap[id]);
+        }
+      });
+      visionHubUpdateTagPreview();
+    });
+  }
+
   function closeVisionHubAddEquipment() {
     var overlay = document.getElementById("visionHubAddEquipment");
     if (overlay) {
@@ -1813,6 +2043,8 @@
     if (cam) cam.value = "";
     var st = document.getElementById("visionHubStatus");
     if (st) st.textContent = "";
+    visionHubShowSaveError("");
+    visionHubResetIdentityState();
   }
 
   function openVisionHubAddEquipment() {
@@ -1845,10 +2077,25 @@
     if (form) form.classList.add("hidden");
     var st = document.getElementById("visionHubStatus");
     if (st) st.textContent = "";
-    ["visionHubUnitId", "visionHubModel", "visionHubSerial", "visionHubBtu", "visionHubMake"].forEach(function (id) {
+    visionHubShowSaveError("");
+    visionHubPopulateUnitTypeDropdown();
+    visionHubResetIdentityState();
+    [
+      "visionHubUnitNumber",
+      "visionHubUnitTypeOther",
+      "visionHubModel",
+      "visionHubSerial",
+      "visionHubBtu",
+      "visionHubMake",
+    ].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.value = "";
     });
+    var typeSel = document.getElementById("visionHubUnitType");
+    if (typeSel) typeSel.value = "";
+    var otherRow = document.getElementById("visionHubUnitTypeOtherRow");
+    if (otherRow) otherRow.classList.add("hidden");
+    visionHubUpdateTagPreview();
     var cam = document.getElementById("visionHubCameraInput");
     if (cam) cam.value = "";
     overlay.classList.remove("hidden");
@@ -1887,23 +2134,10 @@
         var md = document.getElementById("visionHubModel");
         var sn = document.getElementById("visionHubSerial");
         var bt = document.getElementById("visionHubBtu");
-        var uid = document.getElementById("visionHubUnitId");
-        if (mk && fields.manufacturer) mk.value = fields.manufacturer;
-        if (md && fields.modelNumber) md.value = fields.modelNumber;
-        if (sn && fields.serialNumber) sn.value = fields.serialNumber;
-        if (bt && fields.heatingCapacityBtu) bt.value = fields.heatingCapacityBtu;
-        if (uid && !uid.value) {
-          var guess = "RTU1";
-          if (fields.modelNumber && String(fields.modelNumber).trim()) {
-            guess =
-              "UNIT_" +
-              String(fields.modelNumber)
-                .trim()
-                .replace(/[^A-Za-z0-9]+/g, "_")
-                .slice(0, 24);
-          }
-          uid.value = guess;
-        }
+        if (mk && fields.manufacturer && !mk.value) mk.value = fields.manufacturer;
+        if (md && fields.modelNumber && !md.value) md.value = fields.modelNumber;
+        if (sn && fields.serialNumber && !sn.value) sn.value = fields.serialNumber;
+        if (bt && fields.heatingCapacityBtu && !bt.value) bt.value = fields.heatingCapacityBtu;
         if (form) form.classList.remove("hidden");
       })
       .catch(function (err) {
@@ -1911,82 +2145,273 @@
         console.error("[VisionHub] preview OCR", err);
         alert(err && err.message ? err.message : "Could not read nameplate. Enter fields manually.");
         if (form) form.classList.remove("hidden");
-        var uid = document.getElementById("visionHubUnitId");
-        if (uid && !uid.value) uid.value = "RTU1";
       });
   }
 
+  /**
+   * Phase 33 (ADR-011 §1, §2, §3, §4) — Field-Add / Field-Edit Equipment writer.
+   *
+   * Writes go to the canonical store:
+   *     tenants/{tenantId}/imported_equipment/{docId}
+   *
+   * Behavior:
+   *  - Identity = `unitType` + `unitNumber` (e.g. RTU + 4 → RTU4).
+   *  - On open, the form pre-loads existing values for that identity from the
+   *    bridge and stores them on `visionHubIdentityState.lastLoadedValues`.
+   *  - On save we diff the new field values against `lastLoadedValues` and
+   *    only stamp `fieldEdits[<fieldName>] = { by, at }` for fields that
+   *    actually CHANGED — never for fields the tech merely viewed.
+   *  - For brand-new slots, `source: "field"`, `addedBy`, `addedAt` are set
+   *    and `fieldEdits` is stamped for every captured field.
+   *  - The nameplate photo is uploaded to Firebase Storage and its download
+   *    URL is stored on the same doc (no legacy `customers/.../assets` write).
+   *
+   * Failure surfacing follows KI-002 Plan A: VCRequireTicketId for ticket
+   * gating, VCSurfaceWriteFailure for diagnostics + a user-visible red error
+   * banner inline in the form.
+   */
   function visionHubSaveEquipment() {
-    if (!visionHubPendingFile) {
-      alert("Capture a nameplate photo first.");
+    visionHubShowSaveError("");
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      visionHubShowSaveError("Firebase not available.");
       return;
     }
     var site = getDictationSiteContext();
     if (!site.customerId || !site.siteId) {
-      alert("Set location on this ticket first.");
+      visionHubShowSaveError("Set location on this ticket first.");
       return;
     }
-    var uidEl = document.getElementById("visionHubUnitId");
-    var logical = uidEl && uidEl.value ? String(uidEl.value).trim() : "";
-    if (!logical) {
-      alert("Enter a unit ID for this equipment (e.g. RTU1).");
+    var unitType = visionHubGetUnitType();
+    var unitNumber = visionHubGetUnitNumber();
+    if (!unitType) {
+      visionHubShowSaveError("Pick a unit type (or 'Other' for a custom prefix).");
       return;
     }
-    var docKey = sanitizePathSegment(logical);
-    var mk = document.getElementById("visionHubMake");
-    var md = document.getElementById("visionHubModel");
-    var sn = document.getElementById("visionHubSerial");
-    var bt = document.getElementById("visionHubBtu");
-    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
-      alert("Firebase not available.");
+    if (!unitNumber) {
+      visionHubShowSaveError("Enter a unit number (e.g. 4 for RTU4).");
       return;
     }
-    if (typeof window.dictationPromoteAssetPhoto !== "function") {
-      alert("Asset engine not loaded.");
+    var unitTag = visionHubBuildUnitTag(unitType, unitNumber);
+    if (!unitTag) {
+      visionHubShowSaveError("Could not build a unit identity from those values.");
       return;
     }
-    var patch = {
-      id: logical,
-      type: "",
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+
+    /* KI-002 Plan A — visionHubSaveEquipment writes are unit-scoped (they
+       target tenants/{tenantId}/imported_equipment/{docId}), NOT
+       ticket-scoped, so we deliberately don't gate via VCRequireTicketId
+       here. We still funnel failures through VCSurfaceWriteFailure on the
+       error path so the debug overlay surfaces them. */
+
+    var prevValues = visionHubIdentityState.lastLoadedValues || {};
+    var prevLookupTag = visionHubIdentityState.lastLookupIdentity;
+    /* If the tech changed unitType/unitNumber after we loaded a baseline,
+       the cached values no longer apply — treat as a brand-new slot. */
+    var baselineMatches = prevLookupTag === unitTag;
+    var baseline = baselineMatches ? prevValues : {};
+    var existingDocId = baselineMatches ? visionHubIdentityState.lastLoadedDocId : "";
+    var existingSource = baselineMatches ? visionHubIdentityState.lastLoadedSource : "";
+
+    var newValues = {
+      unitType: unitType,
+      unitNumber: unitNumber,
+      unitTag: unitTag,
+      manufacturer: visionHubNormFieldValue(
+        (document.getElementById("visionHubMake") || {}).value
+      ),
+      modelNumber: visionHubNormFieldValue(
+        (document.getElementById("visionHubModel") || {}).value
+      ),
+      serialNumber: visionHubNormFieldValue(
+        (document.getElementById("visionHubSerial") || {}).value
+      ),
+      heatingCapacityBtu: visionHubNormFieldValue(
+        (document.getElementById("visionHubBtu") || {}).value
+      ),
     };
-    if (mk && mk.value && String(mk.value).trim()) patch.manufacturer = String(mk.value).trim();
-    if (md && md.value && String(md.value).trim()) patch.modelNumber = String(md.value).trim();
-    if (sn && sn.value && String(sn.value).trim()) patch.serialNumber = String(sn.value).trim();
-    if (bt && bt.value && String(bt.value).trim()) patch.heatingCapacityBtu = String(bt.value).trim();
+
+    /* Diff against baseline → which fields did the tech actually change?
+       For brand-new slots (no baseline) every captured field counts as a
+       change so the field-edit stamp covers the whole row. */
+    var isNewSlot = !existingDocId;
+    var changedFields = {};
+    Object.keys(newValues).forEach(function (k) {
+      var nv = visionHubNormFieldValue(newValues[k]);
+      if (!nv) return;
+      var ov = visionHubNormFieldValue(baseline[k]);
+      if (isNewSlot || nv !== ov) {
+        changedFields[k] = nv;
+      }
+    });
+
+    /* If this is an EDIT and nothing actually changed (and there's no new
+       photo), don't write — just close. */
+    if (!isNewSlot && Object.keys(changedFields).length === 0 && !visionHubPendingFile) {
+      visionHubShowSaveError("No changes to save.");
+      return;
+    }
+
+    var techProfile = "";
+    try {
+      if (typeof currentTechProfile !== "undefined" && currentTechProfile) {
+        techProfile = String(currentTechProfile);
+      }
+    } catch (eProf) {}
+    if (!techProfile) techProfile = "field";
 
     var st = document.getElementById("visionHubStatus");
-    if (st) st.textContent = "⏳ Saving…";
-    firebase
-      .firestore()
-      .collection("customers")
-      .doc(site.customerId)
-      .collection("sites")
-      .doc(site.siteId)
-      .collection("assets")
-      .doc(docKey)
-      .set(patch, { merge: true })
-      .then(function () {
-        return window.dictationPromoteAssetPhoto(
-          {
-            logicalId: docKey,
-            customerId: site.customerId,
-            siteId: site.siteId,
-            kind: "nameplate",
-          },
-          visionHubPendingFile
-        );
+    if (st) st.textContent = visionHubPendingFile ? "⏳ Uploading photo…" : "⏳ Saving…";
+
+    /* Resolve the doc path:
+       - Existing imported_equipment doc → keep its docId.
+       - New slot → deterministic id keyed on customer|site|unitTag so two
+         techs can't race-create two docs for the same physical unit. */
+    var docId = existingDocId || visionHubFieldEditDocId(site.customerId, site.siteId, unitTag);
+    var dbInst = firebase.firestore();
+    var collRef =
+      typeof VCFirestore !== "undefined" && typeof VCFirestore.tenantImportedEquipment === "function"
+        ? VCFirestore.tenantImportedEquipment(dbInst)
+        : dbInst.collection("tenants").doc("default").collection("imported_equipment");
+    var docRef = collRef.doc(docId);
+
+    var serverTs = firebase.firestore.FieldValue.serverTimestamp();
+    var nowMs = Date.now();
+
+    var photoPromise = visionHubPendingFile
+      ? visionHubUploadNameplatePhoto(site, unitTag, visionHubPendingFile).catch(function (err) {
+          /* Non-fatal: we still want to save the field edits even if the
+             photo upload fails. Surface it loudly though. */
+          if (typeof VCSurfaceWriteFailure === "function") {
+            VCSurfaceWriteFailure("visionHubUploadNameplatePhoto", err);
+          }
+          console.warn("[VisionHub] photo upload failed", err);
+          return null;
+        })
+      : Promise.resolve(null);
+
+    photoPromise
+      .then(function (photoUrl) {
+        if (st) st.textContent = "⏳ Saving…";
+        var patch = {
+          customerId: site.customerId,
+          siteId: site.siteId,
+          locationLine: site.locationLine || "",
+          normalizedLocationKey: visionHubNormalizeLocationKey(site.locationLine || ""),
+          unitTag: unitTag,
+          unitType: unitType,
+          unitNumber: unitNumber,
+          updatedAt: serverTs,
+          updatedAtMs: nowMs,
+          updatedBy: techProfile,
+        };
+        Object.keys(changedFields).forEach(function (k) {
+          patch[k] = changedFields[k];
+        });
+        if (photoUrl) {
+          patch.nameplatePhotoUrl = photoUrl;
+          patch.nameplatePhotoUpdatedAt = serverTs;
+          changedFields.nameplatePhotoUrl = photoUrl;
+        }
+        if (isNewSlot) {
+          patch.source = "field";
+          patch.addedBy = techProfile;
+          patch.addedAt = serverTs;
+          patch.addedAtMs = nowMs;
+        } else if (existingSource === "csv") {
+          /* Preserve provenance — don't overwrite the CSV source flag, but
+             record that a field tech has touched this row. */
+          patch.lastFieldEditAt = serverTs;
+          patch.lastFieldEditBy = techProfile;
+        }
+        var fieldEditsPatch = {};
+        Object.keys(changedFields).forEach(function (k) {
+          fieldEditsPatch["fieldEdits." + k] = {
+            by: techProfile,
+            at: serverTs,
+          };
+        });
+        /* Use update() with dotted-path keys so we MERGE into the existing
+           fieldEdits map without clobbering edits to other fields. For new
+           docs we have to set() first because update() would 404. */
+        if (isNewSlot) {
+          var seedFieldEdits = {};
+          Object.keys(changedFields).forEach(function (k) {
+            seedFieldEdits[k] = { by: techProfile, at: serverTs };
+          });
+          patch.fieldEdits = seedFieldEdits;
+          return docRef.set(patch, { merge: true });
+        }
+        return docRef.set(patch, { merge: true }).then(function () {
+          if (Object.keys(fieldEditsPatch).length === 0) return null;
+          return docRef.update(fieldEditsPatch);
+        });
       })
       .then(function () {
         if (st) st.textContent = "";
-        setProcessStatus("done", "✓ Equipment saved");
+        setProcessStatus("done", isNewSlot ? "✓ Equipment added" : "✓ Equipment updated");
         closeVisionHubAddEquipment();
         if (typeof saveDraft === "function") saveDraft();
       })
       .catch(function (err) {
         if (st) st.textContent = "";
         console.error("[VisionHub] save", err);
-        alert(err && err.message ? err.message : String(err));
+        if (typeof VCSurfaceWriteFailure === "function") {
+          VCSurfaceWriteFailure("visionHubSaveEquipment", err);
+        }
+        visionHubShowSaveError(
+          (err && err.message ? err.message : String(err)) +
+            " — tap Save to retry."
+        );
+      });
+  }
+
+  /**
+   * Upload a nameplate photo to Firebase Storage under
+   *     tenants/default/imported_equipment_photos/{customerId}/{siteId}/{unitTag}/nameplate-{ts}.jpg
+   * and resolve to its download URL. We deliberately keep this OUT of the
+   * legacy `customers/.../assets` photo path so Phase 33 writes touch the
+   * single canonical store only.
+   */
+  function visionHubUploadNameplatePhoto(site, unitTag, file) {
+    if (!file) return Promise.resolve(null);
+    if (typeof firebase === "undefined" || !firebase.storage) {
+      return Promise.reject(new Error("Firebase Storage not available."));
+    }
+    var safeCustomer = sanitizePathSegment(site.customerId || "unknown");
+    var safeSite = sanitizePathSegment(site.siteId || "unknown");
+    var safeTag = sanitizePathSegment(unitTag || "unknown");
+    var ext = "jpg";
+    if (file.name) {
+      var m = String(file.name).match(/\.([a-zA-Z0-9]{1,5})$/);
+      if (m) ext = m[1].toLowerCase();
+    } else if (file.type) {
+      var t = String(file.type).toLowerCase();
+      if (t.indexOf("png") >= 0) ext = "png";
+      else if (t.indexOf("webp") >= 0) ext = "webp";
+      else if (t.indexOf("heic") >= 0) ext = "heic";
+    }
+    var tenantId =
+      typeof VCFirestore !== "undefined" && typeof VCFirestore.getTenantId === "function"
+        ? VCFirestore.getTenantId() || "default"
+        : "default";
+    var path =
+      "tenants/" +
+      tenantId +
+      "/imported_equipment_photos/" +
+      safeCustomer +
+      "/" +
+      safeSite +
+      "/" +
+      safeTag +
+      "/nameplate-" +
+      Date.now() +
+      "." +
+      ext;
+    var ref = firebase.storage().ref().child(path);
+    return ref
+      .put(file, { contentType: file.type || "image/jpeg" })
+      .then(function () {
+        return ref.getDownloadURL();
       });
   }
 
@@ -2016,6 +2441,31 @@
     }
     var saveBtn = document.getElementById("visionHubSaveBtn");
     if (saveBtn) saveBtn.addEventListener("click", visionHubSaveEquipment);
+    /* Phase 33 — wire the unitType + unitNumber identity controls. */
+    visionHubPopulateUnitTypeDropdown();
+    var typeSel = document.getElementById("visionHubUnitType");
+    var numEl = document.getElementById("visionHubUnitNumber");
+    var otherRow = document.getElementById("visionHubUnitTypeOtherRow");
+    var otherInput = document.getElementById("visionHubUnitTypeOther");
+    if (typeSel) {
+      typeSel.addEventListener("change", function () {
+        if (otherRow) {
+          if (typeSel.value === "Other") otherRow.classList.remove("hidden");
+          else otherRow.classList.add("hidden");
+        }
+        visionHubRefreshIdentityLookup();
+      });
+    }
+    if (numEl) {
+      numEl.addEventListener("input", visionHubUpdateTagPreview);
+      numEl.addEventListener("change", visionHubRefreshIdentityLookup);
+      numEl.addEventListener("blur", visionHubRefreshIdentityLookup);
+    }
+    if (otherInput) {
+      otherInput.addEventListener("input", visionHubUpdateTagPreview);
+      otherInput.addEventListener("change", visionHubRefreshIdentityLookup);
+      otherInput.addEventListener("blur", visionHubRefreshIdentityLookup);
+    }
     if (!document.documentElement.dataset.visionHubEsc) {
       document.documentElement.dataset.visionHubEsc = "1";
       document.addEventListener("keydown", function (e) {
