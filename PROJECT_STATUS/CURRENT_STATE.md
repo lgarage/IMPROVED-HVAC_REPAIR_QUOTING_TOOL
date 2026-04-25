@@ -28,18 +28,28 @@
 
 *(None.)*
 
-## Immediate Next Step — Phase 33 (Field-Add Equipment) — NEEDS USER DECISION FIRST
+## Immediate Next Step — Phase 33 (Field-Add Equipment) — SPEC LOCKED, READY TO BUILD NEXT SESSION
 
-KI-002 closed 2026-04-25 (all field-impact plans landed; hygiene leftovers parked in `ROADMAP.md → Minor Tweaks & Polish`). Next phase candidate from `ROADMAP.md → Next Up` is **Phase 33 — Field-Add Equipment (No-Info Capture)** — three-path equipment data: CSV import + legacy `customers/.../sites/.../assets` + on-site field-add by tech.
+KI-002 closed 2026-04-25 (all field-impact plans landed; hygiene leftovers parked in `ROADMAP.md → Minor Tweaks & Polish`). Phase 33 design fully locked 2026-04-25 in `DECISIONS.md → ADR-011`. **Per user instruction this session, no Phase 33 code was written — pick this up next session against ADR-011 + the Phase 33 entry in `ROADMAP.md → Next Up`.**
 
-**Blocker before code:** lock the data-path decision. Two options on the table:
+**Locked decisions (full rationale in ADR-011):**
+1. Storage: single canonical store at `tenants/{tenantId}/imported_equipment`. CSV + field-add + field-edit all write here.
+2. Existing readers (Equipment Hub, Custom Report Studio, workspace equipment helpers): migrate to a new `getEquipmentForSiteBridged(db, customerId, siteId)` in `shared/firebase_logic.js` that merges `imported_equipment` + legacy `customers/.../sites/.../assets`. Triggers a `FIREBASE_LOGIC_VERSION` + `?v=N` lockstep bump on all 3 callers per KI-002 B1.
+3. Conflict policy: **per-field truth** via `fieldEdits: { <fieldName>: { by, at } }` map. CSV re-import skips any field present; field-touched fields are immortal until next field touch. **Field beats office, always.**
+4. Unit identity: `{customerId}/{siteId}/{unitType}{unitNumber}` (e.g. `RTU3`, `B1`, `CU1`). Hybrid prefix list — canonical seed in `shared/config.js#VC_EQUIPMENT_TYPE_PREFIXES` (`RTU`, `B`, `CU`, `AHU`, `FCU`, `WH`, `MAU`, `EF`, `CHL`, `CT`, `SPLIT`) with **Other** → freeform `unitType` escape hatch.
+5. Edit scope: edit-existing-slot + add-new-slot only. **No relocate / retire / merge / delete** in Phase 33.
+6. Failure surfacing: every write goes through KI-002 Plan A helpers (`VCRequireTicketId`, `VCSurfaceWriteFailure`) with a user-visible affordance.
 
-1. **Single forward path** — field-adds write **only** to `tenants/{tenantId}/imported_equipment`. Cleanest tenant-isolated path; existing dispatcher reports that read the legacy `customers/.../sites/.../assets` tree won't see field-added units until they're migrated to read from `imported_equipment`.
-2. **Mirror to legacy** — field-adds write to `imported_equipment` **and** to the legacy `customers/.../sites/.../assets` tree under the same hierarchy (parent company → customer name → customer location → unit number). Existing dispatcher reports immediately see field-added units; downside is dual-write surface area and conflict semantics with CSV import re-runs.
+**Suggested build order for the next session:**
+1. New constant `VC_EQUIPMENT_TYPE_PREFIXES` in `shared/config.js` + bump that file's `?v=N` on its callers.
+2. New helper `getEquipmentForSiteBridged(db, customerId, siteId)` in `shared/firebase_logic.js`. Bump `FIREBASE_LOGIC_VERSION = 2` + `shared/firebase_logic.js?v=2` on `index.html`, `technician/index.html`, `proof_of_service.html` per the KI-002 B1 lockstep procedure.
+3. Migrate `equipment_hub.js`, `dispatcher/js/report_builder.js`, and any workspace equipment helper currently reading `customers/.../sites/.../assets` directly to call the new bridge helper. Bump those files' `?v=N`.
+4. Field-add UI: extend `dictation_hub.js#visionHubSaveEquipment` to capture `unitType` (dropdown from `VC_EQUIPMENT_TYPE_PREFIXES` + Other) + `unitNumber`, write to `imported_equipment` with `source: "field"`, `addedBy`, `addedAt`, and `fieldEdits` populated for every captured field.
+5. Field-edit flow: existing equipment-edit path stamps `fieldEdits[<fieldName>] = { by, at }` for every field the tech actually changes (not for fields they merely viewed).
+6. CSV importer per-field merge guard: walk existing tenant doc's `fieldEdits` map and skip any field present.
+7. Bump `window.VC_BUILD` in both `technician/index.html` and `index.html` (e.g. `Phase33-2026-MM-DD`) once at the end.
 
-**User must pick option 1 vs option 2 before we spec the entry point, dispatcher visibility surface, or write logic.** Surfacing this as a question in chat — do not start coding Phase 33 in this session.
-
-**Verification protocol for the C3 + E2 batch (do this on next iPhone touch):**
+**Verification protocol for the C3 + E2 batch (do this on next iPhone touch — still valid until verified):**
 - *Tech (force-reload field app on iPhone):* debug overlay top line should read `BUILD: KI002-CE-2026-04-25`. Smoke-test C3: from a shadowed dispatcher viewer, have the tech open a **historical or future-dated** job (one that sits outside the schedule listener's date window) — the dispatcher's shadow viewer should follow into that workspace within ~14s of the polling exhausting (was previously stuck on the schedule). Failure path is also observable: kill connectivity on the dispatcher side, then trigger the same scenario — the iPhone debug overlay's `write fails` line should show `shadowMirrorFetch:fetchFailed[<tid>]`.
 - *Dispatcher (force-reload):* sidebar-footer chip should read `BUILD KI002-CE-2026-04-25 · fb v1`. E2 smoke-test: load a ticket → click **Send verification to client** → inspect the resulting `tenants/{tenantId}/portal_tokens/{token}` doc in Firestore → `tenantId` field should match the live tenant (`USA_HEATING_COOLING`) and never `TWIN_PILLARS`.
 
@@ -48,7 +58,7 @@ KI-002 closed 2026-04-25 (all field-impact plans landed; hygiene leftovers parke
 ## On Deck
 
 From `ROADMAP.md → Next Up`:
-- **Phase 33 — Field-Add Equipment (No-Info Capture)** — three-path equipment data: CSV import + legacy + on-site field-add by tech. **Blocked on user data-path decision (see Immediate Next Step above).**
+- **Phase 33 — Field-Add Equipment (No-Info Capture)** — spec locked in `DECISIONS.md → ADR-011`; ready to build next session (see Immediate Next Step above for the build order).
 - **Command Map (TV Mode)** — large-scale map + Pulse feed for office monitors.
 - **Field Inventory (Truck Stock)** — parts and materials ledger for technicians.
 
