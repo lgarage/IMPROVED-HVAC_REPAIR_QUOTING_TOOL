@@ -26,7 +26,10 @@
 
 ## Active Blocker
 
-*(None — but see `KNOWN_ISSUES.md → Open → KI-003` for a newly-filed Office Override iframe parity gap that the user flagged 2026-04-25 while testing Phase 33. Not blocking Phase 33 verification or any next-phase pick; tracked as a candidate "Phase 34 — Live Workspace Mirror" under `ROADMAP.md → Next Up`.)*
+*(None — but two **non-blocking** follow-ups are filed against Phase 33 and tracked in `KNOWN_ISSUES.md → Open`. Neither blocks Phase 33 verification or any next-phase pick.)*
+
+- **`KI-003` — Office Override iframe parity gap.** Tracked as a candidate "Phase 34 — Live Workspace Mirror" under `ROADMAP.md → Next Up`.
+- **`KI-004` — Field-app photo uploads are silently dropped offline (Phase 33 follow-up).** Filed 2026-04-25 from the post-Phase 33 audit triggered by user spec "if a tech does not have signal when servicing equipment, the info should be stored on the phone and synced when signal returns." **Audit-only treatment per user 2026-04-25** — KI-004 + `DECISIONS.md → ADR-012` + `ROADMAP.md → Next Up` filed; no code yet. Confirmed: text-field equipment edits already survive offline via Firestore `enablePersistence` (`firebase-config.js` line 34); the gap is the 8 `ref.put(...)` photo upload sites in field code (Vision Hub nameplate, Equipment Manager overall + watermarked, 3 custom-form attachments, addendum photos, pasted evidence). Design locked in ADR-012: shared `shared/offline_storage_outbox.js` modeled on the existing `equipment_manager.js#ocrQueue` reference pattern, same `TwinPillarsOfflineDB` (`IDB_VERSION` → 2, new `storageOutbox` object store), dual UI signal (`#vcFieldOfflineBadge` for connectivity stays, new `#vcPendingSyncChip` for queue depth). **Treat as a KI-002-style follow-up patch on Phase 33** (not a new phase) per user 2026-04-25 — shipping `VC_BUILD = "Phase33-followup-<date>"`, verification piggybacks on the Phase 33 a/b/c smoke-tests with added smoke-tests (d) and (e) for the photo outbox.
 
 ## Immediate Next Step — Phase 33 on-device verification
 
