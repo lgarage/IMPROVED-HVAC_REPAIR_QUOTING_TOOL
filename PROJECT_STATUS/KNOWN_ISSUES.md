@@ -8,7 +8,33 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
-*(No open issues. KI-002 closed 2026-04-25 after C3 + E2 shipped — see Resolved (Reference) below.)*
+### KI-003 — Office Override iframe is not a live mirror of the tech's phone state
+
+- **Filed:** 2026-04-25 (user observation while testing Phase 33).
+- **Severity:** Medium — Office Override (Phase 30) was sold as "office sees what the tech sees." Today it actually shows what the tech *would see if they were just opening the field app fresh from Firestore* — not what's on their physical screen.
+- **What works today:**
+  - Office Override iframe loads `technician/index.html?forceTicketId=<tid>&office_override=1` and reads/writes the same Firestore docs the tech does (`service_calls/{tid}`, `internal_comms`, `live_presence`, etc.).
+  - Anything backed by a Firestore listener that the tech has already saved is in sync (last-writer-wins, per the 2026-04-25 audit decision on `internal_comms`).
+  - `dictation_hub.js#scheduleInternalCloudSave` debounces writes from the tech's notes textarea, so the dispatcher iframe sees notes update within the debounce window once the tech pauses typing.
+- **What's broken / missing (per user 2026-04-25):**
+  1. **Local UI state is not mirrored.** Which workspace accordions/menus are expanded vs. collapsed on the tech's phone is purely local DOM state — never written to Firestore — so the dispatcher's iframe shows its own initial accordion state, not the tech's. Examples: dictation hub sections, equipment hub disclosure rows, Vision Hub overlay open/closed, address book / customer directory accordions, action tray expanded items, parts tab tabs, and any `<details>` / `aria-expanded` toggle in `technician/index.html`. None of these have a live channel to the iframe.
+  2. **Inline form values are not mirrored on keystroke.** Field inputs (notes, equipment hub fields, Vision Hub identity row, retire-equipment forms, signature capture, custom field forms, etc.) only sync on save/blur/debounce, not on `input`. So when the tech is mid-typing into the model number on Vision Hub, the dispatcher iframe shows the *previously saved* value until the tech finishes the field. The dispatcher cannot "watch the tech type."
+- **Why this matters:**
+  - Defeats the primary use case of Office Override: dispatcher coaching a struggling tech in real time. Today the dispatcher can ANSWER (via internal_comms) but can't SEE what the tech is doing turn-by-turn.
+  - Surfaces during onboarding ride-alongs and any "office helps with a hard ticket" workflow that motivated Phases 30–32c in the first place.
+- **Investigation checklist (for whoever picks this up):**
+  - Inventory every accordion / disclosure / overlay open-state in `technician/index.html` and the workspace JS bundle (`workspace_ui.js`, `dictation_hub.js`, `equipment_hub.js`, `equipment_manager.js`, `field_forms.js`, `location_manager.js`, etc.). Each one needs a tiny key in a single per-ticket "ui state" doc.
+  - Inventory every `<input>` / `<textarea>` / `<select>` inside the tech workspace that the office should see live. Each needs an `input` listener that pushes its value through a debounced channel (NOT Firestore — too expensive for keystrokes).
+  - Pick a transport: candidates are (a) Firestore on the existing `live_presence/{payrollKey}` doc with a `uiState` map and a `liveDraft` map, debounced ~200ms, (b) Realtime Database `live_workspaces/{tid}` for cheaper high-frequency writes, (c) WebRTC data channel between the dispatcher iframe and the tech's tab via a signalling doc — most "live" but most complex. ADR-required before code.
+  - Decide direction. Read-only mirror (office WATCHES) is one design; bi-directional (office can also expand a section the tech has collapsed, or correct a typo mid-stream) is a different design and overlaps with Office Override's existing "remote takeover" semantic in Phase 30/31.
+  - Consent: per ADR-010 the tech must consent before chrome flips orange. Live keystroke mirroring is *more* invasive than orange chrome and probably needs its own consent gate (or piggybacks on the existing override-acknowledged flag — design call).
+- **Related code (for grep):**
+  - Existing live channels: `dictation_hub.js#scheduleInternalCloudSave`, `dispatcher/js/shadow_mode.js#applyShadowPresenceFromDoc`, `service_call.js#syncDispatcherTicketIdToActiveTech`, `live_presence` writes in `technician/index.html#writeLivePresence`.
+  - Office Override iframe loader: `service_call.js#openFieldAppOfficeModal` and the URL-routing in `technician/index.html` that interprets `?office_override=1`.
+- **Phase candidate:** "Phase 34 — Live Workspace Mirror" or "Office Override v2" — needs a dedicated ADR before code (transport choice + consent model + scope: which accordions, which fields, throttle budget, how to handle disconnects).
+- **Workaround until shipped:** dispatcher pings the tech via `internal_comms` ("show me your screen") and uses the cyan synced-ticket badge + the existing read-only data already in the iframe; for live coaching, voice/phone is still required.
+
+---
 
 ---
 

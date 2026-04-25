@@ -26,7 +26,7 @@
 
 ## Active Blocker
 
-*(None.)*
+*(None — but see `KNOWN_ISSUES.md → Open → KI-003` for a newly-filed Office Override iframe parity gap that the user flagged 2026-04-25 while testing Phase 33. Not blocking Phase 33 verification or any next-phase pick; tracked as a candidate "Phase 34 — Live Workspace Mirror" under `ROADMAP.md → Next Up`.)*
 
 ## Immediate Next Step — Phase 33 on-device verification
 
