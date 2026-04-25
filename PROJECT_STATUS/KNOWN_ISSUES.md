@@ -29,11 +29,11 @@ A comprehensive audit of dispatcher ↔ field sync surfaces (Firestore reads/wri
 - [v] A9: `dispatcher/js/shadow_mode.js` (`sendCoachPrompt` + `forceRemoteSync`) — `showSaveCue("⚠ Coach prompt FAILED to send …")` / `showSaveCue("⚠ Force-sync FAILED to send …")` on rejection; `VCSurfaceWriteFailure` first.
 - [v] **Standardize:** `VCRequireTicketId(tid, label)` and `VCSurfaceWriteFailure(ctx, err)` shipped in `shared/firebase_logic.js` (also published as bare globals `window.VCRequireTicketId` / `window.VCSurfaceWriteFailure`). Failures push onto a 10-deep `window.__vcWriteFailures` ring buffer that the iPhone debug overlay now renders (last 3 records, age in seconds, ctx, msg). Future call sites should use these helpers instead of `if (tid)` skips and `.catch(console.warn)`.
 
-**Plan B — Cache & version hygiene (~2 hours):**
-- [ ] B1: `index.html:30` & `technician/index.html:15` — add `?v=1` to `shared/firebase_logic.js` (currently unversioned; this is the heart of the merge bridge). Add load-time `console.info("[VC] firebase_logic v=N loaded")`.
-- [ ] B2: Add `?v=1` to all unversioned tech bundle scripts: `equipment_smart_select.js`, `ufx_adapter.js`, `location_manager.js`, `equipment_hub.js`, `field_forms.js`.
-- [ ] B3: Unify `equipment_manager.js` to `?v=8` on both dispatcher and tech (currently `v=7` dispatcher / `v=8` tech).
-- [ ] B4: Add `window.VC_BUILD = "<phase>-<date>"` to `index.html` + small chip in dispatcher top bar / sidebar footer. Match the iPhone overlay pattern.
+**Plan B — Cache & version hygiene (~2 hours): subset B1+B2+B3+B4 SHIPPED 2026-04-25.** Single commit batch on top of Plan A.
+- [v] B1: `shared/firebase_logic.js?v=1` on all three callers (`index.html`, `technician/index.html`, `proof_of_service.html`). Added `FIREBASE_LOGIC_VERSION = 1` constant inside the IIFE that emits `[VC] firebase_logic v=1 loaded` on load and is exposed as `window.__VC_FIREBASE_LOGIC_VERSION` so the dispatcher BUILD chip can render the loaded version. Bump-in-lockstep procedure documented in the file header comment.
+- [v] B2: Added `?v=1` to all five unversioned tech bundle scripts in `technician/index.html`: `equipment_smart_select.js`, `ufx_adapter.js`, `location_manager.js`, `equipment_hub.js`, `field_forms.js`. (None are loaded by the dispatcher.)
+- [v] B3: Unified `equipment_manager.js?v=8` on the dispatcher (`index.html`); tech was already `?v=8`.
+- [v] B4: `window.VC_BUILD = "KI002-B-2026-04-25"` set near the top of dispatcher inline `<script>` (mirrors the `technician/index.html` pattern). New `#vcBuildChip` rendered inside `.sidebar-footer` (hidden when sidebar is collapsed via the existing rule); populated by `vcDispatcherBuildChipBoot` IIFE with `BUILD <stamp> · fb v<N>` (the `fb v<N>` half reads `window.__VC_FIREBASE_LOGIC_VERSION` from B1 so a stale `shared/firebase_logic.js` is visible at a glance). Click the chip to copy.
 - [ ] B5: `dispatcher/js/report_builder.js:138-140` loads `report_builder.css?v=1` while `index.html:20` loads `?v=4` — consolidate to one source.
 - [ ] B6: `sw.js` cache hygiene — bump `CACHE_NAME` on each deploy; add activate handler to delete old caches; consider network-first for `index.html`.
 - [ ] B7: Document the dispatcher-SW vs tech-no-SW asymmetry in `sw.js` and here under Environmental Gotchas.
@@ -50,7 +50,7 @@ A comprehensive audit of dispatcher ↔ field sync surfaces (Firestore reads/wri
 - [ ] E3: `settings.js:614-617` & `:632-635` — wrap dual roster + on-call writes in a `WriteBatch` so both succeed atomically (or neither).
 - [ ] E4: `dispatcher/js/ai_report_reviewer.js:563-583` — drop the redundant `syncSingleServiceCallToCloud(localRow)` after `setServiceCallMerged(memo)` (or refresh `localRow` from server first).
 
-**Recommended ship order:** ~~A (full plan, one commit batch)~~ ✓ shipped 2026-04-25 → B1+B2+B3+B4 (next) → C3 → E2 → ship + verify on iPhone. Then B6 + the rest of E. Once all of B/C/E that we care about for this pass is done, flip KI-002 itself to Resolved.
+**Recommended ship order:** ~~A (full plan)~~ ✓ shipped 2026-04-25 → ~~B1+B2+B3+B4~~ ✓ shipped 2026-04-25 → C3 (next) → E2 → ship + verify on iPhone. Then B6 + the rest of E. Once all of B/C/E that we care about for this pass is done, flip KI-002 itself to Resolved.
 
 **Decision deferred:** equipment data path long-term (legacy `customers/.../assets` vs tenant `imported_equipment`). Phase 33 (Field-Add Equipment) will need to settle this. Until then the existing parallel paths stay.
 

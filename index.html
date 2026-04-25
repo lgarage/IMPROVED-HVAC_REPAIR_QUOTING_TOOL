@@ -27,9 +27,15 @@
     <script src="firebase-config.js?v=4"></script>
     <script src="shared/firebase_config.js?v=1"></script>
     <script src="shared/config.js?v=3"></script>
-    <script src="shared/firebase_logic.js"></script>
+    <script src="shared/firebase_logic.js?v=1"></script>
     <script src="shared/client_portal_logic.js?v=2"></script>
     <script>
+      /** KI-002 Plan B4 — dispatcher BUILD stamp, mirrors `window.VC_BUILD` in `technician/index.html`.
+       *  Bump this any time you change inline content of `index.html` so the sidebar BUILD chip can
+       *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
+       *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
+       *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
+      window.VC_BUILD = "KI002-B-2026-04-25";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -2405,6 +2411,17 @@
       </ul>
       <div class="sidebar-footer">
         <span class="menu-text" data-vc-brand-footer></span>
+        <!-- KI-002 Plan B4 — dispatcher BUILD chip; mirrors the iPhone debug-overlay BUILD line.
+             Populated by the inline script in index.html from `window.VC_BUILD`. Hidden when the
+             sidebar is collapsed via the existing `.sidebar.collapsed .sidebar-footer{display:none}`
+             rule, so it doesn't bleed into the icon-only collapsed strip. Title shows version of
+             firebase_logic.js so we can spot a stale shared/firebase_logic.js at a glance. -->
+        <span
+          class="menu-text vc-build-chip"
+          id="vcBuildChip"
+          style="display:block;margin-top:6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px;color:rgba(56,189,248,0.85);letter-spacing:0.04em"
+          title="Click to copy"
+        ></span>
       </div>
       <details
         id="vcAdminTools"
@@ -6871,6 +6888,45 @@
     <script src="dispatcher/js/ticket_manager.js?v=2"></script>
     <script src="dispatcher/js/activity_feed.js?v=1"></script>
     <script>
+      /** KI-002 Plan B4 — populate the dispatcher BUILD chip with `window.VC_BUILD` and the loaded
+       *  `shared/firebase_logic.js` version (set by the file's IIFE as `__VC_FIREBASE_LOGIC_VERSION`).
+       *  Click-to-copy so the operator can paste the build into a chat for cache-staleness diagnosis. */
+      (function vcDispatcherBuildChipBoot() {
+        function paint() {
+          var el = document.getElementById("vcBuildChip");
+          if (!el) return;
+          var build = window.VC_BUILD || "?";
+          var fbv = window.__VC_FIREBASE_LOGIC_VERSION;
+          el.textContent = "BUILD " + build + (fbv != null ? " · fb v" + fbv : "");
+          if (!el.dataset.vcWired) {
+            el.dataset.vcWired = "1";
+            el.style.cursor = "pointer";
+            el.addEventListener("click", function () {
+              var txt = el.textContent || "";
+              try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  navigator.clipboard.writeText(txt);
+                } else {
+                  var ta = document.createElement("textarea");
+                  ta.value = txt;
+                  document.body.appendChild(ta);
+                  ta.select();
+                  document.execCommand("copy");
+                  document.body.removeChild(ta);
+                }
+                var prev = el.textContent;
+                el.textContent = "Copied";
+                setTimeout(function () { el.textContent = prev; }, 1200);
+              } catch (e) {}
+            });
+          }
+        }
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", paint);
+        } else {
+          paint();
+        }
+      })();
       document.addEventListener("DOMContentLoaded", function () {
         if (typeof VcShadowMode !== "undefined" && VcShadowMode.initShadowMode) {
           VcShadowMode.initShadowMode();
@@ -7203,6 +7259,6 @@
     </div>
     <script src="dispatcher/js/payroll_manager.js?v=1"></script>
     <script src="dispatcher/js/import_hub.js?v=1"></script>
-    <script src="equipment_manager.js?v=7"></script>
+    <script src="equipment_manager.js?v=8"></script>
   </body>
 </html>

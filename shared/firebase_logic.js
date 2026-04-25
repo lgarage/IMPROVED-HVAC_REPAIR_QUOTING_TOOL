@@ -3,9 +3,21 @@
  * Data lives under tenants/{tenantId}/… for isolation between companies.
  *
  * Requires: shared/config.js (APP_CONFIG.tenantId), firebase firestore.
+ *
+ * KI-002 Plan B1: this file is now versioned (`?v=N`) by every caller
+ * (`index.html`, `technician/index.html`, `proof_of_service.html`). Bump
+ * `FIREBASE_LOGIC_VERSION` below + the `?v=` query string in all three
+ * callers in lockstep whenever you change merge-bridge logic so a stale
+ * cached copy can never silently win on any device.
  */
 (function (global) {
   "use strict";
+
+  var FIREBASE_LOGIC_VERSION = 1;
+  try {
+    console.info("[VC] firebase_logic v=" + FIREBASE_LOGIC_VERSION + " loaded");
+  } catch (e) {}
+  try { global.__VC_FIREBASE_LOGIC_VERSION = FIREBASE_LOGIC_VERSION; } catch (e) {}
 
   function getTenantId() {
     if (typeof APP_CONFIG !== "undefined" && APP_CONFIG.tenantId) {
