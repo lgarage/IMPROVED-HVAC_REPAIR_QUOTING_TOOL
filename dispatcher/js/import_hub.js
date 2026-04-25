@@ -283,6 +283,22 @@
   }
 
   /**
+   * Phase 33 (ADR-011 §3) — Per-field merge guard for CSV equipment imports.
+   *
+   * For each CSV row we:
+   *   1. Find any existing `imported_equipment` doc that represents the
+   *      same physical unit (matched by `normalizedLocationKey` + `unitTag`,
+   *      then `serialNumber`, then the legacy `vc_imp_eq_<hash>` doc id).
+   *   2. If one is found AND it has a non-empty `fieldEdits` map, strip
+   *      every field present in `fieldEdits` from the CSV payload BEFORE
+   *      writing. That preserves the technician's correction across CSV
+   *      refreshes.
+   *   3. If the existing doc was field-added (`source === "field"`),
+   *      preserve `source` instead of clobbering it with `"csv"`.
+   *   4. If no match is found we fall back to the original
+   *      `vc_imp_eq_<hash(nk|serial)>` doc id and write a brand-new row
+   *      with `source: "csv"` + `fieldEdits: {}`.
+   *
    * @param {firebase.firestore.Firestore} db
    * @param {string[][]} rows data rows (no header)
    * @param {string[]} headers
@@ -297,7 +313,9 @@
     }
     var eqCol = VCFirestore.tenantImportedEquipment(db);
     var mergeMap = new global.Map();
-    var writes = [];
+
+    /* Phase 33 — Step 1: Build candidate rows (no doc-id resolution yet). */
+    var candidates = [];
     var r;
     for (r = 0; r < rows.length; r++) {
       var row = rows[r];
@@ -305,36 +323,148 @@
       var locationLine = buildLocationLine(ro);
       var nk = normalizeLocationKey(locationLine);
       if (!nk) continue;
-      var serial = String(ro.serial_number || "").trim() || "unknown-" + r;
-      var docId = equipDocId(nk, serial);
+      var serial = String(ro.serial_number || "").trim();
+      var serialForId = serial || "unknown-" + r;
+      var legacyDocId = equipDocId(nk, serialForId);
       pushSiteIntelFragment(mergeMap, locationLine, "Office Notes", ro.office_notes);
       pushSiteIntelFragment(mergeMap, locationLine, "Internal Access", ro.internal_access);
-      writes.push({
-        ref: eqCol.doc(docId),
-        data: {
+      var unitTag = String(ro.unit_tag || "").trim();
+      candidates.push({
+        rowIndex: r,
+        nk: nk,
+        unitTag: unitTag,
+        serial: serial,
+        legacyDocId: legacyDocId,
+        payload: {
           normalizedLocationKey: nk,
           locationDisplay: locationLine,
           serialNumber: ro.serial_number || "",
           modelNumber: ro.model_number || "",
           manufacturer: ro.manufacturer || "",
           brand: ro.brand || "",
-          unitTag: ro.unit_tag || "",
+          unitTag: unitTag,
           equipmentType: ro.equipment_type || "",
           installDate: ro.install_date || "",
           notes: ro.equipment_notes || "",
-          isLegacyImport: true,
-          legacySource: legacySource,
-          importedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          sourceRowIndex: r,
         },
-        merge: true,
       });
     }
-    var totalPhases = writes.length + mergeMap.size;
-    if (totalPhases === 0 && onProgress) onProgress(0, 0);
-    return runWriteBatches(db, writes, onProgress, totalPhases).then(function () {
-      return mergeSiteIntelMap(db, mergeMap, function (d, t) {
-        if (onProgress) onProgress(writes.length + d, totalPhases);
+
+    /* Phase 33 — Step 2: Pre-fetch every imported_equipment doc at each
+       distinct normalizedLocationKey touched by this CSV. We do this in
+       small concurrent chunks so a 10k-row CSV doesn't fan out 10k
+       parallel queries. */
+    var nkSet = {};
+    candidates.forEach(function (c) {
+      nkSet[c.nk] = true;
+    });
+    var nkList = Object.keys(nkSet);
+    var existingByNk = {};
+    var FETCH_CONCURRENCY = 8;
+
+    function preFetchExisting() {
+      if (nkList.length === 0) return Promise.resolve();
+      var i = 0;
+      function nextChunk() {
+        if (i >= nkList.length) return Promise.resolve();
+        var slice = nkList.slice(i, i + FETCH_CONCURRENCY);
+        i += slice.length;
+        return Promise.all(
+          slice.map(function (nk) {
+            return eqCol
+              .where("normalizedLocationKey", "==", nk)
+              .get()
+              .then(function (snap) {
+                var arr = [];
+                snap.forEach(function (d) {
+                  arr.push({ id: d.id, data: d.data() || {} });
+                });
+                existingByNk[nk] = arr;
+              })
+              .catch(function (err) {
+                if (typeof VCSurfaceWriteFailure === "function") {
+                  VCSurfaceWriteFailure("processEquipmentImport:preFetch", err);
+                }
+                existingByNk[nk] = [];
+              });
+          })
+        ).then(nextChunk);
+      }
+      return nextChunk();
+    }
+
+    function findExistingMatch(c) {
+      var arr = existingByNk[c.nk] || [];
+      var i;
+      if (c.unitTag) {
+        for (i = 0; i < arr.length; i++) {
+          if (String(arr[i].data.unitTag || "").trim() === c.unitTag) return arr[i];
+        }
+      }
+      if (c.serial) {
+        for (i = 0; i < arr.length; i++) {
+          if (String(arr[i].data.serialNumber || "").trim() === c.serial) return arr[i];
+        }
+      }
+      for (i = 0; i < arr.length; i++) {
+        if (arr[i].id === c.legacyDocId) return arr[i];
+      }
+      return null;
+    }
+
+    /* Phase 33 — Step 3: Build the actual writes, applying the per-field
+       guard against the existing doc's fieldEdits map. */
+    function buildGuardedWrites() {
+      var writes = [];
+      var serverTs = firebase.firestore.FieldValue.serverTimestamp();
+      candidates.forEach(function (c) {
+        var existing = findExistingMatch(c);
+        var existingData = existing ? existing.data || {} : null;
+        var existingFieldEdits =
+          existingData && existingData.fieldEdits && typeof existingData.fieldEdits === "object"
+            ? existingData.fieldEdits
+            : null;
+        var data = {};
+        Object.keys(c.payload).forEach(function (fk) {
+          var v = c.payload[fk];
+          /* Per-field merge guard: skip any key the field has already
+             stamped as field-edited. */
+          if (existingFieldEdits && Object.prototype.hasOwnProperty.call(existingFieldEdits, fk)) {
+            return;
+          }
+          /* Don't write empty strings on top of existing values. */
+          if (existing && (v === "" || v == null)) return;
+          data[fk] = v;
+        });
+        data.isLegacyImport = true;
+        data.legacySource = legacySource;
+        data.importedAt = serverTs;
+        data.sourceRowIndex = c.rowIndex;
+        if (!existing) {
+          /* Brand-new row: stamp source + seed empty fieldEdits so the
+             field-edit writer always has a map to merge into. */
+          data.source = "csv";
+          data.fieldEdits = {};
+        } else if (existingData && existingData.source === "field") {
+          /* Don't overwrite "field" with "csv" — preserve provenance. */
+        } else if (existingData && !existingData.source) {
+          /* Legacy CSV-imported doc with no source flag yet — backfill it. */
+          data.source = "csv";
+        }
+        var docId = existing ? existing.id : c.legacyDocId;
+        writes.push({ ref: eqCol.doc(docId), data: data, merge: true });
+      });
+      return writes;
+    }
+
+    return preFetchExisting().then(function () {
+      var writes = buildGuardedWrites();
+      var totalPhases = writes.length + mergeMap.size;
+      if (totalPhases === 0 && onProgress) onProgress(0, 0);
+      return runWriteBatches(db, writes, onProgress, totalPhases).then(function () {
+        return mergeSiteIntelMap(db, mergeMap, function (d, t) {
+          if (onProgress) onProgress(writes.length + d, totalPhases);
+        });
       });
     });
   }
