@@ -2,7 +2,7 @@
 
 A place to park ideas, feature requests, and future phases so they do not get lost.
 
-> **This file is for unbuilt ideas only.** Once a phase enters active build, it is tracked in `CURRENT_STATE.md`; once it ships, it moves into `PROJECT_MAP.md → Build History`.
+> **Tier 2 (cold) — pull on demand when picking the next phase or filing a new idea.** Once a phase enters active build, it is tracked in `CURRENT_STATE.md`; once it ships, it moves into `PROJECT_MAP.md → Build History`. Read protocol in `.cursorrules` §1A.
 
 ## 🚀 Next Up (Ready to Build)
 

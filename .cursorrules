@@ -2,17 +2,28 @@
 
 ## 1. THE DOCUMENTATION PROTOCOL (STRICT)
 
-### 1A. Memory Architecture & Read Order
+### 1A. Memory Architecture & Read Protocol (Two-Tier)
 
-The repo uses a **layered markdown memory system**. All memory files live in **`PROJECT_STATUS/`** at the repo root (this file, `.cursorrules`, stays at the repo root because Cursor auto-loads it from there). At the start of every session, read in this order:
+The repo uses a **layered markdown memory system** in **`PROJECT_STATUS/`** at the repo root (this file, `.cursorrules`, stays at the repo root because Cursor auto-loads it). To minimize tokens spent on onboarding, the read protocol is **two-tier**:
 
-1. **`PROJECT_STATUS/CURRENT_STATE.md`** — single source of truth for *where we are right now*: active phase, last shipped step, active blocker pointer, immediate next step. **Read this first, every session.**
-2. **`.cursorrules`** (this file, repo root) — hard rules.
-3. **`PROJECT_STATUS/KNOWN_ISSUES.md`** — open bugs (`KI-NNN` ids), standing environmental gotchas, and resolved-for-reference history.
-4. **`PROJECT_STATUS/PROJECT_MAP.md`** — canonical catalog of *implemented* features by domain + Build History. Search as needed; do not read end-to-end unless onboarding.
-5. **`PROJECT_STATUS/ROADMAP.md`** — unbuilt ideas: Next Up / Icebox / Minor Tweaks.
-6. **`PROJECT_STATUS/DECISIONS.md`** — append-only ADR-lite log. Read before reversing or contradicting a past architectural choice.
-7. **`PROJECT_STATUS/AI_CONTEXT_PROJECT_OVERVIEW.md`** — stable high-level architecture handoff. Read only when you need the deep architecture model. Treat as historical context; current naming conventions live in `PROJECT_MAP.md`.
+#### Tier 1 — Hot (always read at session start)
+
+1. **`PROJECT_STATUS/CURRENT_STATE.md`** — active phase, active blocker (`KI-NNN` ref only), immediate next step, pointers. **Hard-capped at ~30 content lines / ~400 tokens.** If it grows past that, migrate excess into the appropriate Tier 2 file before adding more.
+2. **`.cursorrules`** (this file) — hard rules.
+
+That is the entire mandatory read at session start. Total budget: ~1.5k tokens.
+
+#### Tier 2 — Cold (pull on demand only, by trigger — search, don't read end-to-end)
+
+| File | Read only when… |
+|---|---|
+| `PROJECT_STATUS/KNOWN_ISSUES.md` | A `KI-NNN` is referenced in Tier 1 or you're touching code listed under one. **Grep by id or affected file.** |
+| `PROJECT_STATUS/PROJECT_MAP.md` | You need a path / hook / domain detail for shipped functionality. **Grep by feature, file, or `Phase N`. Do not read end-to-end unless first-time onboarding.** |
+| `PROJECT_STATUS/DECISIONS.md` | About to reverse or contradict a past choice. **Search by `ADR-NNN` or topic.** |
+| `PROJECT_STATUS/ROADMAP.md` | Picking the next phase or filing a new idea. |
+| `PROJECT_STATUS/AI_CONTEXT_PROJECT_OVERVIEW.md` | First-time onboarding only, or a major architectural shift. Treat as historical context; current naming conventions live in `PROJECT_MAP.md`. |
+
+**Rule of thumb:** if Tier 1 names a `KI-NNN` / `ADR-NNN` / `Phase N`, fetch only that section of the relevant Tier 2 file. Never load a Tier 2 file just to "see what's there."
 
 ### 1B. File Responsibilities
 

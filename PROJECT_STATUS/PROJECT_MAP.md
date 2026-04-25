@@ -2,9 +2,9 @@
 
 Audited snapshot of what is **implemented and wired today**. Each feature lists **User Guide** (how to use it) and **Technical Specs** (paths, data, hooks).
 
-> **This file is the implemented-feature catalog.**
+> **Tier 2 (cold) — implemented-feature catalog. Grep by feature, file path, or `Phase N`. Do not read end-to-end unless first-time onboarding.** Read protocol in `.cursorrules` §1A.
 >
-> - For *where we are right now* and the active blocker, read `CURRENT_STATE.md` first.
+> - For *where we are right now* and the active blocker, read `CURRENT_STATE.md` (Tier 1) first.
 > - For open bugs and environmental gotchas, read `KNOWN_ISSUES.md`.
 > - For why a given architectural choice was made, read `DECISIONS.md`.
 > - For unbuilt ideas, read `ROADMAP.md`.

@@ -2,6 +2,8 @@
 
 Append-only architectural decision record (ADR-lite). When you reverse or supersede an entry, leave the original and add a new entry referencing it.
 
+> **Tier 2 (cold) — pull on demand.** Search by `ADR-NNN` or topic; do not read end-to-end. Read protocol in `.cursorrules` §1A.
+
 **Format**
 
 ```

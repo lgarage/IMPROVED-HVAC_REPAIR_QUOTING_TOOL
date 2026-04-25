@@ -2,6 +2,8 @@
 
 This document gives **full architectural context** for the repository **IMPROVED-HVAC_REPAIR_QUOTING_TOOL** (also branded **Twin Pillars** in the UI). Use it to onboard another AI or developer in a new conversation without re-reading the entire codebase.
 
+> **Tier 2 (cold) — first-time onboarding only, or major architectural shift.** Treat as historical context; **current naming conventions and feature locations live in `PROJECT_MAP.md`**, not here. Read protocol in `.cursorrules` §1A.
+
 ---
 
 ## 1. What This Program Is

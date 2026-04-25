@@ -2,7 +2,7 @@
 
 Open bugs, environmental gotchas, and debug notes. Resolved items move to the **Resolved (Reference)** section at the bottom so we keep institutional memory without cluttering the open list.
 
-> Cross-reference: `CURRENT_STATE.md` always names the **single highest-priority blocker** by ID. This file holds full reproduction and investigation notes.
+> **Tier 2 (cold) — pull on demand by `KI-NNN` or affected file. Do not read end-to-end.** `CURRENT_STATE.md` always names the **single highest-priority blocker** by ID; this file holds full reproduction and investigation notes. Read protocol in `.cursorrules` §1A.
 
 ---
 
