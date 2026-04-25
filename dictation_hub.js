@@ -1655,38 +1655,64 @@
     var siteId = sanitizePathSegment(locLine);
 
     var db = firebase.firestore();
-    var ref = db
-      .collection("customers")
-      .doc(customerId)
-      .collection("sites")
-      .doc(siteId)
-      .collection("assets");
-
-    assetsUnsub = ref.onSnapshot(
-      function (snap) {
-        var rows = [];
-        snap.forEach(function (doc) {
-          rows.push({
-            id: doc.id,
-            data: doc.data() || {},
-            docSnap: doc,
+    /* Phase 33 (ADR-011 §2) — read via the bridged equipment helper so the
+       Action Tray sees CSV-imported + field-added rows alongside the legacy
+       per-site assets. The bridge merges by unit identity (unitType+unitNumber
+       → unitTag → docId), with `imported_equipment` winning on conflict. */
+    if (
+      typeof VCFirestore !== "undefined" &&
+      typeof VCFirestore.subscribeEquipmentForSiteBridged === "function"
+    ) {
+      assetsUnsub = VCFirestore.subscribeEquipmentForSiteBridged(
+        db,
+        customerId,
+        siteId,
+        locLine,
+        function (rows) {
+          rows.sort(function (a, b) {
+            return String(a.id).localeCompare(String(b.id));
           });
-        });
-        rows.sort(function (a, b) {
-          return String(a.id).localeCompare(String(b.id));
-        });
-        renderActionTray(rows);
-      },
-      function (err) {
-        console.error("[DictationHub] assets listener", err);
-        if (tray) {
-          tray.innerHTML =
-            '<p class="dictation-action-tray-empty">Could not load assets. ' +
-            escapeHtml(err.message || String(err)) +
-            "</p>";
+          renderActionTray(rows);
+        },
+        function (err) {
+          console.error("[DictationHub] equipment bridge listener", err);
+          if (tray) {
+            tray.innerHTML =
+              '<p class="dictation-action-tray-empty">Could not load assets. ' +
+              escapeHtml(err.message || String(err)) +
+              "</p>";
+          }
         }
-      }
-    );
+      );
+    } else {
+      var ref = db
+        .collection("customers")
+        .doc(customerId)
+        .collection("sites")
+        .doc(siteId)
+        .collection("assets");
+      assetsUnsub = ref.onSnapshot(
+        function (snap) {
+          var rows = [];
+          snap.forEach(function (doc) {
+            rows.push({ id: doc.id, data: doc.data() || {}, docSnap: doc });
+          });
+          rows.sort(function (a, b) {
+            return String(a.id).localeCompare(String(b.id));
+          });
+          renderActionTray(rows);
+        },
+        function (err) {
+          console.error("[DictationHub] assets listener (legacy fallback)", err);
+          if (tray) {
+            tray.innerHTML =
+              '<p class="dictation-action-tray-empty">Could not load assets. ' +
+              escapeHtml(err.message || String(err)) +
+              "</p>";
+          }
+        }
+      );
+    }
   }
 
   function onProcessNotesClick() {
