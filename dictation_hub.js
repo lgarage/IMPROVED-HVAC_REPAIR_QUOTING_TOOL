@@ -1333,6 +1333,75 @@
     }
   }
 
+  /** KI-002 Plan A3 — lazy-injected "tap to retry" banner under the dictation textarea.
+   *  Visible only after a save failed; tapping retries the most recent payload. */
+  function ensureNotesErrorBannerInDom() {
+    var el = document.getElementById("dictationHubNotesError");
+    if (el) return el;
+    var notesEl = document.getElementById("dictationHubNotes");
+    if (!notesEl || !notesEl.parentNode) return null;
+    try {
+      el = document.createElement("div");
+      el.id = "dictationHubNotesError";
+      el.setAttribute("role", "button");
+      el.setAttribute("tabindex", "0");
+      el.style.cssText = [
+        "display:none", "margin-top:6px", "padding:8px 10px",
+        "background:rgba(220,38,38,0.10)", "color:#dc2626",
+        "border:1px solid rgba(220,38,38,0.45)", "border-radius:6px",
+        "font:13px/1.3 ui-sans-serif,system-ui,sans-serif", "cursor:pointer",
+        "user-select:none", "-webkit-user-select:none"
+      ].join(";");
+      el.textContent = "⚠ note not synced — tap to retry";
+      notesEl.parentNode.insertBefore(el, notesEl.nextSibling);
+      el.addEventListener("click", function () {
+        var pending = el.dataset.pending || "";
+        var pendingTid = el.dataset.tid || "";
+        if (!pendingTid) { el.style.display = "none"; return; }
+        el.textContent = "⏳ retrying…";
+        runInternalCloudSave(pendingTid, pending, true);
+      });
+    } catch (e) { return null; }
+    return el;
+  }
+  function setNotesErrorVisible(show, tid, payload) {
+    var el = ensureNotesErrorBannerInDom();
+    if (!el) return;
+    if (show) {
+      el.dataset.pending = String(payload || "");
+      el.dataset.tid = String(tid || "");
+      el.textContent = "⚠ note not synced — tap to retry";
+      el.style.display = "block";
+    } else {
+      el.style.display = "none";
+    }
+  }
+
+  function runInternalCloudSave(ticketId, payload, isRetry) {
+    var _db = firebase.firestore();
+    var _sc =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.serviceCalls(_db)
+        : _db.collection("service_calls");
+    var patch = {
+      /* internal_comms is a string per "last writer wins" (KI-002, no merge logic). */
+      internal_comms: payload,
+      internal_comms_updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    var p =
+      typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged
+        ? VCFirestore.setServiceCallMerged(_db, ticketId, patch, true)
+        : _sc.doc(ticketId).set(patch, { merge: true });
+    p.then(function () {
+      setNotesErrorVisible(false);
+    }).catch(function (err) {
+      if (typeof VCSurfaceWriteFailure === "function") {
+        VCSurfaceWriteFailure("DictationHub.internal_comms" + (isRetry ? ":retry" : ""), err);
+      }
+      setNotesErrorVisible(true, ticketId, payload);
+    });
+  }
+
   function scheduleInternalCloudSave(text) {
     if (isVcTimeTrackingOnlySeat()) return;
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
@@ -1342,22 +1411,7 @@
     var payload = String(text || "");
     internalCloudDebounce = setTimeout(function () {
       internalCloudDebounce = null;
-      var _db = firebase.firestore();
-      var _sc =
-        typeof VCFirestore !== "undefined"
-          ? VCFirestore.serviceCalls(_db)
-          : _db.collection("service_calls");
-      var patch = {
-        internal_comms: payload,
-        internal_comms_updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      };
-      var p =
-        typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged
-          ? VCFirestore.setServiceCallMerged(_db, ticketId, patch, true)
-          : _sc.doc(ticketId).set(patch, { merge: true });
-      p.catch(function (err) {
-        console.warn("[DictationHub] internal_comms save", err);
-      });
+      runInternalCloudSave(ticketId, payload, false);
     }, 800);
   }
 

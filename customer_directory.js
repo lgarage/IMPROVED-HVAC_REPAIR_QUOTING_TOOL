@@ -64,7 +64,23 @@ async function syncSingleCustomerToCloud(custName, custData) {
             }, { merge: true });
         }
     } catch (e) {
-        console.error("Failed to sync customer to cloud:", e);
+        /* KI-002 Plan A7 — visible failure cue on cloud sync miss. The local UI already updated
+           (datalist + tp_customers_db) so the user thinks the save stuck; without this they'll
+           keep editing on a stale cloud copy and overwrite the next dispatcher's work. */
+        if (typeof window.VCSurfaceWriteFailure === "function") {
+            window.VCSurfaceWriteFailure("syncSingleCustomerToCloud:" + String(custName || "?"), e);
+        } else {
+            console.error("Failed to sync customer to cloud:", e);
+        }
+        if (typeof showSaveCue === "function") {
+            try {
+                showSaveCue(
+                    "⚠ Customer saved locally only — cloud sync FAILED for " +
+                    String(custName || "(unknown)") +
+                    ". Check connection."
+                );
+            } catch (eC) {}
+        }
     }
 }
 

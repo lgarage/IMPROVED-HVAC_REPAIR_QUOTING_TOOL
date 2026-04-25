@@ -14,6 +14,43 @@
     return "TWIN_PILLARS";
   }
 
+  /**
+   * KI-002 Plan A standard helpers — eliminate silent failures.
+   *
+   * `VCRequireTicketId(tid, label)` returns a non-empty trimmed ticket id, or "" if missing.
+   * On miss it warns to console AND pushes onto the `__vcWriteFailures` ring buffer so the
+   * iPhone debug overlay (technician/index.html) can surface it. Callers MUST short-circuit
+   * on "" — do NOT fall through to a write that would skip silently.
+   *
+   * `VCSurfaceWriteFailure(ctx, err)` is the canonical replacement for `.catch(console.warn)`.
+   * It console.errors with a `[VC write failed] <ctx>:` prefix and pushes a {at, ctx, msg}
+   * record onto the same ring buffer (capped at 10). Pair this with a user-visible affordance
+   * at the call site (red banner, alert, save-cue, etc.) — never let a write die silently.
+   */
+  function recordWriteFailure(ctx, err) {
+    var msg;
+    try {
+      msg = err && err.message ? String(err.message) : (err == null ? "unknown" : String(err));
+    } catch (e) { msg = "unknown"; }
+    try { console.error("[VC write failed] " + String(ctx || "?") + ":", err); } catch (e) {}
+    try {
+      if (typeof global !== "undefined") {
+        if (!Array.isArray(global.__vcWriteFailures)) global.__vcWriteFailures = [];
+        global.__vcWriteFailures.push({ at: Date.now(), ctx: String(ctx || ""), msg: msg });
+        while (global.__vcWriteFailures.length > 10) global.__vcWriteFailures.shift();
+      }
+    } catch (e) {}
+  }
+
+  function vcRequireTicketId(tid, label) {
+    var s = (tid == null ? "" : String(tid)).trim();
+    if (s) return s;
+    var ctx = "empty-tid:" + (label || "?");
+    try { console.warn("[VC] " + ctx); } catch (e) {}
+    recordWriteFailure(ctx, new Error("empty ticket id"));
+    return "";
+  }
+
   /** Training / sandbox data path (Field App training accounts only). */
   function isSandboxDataPath() {
     try {
@@ -307,7 +344,11 @@
    * Write to tenant path; if TWIN_PILLARS and a root copy exists, remove it after migrate.
    */
   function setServiceCallMerged(db, ticketId, data, merge) {
-    var tid = String(ticketId || "");
+    /* KI-002 Plan A8 — refuse empty ticket id loudly instead of writing to a doc whose id is "". */
+    var tid = vcRequireTicketId(ticketId, "setServiceCallMerged");
+    if (!tid) {
+      return Promise.reject(new Error("setServiceCallMerged: empty ticket id"));
+    }
     var tRef = serviceCalls(db).doc(tid);
     return tRef.set(data, { merge: !!merge }).then(function () {
       if (isSandboxDataPath() || !isBridgeTenant()) return;
@@ -471,7 +512,14 @@
     };
   }
 
+  /* KI-002 Plan A — also publish the helpers as bare globals so call sites can write
+     `VCRequireTicketId(...)` / `VCSurfaceWriteFailure(...)` without typing the namespace. */
+  global.VCRequireTicketId = vcRequireTicketId;
+  global.VCSurfaceWriteFailure = recordWriteFailure;
+
   global.VCFirestore = {
+    requireTicketId: vcRequireTicketId,
+    surfaceWriteFailure: recordWriteFailure,
     getTenantId: getTenantId,
     isSandboxDataPath: isSandboxDataPath,
     tenantRoot: tenantRoot,

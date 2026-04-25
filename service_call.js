@@ -3555,7 +3555,37 @@ function toggleOfficeOverride(active) {
                     ? VCFirestore.setServiceCallMerged(db, tid, patch, true)
                     : db.collection("service_calls").doc(tid).set(patch, { merge: true });
             p.catch(function (err) {
-                console.warn("[OfficeOverride] flag write", err);
+                /* KI-002 Plan A4 — Phase 32b alarm pattern, now also for actual Firestore write failures
+                   (not just empty-tid). The dispatcher cannot rely on console-only warnings — without a
+                   visible signal they think the override took effect when it didn't. Red outline + alert
+                   gives the same instant feedback as the empty-tid path above. */
+                if (typeof VCSurfaceWriteFailure === "function") {
+                    VCSurfaceWriteFailure("toggleOfficeOverride:flagWrite", err);
+                } else {
+                    try { console.warn("[OfficeOverride] flag write", err); } catch (e) {}
+                }
+                try {
+                    var btnE = document.getElementById("btnOfficeOverride");
+                    if (btnE) {
+                        btnE.title =
+                            "ERROR: Office Override flag write FAILED on Firestore. " +
+                            "The technician's phone will NOT see a consent button until this succeeds. " +
+                            "Check connection and try again.";
+                        btnE.style.outline = "3px solid #dc2626";
+                        setTimeout(function () {
+                            try { btnE.style.outline = ""; } catch (eS) {}
+                        }, 6000);
+                    }
+                } catch (eB) {}
+                try {
+                    alert(
+                        "Office Override: Firestore write FAILED.\n\n" +
+                        "The local toggle flipped, but the technician's REAL phone will NOT see " +
+                        "a consent button because the flag did not save to Firestore.\n\n" +
+                        "Check connection and try again.\n\n" +
+                        "Details: " + (err && err.message ? err.message : err)
+                    );
+                } catch (eA) {}
             });
         }
     } catch (e2) {}

@@ -3953,9 +3953,13 @@ try {
       var titleEl = btn.querySelector(".vc-override-consent-btn__title");
       if (titleEl) titleEl.textContent = "✓ Acknowledging…";
       p.catch(function (e) {
-        console.warn("[OfficeOverride] ack write", e);
+        /* KI-002 Plan A5 — surface ack-write failure inline so the tech knows their tap didn't
+           reach the office (otherwise dispatcher thinks they ignored it). */
+        if (typeof VCSurfaceWriteFailure === "function") {
+          VCSurfaceWriteFailure("OfficeOverride:ackWrite", e);
+        }
         btn.disabled = false;
-        if (titleEl) titleEl.textContent = "🟠 Tap to acknowledge — Dispatch is editing this job";
+        if (titleEl) titleEl.textContent = "⚠ Sync failed — tap to retry acknowledgement";
       });
     });
   }
@@ -3970,7 +3974,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "32b-2026-04-25";
+window.VC_BUILD = "KI002-A-2026-04-25";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -4104,6 +4108,22 @@ window.VC_BUILD = "32b-2026-04-25";
       try {
         var qp = window.location.search || "(no params)";
         lines.push("url: " + (qp.length > 80 ? qp.slice(0, 80) + "…" : qp));
+      } catch (e) {}
+      try {
+        /* KI-002 Plan A — surface the VCSurfaceWriteFailure ring buffer so silent Firestore
+           rejections become visible on the iPhone without remote DevTools. */
+        var fails = Array.isArray(window.__vcWriteFailures) ? window.__vcWriteFailures : [];
+        if (fails.length > 0) {
+          lines.push("write fails: " + fails.length);
+          for (var f = fails.length - 1; f >= Math.max(0, fails.length - 3); f--) {
+            var rec = fails[f] || {};
+            var ago = Math.max(0, Math.round((Date.now() - (rec.at || 0)) / 1000));
+            lines.push("  " + ago + "s " + (rec.ctx || "?") + ": " + (rec.msg || "?"));
+          }
+        }
+      } catch (e) {}
+      try {
+        if (window.__vcPresenceOffline) lines.push("presence: OFFLINE");
       } catch (e) {}
       try {
         var t = new Date();
@@ -6933,7 +6953,17 @@ async function uploadReportToCloud(visitData, fullReportText) {
     };
     if (linkedEquipmentId) payload.Linked_Equipment_ID = linkedEquipmentId;
 
-    crCol.add(payload).catch(e => console.error("Sync queued."));
+    /* KI-002 Plan A1 — track both writes so we can surface a real failure on #successCard
+       instead of falsely showing the green "Ticket Synced" card when Firestore actually rejected.
+       Offline is still treated as success (the SDK will queue), but a thrown rejection while
+       online is now a red error card with a retry hint. */
+    var _vcReportWritePromises = [];
+    _vcReportWritePromises.push(
+      crCol.add(payload).catch(function (e) {
+        if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("uploadReportToCloud:completed_reports.add", e);
+        throw e;
+      })
+    );
     if (ticketId) {
         const ticketUpdate = { status: finalStatus, techNotes: fullReportText };
         if (linkedEquipmentId) ticketUpdate.Linked_Equipment_ID = linkedEquipmentId;
@@ -6943,7 +6973,15 @@ async function uploadReportToCloud(visitData, fullReportText) {
           if (!_hubNotes.trim()) _hubNotes = localStorage.getItem('dictationHubInternal_' + ticketId) || '';
           if (_hubNotes.trim()) ticketUpdate.internal_comms = _hubNotes;
         } catch (e) {}
-        scUp.doc(ticketId).set(ticketUpdate, { merge: true }).catch(e => console.error("Ticket update queued."));
+        var _scWritePromise = (typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged)
+          ? VCFirestore.setServiceCallMerged(db, ticketId, ticketUpdate, true)
+          : scUp.doc(ticketId).set(ticketUpdate, { merge: true });
+        _vcReportWritePromises.push(
+          _scWritePromise.catch(function (e) {
+            if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("uploadReportToCloud:service_calls.set", e);
+            throw e;
+          })
+        );
         if (typeof window.UFXAdapter !== 'undefined' && typeof window.UFXAdapter.pushTicketSummary === 'function') {
           var ufxVisit = visitData || {};
           var resolution = '';
@@ -6971,9 +7009,24 @@ async function uploadReportToCloud(visitData, fullReportText) {
     document.querySelectorAll('.accordion').forEach(a => a.classList.remove('open'));
     const sc = document.getElementById('successCard');
     sc.style.display = 'block';
-    
-    if (navigator.onLine) { sc.innerHTML = `<h3>✓ Ticket Synced</h3><p>Report uploaded. Status changed to <strong>${finalStatus}</strong>.</p>`; } 
-    else { sc.innerHTML = `<h3 style="color:#f39c12;">✓ Saved Offline</h3><p>Will sync in background when signal returns.</p>`; }
+
+    /* KI-002 Plan A1 — pessimistic UI: render an "uploading…" intermediate while we wait for Firestore.
+       Offline is still happy-path (SDK queues). On rejection while online, render a red error card. */
+    if (!navigator.onLine) {
+      sc.innerHTML = `<h3 style="color:#f39c12;">✓ Saved Offline</h3><p>Will sync in background when signal returns.</p>`;
+    } else {
+      sc.innerHTML = `<h3 style="color:#94a3b8;">⏳ Uploading…</h3><p>Saving report and updating ticket status.</p>`;
+      Promise.all(_vcReportWritePromises).then(function () {
+        sc.innerHTML = `<h3>✓ Ticket Synced</h3><p>Report uploaded. Status changed to <strong>${finalStatus}</strong>.</p>`;
+      }).catch(function (err) {
+        var msg = (err && err.message) ? String(err.message) : "Unknown error";
+        sc.innerHTML =
+          '<h3 style="color:#dc2626;">⚠ Sync Failed</h3>' +
+          '<p>The report did NOT upload. Status is unchanged on the office side.</p>' +
+          '<p style="font-size:12px;color:#94a3b8;">' + msg.replace(/[<>&]/g, "") + '</p>' +
+          '<p>Check your connection and try the upload again.</p>';
+      });
+    }
     window.scrollTo(0,0);
 }
 
@@ -7274,6 +7327,34 @@ function getShadowPresenceKey() {
   return '';
 }
 
+/** KI-002 Plan A2 — lazy-injected "presence offline" chip. Lives top-right (under the debug overlay
+ *  if present). Visible only while the most recent presence write attempt has failed. We lazy-inject
+ *  so a stale cached technician/index.html still gets the chip the next time the JS bumps. */
+function ensureVcPresenceChipInDom() {
+  var chip = document.getElementById('vcPresenceOfflineChip');
+  if (chip) return chip;
+  try {
+    chip = document.createElement('div');
+    chip.id = 'vcPresenceOfflineChip';
+    chip.textContent = '⚠ presence offline';
+    chip.style.cssText = [
+      'position:fixed', 'top:6px', 'right:6px', 'z-index:100003',
+      'padding:4px 8px', 'background:rgba(220,38,38,0.92)', 'color:#fff',
+      'font:11px/1.2 ui-monospace,Menlo,Consolas,monospace', 'border-radius:4px',
+      'box-shadow:0 2px 6px rgba(0,0,0,0.4)', 'display:none', 'pointer-events:none'
+    ].join(';');
+    (document.body || document.documentElement).appendChild(chip);
+    return chip;
+  } catch (e) { return null; }
+}
+function setVcPresenceOffline(isOffline) {
+  window.__vcPresenceOffline = !!isOffline;
+  try {
+    var chip = ensureVcPresenceChipInDom();
+    if (chip) chip.style.display = isOffline ? 'block' : 'none';
+  } catch (e) {}
+}
+
 function writeLivePresence() {
   if (window.VC_SHADOW_VIEWER) return;
   if (!currentTechProfile || typeof firebase === 'undefined' || !firebase.apps.length) return;
@@ -7288,12 +7369,26 @@ function writeLivePresence() {
     screen = active.id.replace('screen-', '');
   }
   const ref = VCFirestore.livePresence(db).doc(key);
-  ref.set({
+  const payload = {
     activeTicketId: ticketId || null,
     screen: screen,
     techDisplayName: currentTechProfile,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }, { merge: true }).catch(function () {});
+  };
+  /* KI-002 Plan A2 — log + one retry; surface persistent failure to debug overlay + visible chip. */
+  ref.set(payload, { merge: true })
+    .then(function () { setVcPresenceOffline(false); })
+    .catch(function (err1) {
+      if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("writeLivePresence:try1", err1);
+      setTimeout(function () {
+        ref.set(payload, { merge: true })
+          .then(function () { setVcPresenceOffline(false); })
+          .catch(function (err2) {
+            if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("writeLivePresence:try2", err2);
+            setVcPresenceOffline(true);
+          });
+      }, 2500);
+    });
 }
 
 let vcCoachUnsub = null;
@@ -7653,10 +7748,20 @@ function wireCoachingInbox() {
     } else {
       alert('Coach: ' + String(d.coachPrompt));
     }
-    ref.update({
+    /* KI-002 Plan A6 — log + one retry on coach-field delete failure so the same prompt doesn't
+       resurface forever in a loop the next time the listener fires. */
+    var coachClear = {
       coachPrompt: firebase.firestore.FieldValue.delete(),
       coachPromptAt: firebase.firestore.FieldValue.delete()
-    }).catch(function () {});
+    };
+    ref.update(coachClear).catch(function (err1) {
+      if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("coachField.delete:try1", err1);
+      setTimeout(function () {
+        ref.update(coachClear).catch(function (err2) {
+          if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("coachField.delete:try2", err2);
+        });
+      }, 2000);
+    });
   });
 }
 

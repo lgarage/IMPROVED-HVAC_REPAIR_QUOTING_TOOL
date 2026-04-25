@@ -425,9 +425,12 @@
         var titleEl = btn.querySelector(".vc-override-consent-btn__title");
         if (titleEl) titleEl.textContent = "✓ Acknowledging…";
         p.catch(function (e) {
-          console.warn("[OfficeOverride] ack write (lazy)", e);
+          /* KI-002 Plan A5 — same inline-error surface as the inline IIFE in technician/index.html. */
+          if (typeof window.VCSurfaceWriteFailure === "function") {
+            window.VCSurfaceWriteFailure("OfficeOverride:ackWrite(lazy)", e);
+          }
           btn.disabled = false;
-          if (titleEl) titleEl.textContent = "🟠 Tap to acknowledge — Dispatch is editing this job";
+          if (titleEl) titleEl.textContent = "⚠ Sync failed — tap to retry acknowledgement";
         });
       });
     }

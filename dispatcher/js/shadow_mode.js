@@ -327,7 +327,14 @@
         if (input) input.value = "";
       })
       .catch(function (e) {
-        console.warn("[ShadowMode] coach prompt:", e);
+        /* KI-002 Plan A9 — toast on coach-prompt failure so the dispatcher knows their nudge
+           never reached the tech (otherwise they assume the tech ignored the prompt). */
+        if (typeof window.VCSurfaceWriteFailure === "function") {
+          window.VCSurfaceWriteFailure("ShadowMode:coachPrompt", e);
+        }
+        if (typeof window.showSaveCue === "function") {
+          try { window.showSaveCue("⚠ Coach prompt FAILED to send — check connection and retry."); } catch (eC) {}
+        }
       });
   }
 
@@ -345,7 +352,13 @@
         { merge: true }
       )
       .catch(function (e) {
-        console.warn("[ShadowMode] force sync:", e);
+        /* KI-002 Plan A9 — same surface-as-toast treatment as the coach-prompt write above. */
+        if (typeof window.VCSurfaceWriteFailure === "function") {
+          window.VCSurfaceWriteFailure("ShadowMode:forceSync", e);
+        }
+        if (typeof window.showSaveCue === "function") {
+          try { window.showSaveCue("⚠ Force-sync FAILED to send — tech may not refresh."); } catch (eC) {}
+        }
       });
   }
 
