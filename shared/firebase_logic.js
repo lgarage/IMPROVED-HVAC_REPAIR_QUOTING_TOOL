@@ -13,7 +13,7 @@
 (function (global) {
   "use strict";
 
-  var FIREBASE_LOGIC_VERSION = 1;
+  var FIREBASE_LOGIC_VERSION = 2;
   try {
     console.info("[VC] firebase_logic v=" + FIREBASE_LOGIC_VERSION + " loaded");
   } catch (e) {}
@@ -524,6 +524,217 @@
     };
   }
 
+  /**
+   * Phase 33 (ADR-011 §2) — bridged equipment read.
+   *
+   * Merges three sources for a given site:
+   *   1. Legacy per-site assets at `customers/{customerId}/sites/{siteId}/assets`
+   *      (write source pre-Phase 33: dictation_hub Vision Hub + retire flow).
+   *   2. Tenant `imported_equipment` rows tagged with `customerId` + `siteId`
+   *      (write source Phase 33+: field-add + field-edit + new CSV imports).
+   *   3. Tenant `imported_equipment` rows tagged with `normalizedLocationKey`
+   *      only (write source pre-Phase 33: legacy CSV importer at
+   *      `dispatcher/js/import_hub.js`). Pass the `locationLine` arg to
+   *      include this slice; without it the bridge skips the legacy CSV index.
+   *
+   * Per ADR-011 §2: rows from `imported_equipment` always win on conflict
+   * regardless of `source` flag — they are by definition newer or
+   * field-corrected. Conflict identity (per §4) is `unitType + unitNumber`,
+   * falling back to `unitTag`, then to the legacy doc id (e.g. "RTU3").
+   *
+   * Each merged row carries a `source` discriminator (`"imported"` |
+   * `"legacy"`) so the UI can badge field-corrected rows distinctly if
+   * desired. The original Firestore `docSnap` is preserved on legacy rows for
+   * back-compat with dictation_hub helpers (`wrapDocSnapForRow`).
+   */
+  function normalizeLocationKeyForBridge(locationLine) {
+    return String(locationLine || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  }
+
+  function unitIdentityForRow(data, fallbackId) {
+    var d = data || {};
+    var ut = d.unitType != null ? String(d.unitType).trim() : "";
+    var un = d.unitNumber != null ? String(d.unitNumber).trim() : "";
+    if (ut && un) return ut + un;
+    if (d.unitTag != null && String(d.unitTag).trim()) {
+      return String(d.unitTag).trim();
+    }
+    return String(fallbackId || "");
+  }
+
+  function rowsFromQuerySnapshot(snap) {
+    var rows = [];
+    if (!snap) return rows;
+    snap.forEach(function (doc) {
+      rows.push({ id: doc.id, data: doc.data() || {}, docSnap: doc });
+    });
+    return rows;
+  }
+
+  function mergeBridgedEquipmentRows(legacyRows, importedRows) {
+    var byIdentity = {};
+    var order = [];
+
+    function addRow(row, source) {
+      var ident = unitIdentityForRow(row.data, row.id);
+      if (!ident) return;
+      var existing = byIdentity[ident];
+      if (existing) {
+        if (existing.source === "imported" && source === "legacy") return;
+      } else {
+        order.push(ident);
+      }
+      byIdentity[ident] = {
+        id: ident,
+        data: row.data,
+        docSnap: source === "legacy" ? row.docSnap : null,
+        source: source,
+        legacyDocId: source === "legacy" ? row.id : (existing && existing.legacyDocId) || "",
+        importedDocId: source === "imported" ? row.id : (existing && existing.importedDocId) || "",
+      };
+    }
+
+    (legacyRows || []).forEach(function (r) { addRow(r, "legacy"); });
+    (importedRows || []).forEach(function (r) { addRow(r, "imported"); });
+
+    return order.map(function (id) { return byIdentity[id]; });
+  }
+
+  function dedupeImportedRowsById(rowsA, rowsB) {
+    var seen = {};
+    var out = [];
+    function push(r) {
+      if (!r || !r.id) return;
+      if (seen[r.id]) return;
+      seen[r.id] = true;
+      out.push(r);
+    }
+    (rowsA || []).forEach(push);
+    (rowsB || []).forEach(push);
+    return out;
+  }
+
+  function legacyAssetsCollection(db, customerId, siteId) {
+    return db
+      .collection("customers")
+      .doc(String(customerId || ""))
+      .collection("sites")
+      .doc(String(siteId || ""))
+      .collection("assets");
+  }
+
+  /**
+   * One-shot bridged fetch. Returns Promise<Array<{id,data,docSnap,source,legacyDocId,importedDocId}>>.
+   * @param {firebase.firestore.Firestore} db
+   * @param {string} customerId  sanitized path segment (e.g. result of `sanitizePathSegment(activeTicket.customerName)`)
+   * @param {string} siteId      sanitized path segment for the location line
+   * @param {string} [locationLine]  raw location display string; enables the legacy CSV (`normalizedLocationKey`) slice
+   */
+  function getEquipmentForSiteBridged(db, customerId, siteId, locationLine) {
+    var legacyP = legacyAssetsCollection(db, customerId, siteId)
+      .get()
+      .then(rowsFromQuerySnapshot)
+      .catch(function (err) {
+        recordWriteFailure("getEquipmentForSiteBridged:legacy", err);
+        return [];
+      });
+
+    var tCol = tenantImportedEquipment(db);
+    var bySiteP = tCol
+      .where("customerId", "==", String(customerId || ""))
+      .where("siteId", "==", String(siteId || ""))
+      .get()
+      .then(rowsFromQuerySnapshot)
+      .catch(function (err) {
+        recordWriteFailure("getEquipmentForSiteBridged:bySite", err);
+        return [];
+      });
+
+    var nk = normalizeLocationKeyForBridge(locationLine);
+    var byNkP = nk
+      ? tCol
+          .where("normalizedLocationKey", "==", nk)
+          .get()
+          .then(rowsFromQuerySnapshot)
+          .catch(function (err) {
+            recordWriteFailure("getEquipmentForSiteBridged:byNk", err);
+            return [];
+          })
+      : Promise.resolve([]);
+
+    return Promise.all([legacyP, bySiteP, byNkP]).then(function (parts) {
+      var imported = dedupeImportedRowsById(parts[1], parts[2]);
+      return mergeBridgedEquipmentRows(parts[0], imported);
+    });
+  }
+
+  /**
+   * Live bridged subscription. Mirrors `getEquipmentForSiteBridged` but with
+   * `onSnapshot` semantics. `onNext` receives the merged row array on every
+   * source emit; returns a single unsubscribe function that detaches all
+   * underlying listeners. Same arg shape as the once-fetch.
+   */
+  function subscribeEquipmentForSiteBridged(db, customerId, siteId, locationLine, onNext, onError) {
+    var legacyRows = null;
+    var bySiteRows = null;
+    var byNkRows = null;
+
+    function emit() {
+      if (legacyRows === null && bySiteRows === null && byNkRows === null) return;
+      var imported = dedupeImportedRowsById(bySiteRows || [], byNkRows || []);
+      try {
+        onNext(mergeBridgedEquipmentRows(legacyRows || [], imported));
+      } catch (e) {
+        recordWriteFailure("subscribeEquipmentForSiteBridged:emit", e);
+      }
+    }
+
+    function wrapErr(ctx) {
+      return function (err) {
+        recordWriteFailure("subscribeEquipmentForSiteBridged:" + ctx, err);
+        if (typeof onError === "function") {
+          try { onError(err); } catch (e2) {}
+        }
+      };
+    }
+
+    var u1 = legacyAssetsCollection(db, customerId, siteId).onSnapshot(
+      function (snap) { legacyRows = rowsFromQuerySnapshot(snap); emit(); },
+      wrapErr("legacy")
+    );
+
+    var tCol = tenantImportedEquipment(db);
+    var u2 = tCol
+      .where("customerId", "==", String(customerId || ""))
+      .where("siteId", "==", String(siteId || ""))
+      .onSnapshot(
+        function (snap) { bySiteRows = rowsFromQuerySnapshot(snap); emit(); },
+        wrapErr("bySite")
+      );
+
+    var nk = normalizeLocationKeyForBridge(locationLine);
+    var u3 = function () {};
+    if (nk) {
+      u3 = tCol
+        .where("normalizedLocationKey", "==", nk)
+        .onSnapshot(
+          function (snap) { byNkRows = rowsFromQuerySnapshot(snap); emit(); },
+          wrapErr("byNk")
+        );
+    } else {
+      byNkRows = [];
+    }
+
+    return function () {
+      try { u1(); } catch (e) {}
+      try { u2(); } catch (e) {}
+      try { u3(); } catch (e) {}
+    };
+  }
+
   /* KI-002 Plan A — also publish the helpers as bare globals so call sites can write
      `VCRequireTicketId(...)` / `VCSurfaceWriteFailure(...)` without typing the namespace. */
   global.VCRequireTicketId = vcRequireTicketId;
@@ -562,5 +773,9 @@
     loadServiceCallsMergedOnce: loadServiceCallsMergedOnce,
     subscribeSiteIntelDocMerged: subscribeSiteIntelDocMerged,
     getServiceCallsWhereMergedOnce: getServiceCallsWhereMergedOnce,
+    getEquipmentForSiteBridged: getEquipmentForSiteBridged,
+    subscribeEquipmentForSiteBridged: subscribeEquipmentForSiteBridged,
+    normalizeLocationKey: normalizeLocationKeyForBridge,
+    unitIdentityForRow: unitIdentityForRow,
   };
 })(typeof window !== "undefined" ? window : this);

@@ -33,6 +33,29 @@
     },
   };
 
+  /**
+   * Phase 33 — Field-Add Equipment (ADR-011 §4 unit-identity prefix list).
+   * Canonical seed of equipment-type prefixes used by the field-add UI dropdown
+   * and the CSV importer's `unitType` normalizer. Order = display order. Adding
+   * a new canonical prefix later is a one-line change here (no migration).
+   *
+   * The field-add UI also renders an "Other" escape hatch that falls back to a
+   * freeform `unitType` string (per ADR-011 §4 — field beats office on this design too).
+   */
+  global.VC_EQUIPMENT_TYPE_PREFIXES = [
+    { id: "RTU", label: "RTU — Rooftop Unit" },
+    { id: "B", label: "B — Boiler" },
+    { id: "CU", label: "CU — Condenser Unit" },
+    { id: "AHU", label: "AHU — Air Handler" },
+    { id: "FCU", label: "FCU — Fan Coil Unit" },
+    { id: "WH", label: "WH — Water Heater" },
+    { id: "MAU", label: "MAU — Make-Up Air Unit" },
+    { id: "EF", label: "EF — Exhaust Fan" },
+    { id: "CHL", label: "CHL — Chiller" },
+    { id: "CT", label: "CT — Cooling Tower" },
+    { id: "SPLIT", label: "SPLIT — Split System" },
+  ];
+
   /** Canonical CSV column headers (case-insensitive match) for Green Column import. */
   global.VC_USER_IMPORT_HEADERS = {
     firstName: ["first name", "firstname", "payroll first name", "given name"],
