@@ -14,7 +14,7 @@
 
 None. Two non-blocking follow-ups against Phase 33 in `KNOWN_ISSUES.md → Open`:
 
-- `KI-003` — Office Override iframe parity gap (candidate Phase 34).
+- `KI-003` — Office Override iframe parity gap (Phase 34 design locked 2026-04-25 in `DECISIONS.md → ADR-013`; implementation sequenced behind Phase 33 verify + KI-004 follow-up).
 - `KI-004` — Field-app photo uploads dropped offline (audit-only; ships as a Phase 33 follow-up patch per user 2026-04-25; design in `DECISIONS.md → ADR-012`).
 
 ## Immediate Next Step — Phase 33 on-device verification
