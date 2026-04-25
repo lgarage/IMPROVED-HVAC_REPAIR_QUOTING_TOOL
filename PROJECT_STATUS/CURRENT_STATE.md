@@ -12,31 +12,30 @@
 
 ## Snapshot
 
-- **Active Phase:** 30 — Interactive Field App View (Office Override iframe)
-- **Phase status:** Functionally complete on the data path. **Visual chrome on physical mobile devices is broken** (active blocker — see below).
-- **Last shipped:** Cross-device override flag (`officeOverrideActive` / `officeOverrideBy` / `officeOverrideAt`) writes from `service_call.js#toggleOfficeOverride` and the technician schedule listener (`runScheduleMergeAndRender` → `applyOfficeOverrideFromTickets`) reflects it on every snapshot.
+- **Active Phase:** None — between phases. **Phase 30 (Interactive Field App View / Office Override) is fully closed** as of 2026-04-25.
+- **Last shipped:** **KI-001 fix** — replaced the `<body>` `outline` with a dedicated fixed-position overlay div `#vcOfficeOverrideFrame` injected as a direct child of `<body>`; bumped `#vcOfficeOverrideGlobalStrip` to `z-index: 100001`; added a fixed `min-height: 56px` fallback before the safe-area `calc()` for older iOS Safari. Frame visibility is CSS-driven from `body.vc-office-override` / `body.vc-override-active`, so both the URL-init code path and the postMessage / Firestore-flag JS path light it up automatically. Files touched: `technician/index.html` only. See `KNOWN_ISSUES.md → Resolved → KI-001` and `DECISIONS.md → ADR-008`.
 - **Live two-way notes:** `dictation_hub.js#subscribeInternalCommsForTicket` mirrors `internal_comms` in real time; verified working on real devices.
 - **Default tenant:** `USA_HEATING_COOLING` (legacy `TWIN_PILLARS` still bridged via lazy migration).
 
 ## Active Blocker
 
-**Phase 30 — Office Override visual indicators do not appear on physical mobile devices.**
-
-Data sync works end-to-end, but the orange screen frame and top warning strip do not render on the technician's real phone when the dispatcher toggles ACTIVE.
-
-Full reproduction steps, suspected causes, and the agreed-on fix direction live in `KNOWN_ISSUES.md` under **KI-001**. Do not start a new phase until KI-001 is resolved or explicitly deferred.
+*(None.)*
 
 ## Immediate Next Step
 
-1. Resolve **KI-001** (see `KNOWN_ISSUES.md`) — the directive fix is to replace the `<body>` `outline` with a dedicated fixed-position `<div id="vcOfficeOverrideFrame">` injected as a direct child of `<body>`, and bump `#vcOfficeOverrideGlobalStrip` to `z-index: 100001`.
-2. Bump cache-busting `?v=N` on any modified JS/CSS (per `.cursorrules` §5).
-3. Field-test on iOS Safari **and** Android Chrome via remote DevTools before closing.
+1. **Field-verify the KI-001 fix** before declaring it shipped to production users:
+   - Force-reload the field app on a real iOS Safari device and a real Android Chrome device (close PWA / tab, reopen).
+   - Confirm via remote DevTools that `document.body.className` includes `vc-override-active` or `vc-office-override` while a dispatcher has Office Override ACTIVE.
+   - Confirm `#vcOfficeOverrideFrame` is a direct child of `<body>` with `display: block` and that `#vcOfficeOverrideGlobalStrip` renders above every modal.
+2. **Pick the next phase** from `ROADMAP.md → Next Up` (see On Deck below) and seed a new "Active Phase" snapshot.
 
-## On Deck (After Blocker Clears)
+## On Deck (Pick the Next Phase)
 
-Pick the next phase from `ROADMAP.md → Next Up`:
+From `ROADMAP.md → Next Up`:
 - **Command Map (TV Mode)** — large-scale map + Pulse feed for office monitors.
 - **Field Inventory (Truck Stock)** — parts and materials ledger for technicians.
+
+There is also the larger architectural epic in `ROADMAP.md → Icebox` (**Unified Contextual Modes — Service vs. Project / `ticketClass`**) that may warrant a planning pass before either of the Next Up phases.
 
 ## Ongoing Maintenance Threads
 

@@ -8,35 +8,7 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
-### KI-001 — Office Override visual chrome missing on physical mobile devices (Phase 30)
-
-- **Severity:** Blocker (gates Phase 30 completion).
-- **Affected files:** `technician/index.html` (inline `<style>`, `#vcOfficeOverrideGlobalStrip`), `technician/js/workspace_ui.js` (`handleOfficeOverride`, `applyOfficeOverrideFromTickets`), `dictation_hub.js` (`subscribeInternalCommsForTicket`).
-- **What works:** Real-time data sync is solid. Dispatcher edits appear instantly on the actual phone via `dictation_hub.js#subscribeInternalCommsForTicket`. The dispatcher toggle correctly writes `{ officeOverrideActive, officeOverrideBy, officeOverrideAt }` to the ticket doc via `service_call.js#toggleOfficeOverride` → `VCFirestore.setServiceCallMerged`, and clears them on toggle-off / preview close / `beforeunload`.
-- **What is broken:** When the dispatcher's button reads **Office Override (ACTIVE)**, the technician's actual phone is **not** showing either the **8px orange screen outline** (`body.vc-override-active` / `body.vc-office-override`, defined in `technician/index.html` inline `<style>`) or the **fixed orange top warning strip** (`#vcOfficeOverrideGlobalStrip`). The override chrome must turn on the moment the flag flips, including immediately on first page load if the dispatcher already has it active, and turn off the moment the flag clears.
-
-#### Investigation Checklist
-
-- [ ] **Verify the listener fires on the device.** Add a temporary `console.log("[OfficeOverride] tickets snapshot", ...)` inside `applyOfficeOverrideFromTickets` (`technician/js/workspace_ui.js`) and `runScheduleMergeAndRender` (`technician/index.html`). Inspect via remote DevTools (`chrome://inspect` for Android Chrome; Safari → Develop → iPhone for iOS) to confirm the snapshot reaches the device with `officeOverrideActive: true` on the right ticket.
-- [ ] **Verify the body class is actually applied.** From the same remote-debug session, run `document.body.className` while the dispatcher is ACTIVE and confirm `vc-override-active` (or `vc-office-override`) is present. If missing → the listener isn't firing or the ticket isn't in `myTickets` (e.g. filtered out by `applyScheduleFilters` because of `releasedToTech: false`, archived, or out-of-window date).
-- [ ] **Verify the flag is reaching the tech's snapshot.** In the remote console, run `myTickets.find(t => t.officeOverrideActive)` while the dispatcher is ACTIVE. If it returns `undefined`, the ticket is being filtered out (most likely `releasedToTech === false` or off the schedule window) — in that case the flag must be wired to a separate listener that bypasses `applyScheduleFilters`.
-- [ ] **Cache.** Confirm the device actually loaded `workspace_ui.js?v=7` and `dictation_hub.js?v=8` (Network tab). PWA service workers / HTTP cache on mobile sometimes serve stale JS even after a soft refresh — force-reload by closing the tab/PWA and reopening.
-
-#### Directive Fix (Not Investigation)
-
-1. **Move away from `<body>` outlines.** Mobile Safari and Android Chrome notoriously **clip `outline` set on `<body>`** as soon as the page scrolls or the viewport is shorter than the document — which is always true for the field app workspace. Implement the orange frame as a **dedicated fixed-position DOM element** instead:
-
-   ```html
-   <div id="vcOfficeOverrideFrame" style="position: fixed; inset: 0; border: 8px solid #f39c12; pointer-events: none; z-index: 100000;"></div>
-   ```
-
-   Inject it once into `<body>` on app boot and toggle a `display: none / block` (or `.hidden`) class from inside `handleOfficeOverride(active)` in `technician/js/workspace_ui.js` alongside the existing `vc-override-active` class. Remove the `outline` rules on `body.vc-override-active` / `body.vc-office-override` once the overlay div is in place (keep the body class only for unlocking inputs).
-
-2. **Top strip stacking / fixed positioning.** Bump `#vcOfficeOverrideGlobalStrip` to `z-index: 100001` so it sits above every existing layer in the technician app (this codebase already uses `z-index: 50000`, `30000`, `20050`, `10050`, so the previous `280` was ineffective for any real modal). Verify the strip remains a **direct child of `<body>`** so it isn't trapped inside a transformed / translated / `filter`-ed ancestor (any of which break `position: fixed` on iOS). Same applies to `#vcOfficeOverrideFrame` — it must be a direct child of `<body>`.
-
-3. **iOS safe-area + viewport units.** The strip uses `min-height: calc(40px + env(safe-area-inset-top, 0px))` and `body` uses `100dvh`; on older iOS Safari these resolve oddly. Test with a fixed `min-height: 56px` and a fallback `100vh` to rule out collapse-to-zero.
-
-4. After fix: bump cache-busting `?v=N` on `workspace_ui.js` / `dictation_hub.js` / inline asset references in `technician/index.html` (`.cursorrules` §5).
+*(None.)*
 
 ---
 
@@ -55,7 +27,13 @@ These are not bugs but recurring traps — keep them in mind whenever editing th
 
 ## Resolved (Reference)
 
-*(Empty — first entry will be KI-001 once the directive fix above ships and is field-tested on both iOS Safari and Android Chrome.)*
+### KI-001 — Office Override visual chrome missing on physical mobile devices (Phase 30)
+
+- **Resolved:** 2026-04-25 — Phase 30 close-out. Replaced the `<body>` `outline` (clipped by mobile Safari / Android Chrome on scroll) with a dedicated fixed-position overlay div `#vcOfficeOverrideFrame` injected as a direct child of `<body>`. Bumped `#vcOfficeOverrideGlobalStrip` to `z-index: 100001` (was `280`, well below modal layers at 50000/30000/20050) and added a fixed `min-height: 56px` fallback before the `calc(... env(safe-area-inset-top))` rule for older iOS Safari. The frame's visibility is CSS-driven from `body.vc-office-override` / `body.vc-override-active`, so both the URL-init code path and the postMessage / Firestore-flag JS path light it up automatically.
+- **Files touched:** `technician/index.html` (inline `<style>` block + new `<div id="vcOfficeOverrideFrame">` directly under `<body>`).
+- **Files NOT touched (intentional):** `technician/js/workspace_ui.js` — `handleOfficeOverride` and `applyOfficeOverrideFromTickets` already toggle the body class correctly; the bug was purely in the CSS rendering layer, not the JS wiring. No `?v=N` cache-bust needed because no external JS/CSS files were modified; the service worker does not precache `technician/index.html` (`sw.js` only precaches the root dispatcher shell).
+- **Verification protocol when deploying:** force-reload on iOS Safari and Android Chrome (close the tab/PWA and reopen) so the device picks up the new HTML. Confirm via remote DevTools that (a) `document.body.className` includes `vc-override-active` or `vc-office-override` while the dispatcher toggle is ACTIVE, (b) `#vcOfficeOverrideFrame` is a direct child of `<body>` with `display: block`, and (c) `#vcOfficeOverrideGlobalStrip` renders above every modal.
+- **Related decision:** see `DECISIONS.md → ADR-008`.
 
 ---
 

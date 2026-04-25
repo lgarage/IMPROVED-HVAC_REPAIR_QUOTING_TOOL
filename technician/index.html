@@ -127,15 +127,35 @@ body.vc-shadow-viewer .nav-item {
   pointer-events: auto !important;
   opacity: 1 !important;
 }
-/* Office Override (URL or dispatcher postMessage): full-screen orange frame + top strip on tech phone */
+/* Office Override (URL or dispatcher postMessage): full-screen orange frame + top strip on tech phone.
+   KI-001 (resolved): the orange screen frame is a dedicated fixed-position overlay div, NOT an `outline`
+   on <body>. Mobile Safari and Android Chrome clip body outlines on scroll, which is why the previous
+   implementation never showed up on physical phones. The frame and the strip must both remain direct
+   children of <body> so that no transformed/filtered ancestor breaks `position: fixed` on iOS. */
 body.vc-office-override,
 body.vc-override-active {
-  outline: 8px solid #f39c12 !important;
-  outline-offset: -8px;
   box-sizing: border-box;
   min-height: 100vh;
   min-height: 100dvh;
+  padding-top: 56px;
   padding-top: calc(40px + env(safe-area-inset-top, 0px));
+}
+#vcOfficeOverrideFrame {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  inset: 0;
+  border: 8px solid #f39c12;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 100000;
+}
+body.vc-office-override #vcOfficeOverrideFrame,
+body.vc-override-active #vcOfficeOverrideFrame {
+  display: block;
 }
 .vc-office-override-global-strip {
   display: none;
@@ -143,10 +163,11 @@ body.vc-override-active {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 280;
+  z-index: 100001;
   align-items: center;
   justify-content: center;
   gap: 10px;
+  min-height: 56px;
   min-height: calc(40px + env(safe-area-inset-top, 0px));
   padding: env(safe-area-inset-top, 0px) 14px 8px;
   box-sizing: border-box;
@@ -3054,6 +3075,10 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 </style>
 </head>
 <body>
+
+<!-- KI-001 fix: orange frame must be a fixed-position div (NOT a <body> outline) and a direct child
+     of <body> so iOS doesn't clip it on scroll and no transformed ancestor breaks `position: fixed`. -->
+<div id="vcOfficeOverrideFrame" aria-hidden="true"></div>
 
 <div
   id="vcOfficeOverrideGlobalStrip"
