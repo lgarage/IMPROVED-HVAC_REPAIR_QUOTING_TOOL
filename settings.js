@@ -2210,6 +2210,7 @@ function mapUiTypeToFirestoreField(row, index) {
     if (u === "NUMBER") return { ...base, type: "number" };
     if (u === "PHOTO") return { ...base, type: "photo" };
     if (u === "CHECKBOX") return { ...base, type: "checkbox" };
+    if (u === "TOGGLE") return { ...base, type: "toggle" };
     if (u === "DROPDOWN") return { ...base, type: "dropdown", options: optList };
     if (u === "MULTI_CHECK") return { ...base, type: "multi_check", options: optList };
     if (u === "BELT") return { ...base, type: "text", group: "belt" };
@@ -2225,6 +2226,7 @@ function mapFirestoreFieldToUiType(f) {
     if (t === "number") return "NUMBER";
     if (t === "photo") return "PHOTO";
     if (t === "checkbox") return "CHECKBOX";
+    if (t === "toggle") return "TOGGLE";
     if (t === "dropdown") return "DROPDOWN";
     if (t === "multi_check") return "MULTI_CHECK";
     return "TEXT";
@@ -2294,6 +2296,7 @@ function addFieldFormBuilderRow(prefill) {
         ["NUMBER", "Number"],
         ["PHOTO", "Photo"],
         ["CHECKBOX", "Checkbox"],
+        ["TOGGLE", "Toggle (Yes/No)"],
         ["DROPDOWN", "Dropdown"],
         ["MULTI_CHECK", "Multi-Check"],
         ["BELT", "Belt-Group"],
@@ -2304,6 +2307,10 @@ function addFieldFormBuilderRow(prefill) {
     const optionsPreset = Array.isArray(p.options) ? p.options.join(", ") : p.optionsStr || "";
     row.innerHTML = `
         <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+            <div class="ffb-row-reorder" aria-label="Reorder field">
+                <button type="button" class="ffb-arrow ffb-arrow-up" title="Move up" aria-label="Move up">▲</button>
+                <button type="button" class="ffb-arrow ffb-arrow-down" title="Move down" aria-label="Move down">▼</button>
+            </div>
             <div style="flex:1;min-width:180px;">
                 <label style="font-size:11px;font-weight:600;color:#64748b;">Field label</label>
                 <input type="text" class="ffb-label" placeholder="e.g. Gas pressure" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;" value="${escapeHTML(p.label || "")}" />
@@ -2321,7 +2328,7 @@ function addFieldFormBuilderRow(prefill) {
             <label style="font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
                 <input type="checkbox" class="ffb-req" ${p.required ? "checked" : ""} /> Required
             </label>
-            <button type="button" class="gen-btn" style="background:#bdc3c7;padding:6px 12px;font-size:12px;color:#333;" onclick="this.closest('.ffb-row').remove()">Remove</button>
+            <button type="button" class="gen-btn ffb-row-remove" style="background:#bdc3c7;padding:6px 12px;font-size:12px;color:#333;">Remove</button>
         </div>
     `;
     container.appendChild(row);
@@ -2330,6 +2337,52 @@ function addFieldFormBuilderRow(prefill) {
         if (sel) sel.value = p.uiType;
     }
     wireFfbRowOptionsVisibility(row);
+    wireFfbRowReorderControls(row);
+    refreshFfbReorderState();
+}
+
+/**
+ * Phase 34a — wires up-arrow / down-arrow / remove handlers on a single row,
+ * plus refreshes the disabled state of arrows in the whole list.
+ */
+function wireFfbRowReorderControls(row) {
+    const up = row.querySelector(".ffb-arrow-up");
+    const down = row.querySelector(".ffb-arrow-down");
+    const remove = row.querySelector(".ffb-row-remove");
+    if (up) {
+        up.addEventListener("click", function () {
+            const prev = row.previousElementSibling;
+            if (prev && prev.classList.contains("ffb-row")) {
+                row.parentNode.insertBefore(row, prev);
+                refreshFfbReorderState();
+            }
+        });
+    }
+    if (down) {
+        down.addEventListener("click", function () {
+            const next = row.nextElementSibling;
+            if (next && next.classList.contains("ffb-row")) {
+                row.parentNode.insertBefore(next, row);
+                refreshFfbReorderState();
+            }
+        });
+    }
+    if (remove) {
+        remove.addEventListener("click", function () {
+            row.remove();
+            refreshFfbReorderState();
+        });
+    }
+}
+
+function refreshFfbReorderState() {
+    const rows = document.querySelectorAll("#fieldFormBuilderRows .ffb-row");
+    rows.forEach((r, i) => {
+        const up = r.querySelector(".ffb-arrow-up");
+        const down = r.querySelector(".ffb-arrow-down");
+        if (up) up.disabled = i === 0;
+        if (down) down.disabled = i === rows.length - 1;
+    });
 }
 
 function closeFieldFormBuilderModal() {
@@ -2342,6 +2395,28 @@ function closeFieldFormPreviewModal() {
     if (m) m.style.display = "none";
 }
 
+/** Phase 34a — read/write chip multi-selects. */
+function getFfbChipValues(containerId) {
+    const out = [];
+    const inputs = document.querySelectorAll(
+        "#" + containerId + " .ffb-chip input[type=checkbox]"
+    );
+    inputs.forEach((cb) => {
+        if (cb.checked && cb.value) out.push(String(cb.value));
+    });
+    return out;
+}
+
+function setFfbChipValues(containerId, vals) {
+    const set = new Set(Array.isArray(vals) ? vals.map((v) => String(v)) : []);
+    const inputs = document.querySelectorAll(
+        "#" + containerId + " .ffb-chip input[type=checkbox]"
+    );
+    inputs.forEach((cb) => {
+        cb.checked = set.has(String(cb.value));
+    });
+}
+
 function openFieldFormBuilderCreate() {
     fieldFormBuilderEditingId = null;
     const title = document.getElementById("fieldFormBuilderModalTitle");
@@ -2349,11 +2424,19 @@ function openFieldFormBuilderCreate() {
     const nameEl = document.getElementById("ffbTemplateName");
     const kwEl = document.getElementById("ffbTargetKeyword");
     const act = document.getElementById("ffbActive");
+    const catEl = document.getElementById("ffbCategory");
+    const sortEl = document.getElementById("ffbSortIndex");
+    const defEl = document.getElementById("ffbIsDefault");
     const rows = document.getElementById("fieldFormBuilderRows");
     const del = document.getElementById("fieldFormBuilderDeleteBtn");
     if (nameEl) nameEl.value = "";
     if (kwEl) kwEl.value = "";
     if (act) act.checked = true;
+    if (catEl) catEl.value = "general";
+    if (sortEl) sortEl.value = "0";
+    if (defEl) defEl.checked = false;
+    setFfbChipValues("ffbJobTypeChips", []);
+    setFfbChipValues("ffbRepairTypeChips", []);
     if (rows) rows.innerHTML = "";
     addFieldFormBuilderRow();
     if (del) del.style.display = "none";
@@ -2380,11 +2463,22 @@ function openFieldFormBuilderEdit(docId) {
             const nameEl = document.getElementById("ffbTemplateName");
             const kwEl = document.getElementById("ffbTargetKeyword");
             const act = document.getElementById("ffbActive");
+            const catEl = document.getElementById("ffbCategory");
+            const sortEl = document.getElementById("ffbSortIndex");
+            const defEl = document.getElementById("ffbIsDefault");
             const rows = document.getElementById("fieldFormBuilderRows");
             const del = document.getElementById("fieldFormBuilderDeleteBtn");
             if (nameEl) nameEl.value = d.templateName || "";
             if (kwEl) kwEl.value = d.targetKeyword || "";
             if (act) act.checked = d.active !== false;
+            if (catEl) catEl.value = d.formCategory || "general";
+            if (sortEl) sortEl.value = Number.isFinite(Number(d.sortIndex)) ? String(d.sortIndex) : "0";
+            if (defEl) defEl.checked = !!d.isDefault;
+            setFfbChipValues("ffbJobTypeChips", Array.isArray(d.assignedJobTypes) ? d.assignedJobTypes : []);
+            setFfbChipValues(
+                "ffbRepairTypeChips",
+                Array.isArray(d.assignedRepairTypes) ? d.assignedRepairTypes : []
+            );
             if (rows) rows.innerHTML = "";
             const fields = Array.isArray(d.fields) ? d.fields : [];
             if (fields.length === 0) {
@@ -2449,11 +2543,21 @@ async function saveFieldFormTemplate() {
         const base = slugifyFieldFormTemplateId(name);
         docId = await ensureUniqueFieldFormDocId(base);
     }
+    const catEl = document.getElementById("ffbCategory");
+    const sortEl = document.getElementById("ffbSortIndex");
+    const defEl = document.getElementById("ffbIsDefault");
+    const sortIdxRaw = sortEl && sortEl.value !== "" ? Number(sortEl.value) : 0;
+    const sortIdx = Number.isFinite(sortIdxRaw) ? sortIdxRaw : 0;
     const payload = {
         templateName: name,
         targetKeyword: kw,
         active: !!(act && act.checked),
         fields,
+        formCategory: catEl && catEl.value ? String(catEl.value) : "general",
+        assignedJobTypes: getFfbChipValues("ffbJobTypeChips"),
+        assignedRepairTypes: getFfbChipValues("ffbRepairTypeChips"),
+        isDefault: !!(defEl && defEl.checked),
+        sortIndex: sortIdx,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
     try {
@@ -2510,6 +2614,8 @@ function buildFieldFormPreviewHtml(doc) {
         html += '<div style="margin-top:14px;">';
         if (t === "checkbox") {
             html += `<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#333;"><input type="checkbox" disabled /> ${label}${req}</label>`;
+        } else if (t === "toggle") {
+            html += `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;color:#333;"><span>${label}${req}</span><span style="display:inline-block;width:48px;height:26px;background:#cbd5e1;border-radius:26px;position:relative;flex-shrink:0;"><span style="position:absolute;left:3px;top:3px;width:20px;height:20px;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></span></span></div>`;
         } else if (t === "photo") {
             html += `<label style="display:block;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">${label}${req}</label>`;
             html +=
@@ -2624,29 +2730,70 @@ async function hydrateFieldFormTemplatesList() {
         snap.forEach((doc) => {
             rows.push({ id: doc.id, ...doc.data() });
         });
-        rows.sort((a, b) =>
-            String(a.templateName || a.id || "").localeCompare(String(b.templateName || b.id || ""))
-        );
+        rows.sort((a, b) => {
+            const sa = Number.isFinite(Number(a.sortIndex)) ? Number(a.sortIndex) : 0;
+            const sb = Number.isFinite(Number(b.sortIndex)) ? Number(b.sortIndex) : 0;
+            if (sa !== sb) return sa - sb;
+            return String(a.templateName || a.id || "").localeCompare(String(b.templateName || b.id || ""));
+        });
         if (rows.length === 0) {
             container.innerHTML =
                 '<p style="color:#7f8c8d;font-size:13px;">No templates yet. Create one to use in the Field App.</p>';
             return;
         }
+        const CATEGORY_LABELS = {
+            general: "General",
+            service_call: "Service Call",
+            pm_checklist: "PM Checklist",
+            quote: "Quote",
+            repair_checklist: "Repair Checklist",
+            warranty: "Warranty",
+        };
+        const JOB_TYPE_LABELS = { service: "Service", pm: "PM", quote: "Quote" };
+        const REPAIR_TYPE_LABELS = {
+            supply_fan: "Supply Fan",
+            condenser_fan: "Condenser Fan",
+            gas_valve: "Gas Valve",
+            compressor: "Compressor",
+            refrigerant_leak: "Refrigerant Leak",
+            other: "Other",
+        };
         let html = "";
         rows.forEach((r) => {
             const active = r.active !== false;
             const kw = escapeHTML(String(r.targetKeyword || "—"));
             const nm = escapeHTML(String(r.templateName || r.id));
             const nf = Array.isArray(r.fields) ? r.fields.length : 0;
+            const cat = CATEGORY_LABELS[String(r.formCategory || "general")] || "General";
+            const jts = Array.isArray(r.assignedJobTypes)
+                ? r.assignedJobTypes.map((x) => JOB_TYPE_LABELS[x] || x).filter(Boolean)
+                : [];
+            const rts = Array.isArray(r.assignedRepairTypes)
+                ? r.assignedRepairTypes.map((x) => REPAIR_TYPE_LABELS[x] || x).filter(Boolean)
+                : [];
+            const def = !!r.isDefault;
             html += `<div style="background:#fff;border:1px solid #e1e8ed;border-radius:10px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.04);">`;
             html += `<div style="min-width:200px;flex:1;">`;
-            html += `<div style="font-weight:800;color:#0ea5e9;font-size:15px;">${nm}</div>`;
-            html += `<div style="font-size:12px;color:#64748b;margin-top:4px;">AI trigger: <strong style="color:#334155;">${kw}</strong> · ${nf} field(s) · `;
+            html += `<div style="font-weight:800;color:#0ea5e9;font-size:15px;">${nm}`;
+            if (def) html += ` <span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;letter-spacing:0.5px;">DEFAULT</span>`;
+            html += `</div>`;
+            html += `<div style="font-size:12px;color:#64748b;margin-top:4px;">${escapeHTML(cat)} · AI trigger: <strong style="color:#334155;">${kw}</strong> · ${nf} field(s) · `;
             html += active
                 ? '<span style="color:#16a085;font-weight:700;">Active</span>'
                 : '<span style="color:#95a5a6;font-weight:700;">Inactive</span>';
             html += ` · <span style="color:#94a3b8;">id: ${escapeHTML(r.id)}</span>`;
-            html += `</div></div>`;
+            html += `</div>`;
+            if (jts.length || rts.length) {
+                html += `<div style="font-size:11px;color:#475569;margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">`;
+                jts.forEach((t) => {
+                    html += `<span style="background:#e0f2fe;color:#0c4a6e;padding:2px 8px;border-radius:999px;">${escapeHTML(t)}</span>`;
+                });
+                rts.forEach((t) => {
+                    html += `<span style="background:#fef9c3;color:#713f12;padding:2px 8px;border-radius:999px;">${escapeHTML(t)}</span>`;
+                });
+                html += `</div>`;
+            }
+            html += `</div>`;
             html += `<div style="display:flex;gap:8px;flex-wrap:wrap;">`;
             html += `<button type="button" class="gen-btn field-form-template-edit" data-template-id="${escapeHTML(String(r.id))}" style="background:#f39c12;padding:8px 16px;font-size:13px;color:#fff;">Edit</button>`;
             html += `<button type="button" class="gen-btn field-form-template-delete" data-template-id="${escapeHTML(String(r.id))}" style="background:#e74c3c;padding:8px 16px;font-size:13px;color:#fff;">Delete</button>`;

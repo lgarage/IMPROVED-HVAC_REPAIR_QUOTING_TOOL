@@ -485,6 +485,29 @@
   var formTemplatesCache = null;
   var formTemplatesUnsubscribe = null;
 
+  /**
+   * Phase 34a — inject toggle (Yes/No slider) styles once. Lives here so the
+   * dispatcher Settings preview AND the Field App both pick up the same CSS
+   * without touching technician/index.html beyond the cache-bust.
+   */
+  function ensureToggleStylesInjected() {
+    if (document.getElementById("vcFieldFormToggleStyles")) return;
+    var s = document.createElement("style");
+    s.id = "vcFieldFormToggleStyles";
+    s.textContent =
+      ".field-toggle-row{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:8px 0;}" +
+      ".field-toggle-row .field-toggle-label{flex:1;font-size:14px;color:#222;}" +
+      ".field-toggle-switch{position:relative;display:inline-block;width:54px;height:30px;flex-shrink:0;}" +
+      ".field-toggle-switch input{opacity:0;width:0;height:0;}" +
+      ".field-toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#cbd5e1;border-radius:30px;transition:background 160ms ease;}" +
+      ".field-toggle-slider:before{position:absolute;content:\"\";height:24px;width:24px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:transform 160ms ease;box-shadow:0 1px 3px rgba(0,0,0,0.2);}" +
+      ".field-toggle-switch input:checked + .field-toggle-slider{background:#16a085;}" +
+      ".field-toggle-switch input:checked + .field-toggle-slider:before{transform:translateX(24px);}" +
+      ".field-toggle-state{font-size:11px;font-weight:700;letter-spacing:0.5px;color:#94a3b8;min-width:28px;text-align:right;}" +
+      ".field-toggle-state.on{color:#16a085;}";
+    document.head.appendChild(s);
+  }
+
   function applyFormTemplatesSnapshot(snap) {
     var out = [];
     snap.forEach(function (doc) {
@@ -532,11 +555,34 @@
   }
 
   function showModal() {
+    ensureToggleStylesInjected();
     var m = document.getElementById("fieldFormModal");
     if (m) {
       m.classList.remove("hidden");
       m.setAttribute("aria-hidden", "false");
     }
+  }
+
+  /** Phase 34a — bind ON/OFF state labels for any rendered toggles. */
+  function wireDynamicToggleStateLabels(root) {
+    root = root || document;
+    var toggles = root.querySelectorAll("input[data-dyn-toggle=\"1\"]");
+    toggles.forEach(function (cb) {
+      var stateId = "dyntoggle_state_" + (cb.id || "").replace(/^dynfield_/, "");
+      var stateEl = document.getElementById(stateId);
+      function apply() {
+        if (!stateEl) return;
+        if (cb.checked) {
+          stateEl.textContent = "YES";
+          stateEl.classList.add("on");
+        } else {
+          stateEl.textContent = "NO";
+          stateEl.classList.remove("on");
+        }
+      }
+      cb.addEventListener("change", apply);
+      apply();
+    });
   }
 
   function closeFieldFormModal() {
@@ -765,6 +811,27 @@
         return;
       }
 
+      if (typ === "toggle") {
+        inner =
+          "<div class=\"field-toggle-row\">" +
+          "<span class=\"field-toggle-label\">" +
+          escapeHtml(label) +
+          req +
+          "</span>" +
+          "<span class=\"field-toggle-state\" id=\"dyntoggle_state_" +
+          name +
+          "\">NO</span>" +
+          "<label class=\"field-toggle-switch\">" +
+          "<input type=\"checkbox\" id=\"dynfield_" +
+          name +
+          "\" data-dyn-toggle=\"1\"/>" +
+          "<span class=\"field-toggle-slider\"></span>" +
+          "</label>" +
+          "</div>";
+        html += wrapFieldRow(inner, f);
+        return;
+      }
+
       if (typ === "photo") {
         inner =
           "<label class=\"field-form-label\" for=\"dynphoto_" +
@@ -888,6 +955,7 @@
     }
 
     wireEquipmentFieldVisibility(body);
+    wireDynamicToggleStateLabels(body);
 
     var cancel = document.getElementById("fieldFormCancelBtn");
     if (cancel) cancel.addEventListener("click", closeFieldFormModal);
@@ -952,6 +1020,56 @@
       console.error("[field_forms] form_templates", e);
     }
     return [];
+  }
+
+  /** Phase 34a — sort active templates with sortIndex (asc), then templateName. */
+  function sortTemplatesForUi(rows) {
+    return rows.slice().sort(function (a, b) {
+      var sa = Number(a.data.sortIndex);
+      var sb = Number(b.data.sortIndex);
+      if (!isFinite(sa)) sa = 0;
+      if (!isFinite(sb)) sb = 0;
+      if (sa !== sb) return sa - sb;
+      var na = String(a.data.templateName || a.id || "").toLowerCase();
+      var nb = String(b.data.templateName || b.id || "").toLowerCase();
+      if (na < nb) return -1;
+      if (na > nb) return 1;
+      return 0;
+    });
+  }
+
+  /**
+   * Phase 34a — return active templates whose `assignedJobTypes` includes the
+   * given job-type key (e.g. "service" / "pm" / "quote"). Sorted by sortIndex.
+   * Used by the per-job-panel form chooser (Phase 34c+) to populate the
+   * "Open form" lists. Caller must handle the empty-array case (no matches).
+   */
+  async function getTemplatesByJobType(jobType) {
+    var key = String(jobType || "").trim().toLowerCase();
+    if (!key) return [];
+    var rows = await fetchActiveFormTemplates();
+    var matched = rows.filter(function (t) {
+      var arr = Array.isArray(t.data.assignedJobTypes) ? t.data.assignedJobTypes : [];
+      return arr.indexOf(key) >= 0;
+    });
+    return sortTemplatesForUi(matched);
+  }
+
+  /**
+   * Phase 34a — return active templates whose `assignedRepairTypes` includes
+   * the given repair-type key (e.g. "supply_fan" / "compressor"). Sorted by
+   * sortIndex. Used by the Service Call repair branching accordion (Phase
+   * 34c) to surface the right checklist for each repair pill.
+   */
+  async function getTemplatesByRepairType(repairType) {
+    var key = String(repairType || "").trim().toLowerCase();
+    if (!key) return [];
+    var rows = await fetchActiveFormTemplates();
+    var matched = rows.filter(function (t) {
+      var arr = Array.isArray(t.data.assignedRepairTypes) ? t.data.assignedRepairTypes : [];
+      return arr.indexOf(key) >= 0;
+    });
+    return sortTemplatesForUi(matched);
   }
 
   /**
@@ -1214,7 +1332,7 @@
         var f = fields[idx];
         var name = f.name || "field_" + idx;
         var typ = String(f.type || "text").toLowerCase();
-        if (typ === "checkbox") {
+        if (typ === "checkbox" || typ === "toggle") {
           var ch = document.getElementById("dynfield_" + name);
           var ok = ch && ch.checked;
           if (f.required && !ok) {
@@ -1469,6 +1587,8 @@
   window.scanNotesForFormRequirements = scanNotesForFormRequirements;
   window.collectNotesForAiScan = collectNotesForAiScan;
   window.getActiveFormTemplates = fetchActiveFormTemplates;
+  window.getTemplatesByJobType = getTemplatesByJobType;
+  window.getTemplatesByRepairType = getTemplatesByRepairType;
   window.hideFormIntentBanner = hideFormIntentBanner;
   window.verifyEquipmentEvidence = verifyEquipmentEvidence;
 })();

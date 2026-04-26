@@ -35,7 +35,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Phase33-2026-04-25";
+      window.VC_BUILD = "Phase34a-2026-04-26";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -2220,6 +2220,56 @@
       }
       .vc-btn-orange:active {
         transform: scale(0.99);
+      }
+
+      /* Phase 34a — Field Form Builder chip multi-select + row reorder controls. */
+      .ffb-chip-group .ffb-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 999px;
+        background: #fff;
+        font-size: 13px;
+        color: #334155;
+        cursor: pointer;
+        user-select: none;
+        transition: background 120ms ease, border-color 120ms ease;
+      }
+      .ffb-chip-group .ffb-chip input[type="checkbox"] {
+        margin: 0;
+        accent-color: #0ea5e9;
+      }
+      .ffb-chip-group .ffb-chip:has(input:checked) {
+        background: #e0f2fe;
+        border-color: #0ea5e9;
+        color: #0c4a6e;
+        font-weight: 600;
+      }
+      .ffb-row-reorder {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .ffb-row-reorder .ffb-arrow {
+        background: #e2e8f0;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+        color: #475569;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0;
+      }
+      .ffb-row-reorder .ffb-arrow:hover {
+        background: #cbd5e1;
+      }
+      .ffb-row-reorder .ffb-arrow:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
       }
     </style>
   </head>
@@ -5578,6 +5628,117 @@
               background: #fffdf8;
             "
           />
+
+          <!-- Phase 34a: form classification + assignment -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px">
+            <div>
+              <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px"
+                >Form category</label
+              >
+              <select
+                id="ffbCategory"
+                style="
+                  width: 100%;
+                  box-sizing: border-box;
+                  padding: 10px 12px;
+                  border: 1px solid #cbd5e1;
+                  border-radius: 6px;
+                  font-size: 14px;
+                  background: #fff;
+                "
+              >
+                <option value="general">General</option>
+                <option value="service_call">Service Call form</option>
+                <option value="pm_checklist">PM Checklist</option>
+                <option value="quote">Quote form</option>
+                <option value="repair_checklist">Repair Checklist</option>
+                <option value="warranty">Warranty form</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px"
+                >Sort index</label
+              >
+              <input
+                type="number"
+                id="ffbSortIndex"
+                min="0"
+                step="1"
+                value="0"
+                style="
+                  width: 100%;
+                  box-sizing: border-box;
+                  padding: 10px 12px;
+                  border: 1px solid #cbd5e1;
+                  border-radius: 6px;
+                  font-size: 14px;
+                "
+              />
+            </div>
+          </div>
+
+          <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px"
+            >Show under these job panels</label
+          >
+          <div
+            id="ffbJobTypeChips"
+            class="ffb-chip-group"
+            style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px"
+          >
+            <label class="ffb-chip" data-val="service"
+              ><input type="checkbox" value="service" /><span>Service Call</span></label
+            >
+            <label class="ffb-chip" data-val="pm"
+              ><input type="checkbox" value="pm" /><span>PM</span></label
+            >
+            <label class="ffb-chip" data-val="quote"
+              ><input type="checkbox" value="quote" /><span>Quote</span></label
+            >
+          </div>
+
+          <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px"
+            >Show when these repair types are selected</label
+          >
+          <div
+            id="ffbRepairTypeChips"
+            class="ffb-chip-group"
+            style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px"
+          >
+            <label class="ffb-chip" data-val="supply_fan"
+              ><input type="checkbox" value="supply_fan" /><span>Supply Fan</span></label
+            >
+            <label class="ffb-chip" data-val="condenser_fan"
+              ><input type="checkbox" value="condenser_fan" /><span>Condenser Fan</span></label
+            >
+            <label class="ffb-chip" data-val="gas_valve"
+              ><input type="checkbox" value="gas_valve" /><span>Gas Valve</span></label
+            >
+            <label class="ffb-chip" data-val="compressor"
+              ><input type="checkbox" value="compressor" /><span>Compressor</span></label
+            >
+            <label class="ffb-chip" data-val="refrigerant_leak"
+              ><input type="checkbox" value="refrigerant_leak" /><span>Refrigerant Leak</span></label
+            >
+            <label class="ffb-chip" data-val="other"
+              ><input type="checkbox" value="other" /><span>Other</span></label
+            >
+          </div>
+
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              font-size: 14px;
+              cursor: pointer;
+              user-select: none;
+              margin-bottom: 16px;
+            "
+          >
+            <input type="checkbox" id="ffbIsDefault" />
+            <span>Default for selected job/repair types (loaded automatically when none of the above is more specific)</span>
+          </label>
+
           <label
             style="
               display: flex;
@@ -6880,7 +7041,7 @@
     </script>
 
     <script src="dispatcher/js/navigation.js?v=1"></script>
-    <script src="settings.js?v=15"></script>
+    <script src="settings.js?v=16"></script>
     <script src="dispatcher/js/user_import.js?v=2"></script>
     <script src="dispatcher/js/shadow_mode.js?v=5"></script>
     <script src="customer_directory.js?v=26"></script>
