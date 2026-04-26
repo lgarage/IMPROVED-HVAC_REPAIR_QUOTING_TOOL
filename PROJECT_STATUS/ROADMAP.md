@@ -40,6 +40,42 @@ A place to park ideas, feature requests, and future phases so they do not get lo
 
 *Other raw notes:* *(Google Keep dumps, shower thoughts, and smaller ideas can still land below as bullets.)*
 
+### Consent-Gated Shadow Mode (read-only viewing also requires tech tap)
+
+**Concept.** Today the dispatcher's **Shadow Mode** (Phases 19–20) lets office staff watch a tech's screen position / active ticket *without* the tech having to opt in — the orange consent gate from Phase 32 only kicks in when the dispatcher activates **Office Override** (edit mode). Tighten the supervisory primitive so **read-only viewing also requires explicit tap-to-consent on the tech's phone**: if the tech doesn't tap, the dispatcher's Shadow modal shows nothing about what's on the tech's screen, what buttons they're pressing, or which ticket they're in.
+
+**Why icebox, not Next Up.** This flips a default that has been stable since Phase 19 ("supervisor can peek silently"). It is ADR territory — needs a `DECISIONS.md` ADR before code, including a coaching/training carve-out (Lite-seat apprentices may want supervised default-on for safety), and an offline-tech fallback (no consent reachable → degrade to "tech name + last-seen timestamp only", never a stale screen).
+
+**Reuse existing infrastructure (do NOT rebuild).**
+
+* **Consent button + chrome:** `#vcOfficeOverrideConsentBtn` from Phase 32 (`technician/index.html`) already handles tap-to-acknowledge with a Firestore write — extend it with a second mode (`shadow` vs. `override`) instead of building a parallel button.
+* **Cross-device flag pattern:** the `officeOverride*` field family on `service_calls` (ADR-010) is the model. Mirror it as `shadowViewActive` / `shadowViewBy` / `shadowViewAcknowledged` / `shadowViewAcknowledgedAt` on **`live_presence`** (not on the ticket — Shadow is a presence concept, not a ticket concept).
+* **Three-state path:** `applyOfficeOverrideFromTickets` → `setRemoteOverrideState('off' | 'pending' | 'active')` in `technician/js/workspace_ui.js` is the exact shape needed; clone the state machine for shadow viewing keyed off `live_presence` instead of ticket fields.
+* **Dispatcher iframe self-exception:** Phase 32 already skips the consent gate for the dispatcher's own iframes (`?office_override=1`). Same exception needed for the dispatcher's Shadow iframe so the dispatcher viewing themselves isn't gated.
+
+**Behavior outline.**
+
+1. Dispatcher opens Shadow modal → writes `{ shadowViewActive: true, shadowViewBy }` to the tech's `live_presence` doc; iframe loads but **`#vcShadowMirrorBody` stays blacked out** with a "Waiting for tech to allow viewing…" placeholder.
+2. Tech's phone shows the existing pulsing orange consent button, copy adjusted: *"🟠 Tap to allow — Dispatch wants to view this screen"* (subtitle naming the dispatcher).
+3. Tech taps → field app writes `{ shadowViewAcknowledged: true, shadowViewAcknowledgedAt }` → dispatcher's iframe unblacks and presence mirroring kicks in (existing `applyShadowPresenceFromDoc` path).
+4. Dispatcher closes Shadow modal → `shadowViewActive: FieldValue.delete()` → tech's chrome clears within 1 snapshot.
+5. Re-opening later starts in `pending` again — **fresh consent every time**, same as Office Override.
+
+**Edge cases to think through in the ADR.**
+
+* **Auto-shadow during Office Override take-over** (Phase 31): the "Take over (edit this job)" button currently swaps Shadow → Office Override seamlessly. After this change, the existing Office Override consent tap should **also** satisfy the shadow-view consent in the same gesture — don't make the tech tap twice.
+* **Lite-seat apprentices:** training accounts (`isTrainingAccount === true`) may want consent default-on, or a per-tenant policy flag, so trainers don't lose situational awareness. Confirm with stakeholder before deciding.
+* **Force app refresh** (Phase 20 "Force app refresh" via `forceSyncAt`): keep this **outside** the consent gate — it's a recovery primitive, not surveillance, and the tech sees the reload itself.
+* **Coach prompt toasts** (Phase 19 `coachPrompt`): debate-worthy — these are 1-way write-only and don't reveal the tech's screen, so they could be allowed without consent. Default is to gate them too (matches user intent of "dispatcher can't see what the tech is doing").
+
+**Touch list (when promoted from Icebox).**
+
+* `dispatcher/js/shadow_mode.js` — gate iframe content + activation toast on `shadowViewAcknowledged`.
+* `technician/js/workspace_ui.js` — extend three-state machine to also drive shadow consent from `live_presence`.
+* `technician/index.html` — extend consent button to handle both modes (or duplicate with shared CSS).
+* `live_presence` schema additions: `shadowViewActive` / `shadowViewBy` / `shadowViewAcknowledged` / `shadowViewAcknowledgedAt`.
+* New `DECISIONS.md` ADR describing the supervisory-default flip + Lite-seat carve-out + force-sync exception.
+
 ## 🐛 Minor Tweaks & Polish
 
 * **KI-002 hygiene leftovers (2026-04-25 sync audit).** Closed because none are field-impact, but worth picking off opportunistically when the surrounding code is open:

@@ -79,3 +79,70 @@ All paths below are relative to the repo root. Memory files live in `PROJECT_STA
 - **Batching:** Use `writeBatch` for operations involving more than 5 document changes.
 - **Cache Busting:** Always bump the `?v=N` query param in `index.html` when modifying JS or CSS files.
 - **Geo-Snapshots:** Every "Clock" or "Complete" action must await a 5-second `captureGeoSnapshot`.
+
+## 6. MODEL ESCALATION PROTOCOL
+
+Confidence-based guardrail. **Not** automatic model switching — the AI pauses and asks the user to escalate from Sonnet to Opus 4.7 only when warranted. Goal: prevent bad data, protect business workflows, reduce unnecessary Opus usage.
+
+### 6A. Task Classification (run BEFORE any work)
+
+- **LOW RISK:** UI / CSS changes; small isolated bug fixes; markdown / documentation updates; simple single-file logic.
+- **HIGH RISK:** multi-file changes; Firestore / data-model writes; offline sync logic; anything affecting dispatcher workflow; anything affecting field workflow; dictation parsing / repair extraction; quoting / parts / business-critical data; modifying validation rules.
+- **UNCERTAIN:** ambiguous instructions; unclear mapping of units / repairs; conflicting or incomplete data; confidence < 80%.
+
+### 6B. Required Output (ALWAYS FIRST, every response)
+
+Every response must begin with this exact 4-line block:
+
+```
+Task classification: LOW | HIGH | UNCERTAIN
+Recommended model: Sonnet | Opus 4.7
+Confidence: XX%
+Reason: <1–2 lines>
+```
+
+### 6B1. Mandatory Pause After Classification Block
+
+After outputting the 4-line classification block, **STOP and wait for the user to read it** before generating any further content — code, plans, file edits, analysis, or otherwise — **regardless of classification level**.
+
+This gives the user a chance to:
+- Switch to the recommended model before the response is generated.
+- Cancel and adjust the request if the classification or risk level is unexpected.
+
+**The only exception:** if the user's message explicitly includes a phrase such as "proceed", "go ahead", "confirmed", or "you have approval" directed at this specific task, the AI may continue without waiting.
+
+This rule exists because context-window limits may prevent switching models mid-response. A brief pause costs one round-trip but saves a full regeneration.
+
+### 6C. Escalation Behavior
+
+If the task is **HIGH** or **UNCERTAIN**: do **NOT** proceed with implementation. Instead output the following block and **wait for user confirmation** before continuing:
+
+```
+⚠️ SWITCH TO OPUS 4.7 REQUIRED
+
+Reason: <clear explanation>
+
+Risk:
+- <what could break>
+- <what is uncertain>
+
+Proposed Plan:
+1. ...
+2. ...
+3. ...
+```
+
+### 6D. Confidence Rules
+
+- Confidence **drops** when: multiple files are involved; business logic is affected; data is incomplete or missing; interpretation is required (not deterministic); repair types or unit mapping are unclear; required fields are missing.
+- Confidence is **HIGH** when: task is isolated; logic is deterministic; no business-critical data is affected.
+
+### 6E. Strict Rules
+
+- **Never "guess and proceed"** on low confidence — always escalate instead of risking bad data.
+- **Vertex Core specific:** missing required data = DO NOT FIX WITH AI → prompt the user. The AI must NOT invent values (especially refrigerant, parts, or quantities). Validation rules take priority over model reasoning.
+
+### 6F. Execution Rule
+
+- **LOW RISK:** proceed using Sonnet; keep scope tight; no refactors.
+- **HIGH / UNCERTAIN:** STOP → escalate → wait.
