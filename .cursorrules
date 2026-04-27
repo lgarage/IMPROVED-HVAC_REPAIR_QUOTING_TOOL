@@ -15,13 +15,13 @@ That is the entire mandatory read at session start. Total budget: ~1.5k tokens.
 
 #### Tier 2 — Cold (pull on demand only, by trigger — search, don't read end-to-end)
 
-| File | Read only when… |
-|---|---|
-| `PROJECT_STATUS/KNOWN_ISSUES.md` | A `KI-NNN` is referenced in Tier 1 or you're touching code listed under one. **Grep by id or affected file.** |
-| `PROJECT_STATUS/PROJECT_MAP.md` | You need a path / hook / domain detail for shipped functionality. **Grep by feature, file, or `Phase N`. Do not read end-to-end unless first-time onboarding.** |
-| `PROJECT_STATUS/DECISIONS.md` | About to reverse or contradict a past choice. **Search by `ADR-NNN` or topic.** |
-| `PROJECT_STATUS/ROADMAP.md` | Picking the next phase or filing a new idea. |
-| `PROJECT_STATUS/AI_CONTEXT_PROJECT_OVERVIEW.md` | First-time onboarding only, or a major architectural shift. Treat as historical context; current naming conventions live in `PROJECT_MAP.md`. |
+| File                                            | Read only when…                                                                                                                                                 |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PROJECT_STATUS/KNOWN_ISSUES.md`                | A `KI-NNN` is referenced in Tier 1 or you're touching code listed under one. **Grep by id or affected file.**                                                   |
+| `PROJECT_STATUS/PROJECT_MAP.md`                 | You need a path / hook / domain detail for shipped functionality. **Grep by feature, file, or `Phase N`. Do not read end-to-end unless first-time onboarding.** |
+| `PROJECT_STATUS/DECISIONS.md`                   | About to reverse or contradict a past choice. **Search by `ADR-NNN` or topic.**                                                                                 |
+| `PROJECT_STATUS/ROADMAP.md`                     | Picking the next phase or filing a new idea.                                                                                                                    |
+| `PROJECT_STATUS/AI_CONTEXT_PROJECT_OVERVIEW.md` | First-time onboarding only, or a major architectural shift. Treat as historical context; current naming conventions live in `PROJECT_MAP.md`.                   |
 
 **Rule of thumb:** if Tier 1 names a `KI-NNN` / `ADR-NNN` / `Phase N`, fetch only that section of the relevant Tier 2 file. Never load a Tier 2 file just to "see what's there."
 
@@ -101,7 +101,7 @@ Confidence: XX%
 Reason: <1–2 lines>
 ```
 
-### 6B1. Mandatory Hard Stop After Classification Block
+### 6B1. Mandatory Hard Stop After Classification Block.
 
 After outputting the 4-line classification block, **output nothing else — no plans, no analysis, no code, no next steps, no explanatory text.** End your response immediately after the 4-line block.
 
@@ -109,7 +109,7 @@ The user must explicitly send a follow-up message to continue. That follow-up is
 
 **The only exception:** if the user's message that triggered this response explicitly includes a phrase such as "proceed", "go ahead", "confirmed", "you have approval", or "pre-approved" directed at this specific task, the AI may continue past the classification block without stopping.
 
-Do not add a closing sentence. Do not say "waiting for your confirmation." Do not say anything after the 4-line block. Just stop.
+Add a closing sentence that says "waiting for your confirmation" after the 4-line block. Then, just stop. Do not provide any additional information.
 
 ### 6C. Escalation Behavior
 
