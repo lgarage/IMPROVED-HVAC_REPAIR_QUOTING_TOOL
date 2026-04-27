@@ -35,7 +35,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Phase34a-2026-04-26";
+      window.VC_BUILD = "Phase34b-2026-04-27";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -5376,6 +5376,15 @@
               >
                 + Create New Template
               </button>
+              <button
+                type="button"
+                id="btnFieldFormSeedDefaults"
+                class="gen-btn"
+                title="Admin only — creates the 9 default Vertex Core templates (Service Call, Quote, Warranty, and the 5 repair checklists). Skips any template you've edited locally."
+                style="background: #64748b; padding: 10px 18px; font-size: 13px; color: #fff"
+              >
+                🌱 Seed default form templates (admin)
+              </button>
             </div>
             <div
               id="fieldFormTemplatesList"
@@ -7041,7 +7050,8 @@
     </script>
 
     <script src="dispatcher/js/navigation.js?v=1"></script>
-    <script src="settings.js?v=16"></script>
+    <script src="shared/repair_form_seeds.js?v=1"></script>
+    <script src="settings.js?v=17"></script>
     <script src="dispatcher/js/user_import.js?v=2"></script>
     <script src="dispatcher/js/shadow_mode.js?v=5"></script>
     <script src="customer_directory.js?v=26"></script>

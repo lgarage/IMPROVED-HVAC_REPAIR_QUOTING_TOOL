@@ -6,24 +6,23 @@
 
 ## Snapshot
 
-- **Active Phase:** **Phase 34b** — drafting 9 default seed templates. **PAUSED 2026-04-26 awaiting user approval on v2 question sets.**
-- **Last shipped (2026-04-26):** Phase 34a (form-builder schema + UI: category, job-type chips, repair-type chips, isDefault, sortIndex, Toggle field type, up/down reorder arrows). `index.html` cache-bust `settings.js?v=16`, `VC_BUILD = "Phase34a-2026-04-26"`. Per-commit detail will go into `PROJECT_MAP.md → Build History → Phase 34a` once verified.
-- **Phase 33 verification** still pending on-device (smoke-tests a/b/c per `PHASE_34_HANDOFF.md → §2`); not blocking 34b.
+- **Active Phase:** None. Phase 34c on deck — full spec in `PHASE_34_HANDOFF.md → §3` (do not re-derive).
+- **Last shipped (2026-04-27):** Phase 34b — `shared/repair_form_seeds.js?v=1` + admin button in `#fieldFormBuilderSection` + PIN-gated handler in `settings.js?v=17`. 9 idempotent seed templates (Service Call, Additional Diagnostic, Quoted Repair, Warranty Repair, Supply Fan / Condenser Fan / Gas Valve / Compressor / Refrigerant Leak). `index.html` `VC_BUILD = "Phase34b-2026-04-27"`. Dispatcher-only. Detail in `PROJECT_MAP.md → Build History → Phase 34b` and ship-summary in `PHASE_34_HANDOFF.md → §1.6`.
+- **Also shipped (2026-04-26):** Phase 34a (form-builder schema + UI extension). Detail in `PROJECT_MAP.md → Build History → Phase 34a`.
+- **Phase 33 verification** still pending on-device (smoke-tests a/b/c per `PHASE_34_HANDOFF.md → §2`); not blocking.
 - **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding is dead (per user 2026-04-25); lazy-migration bridge in `shared/firebase_logic.js` left quiet.
 
 ## Active Blocker
 
-**Phase 34b — awaiting user approval on v2 question sets.** Full v2 draft, user revision rules, open questions, and stable seed-id metadata live in `PHASE_34_HANDOFF.md → §1.5`. Do NOT write `shared/repair_form_seeds.js` until user replies with `"Approved — implement"` / inline edits / per-template approvals.
-
-Non-blocking carry-overs (Phase 33 follow-ups, no field-impact):
+None. Two non-blocking carry-overs:
 - `KI-003` — Office Override iframe parity gap (design `ADR-013`; sequenced behind 34 ship).
 - `KI-004` — Field-app photo uploads dropped offline (design `ADR-012`; ships as 33 follow-up patch).
 
-## Immediate Next Step — Phase 34b approval gate
+## Immediate Next Step — Phase 34b on-device verification + Phase 34c kickoff
 
-1. **User reads `PHASE_34_HANDOFF.md → §1.5`** (v2 question-set draft + revision rules + open questions).
-2. **User replies** with `"Approved — implement"` / inline edits / per-template approvals.
-3. **On approval:** apply any inline edits, grep dispatcher PIN pattern in `settings.js` + `index.html` (REUSE existing — do NOT invent), then write `shared/repair_form_seeds.js?v=1`, wire admin button in `#fieldFormBuilderSection` next to "+ Create New Template", bump `settings.js?v=17` and `VC_BUILD = "Phase34b-<ship-date>"`. **One commit. Dispatcher-only — do NOT touch `technician/index.html`.**
+1. **Smoke-test Phase 34b** per the 6-item checklist in `PHASE_34_HANDOFF.md → §1.6 → "On-device smoke checklist"` (button visible, PIN gate, fresh-install batch creates 9, idempotent re-click reports 9 updated, user-edited template gets skipped, repair-type filter returns the right seed).
+2. **On a fresh dispatcher session**, the very first time you visit Settings → Field Form & Checklist Builder, click 🌱 to seed the live tenant. That populates the dispatcher list with the 9 defaults so Phase 34c has something to render against.
+3. **Then start Phase 34c** — full spec in `PHASE_34_HANDOFF.md → §3` (additional-repair accordion in the technician's Service Call panel; uses the Phase 34a `getTemplatesByRepairType` helper + the Phase 34b seeded templates). HIGH-risk, recommend Opus 4.7 escalation per `.cursorrules §6`.
 
 ## On Deck
 

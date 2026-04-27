@@ -2712,7 +2712,126 @@ function initFieldFormBuilderUi() {
             openFieldFormBuilderCreate();
         });
     }
+    const seedBtn = document.getElementById("btnFieldFormSeedDefaults");
+    if (seedBtn && seedBtn.dataset.wired !== "1") {
+        seedBtn.dataset.wired = "1";
+        seedBtn.addEventListener("click", function () {
+            void handleSeedDefaultFormTemplatesClick();
+        });
+    }
 }
+
+/**
+ * Phase 34b — admin-only "Seed default form templates" handler.
+ *
+ * Reuses the existing dispatcher PIN gate (sessionStorage `vc_admin_unlocked`,
+ * value `APP_CONFIG.adminUnlockPin || "beta"`) so unlocking once via the sidebar
+ * Admin Tools disclosure carries through here. Confirms before writing, then
+ * delegates to window.VCFormSeeds.seedDefaultFormTemplates() (idempotent against
+ * user edits — see shared/repair_form_seeds.js for the create/update/skip rule).
+ *
+ * Result toast surfaces created/updated/skipped counts via the existing
+ * showSaveCue() helper; on any error path we fall back to alert() so the failure
+ * is unmissable in the dispatcher UI.
+ */
+async function handleSeedDefaultFormTemplatesClick() {
+    let unlocked = false;
+    try {
+        unlocked = sessionStorage.getItem("vc_admin_unlocked") === "1";
+    } catch (e) { /* private mode etc. — fall through to PIN prompt */ }
+
+    if (!unlocked) {
+        const entered = window.prompt(
+            "Enter admin PIN to seed default form templates:"
+        );
+        if (entered === null) return;
+        const expected =
+            (typeof APP_CONFIG !== "undefined" && APP_CONFIG && APP_CONFIG.adminUnlockPin) ||
+            "beta";
+        if (String(entered).trim() !== String(expected)) {
+            alert("Invalid PIN.");
+            return;
+        }
+        try {
+            sessionStorage.setItem("vc_admin_unlocked", "1");
+        } catch (e2) {}
+    }
+
+    if (!window.VCFormSeeds || typeof window.VCFormSeeds.seedDefaultFormTemplates !== "function") {
+        alert("Seed module not loaded. Hard-refresh the page (Ctrl+Shift+R) and try again.");
+        return;
+    }
+
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+        alert("Firebase not initialized — cannot seed templates.");
+        return;
+    }
+
+    const proceed = window.confirm(
+        "Seed the 9 default Vertex Core form templates?\n\n" +
+        "• Creates any that are missing\n" +
+        "• Refreshes any that have not been edited locally\n" +
+        "• Skips any template you have modified (your edits are preserved)\n\n" +
+        "Safe to run multiple times."
+    );
+    if (!proceed) return;
+
+    const btn = document.getElementById("btnFieldFormSeedDefaults");
+    let originalLabel = "";
+    if (btn) {
+        originalLabel = btn.textContent || "";
+        btn.disabled = true;
+        btn.textContent = "Seeding…";
+        btn.style.opacity = "0.7";
+    }
+
+    let res;
+    try {
+        res = await window.VCFormSeeds.seedDefaultFormTemplates();
+    } catch (e) {
+        console.error("seedDefaultFormTemplates threw", e);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalLabel || "🌱 Seed default form templates (admin)";
+            btn.style.opacity = "1";
+        }
+        alert("Seed failed: " + (e && e.message ? e.message : String(e)));
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = false;
+        btn.textContent = originalLabel || "🌱 Seed default form templates (admin)";
+        btn.style.opacity = "1";
+    }
+
+    try {
+        await hydrateFieldFormTemplatesList();
+    } catch (e) {
+        console.warn("hydrateFieldFormTemplatesList post-seed failed (non-fatal)", e);
+    }
+
+    const total = (res.created || 0) + (res.updated || 0) + (res.skipped || 0);
+    const summary =
+        "Seeded " + total + " template(s) — " +
+        "created " + (res.created || 0) + ", " +
+        "updated " + (res.updated || 0) + ", " +
+        "skipped " + (res.skipped || 0);
+
+    if (Array.isArray(res.errors) && res.errors.length > 0) {
+        console.error("[VC] Seed errors:", res.errors);
+        alert(summary + "\n\nErrors:\n• " + res.errors.join("\n• "));
+        return;
+    }
+
+    if (typeof showSaveCue === "function") {
+        showSaveCue("✓ " + summary);
+    } else {
+        alert(summary);
+    }
+}
+
+window.handleSeedDefaultFormTemplatesClick = handleSeedDefaultFormTemplatesClick;
 
 async function hydrateFieldFormTemplatesList() {
     const container = document.getElementById("fieldFormTemplatesList");

@@ -14,9 +14,9 @@
 
 | Phase | What | Status |
 |---|---|---|
-| 34a | Form builder schema + UI extension | **SHIPPED** (or staged uncommitted — verify with `git log` / `git status`) |
-| 34b | 9 default seed templates (PIN-gated, idempotent) | NEXT |
-| 34c | Repair branching in Service Call workflow | After 34b |
+| 34a | Form builder schema + UI extension | **SHIPPED** 2026-04-26 (entry in `PROJECT_MAP.md → Build History`) |
+| 34b | 9 default seed templates (PIN-gated, idempotent) | **SHIPPED** 2026-04-27 (entry in `PROJECT_MAP.md → Build History`) — see §1.6 below for ship summary |
+| 34c | Repair branching in Service Call workflow | **NEXT** |
 | 34d | Thermostat labeling prompt at checkout | After 34c |
 | 34e | Roof access field + docs (PROJECT_MAP, ADR-014, flip CURRENT_STATE) | After 34d |
 
@@ -343,6 +343,29 @@ fields: [
 4. **Wire the admin button** in `#fieldFormBuilderSection` (around line ~5305 of `index.html`) next to "+ Create New Template". Style: secondary (`background: #64748b`).
 5. **Cache-bust:** `shared/repair_form_seeds.js?v=1`, `settings.js?v=17`, `VC_BUILD = "Phase34b-<ship-date>"` in `index.html`. Do NOT touch `technician/index.html`.
 6. **Single commit** per the suggested message in the original task brief.
+
+---
+
+## §1.6 — Phase 34b SHIPPED summary (2026-04-27)
+
+> User said "continue" → agent treated as approval of v2 as drafted (both open questions resolved to v2 defaults: conditional sub-fields stay `required: false`; Quoted Repair has no cost field). Both open questions remain noted in §1.5 if you ever want to revisit.
+
+**Files touched (single commit):**
+- **`shared/repair_form_seeds.js`** — NEW. IIFE on `window.VCFormSeeds`. Bakes `SEED_AT = "2026-04-27T00:00:00Z"` and `SEED_SOURCE = "phase34b"`. Exports `SEED_TEMPLATES` (9 stable ids — exactly matching §1.5 metadata table) and `seedDefaultFormTemplates()` (async, returns `{ created, updated, skipped, errors }`). Idempotency rule per §1.5 implemented exactly: read all 9 in parallel → classify each into create/update/skip via `doc.updatedAt > SEED_AT` comparison → batch-write when total writes > 5 (atomic, common case on fresh installs) or per-doc set when ≤ 5 (preserves partial success). Each payload mirrors `saveFieldFormTemplate()` shape in `settings.js` exactly + adds `seedAt` + `seedSource` provenance.
+- **`index.html`** — Added second button `#btnFieldFormSeedDefaults` ("🌱 Seed default form templates (admin)", `background: #64748b`) inside `#fieldFormBuilderSection` next to `#btnFieldFormCreateTemplate`. Bumped `<script src="settings.js?v=16">` → `?v=17`. Inserted `<script src="shared/repair_form_seeds.js?v=1">` immediately before settings.js so seeds module is available before the click handler runs. Bumped `window.VC_BUILD = "Phase34a-2026-04-26"` → `"Phase34b-2026-04-27"`.
+- **`settings.js`** — Extended `initFieldFormBuilderUi()` to wire `#btnFieldFormSeedDefaults` alongside the existing create button (same `dataset.wired = "1"` guard). New `handleSeedDefaultFormTemplatesClick()` reuses the existing PIN gate (`sessionStorage` `vc_admin_unlocked`, value `APP_CONFIG.adminUnlockPin || "beta"`); if not unlocked, shows `prompt()` validating against the same value, sets the flag on success. Confirms before writing, disables button + shows "Seeding…" while running, calls `window.VCFormSeeds.seedDefaultFormTemplates()`, then `hydrateFieldFormTemplatesList()`, then `showSaveCue()` with `Seeded N templates — created C, updated U, skipped S` (or `alert()` with per-doc error list on partial failure).
+
+**PIN gate decision (no new gate invented):** the existing dispatcher Admin Tools sidebar pattern is canonical (`<details id="vcAdminTools">` → `#vcAdminPinInput` → `#vcAdminUnlockBtn` → on success `sessionStorage.setItem("vc_admin_unlocked", "1")`). Documented in `PROJECT_MAP.md → Dispatcher Operations → "Admin tools / PIN unlock"`. The seed handler reads the same flag and falls back to an inline `prompt()` validating against the same `APP_CONFIG.adminUnlockPin || "beta"` so unlocking once carries through.
+
+**`technician/index.html` NOT touched** — Phase 34b is dispatcher-only by design.
+
+**On-device smoke checklist (when next at the dispatcher):**
+1. Load dispatcher → check sidebar BUILD chip reads `BUILD Phase34b-2026-04-27 · fb v<N>`.
+2. Settings → Field Form & Checklist Builder → 🌱 button visible next to "+ Create New Template".
+3. With **no** sessionStorage admin unlock → click button → `prompt()` for PIN → enter PIN → confirm dialog → `Seeded 9 templates — created 9, updated 0, skipped 0` toast → list immediately refreshes showing all 9 templates with `DEFAULT` chips on Service Call + Quoted Repair.
+4. Click button again → `Seeded 9 templates — created 0, updated 9, skipped 0` (idempotency: no clobber).
+5. Manually edit one template via the existing builder UI (e.g., change a label on Service Call) → save → click 🌱 again → that one template should appear under `skipped` count. Open it — your edit must still be there.
+6. (Optional) On the iPhone field app, open a job, dictate notes mentioning "supply fan" → Gemini suggestion path should now resolve to the seeded `seed_supply_fan_replacement` template via `getTemplatesByRepairType("supply_fan")`.
 
 ---
 
