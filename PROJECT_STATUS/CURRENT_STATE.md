@@ -6,34 +6,32 @@
 
 ## Snapshot
 
-- **Active Phase:** None.
-- **Last shipped (2026-04-25):** Phases 31–32c + KI-002 Plans A / B(B1–B4) / C3 / E2 + Phase 33 (Field-Add Equipment, awaiting on-device verification). Per-commit + per-file detail in `PROJECT_MAP.md → Build History`.
-- **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding is dead (per user 2026-04-25); lazy-migration bridge in `shared/firebase_logic.js` left quiet (no live consumers).
+- **Active Phase:** **Phase 34b** — drafting 9 default seed templates. **PAUSED 2026-04-26 awaiting user approval on v2 question sets.**
+- **Last shipped (2026-04-26):** Phase 34a (form-builder schema + UI: category, job-type chips, repair-type chips, isDefault, sortIndex, Toggle field type, up/down reorder arrows). `index.html` cache-bust `settings.js?v=16`, `VC_BUILD = "Phase34a-2026-04-26"`. Per-commit detail will go into `PROJECT_MAP.md → Build History → Phase 34a` once verified.
+- **Phase 33 verification** still pending on-device (smoke-tests a/b/c per `PHASE_34_HANDOFF.md → §2`); not blocking 34b.
+- **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding is dead (per user 2026-04-25); lazy-migration bridge in `shared/firebase_logic.js` left quiet.
 
 ## Active Blocker
 
-None. Two non-blocking follow-ups against Phase 33 in `KNOWN_ISSUES.md → Open`:
+**Phase 34b — awaiting user approval on v2 question sets.** Full v2 draft, user revision rules, open questions, and stable seed-id metadata live in `PHASE_34_HANDOFF.md → §1.5`. Do NOT write `shared/repair_form_seeds.js` until user replies with `"Approved — implement"` / inline edits / per-template approvals.
 
-- `KI-003` — Office Override iframe parity gap (Phase 34 design locked 2026-04-25 in `DECISIONS.md → ADR-013`; implementation sequenced behind Phase 33 verify + KI-004 follow-up).
-- `KI-004` — Field-app photo uploads dropped offline (audit-only; ships as a Phase 33 follow-up patch per user 2026-04-25; design in `DECISIONS.md → ADR-012`).
+Non-blocking carry-overs (Phase 33 follow-ups, no field-impact):
+- `KI-003` — Office Override iframe parity gap (design `ADR-013`; sequenced behind 34 ship).
+- `KI-004` — Field-app photo uploads dropped offline (design `ADR-012`; ships as 33 follow-up patch).
 
-## Immediate Next Step — Phase 33 on-device verification
+## Immediate Next Step — Phase 34b approval gate
 
-Build order + per-commit detail in `DECISIONS.md → ADR-011` and `PROJECT_MAP.md → Build History → Phase 33`. On next iPhone + dispatcher touch:
-
-- **Build stamps:** tech debug overlay top line = `BUILD: Phase33-2026-04-25`; dispatcher sidebar chip = `BUILD Phase33-2026-04-25 · fb v2`.
-- **Smoke-test (a):** single-field Vision Hub correction stays sticky after reload.
-- **Smoke-test (b):** re-importing CSV does NOT clobber field-edited fields (per-field `fieldEdits` guard in `dispatcher/js/import_hub.js`).
-- **Smoke-test (c):** brand-new field-added unit appears in dispatcher Equipment Hub via the bridge.
-
-Once a/b/c pass: flip Phase 33 in `PROJECT_MAP.md → Build History` from `[ ]` to `[v]`, pick next from `ROADMAP.md → Next Up` (Command Map TV Mode or Field Inventory Truck Stock), then ship the KI-004 follow-up patch under `VC_BUILD = "Phase33-followup-<date>"` (smoke-tests d/e per ADR-012).
+1. **User reads `PHASE_34_HANDOFF.md → §1.5`** (v2 question-set draft + revision rules + open questions).
+2. **User replies** with `"Approved — implement"` / inline edits / per-template approvals.
+3. **On approval:** apply any inline edits, grep dispatcher PIN pattern in `settings.js` + `index.html` (REUSE existing — do NOT invent), then write `shared/repair_form_seeds.js?v=1`, wire admin button in `#fieldFormBuilderSection` next to "+ Create New Template", bump `settings.js?v=17` and `VC_BUILD = "Phase34b-<ship-date>"`. **One commit. Dispatcher-only — do NOT touch `technician/index.html`.**
 
 ## On Deck
 
-- `ROADMAP.md → Next Up` — next phase candidates.
-- `ROADMAP.md → Minor Tweaks & Polish` — KI-002 leftovers (B5/B6/B7, C1, C2, C4, E1, E3, E4); opportunistic only, none field-impact.
-- `ROADMAP.md → Icebox` — `ticketClass` (Service vs Project) epic; architectural, ADR before code.
-- Standing maintenance threads (Firestore rules for `portal_tokens` / `labor_logs`, optional short URL for Proof of Service, optional composite index for `labor_logs`, print/PDF chart timing, legacy `dispatcher/index.html` redirect-stub archive).
+- Phases **34c → 34d → 34e** — full specs in `PHASE_34_HANDOFF.md → §3 / §4 / §5` (do not re-derive).
+- `ROADMAP.md → Next Up` — Command Map TV Mode, Field Inventory Truck Stock.
+- `ROADMAP.md → Minor Tweaks & Polish` — KI-002 leftovers (B5/B6/B7, C1, C2, C4, E1, E3, E4); opportunistic only.
+- `ROADMAP.md → Icebox` — `ticketClass` (Service vs Project) epic; ADR before code.
+- Standing maintenance: Firestore rules for `portal_tokens` / `labor_logs`, optional short URL for Proof of Service, optional composite index for `labor_logs`, print/PDF chart timing, legacy `dispatcher/index.html` redirect-stub archive.
 
 ## Update Protocol
 
