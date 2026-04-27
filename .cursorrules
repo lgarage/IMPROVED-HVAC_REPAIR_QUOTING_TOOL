@@ -101,17 +101,15 @@ Confidence: XX%
 Reason: <1–2 lines>
 ```
 
-### 6B1. Mandatory Pause After Classification Block
+### 6B1. Mandatory Hard Stop After Classification Block
 
-After outputting the 4-line classification block, **STOP and wait for the user to read it** before generating any further content — code, plans, file edits, analysis, or otherwise — **regardless of classification level**.
+After outputting the 4-line classification block, **output nothing else — no plans, no analysis, no code, no next steps, no explanatory text.** End your response immediately after the 4-line block.
 
-This gives the user a chance to:
-- Switch to the recommended model before the response is generated.
-- Cancel and adjust the request if the classification or risk level is unexpected.
+The user must explicitly send a follow-up message to continue. That follow-up is the confirmation that they have read the classification, verified the model, and are ready to proceed. Only then may the AI generate any further content.
 
-**The only exception:** if the user's message explicitly includes a phrase such as "proceed", "go ahead", "confirmed", or "you have approval" directed at this specific task, the AI may continue without waiting.
+**The only exception:** if the user's message that triggered this response explicitly includes a phrase such as "proceed", "go ahead", "confirmed", "you have approval", or "pre-approved" directed at this specific task, the AI may continue past the classification block without stopping.
 
-This rule exists because context-window limits may prevent switching models mid-response. A brief pause costs one round-trip but saves a full regeneration.
+Do not add a closing sentence. Do not say "waiting for your confirmation." Do not say anything after the 4-line block. Just stop.
 
 ### 6C. Escalation Behavior
 
