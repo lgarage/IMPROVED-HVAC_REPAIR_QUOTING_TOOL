@@ -122,9 +122,8 @@
         snap.forEach(function (doc) {
           var d = doc.data() || {};
           var composite = makeEquipmentId(customerId, locationId, doc.id);
-          var label =
-            (d.unitTag || d.brand || doc.id || "Unit") +
-            (d.model ? " — " + d.model : "");
+          var unitTagCore = String(d.unitTag || d.brand || doc.id || "Unit");
+          var label = unitTagCore + (d.model ? " — " + d.model : "");
           var verified = !!(
             String(d.dataPlatePhotoUrl || "").trim() &&
             String(d.overallPhotoUrl || "").trim()
@@ -135,6 +134,8 @@
           opts +=
             "<option value=\"" +
             escapeAttr(composite) +
+            "\" data-unit-tag=\"" +
+            escapeAttr(unitTagCore) +
             "\"" +
             (verified
               ? " title=\"" +

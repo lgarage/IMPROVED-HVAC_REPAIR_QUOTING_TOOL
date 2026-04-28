@@ -2054,6 +2054,32 @@ textarea { min-height: 80px; resize: vertical; }
 .vc-svc-repair-yesno button[data-svc-repair-needed="yes"][aria-pressed="true"] {
   background: #dcfce7; border-color: #16a34a; color: #15803d;
 }
+/* Phase 34d — thermostat labeling checkout pills */
+.vc-tstat-label-pills button[data-tstat-status="already_labeled"][aria-pressed="true"] {
+  background: #27ae60;
+  color: #fff;
+  border-color: #1e8449;
+}
+.vc-tstat-label-pills button[data-tstat-status="labeled_now"][aria-pressed="true"] {
+  background: #0ea5e9;
+  color: #fff;
+  border-color: #0284c7;
+}
+.vc-tstat-label-pills button[data-tstat-status="not_labeled"][aria-pressed="true"] {
+  background: #e67e22;
+  color: #fff;
+  border-color: #ca6f1c;
+}
+#tstatLabelReasonSelect {
+  width: 100%;
+  max-width: 100%;
+  font-weight: 600;
+  border: 2px solid #f39c12;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  color: #0f172a;
+}
 .vc-svc-repair-yesno button[data-svc-repair-needed="no"][aria-pressed="true"] {
   background: #fee2e2; border-color: #ef4444; color: #b91c1c;
 }
@@ -3751,6 +3777,33 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     </div>
   </div>
 
+  <!-- Phase 34d — Thermostat labeling (one accordion; FAB is shared below workspaceLockScope — visible for PM / Service / Quote) -->
+  <div class="accordion vc-accordion" id="acc-tstat-label" style="margin-bottom: 15px;">
+    <div class="accordion-header" onclick="toggleAccordion('acc-tstat-label')">Did you label <strong id="tstatLabelHeaderUnit">the unit serviced today</strong><span id="tstatLabelHeaderSuffix">?</span></div>
+    <div class="accordion-body">
+      <div class="pillbar vc-tstat-label-pills" role="group" aria-label="Thermostat labeling status">
+        <button type="button" id="tstatPillAlready" data-tstat-status="already_labeled" aria-pressed="false">Already labeled</button>
+        <button type="button" id="tstatPillNow" data-tstat-status="labeled_now" aria-pressed="false">Labeled now</button>
+        <button type="button" id="tstatPillNot" data-tstat-status="not_labeled" aria-pressed="false">Not labeled</button>
+      </div>
+      <div id="tstatNotLabeledWrap" class="hidden" style="margin-top: 12px;">
+        <label style="margin-top:0;" for="tstatLabelReasonSelect">Reason</label>
+        <select id="tstatLabelReasonSelect">
+          <option value="">— Select —</option>
+          <option value="not_needed">Not needed</option>
+          <option value="no_printer">No printer available</option>
+          <option value="no_access">No access</option>
+          <option value="will_label_later">Will label later</option>
+          <option value="other">Other</option>
+        </select>
+        <div id="tstatLabelOtherWrap" class="hidden" style="margin-top: 10px;">
+          <label style="margin-top:0;" for="tstatLabelOtherInput">Describe</label>
+          <input type="text" id="tstatLabelOtherInput" placeholder="Brief note" autocomplete="off" />
+        </div>
+      </div>
+    </div>
+  </div>
+
   </div><!-- /workspaceLockScope -->
 
   <div id="workspaceAddendumSection" class="workspace-addendum-section hidden">
@@ -4144,7 +4197,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34c-2026-04-28";
+window.VC_BUILD = "Phase34d-2026-04-27";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -4476,6 +4529,277 @@ function switchScreen(screenName) {
 function toggleAccordion(id) {
   const el = document.getElementById(id);
   el.classList.toggle('open');
+}
+
+/* ---------- Phase 34d — Thermostat labeling (setServiceCallMerged; soft FAB nudge only) ---------- */
+function showVcFieldToast(msg) {
+  const toast = document.getElementById("vcCoachToast");
+  if (!toast) return;
+  toast.textContent = String(msg || "");
+  toast.classList.remove("hidden");
+  if (showVcFieldToast._t) window.clearTimeout(showVcFieldToast._t);
+  showVcFieldToast._t = window.setTimeout(function () {
+    toast.classList.add("hidden");
+  }, 5000);
+}
+
+function stripTstatOptionDecorations(text) {
+  if (!text) return "";
+  var t = String(text).replace(/\s*🛡️\s*$/u, "").replace(/\s*🛡\s*$/u, "").trim();
+  var sep = t.indexOf(" — ");
+  if (sep > 0) t = t.slice(0, sep).trim();
+  return t;
+}
+
+function getDerivedTstatUnitLabel() {
+  const scanVal = "__TP_SCAN_NEW_EQUIPMENT__";
+  const sel = document.getElementById("linkedEquipmentSelect");
+  if (sel && sel.value && sel.value !== scanVal) {
+    const opt = sel.options[sel.selectedIndex];
+    if (opt) {
+      const tagAttr = opt.getAttribute("data-unit-tag");
+      if (tagAttr && String(tagAttr).trim()) return String(tagAttr).trim();
+      const stripped = stripTstatOptionDecorations(opt.textContent || "");
+      if (stripped) return stripped;
+    }
+  }
+  const tray = document.getElementById("dictationActionTray");
+  if (tray) {
+    const idEl = tray.querySelector(
+      '.dictation-asset-card:not(.dictation-asset-card--add):not([data-ghost-asset="1"]) .dictation-asset-card-id'
+    );
+    if (idEl && String(idEl.textContent || "").trim()) return String(idEl.textContent).trim();
+  }
+  return "the unit serviced today";
+}
+
+function updateTstatLabelHeaderUnit() {
+  const el = document.getElementById("tstatLabelHeaderUnit");
+  const suf = document.getElementById("tstatLabelHeaderSuffix");
+  if (!el) return;
+  const label = getDerivedTstatUnitLabel();
+  el.textContent = label;
+  if (suf) {
+    const generic = label === "the unit serviced today";
+    suf.textContent = generic ? "?" : " today?";
+  }
+}
+
+function scrollToTstatLabelAccordion() {
+  const acc = document.getElementById("acc-tstat-label");
+  if (!acc) return;
+  acc.classList.add("open");
+  acc.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function isTstatLabelStatusUnset() {
+  const d = readTstatLabelingFromDom();
+  return d.status == null;
+}
+
+function maybeSoftNudgeThermostatLabeling() {
+  if (!isTstatLabelStatusUnset()) return;
+  showVcFieldToast("Don't forget to confirm thermostat labeling.");
+  scrollToTstatLabelAccordion();
+}
+
+function _mergeTstatIntoActiveTicketAfterWrite(patch) {
+  if (typeof activeTicket === "undefined" || !activeTicket || !patch) return;
+  if (Object.prototype.hasOwnProperty.call(patch, "tstatLabelStatus")) {
+    activeTicket.tstatLabelStatus = patch.tstatLabelStatus;
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "tstatLabelReason")) {
+    activeTicket.tstatLabelReason = patch.tstatLabelReason;
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "tstatLabelOtherText")) {
+    activeTicket.tstatLabelOtherText = patch.tstatLabelOtherText;
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "tstatLabelUnitTag")) {
+    activeTicket.tstatLabelUnitTag = patch.tstatLabelUnitTag;
+  }
+  if (patch.tstatLabelVerifiedAt) {
+    activeTicket.tstatLabelVerifiedAt = true;
+  }
+}
+
+function setTstatNotLabeledSubUi(visible) {
+  const w = document.getElementById("tstatNotLabeledWrap");
+  if (w) w.classList.toggle("hidden", !visible);
+  const ow = document.getElementById("tstatLabelOtherWrap");
+  const rs = document.getElementById("tstatLabelReasonSelect");
+  if (ow && rs) ow.classList.toggle("hidden", !visible || rs.value !== "other");
+}
+
+function readTstatLabelingFromDom() {
+  const pills = document.querySelectorAll(".vc-tstat-label-pills button[data-tstat-status]");
+  var status = null;
+  pills.forEach(function (b) {
+    if (b.getAttribute("aria-pressed") === "true") status = b.getAttribute("data-tstat-status");
+  });
+  const reasonSel = document.getElementById("tstatLabelReasonSelect");
+  const otherInp = document.getElementById("tstatLabelOtherInput");
+  var reason = null;
+  var otherText = null;
+  if (status === "not_labeled" && reasonSel) {
+    reason = reasonSel.value ? reasonSel.value : null;
+    if (reason === "other" && otherInp) otherText = String(otherInp.value || "").trim();
+  }
+  return { status: status, reason: reason, otherText: otherText };
+}
+
+function buildTstatFirestorePatch() {
+  const d = readTstatLabelingFromDom();
+  const patch = {
+    tstatLabelStatus: d.status,
+    tstatLabelReason: d.status === "not_labeled" ? d.reason : null,
+    tstatLabelOtherText: d.status === "not_labeled" && d.reason === "other" ? (d.otherText || "") : null,
+  };
+  const needsFirstStamp =
+    typeof activeTicket !== "undefined" &&
+    activeTicket &&
+    !activeTicket.tstatLabelVerifiedAt &&
+    d.status != null;
+  if (needsFirstStamp) {
+    patch.tstatLabelVerifiedAt = firebase.firestore.FieldValue.serverTimestamp();
+    patch.tstatLabelUnitTag = getDerivedTstatUnitLabel();
+  }
+  return patch;
+}
+
+var _tstatLabelPersistTimer = null;
+function schedulePersistTstatLabeling() {
+  if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+  const tid = typeof activeTicket !== "undefined" && activeTicket && activeTicket.id ? activeTicket.id : "";
+  if (!tid) return;
+  if (_tstatLabelPersistTimer) window.clearTimeout(_tstatLabelPersistTimer);
+  _tstatLabelPersistTimer = window.setTimeout(function () {
+    _tstatLabelPersistTimer = null;
+    const patch = buildTstatFirestorePatch();
+    if (patch.tstatLabelStatus == null) return;
+    const db = firebase.firestore();
+    const p =
+      typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged
+        ? VCFirestore.setServiceCallMerged(db, tid, patch, true)
+        : db.collection("service_calls").doc(tid).set(patch, { merge: true });
+    p.then(function () {
+      _mergeTstatIntoActiveTicketAfterWrite(patch);
+    }).catch(function (e) {
+      console.error("tstatLabel persist", e);
+      if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("tstatLabel:merge", e);
+    });
+  }, 0);
+}
+
+var _tstatLabelOtherDebounce = null;
+function schedulePersistTstatLabelingDebounced() {
+  if (_tstatLabelOtherDebounce) window.clearTimeout(_tstatLabelOtherDebounce);
+  _tstatLabelOtherDebounce = window.setTimeout(function () {
+    _tstatLabelOtherDebounce = null;
+    schedulePersistTstatLabeling();
+  }, 400);
+}
+
+function applyTstatLabelingPillState(status) {
+  document.querySelectorAll(".vc-tstat-label-pills button[data-tstat-status]").forEach(function (b) {
+    const m = status && b.getAttribute("data-tstat-status") === status;
+    b.setAttribute("aria-pressed", m ? "true" : "false");
+  });
+  setTstatNotLabeledSubUi(status === "not_labeled");
+}
+
+function hydrateTstatLabelingFromTicket(ticket) {
+  const t = ticket || (typeof activeTicket !== "undefined" ? activeTicket : null);
+  if (!t) {
+    updateTstatLabelHeaderUnit();
+    return;
+  }
+  const s = t.tstatLabelStatus;
+  if (s === "already_labeled" || s === "labeled_now" || s === "not_labeled") {
+    applyTstatLabelingPillState(s);
+  } else {
+    applyTstatLabelingPillState(null);
+  }
+  const rs = document.getElementById("tstatLabelReasonSelect");
+  const oi = document.getElementById("tstatLabelOtherInput");
+  if (rs) {
+    const r = t.tstatLabelReason;
+    if (r === "not_needed" || r === "no_printer" || r === "no_access" || r === "will_label_later" || r === "other") {
+      rs.value = r;
+    } else {
+      rs.value = "";
+    }
+  }
+  if (oi) oi.value = t.tstatLabelOtherText ? String(t.tstatLabelOtherText) : "";
+  if (s === "not_labeled" && rs) {
+    const ow = document.getElementById("tstatLabelOtherWrap");
+    if (ow) ow.classList.toggle("hidden", rs.value !== "other");
+  }
+  updateTstatLabelHeaderUnit();
+}
+
+function initPhase34dTstatLabeling() {
+  if (initPhase34dTstatLabeling._done) return;
+  const acc = document.getElementById("acc-tstat-label");
+  if (!acc) return;
+  initPhase34dTstatLabeling._done = true;
+
+  document.querySelectorAll(".vc-tstat-label-pills button[data-tstat-status]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const st = btn.getAttribute("data-tstat-status");
+      if (!st) return;
+      applyTstatLabelingPillState(st);
+      updateTstatLabelHeaderUnit();
+      schedulePersistTstatLabeling();
+    });
+  });
+  const reasonSel = document.getElementById("tstatLabelReasonSelect");
+  if (reasonSel) {
+    reasonSel.addEventListener("change", function () {
+      const ow = document.getElementById("tstatLabelOtherWrap");
+      if (ow) ow.classList.toggle("hidden", reasonSel.value !== "other");
+      schedulePersistTstatLabeling();
+    });
+  }
+  const otherInp = document.getElementById("tstatLabelOtherInput");
+  if (otherInp) {
+    otherInp.addEventListener("input", function () {
+      schedulePersistTstatLabelingDebounced();
+    });
+  }
+  const le = document.getElementById("linkedEquipmentSelect");
+  if (le) {
+    le.addEventListener("change", function () {
+      updateTstatLabelHeaderUnit();
+    });
+  }
+  const tray = document.getElementById("dictationActionTray");
+  if (tray && typeof MutationObserver !== "undefined") {
+    var moT = null;
+    var obs = new MutationObserver(function () {
+      if (moT) window.clearTimeout(moT);
+      moT = window.setTimeout(function () {
+        updateTstatLabelHeaderUnit();
+      }, 100);
+    });
+    obs.observe(tray, { childList: true, subtree: true });
+  }
+  window.addEventListener("vc:workspaceOpened", function (ev) {
+    const t = (ev && ev.detail && ev.detail.ticket) || (typeof activeTicket !== "undefined" ? activeTicket : null);
+    hydrateTstatLabelingFromTicket(t);
+  });
+  updateTstatLabelHeaderUnit();
+  if (typeof document !== "undefined" && document.readyState !== "loading") {
+    try {
+      hydrateTstatLabelingFromTicket(
+        typeof activeTicket !== "undefined" ? activeTicket : null
+      );
+    } catch (e) {}
+  }
+}
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initPhase34dTstatLabeling);
+} else {
+  initPhase34dTstatLabeling();
 }
 
 function applyMode(){
@@ -7423,6 +7747,7 @@ document.getElementById("generate").onclick = async function(){
   if (wsScreen && wsScreen.classList.contains("is-historical-job")) {
     return;
   }
+  maybeSoftNudgeThermostatLabeling();
   const check = validateNeedsRepairQuote();
   if (!check.ok) {
     alert(check.message);
@@ -7439,6 +7764,7 @@ document.getElementById("reportPreviewSyncBtn").onclick = async function(){
   if (wsScreen && wsScreen.classList.contains("is-historical-job")) {
     return;
   }
+  maybeSoftNudgeThermostatLabeling();
   const check = validateNeedsRepairQuote();
   if (!check.ok) {
     alert(check.message);
@@ -8406,7 +8732,7 @@ window.onload = async function(){
     </div>
 
     <script src="../equipment_manager.js?v=8"></script>
-    <script src="../equipment_smart_select.js?v=1"></script>
+    <script src="../equipment_smart_select.js?v=2"></script>
     <script src="js/ufx_adapter.js?v=1"></script>
     <script src="js/data_provider.js?v=1"></script>
     <script src="js/workspace_ui.js?v=10"></script>
