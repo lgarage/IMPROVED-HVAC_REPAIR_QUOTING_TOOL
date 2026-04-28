@@ -31,6 +31,29 @@ A place to park ideas, feature requests, and future phases so they do not get lo
 
 ---
 
+### Field Form Builder & dynamic Field App forms — **direct drive / belt**, **equipment types**, **photo capture**, **interactive preview**
+
+**Filed 2026-04-28** from dispatcher testing (GitHub Pages build). Deferred — do not implement until scheduled as a phase or pulled from Icebox.
+
+**Problem summary**
+
+1. **Direct drive vs belt size (dynamic templates)** — The Field App already has **Direct drive (no belt)** + **Equipment type** in the shared equipment flags row (`field_forms.js` → `renderEquipmentFlagsHtml` + `wireEquipmentFieldVisibility`). For **static** PM / hardcoded forms, `group: "belt"` on a field + `wrapFieldRow` adds `data-belt-group`, and `wireEquipmentFieldVisibility` **hides** belt-group rows when Direct drive is checked or equipment type is Mini-Split (`field_forms.js` ~635–664). For **Firestore `form_templates` / `renderDynamicForm`**, users expect the same behavior: e.g. a “Belt size” text field should be **visible and editable** when Direct drive is **unchecked**, and **grayed out / disabled** (not just hidden) when Direct drive is **checked** — match product language in screenshots (“grayed out”). Today dynamic field rows may not fully participate in that wiring; verify `renderDynamicForm` path applies `wrapFieldRow`/group metadata and call `wireEquipmentFieldVisibility` on the dynamic body (same as `renderForm`).
+
+2. **Configurable equipment type list** — `field_equipmentType` options are **hardcoded** in `renderEquipmentFlagsHtml` (Standard/RTU, Mini-Split, Other — `field_forms.js` ~606–621). Stakeholders need **admin-configurable** labels/values (e.g. **Make Up Air**, **Exhaust Fan**) without code changes — likely `app_config` (or similar) + Settings UI, then read in the form renderer (single source of truth for dispatcher + field).
+
+3. **Photo fields on iPhone** — `photo` type uses `<input type="file" accept="image/*;capture=camera">` (`field_forms.js` dynamic branch). iOS Safari surfaces **“Choose file”** then the system sheet (Photo Library / Take Photo / …). If a **more direct “camera first”** UX is required, that is a deliberate UX pass (may overlap `KNOWN_ISSUES.md` → **KI-004** / `DECISIONS.md` → **ADR-012** for offline outbox; keep scope separate unless intentionally merged).
+
+4. **Form builder “Mobile preview” is non-interactive** — `settings.js#buildFieldFormPreviewHtml` (~2591–2656) builds a **static mock** with `disabled` on inputs, checkboxes, toggles, dropdowns, and footer buttons so dispatchers **cannot** scroll-test behavior, open dropdowns, or validate layout under real controls. **Desired:** a **read-only / non-persisting** preview mode: scroll the full form, use native controls (select, toggles) without saving — either remove blanket `disabled` and block submit, or mount a **sandboxed** `renderDynamicForm`-style body with `preventDefault` on save, or a dedicated `preview=1` flag. Touch list: `settings.js` (`openFieldFormPreviewFromBuilder`, modal `#fieldFormPreviewModal` in `index.html`), possible reuse of `field_forms.js` render helpers to avoid two divergent UIs.
+
+**Non-goals until scoped**
+
+- No change to production `form_templates` schema without an ADR if we add equipment-type enum storage.
+- No change to iOS file-picker behavior by policy alone; document or ship code.
+
+**Why Icebox.** Multi-surface (dispatcher Settings + `field_forms.js` + optional `app_config`); needs UX + ADR for equipment list and preview semantics.
+
+---
+
 ### Architecture Epic: Unified Contextual Modes (Service vs. Project)
 
 **Concept.** Keep Vertex Core as **one** application for Office and Field—not four separate codebases. Route experience through **contextual UI** driven by work-order type: the same shell, different dashboards and tools depending on whether the ticket is operational service work or a multi-phase project.
