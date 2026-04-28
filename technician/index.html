@@ -316,6 +316,25 @@ body.vc-override-pending .vc-office-override-global-strip {
 .vc-debug-overlay__btn:active {
   background: rgba(56, 189, 248, 0.35);
 }
+.vc-debug-overlay__actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+/* Collapsed: hide body + Copy — tap "+" to expand full inspector again */
+.vc-debug-overlay--minimized #vcDebugOverlayBody {
+  display: none !important;
+}
+.vc-debug-overlay--minimized .vc-debug-overlay__head {
+  margin-bottom: 0;
+}
+.vc-debug-overlay--minimized #vcDebugCopyBtn {
+  display: none;
+}
+.vc-debug-overlay--minimized {
+  max-width: 140px;
+}
 .tech-profile-badge {
   font-size: 12px;
   font-weight: 800;
@@ -3364,7 +3383,10 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 <div id="vcDebugOverlay" class="vc-debug-overlay" hidden>
   <div class="vc-debug-overlay__head">
     <span class="vc-debug-overlay__title">VC DEBUG</span>
-    <button type="button" class="vc-debug-overlay__btn" id="vcDebugCopyBtn">Copy</button>
+    <span class="vc-debug-overlay__actions">
+      <button type="button" class="vc-debug-overlay__btn" id="vcDebugCopyBtn">Copy</button>
+      <button type="button" class="vc-debug-overlay__btn" id="vcDebugToggleBtn" aria-expanded="true" title="Minimize debug panel">−</button>
+    </span>
   </div>
   <div id="vcDebugOverlayBody"></div>
 </div>
@@ -4122,7 +4144,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34c-2026-04-27";
+window.VC_BUILD = "Phase34c-2026-04-28";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -4148,8 +4170,10 @@ window.VC_BUILD = "Phase34c-2026-04-27";
         inj.innerHTML =
           '<div class="vc-debug-overlay__head">' +
           '<span class="vc-debug-overlay__title">VC DEBUG</span>' +
+          '<span class="vc-debug-overlay__actions">' +
           '<button type="button" class="vc-debug-overlay__btn" id="vcDebugCopyBtn">Copy</button>' +
-          '</div><div id="vcDebugOverlayBody"></div>';
+          '<button type="button" class="vc-debug-overlay__btn" id="vcDebugToggleBtn" aria-expanded="true" title="Minimize debug panel">−</button>' +
+          '</span></div><div id="vcDebugOverlayBody"></div>';
         /* Inject CSS too, in case the cached HTML doesn't have the .vc-debug-overlay rules. */
         if (!document.getElementById("vcDebugOverlayInjectedCss")) {
           var st = document.createElement("style");
@@ -4167,7 +4191,12 @@ window.VC_BUILD = "Phase34c-2026-04-27";
             ".vc-debug-overlay__btn{background:rgba(56,189,248,0.15);color:#38bdf8;" +
             "border:1px solid rgba(56,189,248,0.45);font-size:10px;padding:1px 6px;" +
             "border-radius:3px;cursor:pointer}" +
-            ".vc-debug-overlay__btn:active{background:rgba(56,189,248,0.35)}";
+            ".vc-debug-overlay__btn:active{background:rgba(56,189,248,0.35)}" +
+            ".vc-debug-overlay__actions{display:flex;gap:4px;align-items:center;flex-shrink:0}" +
+            ".vc-debug-overlay--minimized #vcDebugOverlayBody{display:none!important}" +
+            ".vc-debug-overlay--minimized .vc-debug-overlay__head{margin-bottom:0}" +
+            ".vc-debug-overlay--minimized #vcDebugCopyBtn{display:none}" +
+            ".vc-debug-overlay--minimized{max-width:140px}";
           document.head.appendChild(st);
         }
         (document.body || document.documentElement).appendChild(inj);
@@ -4178,6 +4207,32 @@ window.VC_BUILD = "Phase34c-2026-04-27";
     }
     if (!el || !body) return;
     el.hidden = false;
+    var toggleBtn = document.getElementById("vcDebugToggleBtn");
+    function syncVcDebugToggleUi() {
+      if (!toggleBtn || !el) return;
+      var min = el.classList.contains("vc-debug-overlay--minimized");
+      toggleBtn.textContent = min ? "+" : "\u2212";
+      toggleBtn.setAttribute("aria-expanded", min ? "false" : "true");
+      toggleBtn.title = min ? "Expand debug panel" : "Minimize debug panel";
+    }
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", function () {
+        el.classList.toggle("vc-debug-overlay--minimized");
+        try {
+          sessionStorage.setItem(
+            "vc_debug_overlay_minimized",
+            el.classList.contains("vc-debug-overlay--minimized") ? "1" : "0"
+          );
+        } catch (e2) {}
+        syncVcDebugToggleUi();
+      });
+      try {
+        if (sessionStorage.getItem("vc_debug_overlay_minimized") === "1") {
+          el.classList.add("vc-debug-overlay--minimized");
+        }
+      } catch (e3) {}
+      syncVcDebugToggleUi();
+    }
     function snapshot() {
       var lines = [];
       try {
