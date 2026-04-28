@@ -48,6 +48,15 @@
 
   var currentFormId = null;
   var dynamicTemplateDoc = null;
+  /**
+   * Phase 34c — provenance tag set by the caller before the dynamic-form modal
+   * opens (e.g. `"repair_branch"` for the Service Call additional-repair
+   * accordion). Threaded into the `field_form_submissions` payload + the
+   * `vc:fieldFormSaved` event so the repair-branch accordion can mark its
+   * chip as "Saved" without needing a Firestore round-trip. Cleared on
+   * close + after each save dispatch.
+   */
+  var pendingTriggeredBy = null;
 
   /** Repair quote: both mandatory equipment photos must exist before save. */
   var quoteEvidenceState = {
@@ -593,6 +602,7 @@
     }
     currentFormId = null;
     dynamicTemplateDoc = null;
+    pendingTriggeredBy = null;
     quoteEvidenceState = {
       ok: false,
       overallPhotoUrl: null,
@@ -758,8 +768,16 @@
 
   /**
    * Firestore form_templates/{templateId}: templateName, targetKeyword, fields[], active.
+   *
+   * Phase 34c — accepts an optional `opts` arg. Currently the only honored
+   * key is `opts.triggeredBy` (e.g. `"repair_branch"`), which is threaded
+   * into the saved `field_form_submissions` payload and the
+   * `vc:fieldFormSaved` event. Signature stays backward-compatible: callers
+   * that pass only `templateId` keep working.
    */
-  async function renderDynamicForm(templateId) {
+  async function renderDynamicForm(templateId, opts) {
+    pendingTriggeredBy =
+      opts && opts.triggeredBy ? String(opts.triggeredBy) : null;
     if (typeof firebase === "undefined" || !firebase.apps.length) {
       alert("Firebase is not available.");
       return;
@@ -1406,12 +1424,22 @@
         isDirectDrive: flags.isDirectDrive,
         equipmentType: flags.equipmentType,
         cleanedScreens: flags.cleanedScreens,
+        triggeredBy: pendingTriggeredBy || null,
         date: todayYmd(),
         savedAt: new Date().toISOString(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       };
       try {
         await dbFf.add(payload);
+        try {
+          window.dispatchEvent(new CustomEvent("vc:fieldFormSaved", {
+            detail: {
+              templateId: tid,
+              triggeredBy: pendingTriggeredBy || null,
+              ticketId: ticketId || null,
+            },
+          }));
+        } catch (evtErr) { /* CustomEvent unsupported — non-fatal */ }
         alert("Form saved.");
         closeFieldFormModal();
       } catch (e) {
@@ -1543,6 +1571,355 @@
     }
   }
 
+  /* ============================================================ *
+   * Phase 34c — Service Call additional-repair branching accordion *
+   * ============================================================ *
+   *
+   * Wires the `#acc-svc-repair` accordion that lives inside
+   * `#serviceSection` of `technician/index.html`. Self-contained: reads/writes
+   * the active service-call doc via `VCFirestore.setServiceCallMerged` and
+   * uses `getTemplatesByRepairType` to surface the right Phase-34b seeded
+   * checklist. Hydrates on the `vc:workspaceOpened` event dispatched at the
+   * end of `openWorkspace()` (technician/index.html). Refreshes chip status
+   * on the `vc:fieldFormSaved` event dispatched by `saveCurrentFieldForm`.
+   *
+   * Tickets get four new fields (additive, no schema migration):
+   *   additionalRepairNeeded   : boolean
+   *   repairFormTypes          : string[]   e.g. ["supply_fan","other"]
+   *   repairFormCustomLabel    : string     (the free-text "Other" label)
+   *   repairFormStatus         : { <repairKey>: { templateId, status, savedAt } }
+   *
+   * If the wiring DOM is missing (dispatcher app, or stale cached HTML on
+   * iPhone), every helper bails silently — wiring this into field_forms.js
+   * lets us cache-bust via ?v= without touching the entry-point HTML.
+   */
+  var REPAIR_BRANCH_TYPES = [
+    { key: "supply_fan", label: "Supply Fan" },
+    { key: "condenser_fan", label: "Condenser Fan" },
+    { key: "gas_valve", label: "Gas Valve" },
+    { key: "compressor", label: "Compressor" },
+    { key: "refrigerant_leak", label: "Refrigerant Leak" },
+    { key: "other", label: "Other" },
+  ];
+  /* In-memory mirror of the active ticket's repair-branch slice. Hydrated on
+     `vc:workspaceOpened`, mutated on every user interaction, written back via
+     setServiceCallMerged. Kept here (vs reading from DOM) so chip status
+     updates from `vc:fieldFormSaved` can write a server-timestamp without
+     racing the user's other clicks. */
+  var repairBranchState = {
+    ticketId: "",
+    additionalRepairNeeded: null,
+    repairFormTypes: [],
+    repairFormCustomLabel: "",
+    repairFormStatus: {},
+    /* templateId → repairKey reverse map, rebuilt on each chip render so
+       `vc:fieldFormSaved` events can resolve which chip to mark "Saved". */
+    templateIdToRepairKey: {},
+  };
+
+  function getActiveTicketIdForRepairBranch() {
+    var sel = document.getElementById("ticketSelector");
+    return sel && sel.value ? String(sel.value).trim() : "";
+  }
+
+  function getServiceCallsRefForRepairBranch() {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return null;
+    return firebase.firestore();
+  }
+
+  /** Persist a partial patch onto `service_calls/{ticketId}` via the canonical
+   *  `setServiceCallMerged` helper. Surfaces failures through
+   *  `VCSurfaceWriteFailure` so the iPhone debug overlay records dropped writes
+   *  (KI-002 Plan A pattern). Silent-bails when no ticket is loaded. */
+  function persistRepairBranchPatch(patch) {
+    var tid = getActiveTicketIdForRepairBranch();
+    if (!tid) return Promise.resolve();
+    var db = getServiceCallsRefForRepairBranch();
+    if (!db) return Promise.resolve();
+    var p =
+      typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged
+        ? VCFirestore.setServiceCallMerged(db, tid, patch, true)
+        : db.collection("service_calls").doc(tid).set(patch, { merge: true });
+    return p.catch(function (err) {
+      console.error("[field_forms] repairBranch write failed", err);
+      if (typeof VCSurfaceWriteFailure === "function") {
+        VCSurfaceWriteFailure("repairBranch:write[" + tid + "]", err);
+      }
+    });
+  }
+
+  function getRepairBranchAccordion() {
+    return document.getElementById("acc-svc-repair");
+  }
+
+  /** Resolve the canonical template for a given repair-type key. Prefers
+   *  `isDefault: true`; else lowest `sortIndex` (already done by
+   *  `getTemplatesByRepairType` → `sortTemplatesForUi`). Returns
+   *  `{ id, doc }` or `null` when no template matches (e.g. dispatcher
+   *  hasn't seeded yet, or `key === "other"`). */
+  async function resolveRepairTemplateForKey(key) {
+    if (!key || key === "other") return null;
+    var rows = await getTemplatesByRepairType(key);
+    if (!rows || !rows.length) return null;
+    var def = null;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].data && rows[i].data.isDefault === true) { def = rows[i]; break; }
+    }
+    return def || rows[0];
+  }
+
+  function renderRepairBranchChipsHtml(resolvedRows) {
+    if (!resolvedRows.length) {
+      return "<div style=\"font-size:12px;color:#7f8c8d;font-style:italic;padding:6px 2px;\">" +
+        "Pick at least one repair above to surface its checklist." +
+        "</div>";
+    }
+    var html = "";
+    resolvedRows.forEach(function (row) {
+      var status = repairBranchState.repairFormStatus[row.key] || {};
+      var saved = status.status === "saved";
+      var badgeClass = saved ? "vc-repair-chip__badge saved" : "vc-repair-chip__badge";
+      var badgeText = saved ? "✓ Saved" : "Not started";
+      var nameHtml = "";
+      var actionHtml = "";
+      if (row.key === "other") {
+        nameHtml = "Other (free-text repair) — no checklist";
+        actionHtml = "<span class=\"vc-repair-chip__missing\">Describe above</span>";
+      } else if (!row.template) {
+        nameHtml = escapeHtml(row.label) + " — <em>no template seeded</em>";
+        actionHtml = "<span class=\"vc-repair-chip__missing\">Ask dispatch to seed</span>";
+      } else {
+        var tname = String((row.template.data && row.template.data.templateName) || row.template.id);
+        nameHtml = escapeHtml(tname);
+        actionHtml = "<button type=\"button\" class=\"vc-repair-chip__open\" " +
+          "data-svc-repair-open=\"" + escapeAttr(row.key) + "\" " +
+          "data-template-id=\"" + escapeAttr(row.template.id) + "\">" +
+          (saved ? "Re-open form" : "Open form") +
+          "</button>";
+      }
+      html +=
+        "<div class=\"vc-repair-chip\" data-repair-key=\"" + escapeAttr(row.key) + "\">" +
+        "<div style=\"display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;\">" +
+        "<span class=\"vc-repair-chip__name\">" + nameHtml + "</span>" +
+        "<span class=\"" + badgeClass + "\">" + badgeText + "</span>" +
+        "</div>" +
+        actionHtml +
+        "</div>";
+    });
+    return html;
+  }
+
+  async function rerenderRepairBranchChips() {
+    var acc = getRepairBranchAccordion();
+    if (!acc) return;
+    var chipsWrap = document.getElementById("svcRepairFormChips");
+    if (!chipsWrap) return;
+    var selected = repairBranchState.repairFormTypes.slice();
+    var resolved = [];
+    for (var i = 0; i < selected.length; i++) {
+      var key = selected[i];
+      var meta = REPAIR_BRANCH_TYPES.filter(function (r) { return r.key === key; })[0];
+      var label = meta ? meta.label : key;
+      if (key === "other") {
+        resolved.push({ key: key, label: label, template: null });
+        continue;
+      }
+      var tpl = null;
+      try { tpl = await resolveRepairTemplateForKey(key); } catch (e) { tpl = null; }
+      resolved.push({ key: key, label: label, template: tpl });
+    }
+    var idMap = {};
+    resolved.forEach(function (r) {
+      if (r.template && r.template.id) idMap[r.template.id] = r.key;
+    });
+    repairBranchState.templateIdToRepairKey = idMap;
+    chipsWrap.innerHTML = renderRepairBranchChipsHtml(resolved);
+    chipsWrap.querySelectorAll("[data-svc-repair-open]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var tid = btn.getAttribute("data-template-id");
+        if (!tid) return;
+        try {
+          renderDynamicForm(tid, { triggeredBy: "repair_branch" });
+        } catch (e) {
+          console.error("[field_forms] open repair-branch form failed", e);
+        }
+      });
+    });
+  }
+
+  function applyRepairBranchYesNoStyles() {
+    var yesBtn = document.getElementById("svcRepairNeededYesBtn");
+    var noBtn = document.getElementById("svcRepairNeededNoBtn");
+    if (yesBtn) yesBtn.setAttribute("aria-pressed",
+      repairBranchState.additionalRepairNeeded === true ? "true" : "false");
+    if (noBtn) noBtn.setAttribute("aria-pressed",
+      repairBranchState.additionalRepairNeeded === false ? "true" : "false");
+    var typesWrap = document.getElementById("svcRepairTypesWrap");
+    if (typesWrap) {
+      typesWrap.classList.toggle("hidden", repairBranchState.additionalRepairNeeded !== true);
+    }
+  }
+
+  function applyRepairBranchTypePillStyles() {
+    var pillWrap = document.querySelector(".vc-svc-repair-types");
+    if (!pillWrap) return;
+    pillWrap.querySelectorAll("[data-svc-repair-type]").forEach(function (btn) {
+      var key = btn.getAttribute("data-svc-repair-type");
+      var on = repairBranchState.repairFormTypes.indexOf(key) >= 0;
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    var otherWrap = document.getElementById("svcRepairOtherWrap");
+    if (otherWrap) {
+      var otherOn = repairBranchState.repairFormTypes.indexOf("other") >= 0;
+      otherWrap.classList.toggle("hidden", !otherOn);
+    }
+    var otherInp = document.getElementById("svcRepairOtherLabel");
+    if (otherInp && otherInp.value !== repairBranchState.repairFormCustomLabel) {
+      otherInp.value = repairBranchState.repairFormCustomLabel || "";
+    }
+  }
+
+  function hydrateRepairBranchFromTicket(ticket) {
+    var acc = getRepairBranchAccordion();
+    if (!acc) return;
+    var t = ticket || {};
+    repairBranchState.ticketId = String(t.id || getActiveTicketIdForRepairBranch() || "");
+    repairBranchState.additionalRepairNeeded =
+      typeof t.additionalRepairNeeded === "boolean" ? t.additionalRepairNeeded : null;
+    repairBranchState.repairFormTypes = Array.isArray(t.repairFormTypes)
+      ? t.repairFormTypes.slice()
+      : [];
+    repairBranchState.repairFormCustomLabel =
+      typeof t.repairFormCustomLabel === "string" ? t.repairFormCustomLabel : "";
+    repairBranchState.repairFormStatus =
+      t.repairFormStatus && typeof t.repairFormStatus === "object"
+        ? Object.assign({}, t.repairFormStatus)
+        : {};
+    applyRepairBranchYesNoStyles();
+    applyRepairBranchTypePillStyles();
+    rerenderRepairBranchChips();
+  }
+
+  function setRepairBranchYesNo(needed) {
+    /* needed === true | false */
+    repairBranchState.additionalRepairNeeded = !!needed;
+    if (!needed) {
+      /* User said No → clear any prior selections so the chip area collapses
+         clean. Keep `repairFormStatus` history (so re-toggling Yes restores
+         saved-state badges) but null the active selection. */
+      repairBranchState.repairFormTypes = [];
+      repairBranchState.repairFormCustomLabel = "";
+    }
+    applyRepairBranchYesNoStyles();
+    applyRepairBranchTypePillStyles();
+    rerenderRepairBranchChips();
+    persistRepairBranchPatch({
+      additionalRepairNeeded: !!needed,
+      repairFormTypes: needed ? repairBranchState.repairFormTypes : [],
+      repairFormCustomLabel: needed ? repairBranchState.repairFormCustomLabel : "",
+      repairBranchUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  function toggleRepairBranchType(key) {
+    if (!key) return;
+    var idx = repairBranchState.repairFormTypes.indexOf(key);
+    if (idx >= 0) {
+      repairBranchState.repairFormTypes.splice(idx, 1);
+      if (key === "other") repairBranchState.repairFormCustomLabel = "";
+    } else {
+      repairBranchState.repairFormTypes.push(key);
+    }
+    applyRepairBranchTypePillStyles();
+    rerenderRepairBranchChips();
+    persistRepairBranchPatch({
+      repairFormTypes: repairBranchState.repairFormTypes.slice(),
+      repairFormCustomLabel: repairBranchState.repairFormCustomLabel,
+      repairBranchUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  /** Debounce free-text writes so we don't write a Firestore patch per
+   *  keystroke. 600ms matches the dictation-hub internal-save cadence. */
+  var repairBranchOtherDebounce = null;
+  function setRepairBranchOtherLabel(text) {
+    repairBranchState.repairFormCustomLabel = String(text || "");
+    if (repairBranchOtherDebounce) clearTimeout(repairBranchOtherDebounce);
+    repairBranchOtherDebounce = setTimeout(function () {
+      persistRepairBranchPatch({
+        repairFormCustomLabel: repairBranchState.repairFormCustomLabel,
+        repairBranchUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }, 600);
+  }
+
+  function markRepairBranchFormSaved(detail) {
+    var tid = detail && detail.templateId ? String(detail.templateId) : "";
+    var trig = detail && detail.triggeredBy ? String(detail.triggeredBy) : "";
+    if (!tid || trig !== "repair_branch") return;
+    var key = repairBranchState.templateIdToRepairKey[tid];
+    if (!key) return;
+    repairBranchState.repairFormStatus[key] = {
+      templateId: tid,
+      status: "saved",
+      savedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    rerenderRepairBranchChips();
+    /* Snapshot value used in the persisted map can't be a serverTimestamp
+       sentinel inside a nested object; Firestore allows it only at the top
+       level of a set call. Instead persist a JS Date string for the savedAt
+       in the nested map and a serverTimestamp at the top level. */
+    var nested = {};
+    nested[key] = {
+      templateId: tid,
+      status: "saved",
+      savedAt: new Date().toISOString(),
+    };
+    persistRepairBranchPatch({
+      repairFormStatus: nested,
+      repairBranchUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  function initRepairBranchAccordion() {
+    var acc = getRepairBranchAccordion();
+    if (!acc || acc.dataset.wired === "1") return;
+    acc.dataset.wired = "1";
+
+    var yesBtn = document.getElementById("svcRepairNeededYesBtn");
+    var noBtn = document.getElementById("svcRepairNeededNoBtn");
+    if (yesBtn) yesBtn.addEventListener("click", function () { setRepairBranchYesNo(true); });
+    if (noBtn) noBtn.addEventListener("click", function () { setRepairBranchYesNo(false); });
+
+    var pillWrap = document.querySelector(".vc-svc-repair-types");
+    if (pillWrap) {
+      pillWrap.addEventListener("click", function (ev) {
+        var btn = ev.target.closest("[data-svc-repair-type]");
+        if (!btn) return;
+        toggleRepairBranchType(btn.getAttribute("data-svc-repair-type"));
+      });
+    }
+
+    var otherInp = document.getElementById("svcRepairOtherLabel");
+    if (otherInp) {
+      otherInp.addEventListener("input", function () {
+        setRepairBranchOtherLabel(otherInp.value);
+      });
+    }
+
+    /* Hydrate when openWorkspace runs (event dispatched from
+       technician/index.html). Detail carries `{ ticketId, mode, ticket }`. */
+    window.addEventListener("vc:workspaceOpened", function (ev) {
+      var d = ev && ev.detail ? ev.detail : {};
+      hydrateRepairBranchFromTicket(d.ticket || null);
+    });
+
+    /* Refresh chip status after a repair-branch form save. */
+    window.addEventListener("vc:fieldFormSaved", function (ev) {
+      markRepairBranchFormSaved(ev && ev.detail ? ev.detail : null);
+    });
+  }
+
   function initFieldFormLaunchers() {
     var bPm = document.getElementById("btnLaunchStandardPm");
     if (bPm) {
@@ -1571,6 +1948,8 @@
       });
     }
 
+    initRepairBranchAccordion();
+
     startFormTemplatesListener();
   }
 
@@ -1591,4 +1970,9 @@
   window.getTemplatesByRepairType = getTemplatesByRepairType;
   window.hideFormIntentBanner = hideFormIntentBanner;
   window.verifyEquipmentEvidence = verifyEquipmentEvidence;
+  /* Phase 34c — exposed for the technician/index.html `openWorkspace`
+     dispatch path and on-device debugging. Tech can call
+     `window.vcRepairBranchHydrate(window.__vcLastActiveTicket)` from the
+     console to force a re-render. */
+  window.vcRepairBranchHydrate = hydrateRepairBranchFromTicket;
 })();

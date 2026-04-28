@@ -2020,6 +2020,42 @@ textarea { min-height: 80px; resize: vertical; }
   border: 1px solid #d1d9e0; color: #0ea5e9; font-weight: 700; border-radius: 20px; cursor: pointer; margin-top: 0;
 }
 .pillbar button:active { background: #e1e8ed; transform: scale(0.95); }
+
+/* Phase 34c — Service Call additional-repair accordion. The yes/no row and
+   the repair-type pillbar both reuse `.pillbar` for spacing/typography but add
+   `aria-pressed` styling so the multi-select feels click-toggled. The grid
+   variant gives 2-up tiles on phone width. */
+.pillbar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.pillbar-grid button {
+  width: 100%; padding: 10px 12px; border-radius: 8px; text-align: center;
+}
+.pillbar button[aria-pressed="true"] {
+  background: #dbeafe; border-color: #0ea5e9; color: #075985;
+}
+.vc-svc-repair-yesno button[data-svc-repair-needed="yes"][aria-pressed="true"] {
+  background: #dcfce7; border-color: #16a34a; color: #15803d;
+}
+.vc-svc-repair-yesno button[data-svc-repair-needed="no"][aria-pressed="true"] {
+  background: #fee2e2; border-color: #ef4444; color: #b91c1c;
+}
+.vc-repair-chip {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; background: #ffffff; border: 1px solid #d1d9e0; border-radius: 8px;
+}
+.vc-repair-chip__name { font-weight: 700; color: #0f172a; font-size: 13px; line-height: 1.3; }
+.vc-repair-chip__name em { color: #b91c1c; font-style: italic; font-weight: 600; }
+.vc-repair-chip__badge {
+  display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 999px;
+  font-weight: 700; background: #e2e8f0; color: #475569; letter-spacing: 0.03em;
+  text-transform: uppercase; flex: 0 0 auto;
+}
+.vc-repair-chip__badge.saved { background: #dcfce7; color: #15803d; }
+.vc-repair-chip__open {
+  background: #0ea5e9; color: #fff; border: none; padding: 8px 14px; border-radius: 6px;
+  font-weight: 700; cursor: pointer; font-size: 12px; flex: 0 0 auto;
+}
+.vc-repair-chip__open:active { background: #0284c7; transform: scale(0.97); }
+.vc-repair-chip__missing { color: #b91c1c; font-size: 11px; font-style: italic; flex: 0 0 auto; }
 .inline { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
 .inline .grow { flex: 1 1 200px; }
 .inline button { width: auto; background: #0ea5e9; color: #fff; border: none; padding: 14px; border-radius: 8px; margin-top: 6px; font-weight: bold;}
@@ -3596,6 +3632,37 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
         <textarea id="recommendations" placeholder="Example: Replace RTU1 due to cracked heat exchanger."></textarea>
       </div>
     </div>
+    <!-- Phase 34c — additional-repair branching accordion. Wired by field_forms.js
+         (initRepairBranchAccordion) so it cache-busts via ?v= on field_forms.js.
+         Persists onto the active service call doc via VCFirestore.setServiceCallMerged. -->
+    <div class="accordion" id="acc-svc-repair">
+      <div class="accordion-header" onclick="toggleAccordion('acc-svc-repair')">Additional repair (optional)</div>
+      <div class="accordion-body">
+        <p style="font-size:13px;color:#7f8c8d;margin:0 0 10px 0;line-height:1.4;">
+          Beyond the primary call — did you discover and perform an extra repair on this visit?
+        </p>
+        <div class="pillbar vc-svc-repair-yesno" role="group" aria-label="Is additional repair needed?">
+          <button type="button" id="svcRepairNeededNoBtn" data-svc-repair-needed="no" aria-pressed="false">No</button>
+          <button type="button" id="svcRepairNeededYesBtn" data-svc-repair-needed="yes" aria-pressed="false">Yes</button>
+        </div>
+        <div id="svcRepairTypesWrap" class="hidden" style="margin-top:14px;">
+          <label style="margin-top:0;">Which repair(s) did you perform?</label>
+          <div class="pillbar pillbar-grid vc-svc-repair-types" role="group" aria-label="Repair types">
+            <button type="button" data-svc-repair-type="supply_fan" aria-pressed="false">Supply Fan</button>
+            <button type="button" data-svc-repair-type="condenser_fan" aria-pressed="false">Condenser Fan</button>
+            <button type="button" data-svc-repair-type="gas_valve" aria-pressed="false">Gas Valve</button>
+            <button type="button" data-svc-repair-type="compressor" aria-pressed="false">Compressor</button>
+            <button type="button" data-svc-repair-type="refrigerant_leak" aria-pressed="false">Refrigerant Leak</button>
+            <button type="button" data-svc-repair-type="other" aria-pressed="false">Other</button>
+          </div>
+          <div id="svcRepairOtherWrap" class="hidden" style="margin-top:10px;">
+            <label>Describe the "Other" repair</label>
+            <input type="text" id="svcRepairOtherLabel" placeholder="Example: belt and bearing replacement" />
+          </div>
+          <div id="svcRepairFormChips" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+      </div>
+    </div>
     <div class="accordion" id="acc-parts-svc">
       <div class="accordion-header" onclick="toggleAccordion('acc-parts-svc')">3. Parts & Quote Info</div>
       <div class="accordion-body">
@@ -4055,7 +4122,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34a-2026-04-26";
+window.VC_BUILD = "Phase34c-2026-04-27";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -5609,6 +5676,15 @@ function openWorkspace(ticketId) {
   if (typeof writeLivePresence === 'function') writeLivePresence();
   var obBanner = document.getElementById('vcOfficeOverrideBanner');
   if (obBanner) obBanner.classList.toggle('hidden', window.VC_OFFICE_OVERRIDE !== true);
+  /* Phase 34c — broadcast that the workspace opened so externally-loaded
+     modules (e.g. field_forms.js → initRepairBranchAccordion) can hydrate
+     without needing access to the inline `activeTicket` lexical scope. */
+  try {
+    window.__vcLastActiveTicket = activeTicket;
+    window.dispatchEvent(new CustomEvent('vc:workspaceOpened', {
+      detail: { ticketId: ticketId, mode: currentMode, ticket: activeTicket }
+    }));
+  } catch (evtErr) { /* CustomEvent not supported — non-fatal */ }
 }
 
 /* ---------- location local formatting fallback ---------- */
@@ -8282,7 +8358,7 @@ window.onload = async function(){
     <script src="js/location_manager.js?v=1"></script>
     <script src="../dictation_hub.js?v=10"></script>
     <script src="../equipment_hub.js?v=1"></script>
-    <script src="../field_forms.js?v=2"></script>
+    <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
       if (typeof initGlobalSiteDirectory === "function") initGlobalSiteDirectory();

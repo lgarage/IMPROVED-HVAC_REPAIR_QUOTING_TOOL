@@ -10,14 +10,14 @@
 
 ---
 
-## Phase 34 — overall status as of 2026-04-26
+## Phase 34 — overall status as of 2026-04-27
 
 | Phase | What | Status |
 |---|---|---|
 | 34a | Form builder schema + UI extension | **SHIPPED** 2026-04-26 (entry in `PROJECT_MAP.md → Build History`) |
 | 34b | 9 default seed templates (PIN-gated, idempotent) | **SHIPPED** 2026-04-27 (entry in `PROJECT_MAP.md → Build History`) — see §1.6 below for ship summary |
-| 34c | Repair branching in Service Call workflow | **NEXT** |
-| 34d | Thermostat labeling prompt at checkout | After 34c |
+| 34c | Repair branching in Service Call workflow | **SHIPPED** 2026-04-27 (entry in `PROJECT_MAP.md → Build History`) — see §3.5 below for ship summary |
+| 34d | Thermostat labeling prompt at checkout | **NEXT** |
 | 34e | Roof access field + docs (PROJECT_MAP, ADR-014, flip CURRENT_STATE) | After 34d |
 
 **Cache-bust state at end of Phase 34a:**
@@ -436,6 +436,42 @@ When the user saves a repair-branch form, in addition to the existing `field_for
 - No checkout redesign.
 - No changes to the office override / shadow-mode flow.
 - No automatic auto-selection of repair types from dictation (Gemini intent already handles that path via `scanNotesForFormRequirements` — leave it alone).
+
+---
+
+## §3.5 — Phase 34c SHIPPED summary (2026-04-27)
+
+> User said "phase 34b tested and found it working. continue to next phase" then escalated to Opus 4.7 → agent treated as approval. Both `getTemplatesByRepairType` (Phase 34a) and the 9 seeded `assignedRepairTypes` templates (Phase 34b) were already in place — 34c just consumes them.
+
+**Files touched (single commit):**
+- **`field_forms.js`** — Bumped to `?v=3`. Added module-level `pendingTriggeredBy` var. Modified `renderDynamicForm(templateId, opts)` signature (backward-compatible — callers passing only one arg still work; `opts.triggeredBy` is the only honored key). Threaded `triggeredBy` into the dynamic-form `field_form_submissions` payload + dispatched a new `vc:fieldFormSaved` CustomEvent (detail: `{ templateId, triggeredBy, ticketId }`) after every successful add. Cleared `pendingTriggeredBy` in `closeFieldFormModal`. Added an entire new accordion-wiring module (`initRepairBranchAccordion` + helpers `getActiveTicketIdForRepairBranch` / `getServiceCallsRefForRepairBranch` / `persistRepairBranchPatch` / `getRepairBranchAccordion` / `resolveRepairTemplateForKey` / `renderRepairBranchChipsHtml` / `rerenderRepairBranchChips` / `applyRepairBranchYesNoStyles` / `applyRepairBranchTypePillStyles` / `hydrateRepairBranchFromTicket` / `setRepairBranchYesNo` / `toggleRepairBranchType` / `setRepairBranchOtherLabel` / `markRepairBranchFormSaved`). All persistence via `VCFirestore.setServiceCallMerged(db, tid, patch, true)`; failures funnel through `VCSurfaceWriteFailure("repairBranch:write[<tid>]", err)`. Subscribes to `vc:workspaceOpened` for hydration + `vc:fieldFormSaved` for chip status updates. Exposes `window.vcRepairBranchHydrate(ticket)` for on-device console debugging. `initRepairBranchAccordion` called from `initFieldFormLaunchers` so it boots automatically.
+- **`technician/index.html`** — Inserted new `<div class="accordion" id="acc-svc-repair">` between section 2 (`#acc-notes-svc`) and section 3 (`#acc-parts-svc`) of `#serviceSection`. Body contains: yes/no pillbar (`.vc-svc-repair-yesno`), reveal-on-Yes wrap (`#svcRepairTypesWrap`) with 6-button repair-type pillbar (`.vc-svc-repair-types.pillbar-grid`, 2-column), free-text "Other" wrap (`#svcRepairOtherWrap` + `#svcRepairOtherLabel`), chips wrap (`#svcRepairFormChips`). Added matching CSS in the existing `<style>` block: `.pillbar-grid` (2-up grid), `.pillbar button[aria-pressed="true"]` (cyan selected), `.vc-svc-repair-yesno button[data-svc-repair-needed][aria-pressed="true"]` (green/red yes/no states), `.vc-repair-chip` + `.vc-repair-chip__name` / `__badge` (`.saved` variant) / `__open` / `__missing`. In `openWorkspace`, added a 1-block dispatch of `vc:workspaceOpened` (detail: `{ ticketId, mode, ticket }`) plus stashing `window.__vcLastActiveTicket` so externally-loaded modules can hydrate without needing access to the inline `activeTicket` lexical scope. Bumped `<script src="../field_forms.js?v=2">` → `?v=3`. Bumped `window.VC_BUILD = "Phase34a-2026-04-26"` → `"Phase34c-2026-04-27"`.
+
+**Why wiring lives in `field_forms.js` (cache-bustable) and not inline in `technician/index.html`:** per `KNOWN_ISSUES.md → KI-002 §B` mitigations, inline JS in `technician/index.html` cannot be cache-busted (entry-point HTML has no `?v=`). Putting all the accordion logic in `field_forms.js?v=3` means future tweaks ride a `?v=` bump and reach the iPhone immediately. The inline HTML is purely structural — stale cached HTML will simply render no chips (graceful degradation).
+
+**New ticket fields on `service_calls/{id}` (additive, no schema migration):**
+```
+additionalRepairNeeded:    boolean
+repairFormTypes:           string[]   e.g. ["supply_fan","compressor","other"]
+repairFormCustomLabel:     string     (only meaningful when types includes "other")
+repairFormStatus:          { <repairKey>: { templateId, status: "saved", savedAt: <ISO date> } }
+repairBranchUpdatedAt:     serverTimestamp   (set on every patch)
+```
+Deep-merge semantics: `repairFormStatus` is preserved when toggling No → Yes (so saved-state badges restore on re-toggle). Toggling No also clears `repairFormTypes` + `repairFormCustomLabel` so a follow-up Yes starts clean.
+
+**`index.html` NOT touched** — Phase 34c is technician-only by design. Dispatcher consumes the new fields by reading the same `service_calls/{id}` doc surface (no new dispatcher UI in 34c; that's a follow-up phase if/when needed).
+
+**On-device smoke checklist (when next at the iPhone):**
+1. Open dispatcher → confirm sidebar BUILD chip still reads `Phase34b-2026-04-27` (dispatcher unchanged).
+2. On iPhone, hard-refresh `technician/index.html` → confirm debug overlay top line reads `BUILD: Phase34c-2026-04-27` (if not, force-reload until it updates per KI-002 §B mitigations).
+3. Open a Service Call ticket → expand new "Additional repair (optional)" accordion (between "2. Diagnostics & Repairs" and "3. Parts & Quote Info").
+4. Tap **No** → no chips render; reload → state persists; in dispatcher's view of the same ticket doc, confirm `additionalRepairNeeded: false`.
+5. Tap **Yes** → 6-pill repair-type grid appears; tap "Supply Fan" + "Compressor" → two chips render with template names from Phase 34b seeds + "Open form" buttons + gray "Not started" badges.
+6. Tap "Open form" on Supply Fan → dynamic form modal opens → fill required fields → Save → "Form saved" alert → modal closes → chip flips to green "✓ Saved" badge with button text "Re-open form".
+7. Reload page → state persists (Yes still selected, both pills still active, Supply Fan chip still green Saved).
+8. Tap "Other" pill → `#svcRepairOtherLabel` text input appears → type "belt and bearings replacement" → wait ~1s (debounce) → reload → label persists.
+9. In Firestore console, inspect `service_calls/{id}` → `repairFormStatus.supply_fan = { templateId: "seed_supply_fan_replacement", status: "saved", savedAt: "<iso>" }`, `repairFormTypes = ["supply_fan", "compressor", "other"]`, `repairFormCustomLabel = "belt and bearings replacement"`.
+10. In `field_form_submissions`, find the latest doc → confirm `triggeredBy: "repair_branch"` is set.
 
 ---
 

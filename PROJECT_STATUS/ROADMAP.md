@@ -15,6 +15,22 @@ A place to park ideas, feature requests, and future phases so they do not get lo
 
 ## 🧊 The Icebox (Raw Ideas)
 
+### Dispatcher ticket details modal — explicit **Save** (scheduling confidence)
+
+**Concept.** The scheduling card in **Ticket Details** (`openTicketDetails` in `service_call.js`) tells dispatchers that edits auto-save when the modal closes (`*Edits to scheduling auto-save when this window closes.`). Operators still want **visible confirmation** that their crew/date/time/release checkbox landed in Firestore **without closing** the window.
+
+**Desired behavior (when promoted from Icebox).**
+
+1. Add a primary **Save** control in the modal footer alongside **Archive / Cancel / Edit Ticket Form** (`index.html` → `#ticketDetailsModal`; footer flex row ~5937+).
+2. **Save** runs the **same persistence path** today executed inside `closeTicketDetails()` (`service_call.js` ~1487–1551): read `#tdDate`, `#tdStartTime`, `#tdDuration`, crew from `DispatcherTicketManager.getSelectedTechsFromContainer` / `#tdTechAssignContainer`, `#tdPrimaryTechSelect`, `#tdReleasedToTech`, update `twinPillarsServiceDB`, `syncSingleServiceCallToCloud`, `renderServiceBoard`.
+3. After a successful save, surface **`showSaveCue("✓ Saved")`** (or equivalent) so the user sees confirmation **while the modal stays open**.
+4. **Do not regress existing close semantics:** clicking **Cancel**, **×**, or the modal overlay (`index.html` overlay handler ~6750+) must **still** call `closeTicketDetails()`, which **still** persists scheduling edits then hides — **same behavior as today**.
+5. **Refactor suggestion:** extract the body of `closeTicketDetails()` that writes scheduling fields into something like `persistTicketDetailsModal({ closeAfter: boolean })` so Save and Close share one code path (avoids drift).
+
+**Why Icebox, not Next Up.** Pure dispatcher UX polish; no data-model or rules change. Ship with a `service_call.js` `?v=` bump + optional `VC_BUILD` stamp in `index.html` per `.cursorrules §5`.
+
+---
+
 ### Architecture Epic: Unified Contextual Modes (Service vs. Project)
 
 **Concept.** Keep Vertex Core as **one** application for Office and Field—not four separate codebases. Route experience through **contextual UI** driven by work-order type: the same shell, different dashboards and tools depending on whether the ticket is operational service work or a multi-phase project.
