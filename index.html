@@ -6577,7 +6577,7 @@
         if (typeof initMap === "function") initMap();
 
         const dateInput = document.getElementById("scDateInput");
-        if (dateInput) dateInput.valueAsDate = new Date();
+        if (dateInput) dateInput.value = (typeof localTodayYMD === 'function') ? localTodayYMD() : new Date().toLocaleDateString('en-CA');
 
         if (typeof setNextServiceNumber === "function") setNextServiceNumber();
         if (typeof renderGanttHeaders === "function") renderGanttHeaders();

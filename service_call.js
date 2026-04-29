@@ -1180,7 +1180,7 @@ function clearServiceForm() {
         scPar.disabled = true;
     }
 
-    document.getElementById('scDateInput').valueAsDate = new Date();
+    document.getElementById('scDateInput').value = localTodayYMD();
     document.getElementById('scStartTimeInput').value = "08:00"; 
     document.getElementById('scDurationInput').value = "2.0";
     var scMd = document.getElementById("scMultiDayCount");
@@ -1925,7 +1925,16 @@ function renderServiceBoard() {
 // --- DISPATCH BOARD DATE CONTROLS ---
 // ====================================================================
 
-let activeBoardDate = new Date().toISOString().split('T')[0];
+/** Returns today's date as YYYY-MM-DD using LOCAL time (not UTC). */
+function localTodayYMD() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm   = String(d.getMonth() + 1).padStart(2, '0');
+    const dd   = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+let activeBoardDate = localTodayYMD();
 
 window.addEventListener('DOMContentLoaded', () => {
     setTimeout(initBoardDate, 500); 
@@ -1937,7 +1946,7 @@ function initBoardDate() {
 
 function setBoardDate(val) {
     if (val === 'today') {
-        activeBoardDate = new Date().toISOString().split('T')[0];
+        activeBoardDate = localTodayYMD();
     } else {
         activeBoardDate = val;
     }
