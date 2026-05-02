@@ -28,6 +28,7 @@
 2. **Where:** Table **§ Outcome log (newest first)** — insert directly under the header row.
 3. **Cursor name:** **Note** column **must** include the effective model, e.g. `Cursor: Composer 2` or `Cursor: Opus 4.7` (from gate: recommended, Override, or Pre-approved).
 4. **Sync with `.cursorrules`:** Skipping without a valid **skip** when you **should** have captured a new task type is inconsistent with **§6H**.
+5. **Grouping rule:** When **≥ 2 tasks** share the **same cluster** (same domain + Arch range + risk level, no new tier lesson), **collapse them into one representative row** — do not log each task separately. Label the row with the **cluster name** (e.g. `Field app: Dictation hub — …`) and append `*(N tasks)*` to the Task cell. Use **averaged** Conf start/after. Only split out a new row when a task **raises the risk tier, changes Arch, or reveals a different tier-fit lesson** for that cluster. Defined clusters: **(a) Field app: Forms panel / hamburger forms**, **(b) Field app: Workspace chrome / nav menus**, **(c) Field app: Small UI removals / copy cleanup**, **(d) Field app: Dictation hub (labels, examples, Improve-with-AI)**, **(e) Governance / dossier / rules**.
 
 ### Default success (user silent)
 
@@ -65,26 +66,13 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
-| 2026-05-02 | Field app: remove "Check notes for required forms (AI)" from Add additional forms menu | LOW | T1 | Fast | 91% | 94% | ok | ok | Cursor: **Composer 2**; `technician/index.html` `#vcFormsPanel`; `field_forms.js` drop launcher for `#btnScanNotesForForms`; keep `scanNotesForFormRequirements` for `tech_job_history.js` |
-| 2026-05-02 | Dispatch tool: field app simulator (shadow viewer) — wire overlay panels so hamburger "Add additional forms" opens | HIGH | T2 | Strong | 50% | 85% | ok | ok | Cursor: **GPT-5.2**; `technician/index.html` shadow-viewer early-return now calls `wireFormsPanel()` (plus profile/history) |
-| 2026-05-02 | Field app: Add additional forms panel — narrower sheet, list rows vs primary buttons (`vc-forms-list`) | LOW | T1 | Fast | 73% | 92% | ok | ok | Cursor: **Composer 2**; `technician/index.html` `#vcFormsPanel` markup + scoped CSS; IDs unchanged for `field_forms.js` |
-| 2026-05-02 | Field app: move Work Order Forms accordion → hamburger menu as "Add additional forms" overlay panel | LOW | T2 | Balanced | 78% | 90% | ok | ok | Cursor: **Sonnet 4.6**; `technician/index.html` remove `#acc-field-forms`; add `vcFormsPanel` overlay + `btnOpenFormsPanel` hidden trigger + `wsSiteMenuForms` menu item + `wireFormsPanel()` |
-| 2026-05-02 | Field app: hamburger menu beside customer name (Site Intel, History, View Site Equipment) | LOW | T2 | Balanced | 78% | 88% | ok | ok | Cursor: **Sonnet 4.6**; `technician/index.html` `.ws-site-menu-wrap` + dropdown + JS + MutationObserver |
-| 2026-05-02 | Field app: Site Intel → customer row; History + View Site Equipment → intel row | LOW | T1 | Balanced | 76% | 88% | ok | ok | Cursor: **Sonnet 4.6**; `technician/index.html` `.ws-customer-row` wrapper + CSS |
-| 2026-05-02 | Field app: View Site Equipment in site-intel row by History; remove Add Equipment pill; dictation_hub v14 | LOW | T1 | Fast | 86% | 90% | ok | ok | Cursor: **Composer 2**; `technician/index.html` + `dictation_hub.js` |
-| 2026-05-02 | Field app: Remove Inter-office example blurb (`#dictationHubInterofficeExampleNote`) + `applyMode` text | LOW | T0 | Fast | 95% | 96% | ok | ok | Cursor: **Composer 2**; `technician/index.html`; textarea placeholder kept |
-| 2026-05-02 | Field app: Remove SERVICE diagnostics example blurb above Findings / Diagnosis | LOW | T0 | Fast | 96% | 96% | ok | ok | Cursor: **Composer 2**; `technician/index.html` dropped `svc-diagnostics-example-note` `<p>` + CSS |
-| 2026-05-02 | Field app: Inter-office notes — visible example + placeholder on `#dictationHubNotes` | LOW | T1 | Fast | 88% | 90% | ok | ok | Cursor: **Composer 2**; `technician/index.html` hint + placeholder; `applyMode` sets SERVICE vs other hint text |
-| 2026-05-02 | Field app: SERVICE diagnostics — visible example note (diagnosis vs repairs) in dictation hub | LOW | T1 | Fast | 90% | 92% | ok | ok | Cursor: **Composer 2**; `technician/index.html` `#svcDiagnosticsFields` + CSS `svc-diagnostics-example-note` |
-| 2026-05-02 | Field app: Remove Schedule/History/Profile nav; profile panel on name badge; site-history panel next to Site Intel | UNCERTAIN | T2 | Balanced | 62% | 78% | ok | ok | Cursor: **Sonnet 4.6**; `technician/index.html` nav + overlay panels + JS wiring; VC_BUILD Phase34j |
-| 2026-05-02 | Field app: Dictation hub SERVICE label — office sync → Inter-office notes | LOW | T0 | Fast | 90% | 92% | ok | ok | Cursor: **Composer 2**; `technician/index.html` `applyMode` `#dictationHubNotesSubLabel`; VC_BUILD Phase34i |
-| 2026-05-02 | Field app: Improve with AI — SERVICE edits diagnosis/repairs/recommendations only; skips Technician notes (office sync) | LOW | T2 | Fast | n/a | 82% est | ok | ok | Cursor: **Composer 2** (retrospective; §6B gate had been skipped on implement). **Gemini (Improve with AI):** `GEMINI_GENERATE_MODEL` from `firebase-config.js` (repo default `gemini-2.5-flash`); `SYSTEM_INSTRUCTION_DIAGNOSTICS` + `dictation_hub.js?v=13`. |
-| 2026-05-02 | Field app: SERVICE diagnostics in dictation hub; #reason hidden (header banner) | LOW | T2 | Balanced | 82% | 85% | ok | ok | Cursor: not recorded; `technician/index.html` applyMode + hidden `#reason` |
-| 2026-05-02 | Dictation Hub: Improve with AI = grammar/punctuation only (dictation_hub SYSTEM_INSTRUCTION) | LOW | T1 | Balanced | 88% | 90% | ok | ok | Cursor: not recorded; `dictation_hub.js` + placeholder; v=12 |
-| 2026-05-02 | §6H mandatory dossier updates; default success if user silent | LOW | T1 | Balanced | 88% | 90% | ok | ok | Cursor: not recorded; `.cursorrules` §6H + `model-selection.mdc` + dossier § Mandatory logging |
-| 2026-05-02 | Workspace reason-for-call banner under ws-ticket (`technician/index.html`) | LOW | T1 | Balanced | 85% | 88% | ok | ok | Cursor: not recorded; VC_BUILD Phase34e-ws-reason-banner |
-| 2026-05-02 | Remove Location Data accordion (hidden #location + map btn) | LOW | T1 | Fast | 90% | 90% | ok | ok | Cursor: not recorded; gate should have run first |
-| 2026-05-02 | Model dossier, rules, outcome-log process | LOW | T1 | Balanced | 95% | 95% | ok | ok | Docs + `.cursor/rules`; no app code |
+| 2026-05-02 | Dispatch tool: shadow viewer simulator — overlay panels + hamburger forms wiring | HIGH | T2 | Strong | 50% | 85% | ok | ok | Cursor: **GPT-5.2**; HIGH — keep as standalone; `technician/index.html` `wireFormsPanel()` |
+| 2026-05-02 | Field app: Forms panel / hamburger forms — overlay wiring, sheet style, AI-scan launcher removal *(3 tasks)* | LOW | T1–T2 | Fast/Balanced | ~81% | ~92% | ok | ok | Cursor: **Composer 2** + **Sonnet 4.6**; recurring cluster — do not log each tweak separately |
+| 2026-05-02 | Field app: Workspace chrome — hamburger menu, Site Intel/History layout, nav + profile panel *(3 tasks)* | LOW–UNCERTAIN | T2 | Balanced | ~72% | ~85% | ok | ok | Cursor: **Sonnet 4.6**; one task UNCERTAIN (62%→78%) due to nav-removal scope; Balanced minimum for cluster |
+| 2026-05-02 | Field app: Small UI removals / copy cleanup — blurbs, labels, accordions, pills *(4 tasks)* | LOW | T0–T1 | Fast | ~93% | ~94% | ok | ok | Cursor: **Composer 2**; highly mechanical; Fast / Composer 2 reliable for this cluster |
+| 2026-05-02 | Field app: Dictation hub — SERVICE/Inter-office labels, hint examples, Improve-with-AI scope *(6 tasks)* | LOW | T1–T2 | Fast/Balanced | ~87% | ~88% | ok | ok | Cursor: **Composer 2** (labels/hints = Fast); Balanced for Improve-with-AI scope changes (T2) |
+| 2026-05-02 | Field app: Workspace reason-for-call banner under ws-ticket | LOW | T1 | Balanced | 85% | 88% | ok | ok | Cursor: not recorded; VC_BUILD Phase34e-ws-reason-banner |
+| 2026-05-02 | Governance: dossier / rules / logging-policy updates *(2 tasks)* | LOW | T1 | Balanced | ~92% | ~93% | ok | ok | Cursor: not recorded; `.cursor/rules` + dossier; no app code |
 
 ---
 
