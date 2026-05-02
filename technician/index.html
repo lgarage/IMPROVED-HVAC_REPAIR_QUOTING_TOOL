@@ -1121,6 +1121,12 @@ body.vc-override-active #vcOfficeOverrideBanner {
   color: #475569;
   margin: 0 0 6px;
 }
+.dictation-hub-interoffice-example-note {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+}
 .dictation-hub-notes-sync-wrap {
   margin-bottom: 0;
 }
@@ -3715,7 +3721,8 @@ button#techDisplayLabel:active { opacity: 0.75; }
     </div>
     <div class="dictation-hub-notes-sync-wrap">
       <label for="dictationHubNotes" id="dictationHubNotesSubLabel" class="dictation-hub-notes-sync-label visually-hidden">Technician notes</label>
-      <textarea id="dictationHubNotes" rows="6" autocomplete="off"></textarea>
+      <p class="dictation-hub-interoffice-example-note" id="dictationHubInterofficeExampleNote">Example: What the office sees when you sync — site access (e.g. met manager at front desk), customer requests, parts on order or PO needed, callbacks, and other context for dispatch.</p>
+      <textarea id="dictationHubNotes" rows="6" autocomplete="off" placeholder="Example: Called site contact on arrival; left lockbox tag on RTU-1; office to email quote for coil — customer approved verbally."></textarea>
     </div>
     <div class="dictation-action-tray-wrap">
       <div class="dictation-action-tray-head">Dynamic action tray — units on site</div>
@@ -5013,12 +5020,20 @@ function applyMode(){
       dhSub.classList.remove("visually-hidden");
       dhSub.textContent = "Technician notes (Inter-office notes)";
     }
+    var dhInterEx = document.getElementById("dictationHubInterofficeExampleNote");
+    if (dhInterEx) {
+      dhInterEx.textContent = "Example: What the office sees when you sync — site access (e.g. met manager at front desk), customer requests, parts on order or PO needed, callbacks, or anything not already in Findings / Diagnosis or Repairs made above.";
+    }
   } else {
     if (diagFields) diagFields.classList.add("hidden");
     if (dhTitle) dhTitle.textContent = "Technician notes";
     if (dhSub) {
       dhSub.classList.add("visually-hidden");
       dhSub.textContent = "Technician notes";
+    }
+    var dhInterEx2 = document.getElementById("dictationHubInterofficeExampleNote");
+    if (dhInterEx2) {
+      dhInterEx2.textContent = "Example: What the office sees when you sync — site access (e.g. met manager at front desk), customer requests, parts on order or PO needed, callbacks, and other context for dispatch.";
     }
   }
 }
