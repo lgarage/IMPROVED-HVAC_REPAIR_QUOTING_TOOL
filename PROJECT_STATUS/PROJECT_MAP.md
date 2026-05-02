@@ -547,6 +547,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - Open flow: `openSiteIntelModal` zeroes `_siteIntelCurrentPhotos` / `_siteIntelCurrentDocId` first to prevent stale state leaking across two different sites, then loads the doc via `VCFirestore.getSiteIntelDocOnceBridged` (bridge-aware for legacy TWIN_PILLARS — also reads root `site_intelligence/{docId}` and merges).
 - Cache-bust: `workspace_ui.js?v=10` → `?v=11` in `technician/index.html`. `window.VC_BUILD = "Phase34d-2026-04-27"` → `"Phase34e-2026-05-02"`. Dispatcher (`index.html`) NOT touched — Phase 34e is field-only.
 - Terminology: `.cursorrules §3` updated `"Field Bible"` → `"Field Access Notes"` (formerly "Field Bible") to keep canonical UI copy and the rules file in sync.
+- **Post-ship fix (2026-05-02):** Removed `capture="environment"` from `#vcSiteIntelPhotoInput` so iOS/Android shows the native picker sheet (**Take Photo / Photo Library / Choose File**) instead of jumping straight to the rear camera. `accept="image/*" multiple` retained. Rides `workspace_ui.js?v=11` — no additional cache-bust required.
 
 ### Time-tracking only (Lite seat)
 
