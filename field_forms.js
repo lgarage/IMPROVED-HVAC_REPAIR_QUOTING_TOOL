@@ -1940,14 +1940,6 @@
       });
     }
 
-    var aiBtn = document.getElementById("btnScanNotesForForms");
-    if (aiBtn) {
-      aiBtn.addEventListener("click", function () {
-        var text = collectNotesForAiScan();
-        scanNotesForFormRequirements(text);
-      });
-    }
-
     initRepairBranchAccordion();
 
     startFormTemplatesListener();
