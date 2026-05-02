@@ -8,7 +8,7 @@
 >
 > **Maintenance:** Cursor adds, renames, or deprecates models over time. When your Cursor **Settings → Models** toggles change, update **§ Workspace enabled models** (this repo) **and** the generic **§ Registry** if families shift. Pricing is account/plan-dependent — this file uses **relative** cost only (↓ cheaper → ↑ pricier).
 >
-> **Calibration:** After substantive work, **append § Task outcome log** — that row is how we **remember** the cheapest-good model for “things like this.” Include **Conf start %**, **Conf after %**, **Tier used**, **Tier fit** (`ok` | `could_use_smaller` | `needed_bigger`). Grep that section when classifying similar work.
+> **Calibration:** After substantive work, **`§ Task outcome log` is mandatory** (`.cursorrules` §6H) unless § *Skip logging* applies. If the user does **not** report failure, assume **Outcome `ok`** and **Tier fit `ok`** — see § *Default success (user silent)*.
 
 ---
 
@@ -16,16 +16,32 @@
 
 **Purpose:** Empirical notebook — **which model was good enough** for real tasks, so the next similar task can start one notch **cheaper** when the log supports it (or **stronger** when it doesn’t). Pair with **§ Workspace enabled models** and **§ Task archetypes** so picks stay tied to **actual picker names**, not vibes.
 
+### Mandatory logging (agents)
+
+1. **When:** Same bar as § *How to add a row* (substantive implementation). Append the row **in the same chat session** you shipped the work — **do not** close out a substantive task without logging unless a **skip** rule applies.
+2. **Where:** Table **§ Outcome log (newest first)** — insert directly under the header row.
+3. **Cursor name:** **Note** column **must** include the effective model, e.g. `Cursor: Composer 2` or `Cursor: Opus 4.7` (from gate: recommended, Override, or Pre-approved).
+4. **Sync with `.cursorrules`:** Failure to append without a valid **skip** is inconsistent with **§6H**.
+
+### Default success (user silent)
+
+If the user **does not** say the change failed, was wrong, or needs rework:
+
+- **Outcome:** use **`ok`**. Use **`partial`**, **`rework`**, or **`fail`** only when the user said so **or** there is **objective** evidence (revert request, failing tests, follow-up bug tied to this change).
+- **Tier fit:** default **`ok`**. Use **`could_use_smaller`** when completion was easy and a lower tier is plausible; **`needed_bigger`** only when you clearly struggled or the user pushed back.
+- **Conf after %:** at least **Conf start %** unless you have a concrete reason to lower it.
+
 ### How to add a row (agents)
 
 1. Add **one row** per **substantive** task (multi-file change, HIGH risk, new feature slice, or user explicitly wants it logged).
 2. Insert the row **directly under the table header** (below the `|---|` line) — **newest first** — so scanners don’t read hundreds of lines.
 3. **Conf start %** = the **first** `Confidence: XX%` from the opening classification block for that task (before implementation). If no block was used, estimate honestly and mark note `estimated`.
-4. **Conf after %** = after implementation, your honest confidence that the result is correct/complete for the stated scope (may equal Conf start if unchanged).
-5. **Tier used** = Fast | Balanced | Strong | `unknown` (from **§6** gate: recommended model, **Override**, or **Pre-approved**).
-6. **Tier fit:** `ok` = tier was right for the task; `could_use_smaller` = finished cleanly and a lower tier likely would have sufficed; `needed_bigger` = struggled, gaps, or would have benefited from one tier up.
-7. **Outcome:** `ok` = shipped as intended; `partial` = subset done; `rework` = had to redo approach; `fail` = reverted or blocked.
-8. **Skip logging** for: one-line answers, pure read-only Q&A, or trivial typo-only edits.
+4. **Conf after %** = after implementation, your confidence the result matches the **requested scope**; apply **§ Default success (user silent)** when the user gave no negative signal.
+5. **Tier used** = Fast | Balanced | Strong | `unknown` (from **§6** gate: map the **exact** Cursor model to the dossier tier).
+6. **Tier fit:** `ok` = tier was right for the task; `could_use_smaller` = finished cleanly and a lower tier likely would have sufficed; `needed_bigger` = struggled, gaps, or would have benefited from one tier up. Default per **§ Default success (user silent)**.
+7. **Outcome:** `ok` = shipped as intended for scope; `partial` = subset done; `rework` = had to redo approach; `fail` = reverted or blocked. Default **`ok`** per **§ Default success (user silent)** unless you know otherwise.
+8. **Note:** include **`Cursor:`** and the exact picker name (e.g. `Cursor: Sonnet 4.6`) plus any short tag (`field app`, `Site Intel`, etc.).
+9. **Skip logging** for: one-line answers, pure read-only Q&A, trivial typo-only edits, or **only** updating `MODEL_DOSSIER.md` § outcome log / rules **for logging itself** in a meta turn (still log the **next** substantive code task).
 
 ### Using the log when recommending a model
 
@@ -43,6 +59,9 @@
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-02 | §6H mandatory dossier updates; default success if user silent | LOW | T1 | Balanced | 88% | 90% | ok | ok | Cursor: not recorded; `.cursorrules` §6H + `model-selection.mdc` + dossier § Mandatory logging |
+| 2026-05-02 | Workspace reason-for-call banner under ws-ticket (`technician/index.html`) | LOW | T1 | Balanced | 85% | 88% | ok | ok | Cursor: not recorded; VC_BUILD Phase34e-ws-reason-banner |
+| 2026-05-02 | Remove Location Data accordion (hidden #location + map btn) | LOW | T1 | Fast | 90% | 90% | ok | ok | Cursor: not recorded; gate should have run first |
 | 2026-05-02 | Model dossier, rules, outcome-log process | LOW | T1 | Balanced | 95% | 95% | ok | ok | Docs + `.cursor/rules`; no app code |
 
 ---
@@ -55,6 +74,7 @@
 4. **Before any file or command changes the repo:** output **§6B** + **§6B1** (concrete **Cursor picker name**, not a tier label) and **stop** — see `.cursorrules` **§6§ Preamble** (non‑negotiable). **No** edits to code, HTML, markdown, or config until the user sends `Model switched — proceed`, `Override: … — proceed`, or `Pre-approved model: … — proceed`.  
    - If they’re **already on a stronger** model: *“You can use a cheaper model for this if you want.”*  
    - If they’re **on a weaker** model than the minimum: *“Switch up to **[name]** before we implement — [reason].”*
+5. **When substantive work completes** in a session: append **§ Task outcome log** (mandatory unless *Skip logging* applies). If the user gave **no** negative signal → **Outcome `ok`**, **Tier fit `ok`**; **Note** includes **`Cursor:`** + exact model. See `.cursorrules` §6H.
 
 ---
 
@@ -167,6 +187,7 @@ If `.cursorrules` says **HIGH / UNCERTAIN → stop and escalate**, that **overri
 
 ## Changelog
 
+- **2026-05-02:** **§ Mandatory logging**, **§ Default success (user silent)** — align with `.cursorrules` §6H; backfilled outcome rows where logging was missed.
 - **2026-05-02:** **§6§ Preamble** (cross-ref): agent checklist step 4 — **no repo changes** until user sends approved proceed line; concrete picker name required.
 - **2026-05-02:** **North star** — cheapest-good tracking in MD; **§ Workspace enabled models**; outcome-log framing; `.cursorrules` §6 + `model-selection.mdc`.
 - **2026-05-02:** Initial dossier; **§ Task outcome log** (Conf start/after, tier used, **Tier fit**, outcome, grep-based calibration + retention).

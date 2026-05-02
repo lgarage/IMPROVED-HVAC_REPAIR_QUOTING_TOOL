@@ -36,7 +36,7 @@ All paths below are relative to the repo root. Memory files live in `PROJECT_STA
 - **`PROJECT_STATUS/PROJECT_MAP.md`:** Implemented features only, organized by domain. `Current Focus` at the bottom collapses to a 3-line pointer into `CURRENT_STATE.md` and `KNOWN_ISSUES.md`. Do not let it grow into a debugging journal again.
 - **`PROJECT_STATUS/ROADMAP.md`:** Unbuilt ideas only. Once a phase enters active build it is tracked in `CURRENT_STATE.md`; once it ships, it moves into `PROJECT_MAP.md → Build History`.
 - **`PROJECT_STATUS/AI_CONTEXT_PROJECT_OVERVIEW.md`:** Stable high-level architecture handoff. Update only on major architectural shifts.
-- **`PROJECT_STATUS/MODEL_DOSSIER.md`:** Cursor **model tiers**, task archetypes T0–T4, **§ Workspace enabled models** (this repo’s toggled-on names + default “switch to” before work), generic **§ Registry**, and **§ Task outcome log** (Conf start/after, **Tier fit**, outcome — newest first). Used by `.cursorrules` §6 and `.cursor/rules/model-selection.mdc`. **Update** when Settings → Models toggles change and after substantive sessions. Archive older rows per dossier § Retention.
+- **`PROJECT_STATUS/MODEL_DOSSIER.md`:** Cursor **model tiers**, task archetypes T0–T4, **§ Workspace enabled models**, **§ Registry**, and **§ Task outcome log**. **After substantive implementation, a log row is mandatory** (`.cursorrules` §6H) unless the dossier defines a **skip** — default outcome **ok** if the user does not report failure. Update workspace toggles when Settings → Models change. Archive older rows per dossier § Retention.
 
 ### 1C. PROJECT_MAP.md Editing Rules
 
@@ -146,9 +146,18 @@ Immediately after the block (same message, not a second reply), add **mandatory 
 - **Do not** “just quickly” fix something, tweak one line, or update docs **before** the user confirms the model — that **violates §6§ Preamble**.
 - **Read-only** exploration (searching/reading files **without** edits) is discouraged before the gate if it would substitute for starting implementation; if the user explicitly asked **read-only** reconnaissance only, you may read after `Override: … — proceed` or `Model switched — proceed` scoped as *investigation only* — still require the gate so the model is recorded as intentional.
 
-### 6H. After implementation — log calibration
+### 6H. After implementation — **`MODEL_DOSSIER.md` outcome log (mandatory)**
 
-When substantive work finishes, add/update **`PROJECT_STATUS/MODEL_DOSSIER.md` § Task outcome log** with **Conf after %** and **Tier fit** (see dossier). Those fields refine future model picks.
+**Non‑negotiable for calibration:** When you finish **substantive** work (same bar as the dossier § *How to add a row* — multi-file / feature slice / HIGH-risk / non-trivial logic or UI behavior, not a one-line Q&A), you **MUST** append **one row** to **`PROJECT_STATUS/MODEL_DOSSIER.md` § Task outcome log** (newest first) **in the same session**, ideally **before** you treat the task as done. **Skipping the log without meeting § dossier skip rules is a protocol violation.**
+
+Each row **MUST** include: **Date**, short **Task**, **Class**, **Arch**, **Tier used** (Fast / Balanced / Strong), **Conf start %**, **Conf after %**, **Tier fit**, **Outcome**, **Note**. In **Note**, record the **exact Cursor model** used (from the user’s **Override** / **Pre-approved** / recommended line), e.g. `Cursor: Sonnet 4.6`.
+
+**Default success (user silent):** If the user **does not** say the result failed, needs revert, is wrong, or is incomplete, you **MUST** assume it **worked for the requested scope**:
+- Set **Outcome = `ok`** (use `partial` / `rework` / `fail` only if the user said so **or** there is **objective** evidence: failed checks, broken build, explicit follow-up “this broke X”).
+- Set **Tier fit = `ok`** unless **you** struggled badly or left known gaps; use `could_use_smaller` when the task completed easily and a cheaper tier is a fair bet; use `needed_bigger` only when **you** hit clear capability limits or the user reported problems.
+- Set **Conf after %** ≥ **Conf start %** unless you have a concrete reason to lower it.
+
+This file is how the repo **learns** cheapest-good models; empty logs break that loop.
 
 ### 6C. Escalation Behavior
 
@@ -183,7 +192,7 @@ Proposed Plan:
 
 ### 6F. Execution Rule
 
-- **LOW RISK:** after **§6G** model gate is cleared, proceed using the **effective** model the user confirmed (recommended or Override); keep scope tight; no refactors.
+- **LOW RISK:** after **§6G** model gate is cleared, proceed using the **effective** model the user confirmed (recommended or Override); keep scope tight; no refactors. **Finishing** substantive work includes **`MODEL_DOSSIER.md` § Task outcome log** per **§6H**.
 - **HIGH / UNCERTAIN:** output **§6C** block first; still require **§6G** after user switches before implementation.
 
 ### 6I. Conflict
