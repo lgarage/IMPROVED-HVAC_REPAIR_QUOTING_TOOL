@@ -8921,6 +8921,10 @@ window.onload = async function(){
   if (initShadowViewerFromUrl()) {
     document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
     ensureWireAutosave();
+    /* Shadow viewer (dispatcher phone simulator) still needs overlay wiring for hamburger actions. */
+    try { wireProfilePanel(); } catch (e) {}
+    try { wireSiteHistoryPanel(); } catch (e) {}
+    try { wireFormsPanel(); } catch (e) {}
     return;
   }
   initMapPreferenceUI();
