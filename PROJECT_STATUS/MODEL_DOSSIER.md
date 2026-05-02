@@ -4,7 +4,7 @@
 >
 > **Purpose:** Single source of truth so recommendations favor **minimum spend for acceptable quality and safety**, grounded in archetypes, enabled models, and **experience** captured in the outcome log.
 >
-> **Tier 1 read:** Skim this file when classifying a task; do **not** load it end-to-end every turn. Grep by task keyword or jump to **§ Task archetypes → minimum tier**, then **§ Workspace enabled models** for the exact picker name to recommend **before any implementation** (`.cursorrules` §6B1).
+> **Tier 1 read:** Skim this file when classifying a task; do **not** load it end-to-end every turn. Grep by task keyword or jump to **§ Task archetypes → minimum tier**, then **§ Workspace enabled models** for the exact picker name to recommend **before any implementation** (then execute **§6B** + the **strict §6B1 flow** in `.cursorrules` §6B1 — steps **0–4**, parts **(A)(B)(C)**).
 >
 > **Maintenance:** Cursor adds, renames, or deprecates models over time. When your Cursor **Settings → Models** toggles change, update **§ Workspace enabled models** (this repo) **and** the generic **§ Registry** if families shift. Pricing is account/plan-dependent — this file uses **relative** cost only (↓ cheaper → ↑ pricier).
 >
@@ -80,7 +80,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 1. Classify the user’s request (scope, risk, ambiguity, domain: dispatcher vs field vs docs vs Firebase). **Search § Task outcome log** for similar past tasks.
 2. Find the **minimum tier** in **§ Task archetypes → minimum tier** that fits.
 3. Map that tier to **one concrete model name** using **§ Workspace enabled models** first (this repo’s toggled-on list). If missing or stale, fall back to **§ Registry** families.
-4. **Before any file or command changes the repo:** output **§6B** + **§6B1** (concrete **Cursor picker name**, not a tier label) and **stop** — see `.cursorrules` **§6§ Preamble** (non‑negotiable). **No** edits to code, HTML, markdown, or config until the user sends `Model switched — proceed`, `Override: … — proceed`, or `Pre-approved model: … — proceed`.  
+4. **Before any file or command changes the repo:** output **§6B**, then the **strict §6B1 flow** from `.cursorrules` §6B1 — dossier skim **before** composing §6B, §6C if **HIGH/UNCERTAIN**, then gate parts **(A)(B)(C)** and **stop**. Concrete **Cursor picker name**, not a tier label alone. **No** edits to code, HTML, markdown, or config until the user sends `Model switched — proceed`, `Override: … — proceed`, or `Pre-approved model: … — proceed` (**same message** as the task clears the gate per §6B1 narrow exception). A user “repo protocol” recap **without** one of those lines **does not** clear the gate.  
    - If they’re **already on a stronger** model: *“You can use a cheaper model for this if you want.”*  
    - If they’re **on a weaker** model than the minimum: *“Switch up to **[name]** before we implement — [reason].”*
 5. **When substantive, type-worth-remembering work completes:** append **§ Task outcome log** unless § *Skip logging* / *When to log* says otherwise. If the user gave **no** negative signal → **Outcome `ok`**, **Tier fit `ok`**; **Note** includes **`Cursor:`** + exact model. See `.cursorrules` §6H.
@@ -135,7 +135,7 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 
 ### Agent rule
 
-- For **§6B** `Recommended model:` and **§6B1**, pick **one** name from **§ Currently enabled** below (exact picker spelling).
+- For **§6B** `Recommended model:` and the **§6B1** gate **(A)** paragraph, pick **one** name from **§ Currently enabled** below (exact picker spelling).
 - Recommend the **cheapest enabled model that still meets** the task’s minimum tier (see **§ Default “switch to” before work**).
 - **Do not** recommend **Premium** as the model — it is a **plan/suite** label in the list, not a replaceable capability pick. Choose **Composer 2**, **Sonnet 4.6**, **Codex 5.3**, **Opus 4.7**, etc.
 
@@ -155,7 +155,7 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 
 ### Default “switch to” before work (first choice)
 
-Use this table for the **§6B1** paragraph (“switch to **X** because …”). Offer **one** primary name; mention alternates only when useful.
+Use this table for **§6B1 (A)** (“switch to **X** because …”). Offer **one** primary name; mention alternates only when useful.
 
 | Archetype | Recommended model (switch to this first) | Enabled alternates |
 |-----------|------------------------------------------|--------------------|
@@ -196,6 +196,7 @@ If `.cursorrules` says **HIGH / UNCERTAIN → stop and escalate**, that **overri
 
 ## Changelog
 
+- **2026-05-02:** **Strict §6B1 flow** in `.cursorrules` §6B1 (steps 0–4, mandatory **(A)(B)(C)**); `.cursor/rules/model-selection.mdc` aligned; dossier cross-refs updated.
 - **2026-05-02:** **North star** reframed — agent notebook, **task-type** logging (not every task), **continuous improvement** / apply learned rows; §6H softened to match.
 - **2026-05-02:** **§6§ Preamble** (cross-ref): agent checklist step 4 — **no repo changes** until user sends approved proceed line; concrete picker name required.
 - **2026-05-02:** **North star** — cheapest-good tracking in MD; **§ Workspace enabled models**; outcome-log framing; `.cursorrules` §6 + `model-selection.mdc`.

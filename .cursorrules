@@ -88,7 +88,7 @@ All paths below are relative to the repo root. Memory files live in `PROJECT_STA
 
 **Before any change touches this repository, the user must see a model recommendation and must reply with an approved “proceed” line.** That means:
 
-- **You MUST** output **§6B** (4-line block) **every** time the user starts a **new task** or sends work that is **not** already covered by **§6B1’s narrow exception**.
+- **You MUST** output **§6B** (4-line block) **every** time the user starts a **new task** or sends work that is **not** already covered by **§6B1’s narrow exception**, then complete the **strict §6B1 flow** (§6B1: steps **0–4**, parts **(A)(B)(C)**).
 - **You MUST** tell them **exactly which Cursor model to select** (concrete picker name from `MODEL_DOSSIER.md` **§ Workspace enabled models**) and **wait** for **`Model switched — proceed`**, **`Override: … — proceed`**, or **`Pre-approved model: … — proceed`**.
 - **You MUST NOT** — before that reply arrives — **edit files** (code, HTML, CSS, markdown, config), **run terminal commands that mutate the repo or environment**, or use **any tool whose effect is to create/update/delete workspace content**. That includes “small” or “docs-only” edits. **No exceptions** except **§6B1 narrow exception** (user already put proceed + task in the **same** message).
 
@@ -114,29 +114,38 @@ Confidence: XX%
 Reason: <1–2 lines>
 ```
 
-Immediately after the block (same message, not a second reply), add **mandatory model-gate instructions** (see **§6B1**). You may still add **one short line** of cost hint (cheaper vs stronger) when helpful.
+Immediately after the block (same message, not a second reply), run the **strict §6B1 flow** below (parts **(A)**, **(B)**, **(C)** are all mandatory unless the **narrow exception** applies). You may add **one short line** of cost hint (cheaper vs stronger) after **(C)** when helpful.
 
-### 6B1. Mandatory Hard Stop After Classification Block + model gate
+### 6B1. Mandatory Hard Stop — **strict §6B1 flow**
+
+**Normative order — follow every step; do not merge (A)(B)(C) into a vague summary or skip to implementation.**
+
+| Step | What you do |
+|------|----------------|
+| **0** | **Before** you write the first token of §6B: skim `PROJECT_STATUS/MODEL_DOSSIER.md` — **§ Workspace enabled models** (required), plus **§ Task archetypes** / grep **§ Task outcome log** when useful — so `Recommended model:` is one **exact enabled picker** (never a tier name like “Balanced” as the recommendation). |
+| **1** | Output **§6B** as the **first** lines of the reply (exact 4-line block). |
+| **2** | If `Task classification` is **HIGH** or **UNCERTAIN**, output the full **§6C** block **next**. Still **no** implementation this turn. |
+| **3** | Output the **model gate** in **one** reply, containing **all** of **(A)**, **(B)**, and **(C)** below. |
+| **4** | **End the turn.** No edits, no mutating shell, no workspace-mutating tools, no plans, no diffs, no code blocks meant to be applied. |
+
+**(A) Paragraph:** One short paragraph — **which** Cursor model to select (from `MODEL_DOSSIER.md` **§ Workspace enabled models**, else § Registry) and **why**. **Name a real picker label** (e.g. `Sonnet 4.6`), not a tier alone.
+
+**(B) Exact boilerplate** (copy verbatim; only the user fills `Override` / `Pre-approved` names):
+
+*Switch that model in Cursor’s model picker, then reply with **one** of these (copy/paste and fill in):*
+- `Model switched — proceed` *(you switched to the recommended model)*
+- `Override: <exact model name you are using> — proceed` *(you intentionally stayed on or chose a different model)*
+- `Pre-approved model: <name> — proceed` *(only if your **current** chat is already on `<name>` and it matches or exceeds the recommended tier)*
+
+**(C) Hard stop (verbatim closing):** **Waiting for your model confirmation — no file edits or implementation until you send one of the lines above.**
 
 **Applies to every new slice of work** (bugfix, UI tweak, doc update, refactor — **any** request that will lead to repo changes) unless **§6B1 narrow exception** applies.
 
-**First response to a new task** (or when the user’s message does **not** already clear the model gate — see **§6G**): after the 4-line block, output **only**:
+**Forbidden on the gate turn** (until the latest user message includes an approved proceed line — see **§6G**): edits to **any** tracked file; patch/apply tools; installs/builds/deploys; generating “here’s the diff” for the user to apply — **anything** that advances implementation. Answering with code or file changes **without** clearing the gate first is wrong.
 
-1. One short paragraph telling the user **which Cursor model to select** (from `MODEL_DOSSIER.md` **§ Workspace enabled models** — default “switch to” table; fall back to § Registry if needed) and **why**. **Name a real picker label** (e.g. `Sonnet 4.6`), not a tier name alone.
-2. This **exact boilerplate** (adapt the model name inline):
+**Narrow exception — same user message already cleared the gate:** if the user’s message **already** contains `Model switched — proceed`, `Override: … — proceed`, or `Pre-approved model: … — proceed` **together with** the task text, you may skip steps **1–4** of the table (no duplicate gate) and implement in that turn. Otherwise the **next** user message must include one of those lines before any implementation.
 
-   *Switch that model in Cursor’s model picker, then reply with **one** of these (copy/paste and fill in):*
-   - `Model switched — proceed` *(you switched to the recommended model)*
-   - `Override: <exact model name you are using> — proceed` *(you intentionally stayed on or chose a different model)*
-   - `Pre-approved model: <name> — proceed` *(only if your **current** chat is already on `<name>` and it matches or exceeds the recommended tier)*
-
-3. Closing sentence: **Waiting for your model confirmation — no file edits or implementation until you send one of the lines above.**
-
-**Forbidden on this turn (until the user sends an approved line in a follow‑up):** edits to **any** tracked file; patch/apply tools; running installs/builds/deploys; generating “here’s the diff” for the user to apply — **anything** that advances the task. Answering “I’ll do X” with code or file changes **without** the gate first is wrong.
-
-**Do not** output plans, diffs, code, terminal commands, or tool-driven implementation in this turn.
-
-**Narrow exception — same user message already cleared the gate:** if the user’s message **already** contains `Model switched — proceed`, `Override: … — proceed`, or `Pre-approved model: … — proceed` **and** the task text, you may skip the hard stop and implement in one turn. Otherwise the **next** user message must clear the gate before any implementation.
+**User preamble:** If the user pastes a “repo protocol” reminder that restates §6B/§6B1, **still** execute the full strict flow unless the **same** message satisfies the **narrow exception**; a protocol recap from the user **does not** replace an approved proceed line.
 
 ### 6G. Model gate before implementation (tooling)
 
