@@ -1,5 +1,5 @@
 ---
-description: Model gate before edits; mandatory MODEL_DOSSIER outcome log after substantive work (default ok if user silent)
+description: Model gate before edits; dossier outcome log for task *types* / learning (not every trivial task)
 alwaysApply: true
 ---
 
@@ -9,7 +9,7 @@ alwaysApply: true
 
 **Do not edit files, run mutating shell commands, or apply patches until the user replies with an approved line** (`.cursorrules` **§6§ Preamble**, **§6B1**, **§6G**): `Model switched — proceed`, `Override: … — proceed`, or `Pre-approved model: … — proceed`. That includes **documentation** and **one-line fixes**. Only **§6B1 narrow exception** (user put proceed + task in the **same** message) allows implementing in the first turn.
 
-These rules exist so the repo **keeps notes** on the **cheapest model that was still good enough** per task shape. **`MODEL_DOSSIER.md`** holds tiers, workspace names, and the **Task outcome log** — treat the log as the evolving answer to “can we go cheaper next time?”
+These rules exist so **`MODEL_DOSSIER.md`** stays the agent’s **living notes**: learn from **task types** logged in **§ Task outcome log**, **apply** that when classifying the next job, and **keep improving** recommendations — without logging **every** trivial edit.
 
 ## Before substantive work
 
@@ -23,10 +23,12 @@ These rules exist so the repo **keeps notes** on the **cheapest model that was s
 
 If `.cursorrules` §6 mandates **§6C** escalation for HIGH/UNCERTAIN, output that block when required; the dossier does not override safety stops. **§6G** still requires the model gate before implementation.
 
-## After substantive work — dossier **mandatory**
+## After substantive work — update the dossier when it **teaches** something
 
-6. **Append `PROJECT_STATUS/MODEL_DOSSIER.md` → § Task outcome log** in the **same session** you finish substantive work (`.cursorrules` §6H). **Skipping without a valid dossier *Skip logging* reason is a protocol violation.** Prefer to log **before** you sign off the task.
+6. **Append `PROJECT_STATUS/MODEL_DOSSIER.md` → § Task outcome log** when work is **substantive** and **adds signal** for future model picks (dossier § *When to log* / *Skip logging*). **Same session** as the work when possible. **Do not** log noise (typos-only, duplicate patterns with nothing new).
 
-7. **Defaults when the user is silent:** **Outcome = `ok`**, **Tier fit = `ok`**, **Conf after %** ≥ **Conf start %** — unless there is **objective** failure or the user complained. **`Note` must include `Cursor:` + exact picker name** (from Override / Pre-approved / known session model).
+7. **Defaults when the user is silent:** **Outcome = `ok`**, **Tier fit = `ok`**, **Conf after %** ≥ **Conf start %** — unless there is **objective** failure or the user complained. **`Note` must include `Cursor:` + exact picker name** when you log.
 
-8. **One row** (newest first): Date, Task, Class, Arch, **Tier used** (Fast / Balanced / Strong), **Conf start %**, **Conf after %**, **Tier fit**, **Outcome**, **Note**. See dossier **§ Default success (user silent)** and **Vertex Core** limits on downgrading from the log.
+8. **One row** (newest first): Date, Task (**type**-shaped summary), Class, Arch, **Tier used**, **Conf start %**, **Conf after %**, **Tier fit**, **Outcome**, **Note**. After logging, **use** the table on the **next** similar task — grep keywords + **Arch**.
+
+9. **Improvement habit:** If the log contradicts your tier guess, **trust the log** (subject to Vertex safety rules in the dossier).

@@ -1,27 +1,33 @@
 # Cursor model dossier (capability & cost heuristic)
 
-> **North star:** Track, in markdown, the **cheapest Cursor model that is still good enough** for each kind of task on this repo — not “default to the strongest.” **`MODEL_DOSSIER.md`** (static tiers + **workspace picker names**) and **§ Task outcome log** (what actually worked) are the **shared notes**; `.cursorrules` §6 and **`model-selection.mdc`** tell agents how to use them **before** any implementation.
+> **North star:** This file is the agent’s **running notebook** in markdown — **cheap-enough model per kind of work**, grounded in what actually happened. It is **not** a diary of every message: **skip** tiny/no-value tasks (see **§ Skip logging**). **Do** record **task types** (archetype **T0–T4**, domain, risk) whenever substantive work finishes, so future sessions **grep the log**, **infer** patterns, and **recommend smarter models**. **Always aim to improve:** apply **Conf after**, **Tier fit**, and outcomes from past rows; add new rows when you **learn** something that helps the next similar task.
 >
-> **Purpose:** Single source of truth so recommendations favor **minimum spend for acceptable quality and safety**, grounded in archetypes, enabled models, and logged outcomes.
+> **Purpose:** Single source of truth so recommendations favor **minimum spend for acceptable quality and safety**, grounded in archetypes, enabled models, and **experience** captured in the outcome log.
 >
 > **Tier 1 read:** Skim this file when classifying a task; do **not** load it end-to-end every turn. Grep by task keyword or jump to **§ Task archetypes → minimum tier**, then **§ Workspace enabled models** for the exact picker name to recommend **before any implementation** (`.cursorrules` §6B1).
 >
 > **Maintenance:** Cursor adds, renames, or deprecates models over time. When your Cursor **Settings → Models** toggles change, update **§ Workspace enabled models** (this repo) **and** the generic **§ Registry** if families shift. Pricing is account/plan-dependent — this file uses **relative** cost only (↓ cheaper → ↑ pricier).
 >
-> **Calibration:** After substantive work, **`§ Task outcome log` is mandatory** (`.cursorrules` §6H) unless § *Skip logging* applies. If the user does **not** report failure, assume **Outcome `ok`** and **Tier fit `ok`** — see § *Default success (user silent)*.
+> **Calibration:** After **substantive** work that is **worth remembering as a task type**, append **§ Task outcome log** (`.cursorrules` §6H). If the user does **not** report failure, assume **Outcome `ok`** and **Tier fit `ok`** — see § *Default success (user silent)*. Trivial work → **do not** log (§ *Skip logging*).
 
 ---
 
 ## Task outcome log (calibration)
 
-**Purpose:** Empirical notebook — **which model was good enough** for real tasks, so the next similar task can start one notch **cheaper** when the log supports it (or **stronger** when it doesn’t). Pair with **§ Workspace enabled models** and **§ Task archetypes** so picks stay tied to **actual picker names**, not vibes.
+**Purpose:** **Experience memory** for the agent — by **task type** (archetype, domain, risk), **which tier/model was good enough**, so recommendations get **better over time**. Pair with **§ Workspace enabled models** and **§ Task archetypes** so picks stay tied to **actual picker names**, not vibes.
 
-### Mandatory logging (agents)
+### When to log (task types, not every keystroke)
 
-1. **When:** Same bar as § *How to add a row* (substantive implementation). Append the row **in the same chat session** you shipped the work — **do not** close out a substantive task without logging unless a **skip** rule applies.
+- **Log** when work is **substantive** (same idea as § *How to add a row* **and** *Skip logging*) **and** it **adds learning**: new **Arch** / domain / risk pattern, meaningful multi-file or product behavior change, HIGH-touch paths, or **updates** what you believe about tier fit for an existing pattern.
+- **Do not** log: one-line answers, pure read-only Q&A, typo-only edits, or repeats that add **no** new signal (see § *Skip logging*).
+- **Task (short)** should make **grep** useful — name the **shape** of work (e.g. `Field app: workspace header UI`, `Firebase tenant path`) not only the filename.
+
+### Logging discipline (agents)
+
+1. **When:** Substantive session worth remembering; **same session** as the work when possible.
 2. **Where:** Table **§ Outcome log (newest first)** — insert directly under the header row.
 3. **Cursor name:** **Note** column **must** include the effective model, e.g. `Cursor: Composer 2` or `Cursor: Opus 4.7` (from gate: recommended, Override, or Pre-approved).
-4. **Sync with `.cursorrules`:** Failure to append without a valid **skip** is inconsistent with **§6H**.
+4. **Sync with `.cursorrules`:** Skipping without a valid **skip** when you **should** have captured a new task type is inconsistent with **§6H**.
 
 ### Default success (user silent)
 
@@ -33,7 +39,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 ### How to add a row (agents)
 
-1. Add **one row** per **substantive** task (multi-file change, HIGH risk, new feature slice, or user explicitly wants it logged).
+1. Add **one row** per **substantive** piece of work **that should teach future model picks** — multi-file change, HIGH risk, new feature slice, new **task type** for the log, or user explicitly wants it logged. **Not** every small interaction (see § *When to log*).
 2. Insert the row **directly under the table header** (below the `|---|` line) — **newest first** — so scanners don’t read hundreds of lines.
 3. **Conf start %** = the **first** `Confidence: XX%` from the opening classification block for that task (before implementation). If no block was used, estimate honestly and mark note `estimated`.
 4. **Conf after %** = after implementation, your confidence the result matches the **requested scope**; apply **§ Default success (user silent)** when the user gave no negative signal.
@@ -41,11 +47,11 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 6. **Tier fit:** `ok` = tier was right for the task; `could_use_smaller` = finished cleanly and a lower tier likely would have sufficed; `needed_bigger` = struggled, gaps, or would have benefited from one tier up. Default per **§ Default success (user silent)**.
 7. **Outcome:** `ok` = shipped as intended for scope; `partial` = subset done; `rework` = had to redo approach; `fail` = reverted or blocked. Default **`ok`** per **§ Default success (user silent)** unless you know otherwise.
 8. **Note:** include **`Cursor:`** and the exact picker name (e.g. `Cursor: Sonnet 4.6`) plus any short tag (`field app`, `Site Intel`, etc.).
-9. **Skip logging** for: one-line answers, pure read-only Q&A, trivial typo-only edits, or **only** updating `MODEL_DOSSIER.md` § outcome log / rules **for logging itself** in a meta turn (still log the **next** substantive code task).
+9. **Skip logging** for: one-line answers, pure read-only Q&A, trivial typo-only edits, or **only** updating `MODEL_DOSSIER.md` § outcome log / rules **for logging itself** in a meta turn. **Also skip** when the work is **too small to change** model guidance (no new **Arch**/domain/risk signal). When in doubt on a **real** feature/fix, **log once** to grow coverage for that **task type**.
 
-### Using the log when recommending a model
+### Using the log when recommending a model (**apply what you learned**)
 
-1. **Grep** this section for the same **Arch** (T0–T4) or keywords from the new task (e.g. `firebase`, `Site Intel`, `dispatcher`).
+1. **Grep** this section for the same **Arch** (T0–T4) or keywords from the new task (e.g. `firebase`, `Site Intel`, `dispatcher`). Treat rows as **prior runs** — update your recommendation when the log **contradicts** a naive tier guess.
 2. Weight **Conf after %** and **Tier fit** over raw **Conf start %**: rows where **Conf after** is high and **Tier fit = ok** or **could_use_smaller** support staying at that tier or trying cheaper; **needed_bigger** or low **Conf after** with **rework**/`fail` argue for a tier up.
 3. If **≥2** of the last **10** matching rows are **Outcome = ok** with **Tier used = Fast** (or Balanced), **Conf after ≥ 80%**, and **Tier fit** is **ok** or **could_use_smaller**, you may recommend that **lower** tier *if* the new task is not **HIGH/UNCERTAIN** and does not touch **§ Task archetypes** T3 hard rules (Firebase tenant paths, field critical path, Office Override).
 4. If past rows show **rework**, **fail**, **needed_bigger**, or weak **Conf after** for a tier on similar tasks, **recommend one tier higher** than the static table minimum.
@@ -74,7 +80,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 4. **Before any file or command changes the repo:** output **§6B** + **§6B1** (concrete **Cursor picker name**, not a tier label) and **stop** — see `.cursorrules` **§6§ Preamble** (non‑negotiable). **No** edits to code, HTML, markdown, or config until the user sends `Model switched — proceed`, `Override: … — proceed`, or `Pre-approved model: … — proceed`.  
    - If they’re **already on a stronger** model: *“You can use a cheaper model for this if you want.”*  
    - If they’re **on a weaker** model than the minimum: *“Switch up to **[name]** before we implement — [reason].”*
-5. **When substantive work completes** in a session: append **§ Task outcome log** (mandatory unless *Skip logging* applies). If the user gave **no** negative signal → **Outcome `ok`**, **Tier fit `ok`**; **Note** includes **`Cursor:`** + exact model. See `.cursorrules` §6H.
+5. **When substantive, type-worth-remembering work completes:** append **§ Task outcome log** unless § *Skip logging* / *When to log* says otherwise. If the user gave **no** negative signal → **Outcome `ok`**, **Tier fit `ok`**; **Note** includes **`Cursor:`** + exact model. See `.cursorrules` §6H.
 
 ---
 
@@ -187,7 +193,7 @@ If `.cursorrules` says **HIGH / UNCERTAIN → stop and escalate**, that **overri
 
 ## Changelog
 
-- **2026-05-02:** **§ Mandatory logging**, **§ Default success (user silent)** — align with `.cursorrules` §6H; backfilled outcome rows where logging was missed.
+- **2026-05-02:** **North star** reframed — agent notebook, **task-type** logging (not every task), **continuous improvement** / apply learned rows; §6H softened to match.
 - **2026-05-02:** **§6§ Preamble** (cross-ref): agent checklist step 4 — **no repo changes** until user sends approved proceed line; concrete picker name required.
 - **2026-05-02:** **North star** — cheapest-good tracking in MD; **§ Workspace enabled models**; outcome-log framing; `.cursorrules` §6 + `model-selection.mdc`.
 - **2026-05-02:** Initial dossier; **§ Task outcome log** (Conf start/after, tier used, **Tier fit**, outcome, grep-based calibration + retention).
