@@ -72,6 +72,69 @@
     "If quantity is unclear, infer conservatively from context or use a single unit (…1).",
   ].join("\n");
 
+  /** Improve-with-AI when #svcDiagnosticsFields is visible (SERVICE hub): grammar/punctuation only on three fields; never fills #dictationHubNotes. */
+  var SYSTEM_INSTRUCTION_DIAGNOSTICS = [
+    "You are an HVAC field-notes assistant and data-mapper. Follow every rule below.",
+    "",
+    "INPUT: The user message contains labeled blocks: Findings / diagnosis, Repairs made, Recommendations (some may be omitted if empty).",
+    "",
+    "OUTPUT: Return ONLY valid JSON (no markdown fences) with exactly these keys:",
+    '- "diagnosis": string — light copy-edit of the Findings/diagnosis text (see RULES FOR TEXT FIELDS). If that block was empty or missing, use "".',
+    '- "repairsMade": string — same for Repairs made. If empty/missing, use "".',
+    '- "recommendations": string — same for Recommendations. If empty/missing, use "".',
+    '- "identifiedAssetIds": array of strings like ["RTU1","RTU2","VH1","EF1"]',
+    '- "locationTransposed": string, standardized as "CUSTOMER - CITY - STREET" using ALL CAPS for the three parts; use hyphens with spaces as shown. If unknown, use best effort from context or empty string "".',
+    '- "visitSummary": one short sentence summarizing the visit.',
+    "",
+    "RULES FOR TEXT FIELDS diagnosis, repairsMade, recommendations (non‑negotiable):",
+    "- **Preserve** what the technician said: same facts, same order of ideas, same bullets/lines/paragraph breaks unless a **minimal** grammar fix requires a tiny adjustment.",
+    "- **Allowed edits only:** spelling corrections, obvious typos, standard punctuation, sentence-boundary fixes, and capitalization where clearly wrong.",
+    "- **Forbidden:** rewriting for tone or “polish,” removing first‑person or informal voice, customer-facing marketing copy, summarizing, shortening, expanding with new details, or rephrasing that changes meaning.",
+    "- If a field’s text is already acceptable, return it **unchanged** or with **only** tiny fixes.",
+    "",
+    "SLANG → STANDARD CODES (for identifiedAssetIds):",
+    '- "Entrance Heater" / "Vestibule Heater" → VH',
+    '- "Roof Fan" / "Exhaust Fan" → EF',
+    '- "Hanging Heater" / "Unit Heater" → UH',
+    '- "Package Unit" / "Rooftop Unit" → RTU',
+    '- "Fresh Air Unit" / "MUA" → MUA',
+    "",
+    "QUANTITY / MULTIPLIERS:",
+    'Spelled or spoken quantities must expand into numbered asset ids (e.g. "Two RTUs" → RTU1 and RTU2).',
+    "Use digit counts when given: 1 → one id, 2 → two ids, etc.",
+    'The words "both", "pair", or "a pair" mean 2 units of the preceding or implied equipment type.',
+    'The word "handful" means 3 units.',
+    "If quantity is unclear, infer conservatively from context or use a single unit (…1).",
+  ].join("\n");
+
+  function isDiagnosticsImproveWithAiContext() {
+    var diagFields = document.getElementById("svcDiagnosticsFields");
+    if (!diagFields) return false;
+    return !diagFields.classList.contains("hidden");
+  }
+
+  function collectDiagnosticsTextForAi() {
+    var dEl = document.getElementById("diagnosis");
+    var rEl = document.getElementById("repairsMade");
+    var recEl = document.getElementById("recommendations");
+    var d = dEl ? String(dEl.value || "").trim() : "";
+    var r = rEl ? String(rEl.value || "").trim() : "";
+    var rec = recEl ? String(recEl.value || "").trim() : "";
+    var parts = [];
+    if (d) parts.push("Findings / diagnosis:\n" + d);
+    if (r) parts.push("Repairs made:\n" + r);
+    if (rec) parts.push("Recommendations:\n" + rec);
+    return parts.join("\n\n");
+  }
+
+  function pickParsedString(obj, keys) {
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (obj[k] != null) return String(obj[k]);
+    }
+    return null;
+  }
+
   function sanitizePathSegment(s) {
     return (
       String(s || "")
@@ -1158,10 +1221,16 @@
     );
   }
 
-  async function processVisitNotes(text) {
+  async function processVisitNotes(text, processOpts) {
+    processOpts = processOpts || {};
+    var diagnosticsMode = processOpts.diagnostics === true;
     var raw = String(text || "").trim();
     if (!raw) {
-      throw new Error("Enter some notes before processing.");
+      throw new Error(
+        diagnosticsMode
+          ? "Enter findings, repairs, and/or recommendations before processing."
+          : "Enter some notes before processing."
+      );
     }
     if (isVcTimeTrackingOnlySeat()) {
       throw new Error("Time tracking seat — AI dictation is disabled for this account.");
@@ -1179,12 +1248,17 @@
     var locCtx =
       locEl && locEl.value ? String(locEl.value).trim() : "";
 
-    var userPayload =
-      "Technician notes — apply ONLY grammar, spelling, and punctuation fixes. Do not rewrite or change meaning.\n\n" +
-      raw +
-      "\n\nCurrent location field (may help standardize locationTransposed):\n" +
-      (locCtx || "(empty)") +
-      "\n\nRespond with JSON only.";
+    var userPayload = diagnosticsMode
+      ? "SERVICE diagnostics fields — apply ONLY grammar, spelling, and punctuation fixes per field. Do not rewrite or change meaning.\n\n" +
+        raw +
+        "\n\nCurrent location field (may help standardize locationTransposed):\n" +
+        (locCtx || "(empty)") +
+        "\n\nRespond with JSON only."
+      : "Technician notes — apply ONLY grammar, spelling, and punctuation fixes. Do not rewrite or change meaning.\n\n" +
+        raw +
+        "\n\nCurrent location field (may help standardize locationTransposed):\n" +
+        (locCtx || "(empty)") +
+        "\n\nRespond with JSON only.";
 
     var url =
       "https://generativelanguage.googleapis.com/v1beta/models/" +
@@ -1194,7 +1268,7 @@
 
     var body = {
       systemInstruction: {
-        parts: [{ text: SYSTEM_INSTRUCTION }],
+        parts: [{ text: diagnosticsMode ? SYSTEM_INSTRUCTION_DIAGNOSTICS : SYSTEM_INSTRUCTION }],
       },
       contents: [
         {
@@ -1204,7 +1278,7 @@
       ],
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 1024,
+        maxOutputTokens: diagnosticsMode ? 1536 : 1024,
         responseMimeType: "application/json",
       },
     };
@@ -1252,18 +1326,31 @@
       if (typeof saveDraft === "function") saveDraft();
     }
 
-    var improvedNotes =
-      parsed.improvedNotes != null
-        ? String(parsed.improvedNotes).trim()
-        : parsed.improved_notes != null
-          ? String(parsed.improved_notes).trim()
-          : "";
-    if (improvedNotes) {
-      var notesElImprove = getNotesEl();
-      if (notesElImprove) {
-        notesElImprove.value = improvedNotes;
-        schedulePersistNotes();
+    if (!diagnosticsMode) {
+      var improvedNotes =
+        parsed.improvedNotes != null
+          ? String(parsed.improvedNotes).trim()
+          : parsed.improved_notes != null
+            ? String(parsed.improved_notes).trim()
+            : "";
+      if (improvedNotes) {
+        var notesElImprove = getNotesEl();
+        if (notesElImprove) {
+          notesElImprove.value = improvedNotes;
+          schedulePersistNotes();
+        }
       }
+    } else {
+      var dOut = pickParsedString(parsed, ["diagnosis", "findingsDiagnosis", "findings_diagnosis"]);
+      var rOut = pickParsedString(parsed, ["repairsMade", "repairs_made"]);
+      var recOut = pickParsedString(parsed, ["recommendations", "recommendation"]);
+      var dField = document.getElementById("diagnosis");
+      var rField = document.getElementById("repairsMade");
+      var recField = document.getElementById("recommendations");
+      if (dOut != null && dField) dField.value = dOut;
+      if (rOut != null && rField) rField.value = rOut;
+      if (recOut != null && recField) recField.value = recOut;
+      if (typeof saveDraft === "function") saveDraft();
     }
 
     rosettaState.ids = identified
@@ -1721,12 +1808,22 @@
       alert("Time tracking seat — AI processing is disabled. Contact the office to upgrade.");
       return;
     }
-    var el = getNotesEl();
-    var raw = el ? el.value : "";
+    var diagnosticsCtx = isDiagnosticsImproveWithAiContext();
+    var raw;
+    if (diagnosticsCtx) {
+      raw = collectDiagnosticsTextForAi();
+      if (!String(raw || "").trim()) {
+        alert("Enter findings, repairs, and/or recommendations before processing.");
+        return;
+      }
+    } else {
+      var el = getNotesEl();
+      raw = el ? el.value : "";
+    }
     var btn = document.getElementById("dictationProcessBtn");
     setProcessStatus("", "…");
     if (btn) btn.disabled = true;
-    processVisitNotes(raw)
+    processVisitNotes(raw, diagnosticsCtx ? { diagnostics: true } : undefined)
       .then(function () {
         if (btn) btn.disabled = false;
       })
