@@ -1089,8 +1089,14 @@ body.vc-override-active #vcOfficeOverrideBanner {
   color: #475569;
   margin: 12px 0 6px;
 }
-.svc-diagnostics-in-hub label:first-child {
+.svc-diagnostics-in-hub > label:first-of-type {
   margin-top: 0;
+}
+.svc-diagnostics-example-note {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
 }
 .svc-diagnostics-in-hub textarea {
   display: block;
@@ -3699,6 +3705,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
       </div>
     </div>
     <div id="svcDiagnosticsFields" class="svc-diagnostics-in-hub hidden">
+      <p class="svc-diagnostics-example-note">Example: In <strong>Findings / Diagnosis</strong>, what you found (e.g. low charge, leak at TXV). In <strong>Repairs made</strong>, what you did today (e.g. brazed leak, pressure‑tested, recharged to spec).</p>
       <label for="diagnosis">Findings / Diagnosis</label>
       <textarea id="diagnosis" placeholder="Example: RTU1 heat exchanger is cracked." rows="4" autocomplete="off"></textarea>
       <label for="repairsMade">Repairs made</label>
