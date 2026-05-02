@@ -1637,6 +1637,14 @@ body.vc-override-active #vcOfficeOverrideBanner {
   top: calc(env(safe-area-inset-top) + 118px);
   z-index: 95;
 }
+.dictation-site-nav .ws-customer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.dictation-site-nav .ws-customer-row .ws-customer { margin-bottom: 0; flex: 1; min-width: 0; }
 .dictation-site-nav .ws-customer { font-size: 20px; font-weight: 800; margin-bottom: 6px; color: #f1f5f9; }
 .dictation-site-nav .ws-ticket { font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold; }
 .dictation-site-nav .ws-reason-for-call {
@@ -3644,9 +3652,11 @@ button#techDisplayLabel:active { opacity: 0.75; }
   <div id="workspaceLockScope" class="workspace-lock-scope">
   <div class="workspace-site-banner-sticky">
     <nav class="dictation-site-nav" aria-label="Customer and site">
-      <div id="ws-customer" class="ws-customer">Select a Job</div>
-      <div class="ws-site-intel-row">
+      <div class="ws-customer-row">
+        <div id="ws-customer" class="ws-customer">Select a Job</div>
         <button type="button" id="wsSiteIntelBtn" class="ws-site-intel-btn" title="Site-specific intel (roof access, etc.)">Site Intel</button>
+      </div>
+      <div class="ws-site-intel-row">
         <button type="button" id="wsHistoryBtn" class="ws-site-intel-btn ws-history-btn" title="Service history for this site">🕒 History</button>
         <button type="button" id="btnOpenEquipmentHub" class="ws-site-intel-btn" title="View and add equipment for this site">🗄️ View Site Equipment</button>
       </div>
