@@ -93,7 +93,7 @@
         '<label>Access Photos</label>' +
         '<p class="vc-site-intel-photos-hint">Pictures of access issues or processes for future technicians (ladder placement, key locations, hatch routes, etc.)</p>' +
         '<div id="vcSiteIntelPhotosGrid" class="vc-site-intel-photos-grid"></div>' +
-        '<input type="file" id="vcSiteIntelPhotoInput" accept="image/*" capture="environment" multiple style="display:none" />' +
+        '<input type="file" id="vcSiteIntelPhotoInput" accept="image/*" multiple style="display:none" />' +
         '<button type="button" id="vcSiteIntelAddPhotoBtn" class="vc-site-intel-add-photo-btn">📷 Add photo</button>' +
         '<p id="vcSiteIntelPhotoStatus" class="vc-modal-status" aria-live="polite"></p>' +
       "</div>" +
