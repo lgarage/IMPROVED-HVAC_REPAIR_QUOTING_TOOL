@@ -65,6 +65,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-02 | Field app: hamburger menu beside customer name (Site Intel, History, View Site Equipment) | LOW | T2 | Balanced | 78% | 88% | ok | ok | Cursor: **Sonnet 4.6**; `technician/index.html` `.ws-site-menu-wrap` + dropdown + JS + MutationObserver |
 | 2026-05-02 | Field app: Site Intel → customer row; History + View Site Equipment → intel row | LOW | T1 | Balanced | 76% | 88% | ok | ok | Cursor: **Sonnet 4.6**; `technician/index.html` `.ws-customer-row` wrapper + CSS |
 | 2026-05-02 | Field app: View Site Equipment in site-intel row by History; remove Add Equipment pill; dictation_hub v14 | LOW | T1 | Fast | 86% | 90% | ok | ok | Cursor: **Composer 2**; `technician/index.html` + `dictation_hub.js` |
 | 2026-05-02 | Field app: Remove Inter-office example blurb (`#dictationHubInterofficeExampleNote`) + `applyMode` text | LOW | T0 | Fast | 95% | 96% | ok | ok | Cursor: **Composer 2**; `technician/index.html`; textarea placeholder kept |

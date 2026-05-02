@@ -1642,10 +1642,81 @@ body.vc-override-active #vcOfficeOverrideBanner {
   align-items: center;
   gap: 10px;
   margin-bottom: 6px;
-  flex-wrap: wrap;
 }
 .dictation-site-nav .ws-customer-row .ws-customer { margin-bottom: 0; flex: 1; min-width: 0; }
 .dictation-site-nav .ws-customer { font-size: 20px; font-weight: 800; margin-bottom: 6px; color: #f1f5f9; }
+/* Hamburger site-actions menu */
+.ws-site-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.ws-site-menu-btn {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.12);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s;
+}
+.ws-site-menu-btn:active,
+.ws-site-menu-btn[aria-expanded="true"] { background: rgba(255,255,255,0.25); }
+.ws-site-menu-btn__bar {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: #fff;
+}
+.ws-site-menu-btn.site-intel--has-data {
+  background: #f4d03f;
+  border-color: #d4ac0d;
+  animation: vc-site-intel-pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 0 2px rgba(244,208,63,0.45);
+}
+.ws-site-menu-btn.site-intel--has-data .ws-site-menu-btn__bar { background: #1a1a1a; }
+.ws-site-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.14);
+  z-index: 200;
+  overflow: hidden;
+  display: none;
+}
+.ws-site-menu-dropdown.open { display: block; }
+.ws-site-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 16px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+.ws-site-menu-item:not(:last-child) { border-bottom: 1px solid #f1f5f9; }
+.ws-site-menu-item:active,
+.ws-site-menu-item:hover { background: #f0f9ff; }
+.ws-site-menu-item.site-intel--has-data { color: #b45309; }
 .dictation-site-nav .ws-ticket { font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold; }
 .dictation-site-nav .ws-reason-for-call {
   margin-top: 10px;
@@ -1674,13 +1745,6 @@ body.vc-override-active #vcOfficeOverrideBanner {
   word-break: break-word;
 }
 .dictation-site-nav .ws-address { margin-bottom: 12px; }
-.dictation-site-nav .ws-site-intel-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
 .ws-site-intel-btn {
   font-family: inherit;
   font-size: 13px;
@@ -3498,7 +3562,7 @@ button#techDisplayLabel {
   -webkit-tap-highlight-color: transparent;
 }
 button#techDisplayLabel:active { opacity: 0.75; }
-/* History sits in the site-intel row; spacing uses flex gap on .ws-site-intel-row */
+/* Hamburger site-menu — see .ws-site-menu-wrap above */
 </style>
 </head>
 <body>
@@ -3654,12 +3718,23 @@ button#techDisplayLabel:active { opacity: 0.75; }
     <nav class="dictation-site-nav" aria-label="Customer and site">
       <div class="ws-customer-row">
         <div id="ws-customer" class="ws-customer">Select a Job</div>
-        <button type="button" id="wsSiteIntelBtn" class="ws-site-intel-btn" title="Site-specific intel (roof access, etc.)">Site Intel</button>
+        <div class="ws-site-menu-wrap">
+          <button type="button" id="wsSiteMenuBtn" class="ws-site-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Site actions menu" title="Site Intel, History, View Site Equipment">
+            <span class="ws-site-menu-btn__bar"></span>
+            <span class="ws-site-menu-btn__bar"></span>
+            <span class="ws-site-menu-btn__bar"></span>
+          </button>
+          <div id="wsSiteMenuDropdown" class="ws-site-menu-dropdown" role="menu">
+            <button type="button" class="ws-site-menu-item" id="wsSiteMenuSiteIntel" role="menuitem">🔍 Site Intel</button>
+            <button type="button" class="ws-site-menu-item" id="wsSiteMenuHistory" role="menuitem">🕒 History</button>
+            <button type="button" class="ws-site-menu-item" id="wsSiteMenuEquipment" role="menuitem">🗄️ View Site Equipment</button>
+          </div>
+        </div>
       </div>
-      <div class="ws-site-intel-row">
-        <button type="button" id="wsHistoryBtn" class="ws-site-intel-btn ws-history-btn" title="Service history for this site">🕒 History</button>
-        <button type="button" id="btnOpenEquipmentHub" class="ws-site-intel-btn" title="View and add equipment for this site">🗄️ View Site Equipment</button>
-      </div>
+      <!-- Original trigger buttons kept hidden in DOM; JS wiring targets them -->
+      <button type="button" id="wsSiteIntelBtn" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="Site-specific intel (roof access, etc.)">Site Intel</button>
+      <button type="button" id="wsHistoryBtn" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="Service history for this site">🕒 History</button>
+      <button type="button" id="btnOpenEquipmentHub" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="View and add equipment for this site">🗄️ View Site Equipment</button>
       <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
         Return to Schedule to pick a ticket
       </button>
@@ -9090,6 +9165,92 @@ window.onload = async function(){
     <script src="../tech_job_history.js?v=2"></script>
     <script>
       if (typeof initGlobalSiteDirectory === "function") initGlobalSiteDirectory();
+    </script>
+    <script>
+    (function () {
+      "use strict";
+      var menuBtn = null;
+      var dropdown = null;
+
+      function closeSiteMenu() {
+        if (!dropdown) return;
+        dropdown.classList.remove("open");
+        if (menuBtn) menuBtn.setAttribute("aria-expanded", "false");
+      }
+
+      function toggleSiteMenu(e) {
+        e.stopPropagation();
+        var isOpen = dropdown.classList.contains("open");
+        if (isOpen) { closeSiteMenu(); return; }
+        dropdown.classList.add("open");
+        menuBtn.setAttribute("aria-expanded", "true");
+        /* focus first item for keyboard users */
+        var first = dropdown.querySelector(".ws-site-menu-item");
+        if (first) first.focus();
+      }
+
+      function handleMenuItemClick(targetId) {
+        closeSiteMenu();
+        var btn = document.getElementById(targetId);
+        if (btn) btn.click();
+      }
+
+      /* Mirror site-intel--has-data state from real button → hamburger */
+      function syncHamburgerState() {
+        var real = document.getElementById("wsSiteIntelBtn");
+        if (!menuBtn || !real) return;
+        var hasData = real.classList.contains("site-intel--has-data");
+        menuBtn.classList.toggle("site-intel--has-data", hasData);
+        var menuItem = document.getElementById("wsSiteMenuSiteIntel");
+        if (menuItem) menuItem.classList.toggle("site-intel--has-data", hasData);
+      }
+
+      function initSiteMenu() {
+        menuBtn = document.getElementById("wsSiteMenuBtn");
+        dropdown = document.getElementById("wsSiteMenuDropdown");
+        if (!menuBtn || !dropdown) return;
+        if (menuBtn.dataset.vcWired === "1") return;
+        menuBtn.dataset.vcWired = "1";
+
+        menuBtn.addEventListener("click", toggleSiteMenu);
+
+        document.getElementById("wsSiteMenuSiteIntel").addEventListener("click", function () {
+          handleMenuItemClick("wsSiteIntelBtn");
+        });
+        document.getElementById("wsSiteMenuHistory").addEventListener("click", function () {
+          handleMenuItemClick("wsHistoryBtn");
+        });
+        document.getElementById("wsSiteMenuEquipment").addEventListener("click", function () {
+          handleMenuItemClick("btnOpenEquipmentHub");
+        });
+
+        /* Close on outside tap */
+        document.addEventListener("click", function (e) {
+          if (dropdown && dropdown.classList.contains("open") &&
+              !menuBtn.contains(e.target) && !dropdown.contains(e.target)) {
+            closeSiteMenu();
+          }
+        });
+
+        /* Close on Escape */
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") closeSiteMenu();
+        });
+
+        /* Watch for Site Intel data state changes */
+        var real = document.getElementById("wsSiteIntelBtn");
+        if (real && window.MutationObserver) {
+          new MutationObserver(syncHamburgerState).observe(real, { attributes: true, attributeFilter: ["class"] });
+        }
+        syncHamburgerState();
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initSiteMenu);
+      } else {
+        initSiteMenu();
+      }
+    }());
     </script>
 </body>
 </html>
