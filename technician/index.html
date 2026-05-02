@@ -1074,6 +1074,50 @@ body.vc-override-active #vcOfficeOverrideBanner {
 #dictationHubNotes::placeholder {
   color: #94a3b8;
 }
+.svc-diagnostics-in-hub {
+  padding: 0 0 12px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 12px;
+}
+.svc-diagnostics-in-hub.hidden {
+  display: none !important;
+}
+.svc-diagnostics-in-hub label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  margin: 12px 0 6px;
+}
+.svc-diagnostics-in-hub label:first-child {
+  margin-top: 0;
+}
+.svc-diagnostics-in-hub textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  min-height: 88px;
+  padding: 12px 14px;
+  font-size: 16px;
+  line-height: 1.45;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  resize: vertical;
+  font-family: inherit;
+  background: #fafbfc;
+  color: #0f172a;
+}
+.dictation-hub-notes-sync-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  margin: 0 0 6px;
+}
+.dictation-hub-notes-sync-wrap {
+  margin-bottom: 0;
+}
 /* Action tray is hidden from view — the tray div stays in the DOM for JS
    (thermostat-label unit fallback + MutationObserver). The Add Equipment pill
    and View Site Equipment button replace the tray as the user-facing affordances. */
@@ -3594,17 +3638,27 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     <p>Saved successfully. You can return to your schedule.</p>
   </div>
 
-  <section class="dictation-hub-shell" aria-label="Technician notes and site assets">
+  <section class="dictation-hub-shell" aria-labelledby="dictationHubSectionTitle">
     <div class="dictation-hub-top">
-      <h2 class="dictation-hub-title">Technician notes</h2>
+      <h2 class="dictation-hub-title" id="dictationHubSectionTitle">Technician notes</h2>
       <div class="dictation-hub-process-wrap">
         <button type="button" id="dictationProcessBtn" class="dictation-hub-process-btn">✨ Improve with AI</button>
         <button type="button" id="btnInsertOfficeNote" style="display: none;" class="vc-btn-secondary">✍️ Insert Office Note</button>
         <span id="dictationProcessStatus" class="dictation-process-status" aria-live="polite"></span>
       </div>
     </div>
-    <label for="dictationHubNotes" class="visually-hidden">Technician notes</label>
-    <textarea id="dictationHubNotes" placeholder="Technician notes — speak, type, or paste here. ✨ Improve with AI fixes grammar and punctuation only; your wording stays yours." rows="6" autocomplete="off"></textarea>
+    <div id="svcDiagnosticsFields" class="svc-diagnostics-in-hub hidden">
+      <label for="diagnosis">Findings / Diagnosis</label>
+      <textarea id="diagnosis" placeholder="Example: RTU1 heat exchanger is cracked." rows="4" autocomplete="off"></textarea>
+      <label for="repairsMade">Repairs made</label>
+      <textarea id="repairsMade" placeholder="Example: Confirmed failure and shut unit down." rows="4" autocomplete="off"></textarea>
+      <label for="recommendations">Recommendations / Next steps</label>
+      <textarea id="recommendations" placeholder="Example: Replace RTU1 due to cracked heat exchanger." rows="3" autocomplete="off"></textarea>
+    </div>
+    <div class="dictation-hub-notes-sync-wrap">
+      <label for="dictationHubNotes" id="dictationHubNotesSubLabel" class="dictation-hub-notes-sync-label visually-hidden">Technician notes</label>
+      <textarea id="dictationHubNotes" placeholder="Technician notes — speak, type, or paste here. ✨ Improve with AI fixes grammar and punctuation only; your wording stays yours." rows="6" autocomplete="off"></textarea>
+    </div>
     <div class="dictation-action-tray-wrap">
       <div class="dictation-action-tray-head">Dynamic action tray — units on site</div>
       <div id="dictationActionTray" class="dictation-action-tray">
@@ -3651,6 +3705,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   <div class="hidden" aria-hidden="true">
     <input type="text" id="location" placeholder="Example: I'm at the Planet Fitness in Milwaukee on Main Street" autocomplete="off" tabindex="-1">
     <button type="button" id="locationMapBtn" class="location-map-btn" title="Open in maps" aria-label="Open location in maps" tabindex="-1">🗺</button>
+    <textarea id="reason" placeholder="Example: No heat in lobby." autocomplete="off" tabindex="-1" aria-hidden="true"></textarea>
   </div>
 
   <div class="hidden" aria-hidden="true">
@@ -3719,24 +3774,12 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
         </div>
       </div>
     </div>
-    <div class="accordion open" id="acc-notes-svc">
-      <div class="accordion-header" onclick="toggleAccordion('acc-notes-svc')">2. Diagnostics & Repairs</div>
-      <div class="accordion-body">
-        <label>Reason for call</label>
-        <textarea id="reason" placeholder="Example: No heat in lobby."></textarea>
-        <label>Findings / Diagnosis</label>
-        <textarea id="diagnosis" placeholder="Example: RTU1 heat exchanger is cracked."></textarea>
-        <label>Repairs made</label>
-        <textarea id="repairsMade" placeholder="Example: Confirmed failure and shut unit down."></textarea>
-        <label>Recommendations / Next steps</label>
-        <textarea id="recommendations" placeholder="Example: Replace RTU1 due to cracked heat exchanger."></textarea>
-      </div>
-    </div>
+    <!-- Diagnostics & Repairs fields live in #dictation-hub-shell (#svcDiagnosticsFields) for SERVICE mode; #reason is hidden (shown under job # in header). -->
     <!-- Phase 34c — additional-repair branching accordion. Wired by field_forms.js
          (initRepairBranchAccordion) so it cache-busts via ?v= on field_forms.js.
          Persists onto the active service call doc via VCFirestore.setServiceCallMerged. -->
     <div class="accordion" id="acc-svc-repair">
-      <div class="accordion-header" onclick="toggleAccordion('acc-svc-repair')">Additional repair (optional)</div>
+      <div class="accordion-header" onclick="toggleAccordion('acc-svc-repair')">2. Additional repair (optional)</div>
       <div class="accordion-body">
         <p style="font-size:13px;color:#7f8c8d;margin:0 0 10px 0;line-height:1.4;">
           Beyond the primary call — did you discover and perform an extra repair on this visit?
@@ -4249,7 +4292,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34e-dictation-light-edit-2026-05-02";
+window.VC_BUILD = "Phase34e-diagnostics-hub-layout-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -4867,6 +4910,24 @@ function applyMode(){
     serviceSection.classList.remove("hidden"); 
   } else if (currentMode === "QUOTE") {
     quoteSection.classList.remove("hidden");
+  }
+  var diagFields = document.getElementById("svcDiagnosticsFields");
+  var dhTitle = document.getElementById("dictationHubSectionTitle");
+  var dhSub = document.getElementById("dictationHubNotesSubLabel");
+  if (currentMode === "SERVICE") {
+    if (diagFields) diagFields.classList.remove("hidden");
+    if (dhTitle) dhTitle.textContent = "Diagnostics & Repairs";
+    if (dhSub) {
+      dhSub.classList.remove("visually-hidden");
+      dhSub.textContent = "Technician notes (office sync)";
+    }
+  } else {
+    if (diagFields) diagFields.classList.add("hidden");
+    if (dhTitle) dhTitle.textContent = "Technician notes";
+    if (dhSub) {
+      dhSub.classList.add("visually-hidden");
+      dhSub.textContent = "Technician notes";
+    }
   }
 }
 

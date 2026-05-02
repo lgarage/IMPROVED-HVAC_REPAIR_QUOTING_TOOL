@@ -65,6 +65,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-02 | Field app: SERVICE diagnostics in dictation hub; #reason hidden (header banner) | LOW | T2 | Balanced | 82% | 85% | ok | ok | Cursor: not recorded; `technician/index.html` applyMode + hidden `#reason` |
 | 2026-05-02 | Dictation Hub: Improve with AI = grammar/punctuation only (dictation_hub SYSTEM_INSTRUCTION) | LOW | T1 | Balanced | 88% | 90% | ok | ok | Cursor: not recorded; `dictation_hub.js` + placeholder; v=12 |
 | 2026-05-02 | §6H mandatory dossier updates; default success if user silent | LOW | T1 | Balanced | 88% | 90% | ok | ok | Cursor: not recorded; `.cursorrules` §6H + `model-selection.mdc` + dossier § Mandatory logging |
 | 2026-05-02 | Workspace reason-for-call banner under ws-ticket (`technician/index.html`) | LOW | T1 | Balanced | 85% | 88% | ok | ok | Cursor: not recorded; VC_BUILD Phase34e-ws-reason-banner |
