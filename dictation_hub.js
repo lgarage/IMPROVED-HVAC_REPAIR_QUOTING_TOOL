@@ -590,13 +590,8 @@
     startDictationCapture("additional", logicalId);
   }
 
-  /* Phase 34e — "+ Add Equipment" was pulled out of the action-tray cards row and into a
-     standalone pill button (`#btnAddEquipmentPill`) that lives below the "View Site Equipment"
-     button in `technician/index.html`. The function below is intentionally kept as a no-op so
-     existing callers (`renderActionTray` empty/non-empty branches) continue to compile cleanly,
-     but produce no card markup. The `.dictation-add-equipment-btn` click delegation in
-     `wireTrayDelegationOnce` is also kept as a defensive fallback for any cached HTML that
-     still contains the old card. */
+  /* Phase 34e — tray no longer renders a per-row “add” card; use Equipment Hub
+     (🗄️ View Site Equipment next to History) → footer “+ Add New Equipment”. */
   function buildAddEquipmentCardHtml() {
     return "";
   }
@@ -1661,12 +1656,12 @@
     if (!hasDocs) {
       if (rosettaState.ids === null) {
         tray.innerHTML =
-          '<p class="dictation-action-tray-empty">No assets for this customer/site yet. Tap <strong>➕ Add Equipment</strong> below the “View Site Equipment” button, or use <strong>✨ Improve with AI</strong> on your notes to discover units.</p>';
+          '<p class="dictation-action-tray-empty">No assets for this customer/site yet. Open <strong>🗄️ View Site Equipment</strong> next to History, then use <strong>+ Add New Equipment (AI Scanner)</strong> in the hub — or try <strong>✨ Improve with AI</strong> on your notes to discover units.</p>';
         applyRosettaOverlay();
         return;
       }
       tray.innerHTML =
-        '<p class="dictation-action-tray-empty">No assets returned. Tap <strong>➕ Add Equipment</strong> below the “View Site Equipment” button to capture one.</p>';
+        '<p class="dictation-action-tray-empty">No assets returned. Open <strong>🗄️ View Site Equipment</strong> next to History and add equipment from the hub.</p>';
     } else {
       var html = "";
       docs.forEach(function (row) {
@@ -1868,26 +1863,11 @@
       return "";
     }
   };
-  /* Phase 34e — wire the standalone "+ Add Equipment" pill button below the
-     "View Site Equipment" button. Idempotent — `dataset.vcWired` guard so reopening
-     the workspace doesn't rebind the listener. */
-  function wireAddEquipmentPillButton() {
-    var btn = document.getElementById("btnAddEquipmentPill");
-    if (!btn || btn.dataset.vcWired === "1") return;
-    btn.dataset.vcWired = "1";
-    btn.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      openVisionHubAddEquipment();
-    });
-  }
-
   window.startDictationHubFromWorkspace = function () {
     unlockDictationNotesForOfficeOverride();
     wireOfficeNoteButton();
     wireProcessButton();
     wireVisionHubOnce();
-    wireAddEquipmentPillButton();
     if (!document.documentElement.dataset.dictationPlateOcrEvt) {
       document.documentElement.dataset.dictationPlateOcrEvt = "1";
       document.addEventListener("dictationHubNameplateImageSaved", function () {

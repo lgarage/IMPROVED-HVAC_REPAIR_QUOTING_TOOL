@@ -1429,29 +1429,6 @@ body.vc-override-active #vcOfficeOverrideBanner {
 .dictation-add-equipment-btn:active {
   background: #e2e8f0;
 }
-/* Phase 34e pill — standalone "Add Equipment" trigger below View Site Equipment.
-   Pulled out of the action-tray cards row so the tray stays focused on existing units. */
-.btn-add-equipment-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 12px 22px;
-  margin-bottom: 16px;
-  border-radius: 999px;
-  border: 1.5px solid #0ea5e9;
-  background: #fff;
-  color: #0ea5e9;
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.12s ease, color 0.12s ease, transform 0.05s ease;
-}
-.btn-add-equipment-pill:hover { background: #f0f9ff; }
-.btn-add-equipment-pill:active { background: #e0f2fe; transform: scale(0.985); }
-.btn-add-equipment-pill:disabled { opacity: 0.5; cursor: not-allowed; }
 .dictation-add-card-hint {
   font-size: 11px;
   color: #64748b;
@@ -3513,8 +3490,7 @@ button#techDisplayLabel {
   -webkit-tap-highlight-color: transparent;
 }
 button#techDisplayLabel:active { opacity: 0.75; }
-/* History button next to Site Intel */
-.ws-history-btn { margin-left: 8px; }
+/* History sits in the site-intel row; spacing uses flex gap on .ws-site-intel-row */
 </style>
 </head>
 <body>
@@ -3672,6 +3648,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
       <div class="ws-site-intel-row">
         <button type="button" id="wsSiteIntelBtn" class="ws-site-intel-btn" title="Site-specific intel (roof access, etc.)">Site Intel</button>
         <button type="button" id="wsHistoryBtn" class="ws-site-intel-btn ws-history-btn" title="Service history for this site">🕒 History</button>
+        <button type="button" id="btnOpenEquipmentHub" class="ws-site-intel-btn" title="View and add equipment for this site">🗄️ View Site Equipment</button>
       </div>
       <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
         Return to Schedule to pick a ticket
@@ -3720,14 +3697,6 @@ button#techDisplayLabel:active { opacity: 0.75; }
 
   <div id="workspaceCustomerEvidence" class="hidden" aria-live="polite"></div>
   <div id="workspaceFieldEvidence" class="hidden" aria-live="polite"></div>
-
-  <button type="button" id="btnOpenEquipmentHub" class="btn btn-primary" style="margin-bottom: 12px">
-    🗄️ View Site Equipment
-  </button>
-  <button type="button" id="btnAddEquipmentPill" class="btn-add-equipment-pill" aria-label="Add equipment to this site via Vision Hub nameplate scan">
-    <span aria-hidden="true">➕</span>
-    <span>Add Equipment</span>
-  </button>
 
   <div class="accordion" id="acc-field-forms" style="margin-bottom: 15px">
     <div class="accordion-header" onclick="toggleAccordion('acc-field-forms')">Work Order Forms</div>
@@ -9105,7 +9074,7 @@ window.onload = async function(){
     <script src="js/data_provider.js?v=1"></script>
     <script src="js/workspace_ui.js?v=11"></script>
     <script src="js/location_manager.js?v=1"></script>
-    <script src="../dictation_hub.js?v=13"></script>
+    <script src="../dictation_hub.js?v=14"></script>
     <script src="../equipment_hub.js?v=1"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>
