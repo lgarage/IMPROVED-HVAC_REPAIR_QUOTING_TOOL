@@ -1074,10 +1074,11 @@ body.vc-override-active #vcOfficeOverrideBanner {
 #dictationHubNotes::placeholder {
   color: #94a3b8;
 }
+/* Action tray is hidden from view — the tray div stays in the DOM for JS
+   (thermostat-label unit fallback + MutationObserver). The Add Equipment pill
+   and View Site Equipment button replace the tray as the user-facing affordances. */
 .dictation-action-tray-wrap {
-  padding: 12px 0 14px;
-  background: #f1f5f9;
-  border-bottom: 1px solid #e2e8f0;
+  display: none !important;
 }
 .dictation-action-tray-head {
   font-size: 11px;
