@@ -65,6 +65,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-02 | Field app: Remove Inter-office example blurb (`#dictationHubInterofficeExampleNote`) + `applyMode` text | LOW | T0 | Fast | 95% | 96% | ok | ok | Cursor: **Composer 2**; `technician/index.html`; textarea placeholder kept |
 | 2026-05-02 | Field app: Remove SERVICE diagnostics example blurb above Findings / Diagnosis | LOW | T0 | Fast | 96% | 96% | ok | ok | Cursor: **Composer 2**; `technician/index.html` dropped `svc-diagnostics-example-note` `<p>` + CSS |
 | 2026-05-02 | Field app: Inter-office notes — visible example + placeholder on `#dictationHubNotes` | LOW | T1 | Fast | 88% | 90% | ok | ok | Cursor: **Composer 2**; `technician/index.html` hint + placeholder; `applyMode` sets SERVICE vs other hint text |
 | 2026-05-02 | Field app: SERVICE diagnostics — visible example note (diagnosis vs repairs) in dictation hub | LOW | T1 | Fast | 90% | 92% | ok | ok | Cursor: **Composer 2**; `technician/index.html` `#svcDiagnosticsFields` + CSS `svc-diagnostics-example-note` |
