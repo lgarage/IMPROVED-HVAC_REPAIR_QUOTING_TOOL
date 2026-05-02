@@ -3760,26 +3760,14 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   </div>
 
   <div id="serviceSection" class="hidden">
-    <div class="accordion open" id="acc-equip-svc">
-      <div class="accordion-header" onclick="toggleAccordion('acc-equip-svc')">1. Equipment Worked On</div>
-      <div class="accordion-body">
-        <textarea id="serviceEquipment" placeholder="Example: one RTU, one furnace..."></textarea>
-        <div class="pillbar">
-          <button id="addServiceRTU" type="button">+ RTU</button>
-          <button id="addServiceF" type="button">+ Furnace</button>
-          <button id="addServiceUH" type="button">+ Unit Heater</button>
-          <button id="addServiceRH" type="button">+ Radiant</button>
-          <button id="addServiceEF" type="button">+ Exhaust Fan</button>
-          <button id="addServiceMUA" type="button">+ MUA</button>
-        </div>
-      </div>
-    </div>
+    <!-- Equipment Worked On UI removed; field kept hidden for ticket equip + draft sync + report payload. -->
+    <textarea id="serviceEquipment" class="hidden" aria-hidden="true" tabindex="-1" autocomplete="off"></textarea>
     <!-- Diagnostics & Repairs fields live in #dictation-hub-shell (#svcDiagnosticsFields) for SERVICE mode; #reason is hidden (shown under job # in header). -->
     <!-- Phase 34c — additional-repair branching accordion. Wired by field_forms.js
          (initRepairBranchAccordion) so it cache-busts via ?v= on field_forms.js.
          Persists onto the active service call doc via VCFirestore.setServiceCallMerged. -->
-    <div class="accordion" id="acc-svc-repair">
-      <div class="accordion-header" onclick="toggleAccordion('acc-svc-repair')">2. Additional repair (optional)</div>
+    <div class="accordion open" id="acc-svc-repair">
+      <div class="accordion-header" onclick="toggleAccordion('acc-svc-repair')">1. Additional repair (optional)</div>
       <div class="accordion-body">
         <p style="font-size:13px;color:#7f8c8d;margin:0 0 10px 0;line-height:1.4;">
           Beyond the primary call — did you discover and perform an extra repair on this visit?
@@ -3807,7 +3795,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
       </div>
     </div>
     <div class="accordion" id="acc-parts-svc">
-      <div class="accordion-header" onclick="toggleAccordion('acc-parts-svc')">3. Parts & Quote Info</div>
+      <div class="accordion-header" onclick="toggleAccordion('acc-parts-svc')">2. Parts & Quote Info</div>
       <div class="accordion-body">
         <label>Parts used</label>
         <textarea id="serviceUsed" placeholder="Example: two 4l190 belts and one 16 by 25 by one"></textarea>
@@ -4292,7 +4280,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34g-remove-notes-placeholder-2026-05-02";
+window.VC_BUILD = "Phase34h-remove-svc-equipment-section-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -7600,7 +7588,7 @@ function loadDraft(){ const raw = localStorage.getItem(DRAFT_KEY); if(!raw) retu
 function formatEquipmentField(){ const el = document.getElementById("equipment"); if(el.value.trim()){ el.value = formatEquipmentFieldValue(el.value); autoGrow(el); saveDraft(); } }
 function formatUsedField(){ autoParseParts("used"); }
 function formatNextField(){ autoParseParts("next"); }
-function formatServiceEquipmentField(){ const el = document.getElementById("serviceEquipment"); if(el.value.trim()){ el.value = formatEquipmentFieldValue(el.value); autoGrow(el); saveDraft(); } }
+function formatServiceEquipmentField(){ const el = document.getElementById("serviceEquipment"); if(!el) return; if(el.value.trim()){ el.value = formatEquipmentFieldValue(el.value); autoGrow(el); saveDraft(); } }
 function formatServiceUsedField(){ autoParseParts("serviceUsed"); }
 function formatQuotePartsField(){ autoParseParts("quoteParts"); }
 function formatQuoteEquipField(){ const el = document.getElementById("quoteEquip"); if(el.value.trim()){ el.value = formatEquipmentFieldValue(el.value); autoGrow(el); saveDraft(); } }
@@ -7958,12 +7946,7 @@ document.getElementById("addRH").onclick = () => addEquipmentCode("equipment", "
 document.getElementById("addEF").onclick = () => addEquipmentCode("equipment", "EF");
 document.getElementById("addMUA").onclick = () => addEquipmentCode("equipment", "MUA");
 
-document.getElementById("addServiceRTU").onclick = () => addEquipmentCode("serviceEquipment", "RTU");
-document.getElementById("addServiceF").onclick = () => addEquipmentCode("serviceEquipment", "F");
-document.getElementById("addServiceUH").onclick = () => addEquipmentCode("serviceEquipment", "UH");
-document.getElementById("addServiceRH").onclick = () => addEquipmentCode("serviceEquipment", "RH");
-document.getElementById("addServiceEF").onclick = () => addEquipmentCode("serviceEquipment", "EF");
-document.getElementById("addServiceMUA").onclick = () => addEquipmentCode("serviceEquipment", "MUA");
+/* SERVICE equipment pills removed with Equipment Worked On section; #serviceEquipment is hidden + ticket/draft driven. */
 
 document.getElementById("addQuoteRTU").onclick = () => addEquipmentCode("quoteEquip", "RTU");
 document.getElementById("addQuoteF").onclick = () => addEquipmentCode("quoteEquip", "F");
@@ -7994,7 +7977,8 @@ function wireAutosave(){
   document.getElementById("equipment").addEventListener("blur", formatEquipmentField);
   document.getElementById("used").addEventListener("blur", formatUsedField);
   document.getElementById("next").addEventListener("blur", formatNextField);
-  document.getElementById("serviceEquipment").addEventListener("blur", formatServiceEquipmentField);
+  var _svcEquip = document.getElementById("serviceEquipment");
+  if (_svcEquip) _svcEquip.addEventListener("blur", formatServiceEquipmentField);
   document.getElementById("serviceUsed").addEventListener("blur", formatServiceUsedField);
   document.getElementById("quoteParts").addEventListener("blur", formatQuotePartsField);
   document.getElementById("quoteEquip").addEventListener("blur", formatQuoteEquipField);
