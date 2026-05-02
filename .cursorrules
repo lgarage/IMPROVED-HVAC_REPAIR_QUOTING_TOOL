@@ -84,6 +84,16 @@ All paths below are relative to the repo root. Memory files live in `PROJECT_STA
 
 ## 6. MODEL ESCALATION PROTOCOL
 
+### 6§ Preamble — non‑negotiable (read first)
+
+**Before any change touches this repository, the user must see a model recommendation and must reply with an approved “proceed” line.** That means:
+
+- **You MUST** output **§6B** (4-line block) **every** time the user starts a **new task** or sends work that is **not** already covered by **§6B1’s narrow exception**.
+- **You MUST** tell them **exactly which Cursor model to select** (concrete picker name from `MODEL_DOSSIER.md` **§ Workspace enabled models**) and **wait** for **`Model switched — proceed`**, **`Override: … — proceed`**, or **`Pre-approved model: … — proceed`**.
+- **You MUST NOT** — before that reply arrives — **edit files** (code, HTML, CSS, markdown, config), **run terminal commands that mutate the repo or environment**, or use **any tool whose effect is to create/update/delete workspace content**. That includes “small” or “docs-only” edits. **No exceptions** except **§6B1 narrow exception** (user already put proceed + task in the **same** message).
+
+If you skip the recommendation or implement early, **you violated this protocol.**
+
 Confidence-based guardrail. **Not** automatic model switching — the AI pauses and asks the user to switch models when warranted. **This repo tracks “cheapest but good enough” in markdown** (`MODEL_DOSSIER.md`: archetypes, **Workspace enabled models**, **Task outcome log**). Prefer the **lowest-cost enabled model** that still meets **minimum capability and safety** for the task; follow the dossier and logged **Tier fit** / **Conf after** so picks improve over time. Goal: avoid bad data and wasted spend on overpowered models.
 
 ### 6A. Task Classification (run BEFORE any work)
@@ -108,9 +118,11 @@ Immediately after the block (same message, not a second reply), add **mandatory 
 
 ### 6B1. Mandatory Hard Stop After Classification Block + model gate
 
+**Applies to every new slice of work** (bugfix, UI tweak, doc update, refactor — **any** request that will lead to repo changes) unless **§6B1 narrow exception** applies.
+
 **First response to a new task** (or when the user’s message does **not** already clear the model gate — see **§6G**): after the 4-line block, output **only**:
 
-1. One short paragraph telling the user **which Cursor model to select** (from `MODEL_DOSSIER.md` **§ Workspace enabled models** — default “switch to” table; fall back to § Registry if needed) and **why**.
+1. One short paragraph telling the user **which Cursor model to select** (from `MODEL_DOSSIER.md` **§ Workspace enabled models** — default “switch to” table; fall back to § Registry if needed) and **why**. **Name a real picker label** (e.g. `Sonnet 4.6`), not a tier name alone.
 2. This **exact boilerplate** (adapt the model name inline):
 
    *Switch that model in Cursor’s model picker, then reply with **one** of these (copy/paste and fill in):*
@@ -120,15 +132,18 @@ Immediately after the block (same message, not a second reply), add **mandatory 
 
 3. Closing sentence: **Waiting for your model confirmation — no file edits or implementation until you send one of the lines above.**
 
+**Forbidden on this turn (until the user sends an approved line in a follow‑up):** edits to **any** tracked file; patch/apply tools; running installs/builds/deploys; generating “here’s the diff” for the user to apply — **anything** that advances the task. Answering “I’ll do X” with code or file changes **without** the gate first is wrong.
+
 **Do not** output plans, diffs, code, terminal commands, or tool-driven implementation in this turn.
 
 **Narrow exception — same user message already cleared the gate:** if the user’s message **already** contains `Model switched — proceed`, `Override: … — proceed`, or `Pre-approved model: … — proceed` **and** the task text, you may skip the hard stop and implement in one turn. Otherwise the **next** user message must clear the gate before any implementation.
 
 ### 6G. Model gate before implementation (tooling)
 
-**Implementation** means: editing project files, running commands that mutate the repo or deploy, or producing apply-ready patches — not read-only answers with no repo changes.
+**Implementation** means: **any** tool or action that **creates, updates, or deletes** content in the workspace (source files, `PROJECT_STATUS/*.md`, `.cursorrules`, scripts, lockfiles), **or** runs shell commands that **change** the repo, install packages, or deploy — plus **apply-ready** patches meant to be dropped into files. Read-only search/read **does not** satisfy the gate and **does not** authorize a stealthy edit in the same turn as the recommendation.
 
 - **Do not** perform implementation until the **latest user message** satisfies **§6B1** (one of the three approved reply patterns).
+- **Do not** “just quickly” fix something, tweak one line, or update docs **before** the user confirms the model — that **violates §6§ Preamble**.
 - **Read-only** exploration (searching/reading files **without** edits) is discouraged before the gate if it would substitute for starting implementation; if the user explicitly asked **read-only** reconnaissance only, you may read after `Override: … — proceed` or `Model switched — proceed` scoped as *investigation only* — still require the gate so the model is recorded as intentional.
 
 ### 6H. After implementation — log calibration

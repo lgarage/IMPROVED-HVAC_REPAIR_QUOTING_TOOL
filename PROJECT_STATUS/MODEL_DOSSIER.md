@@ -52,7 +52,7 @@
 1. Classify the user’s request (scope, risk, ambiguity, domain: dispatcher vs field vs docs vs Firebase). **Search § Task outcome log** for similar past tasks.
 2. Find the **minimum tier** in **§ Task archetypes → minimum tier** that fits.
 3. Map that tier to **one concrete model name** using **§ Workspace enabled models** first (this repo’s toggled-on list). If missing or stale, fall back to **§ Registry** families.
-4. Output **§6B** classification + **§6B1** model gate (that block already names the recommended model/tier and why). Do **not** implement until the user sends one of the approved lines in `.cursorrules` §6B1 / §6G.  
+4. **Before any file or command changes the repo:** output **§6B** + **§6B1** (concrete **Cursor picker name**, not a tier label) and **stop** — see `.cursorrules` **§6§ Preamble** (non‑negotiable). **No** edits to code, HTML, markdown, or config until the user sends `Model switched — proceed`, `Override: … — proceed`, or `Pre-approved model: … — proceed`.  
    - If they’re **already on a stronger** model: *“You can use a cheaper model for this if you want.”*  
    - If they’re **on a weaker** model than the minimum: *“Switch up to **[name]** before we implement — [reason].”*
 
@@ -167,5 +167,6 @@ If `.cursorrules` says **HIGH / UNCERTAIN → stop and escalate**, that **overri
 
 ## Changelog
 
+- **2026-05-02:** **§6§ Preamble** (cross-ref): agent checklist step 4 — **no repo changes** until user sends approved proceed line; concrete picker name required.
 - **2026-05-02:** **North star** — cheapest-good tracking in MD; **§ Workspace enabled models**; outcome-log framing; `.cursorrules` §6 + `model-selection.mdc`.
 - **2026-05-02:** Initial dossier; **§ Task outcome log** (Conf start/after, tier used, **Tier fit**, outcome, grep-based calibration + retention).

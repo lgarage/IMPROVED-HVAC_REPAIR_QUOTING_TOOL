@@ -1,9 +1,13 @@
 ---
-description: Recommend cheapest Cursor model tier that fits the task using MODEL_DOSSIER; strict gate before implementation
+description: Recommend model tier via MODEL_DOSSIER; NON-NEGOTIABLE gate BEFORE any repo changes
 alwaysApply: true
 ---
 
 # Model selection (cost-aware)
+
+## Stop — before you touch the repo
+
+**Do not edit files, run mutating shell commands, or apply patches until the user replies with an approved line** (`.cursorrules` **§6§ Preamble**, **§6B1**, **§6G**): `Model switched — proceed`, `Override: … — proceed`, or `Pre-approved model: … — proceed`. That includes **documentation** and **one-line fixes**. Only **§6B1 narrow exception** (user put proceed + task in the **same** message) allows implementing in the first turn.
 
 These rules exist so the repo **keeps notes** on the **cheapest model that was still good enough** per task shape. **`MODEL_DOSSIER.md`** holds tiers, workspace names, and the **Task outcome log** — treat the log as the evolving answer to “can we go cheaper next time?”
 
@@ -12,7 +16,7 @@ These rules exist so the repo **keeps notes** on the **cheapest model that was s
 1. Open **`PROJECT_STATUS/MODEL_DOSSIER.md`** and map the request to a **task archetype** (T0–T4). **Grep § Task outcome log** for similar past work — prioritize rows with strong **Conf after %** and **Tier fit** (`ok` / `could_use_smaller` vs `needed_bigger`) per **Using the log**.
 2. Recommend the **lowest tier** that fits, then map to **one exact enabled name** from **`MODEL_DOSSIER.md` § Workspace enabled models** (use **§ Default “switch to” before work**; Vertex Core / Firebase / tenant / field critical / Office Override → **Opus 4.7** first per dossier). Fall back to **§ Registry** families only if the workspace section is missing or stale.
 3. Output **§6B** first: the 4-line block with **Recommended model** = that **exact string** (e.g. `Composer 2`, `Sonnet 4.6`, `Codex 5.3`, `Opus 4.7`), not “Balanced” or “Premium.”
-4. **§6B1 hard stop (no implementation this turn):** After the block, only model recommendation + gate boilerplate + “Waiting for your model confirmation…”. **No** file edits, patches, or mutating terminal commands until the user sends **`Model switched — proceed`**, **`Override: … — proceed`**, or **`Pre-approved model: … — proceed`** (see `.cursorrules` §6G). Narrow exception: same user message already contains one of those phrases **and** the task text.
+4. **§6B1 hard stop:** same assistant message = §6B block + **which concrete model** + boilerplate + wait only. **No workspace-mutating tools** until the user’s **next** message clears the gate. Narrow exception: user already combined proceed + task in one message.
 5. When prompting **inside** the gate turn:
    - **LOW / T0–T1** and chat might be **Strong** → note they may switch **down** to the named cheaper tier for this task.
    - **HIGH / UNCERTAIN / T3+** and minimum is **Strong** → insist on switching **up** before implementation after they clear the gate.

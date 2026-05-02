@@ -3616,17 +3616,11 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   </div>
 
   <input type="hidden" id="ticketSelector">
-  
-  <div class="accordion open" id="acc-location" style="margin-bottom: 15px;">
-     <div class="accordion-header" onclick="toggleAccordion('acc-location')">Location Data</div>
-     <div class="accordion-body">
-       <label style="margin-top:0;">Location</label>
-       <div class="location-field-row">
-         <input id="location" placeholder="Example: I'm at the Planet Fitness in Milwaukee on Main Street" autocomplete="off">
-         <button type="button" id="locationMapBtn" class="location-map-btn" title="Open in maps" aria-label="Open location in maps">🗺</button>
-       </div>
-       <p class="location-map-hint">Tap the map button (or the address in the blue banner) to start navigation.</p>
-     </div>
+
+  <!-- Location line + map control kept for sync/draft/launchNavigation; UI removed — site + address live under Schedule/History tabs -->
+  <div class="hidden" aria-hidden="true">
+    <input type="text" id="location" placeholder="Example: I'm at the Planet Fitness in Milwaukee on Main Street" autocomplete="off" tabindex="-1">
+    <button type="button" id="locationMapBtn" class="location-map-btn" title="Open in maps" aria-label="Open location in maps" tabindex="-1">🗺</button>
   </div>
 
   <div class="hidden" aria-hidden="true">
@@ -4225,7 +4219,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34e-pill-2026-05-02";
+window.VC_BUILD = "Phase34e-no-location-accordion-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
