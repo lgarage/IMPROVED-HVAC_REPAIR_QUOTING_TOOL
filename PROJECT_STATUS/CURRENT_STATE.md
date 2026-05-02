@@ -6,28 +6,29 @@
 
 ## Snapshot
 
-- **Active Phase:** None.
-- **Last shipped (2026-04-27):** Phase **34d** — Thermostat labeling accordion `#acc-tstat-label` in `technician/index.html` (single placement before shared Complete & Sync FAB; covers PM / Service / Quote). Pillbar + optional not-labeled reasons; persists via `VCFirestore.setServiceCallMerged`; soft toast + scroll on FAB if unset. `VC_BUILD = "Phase34d-2026-04-27"`. `equipment_smart_select.js?v=2` adds `data-unit-tag` on equipment options. Full spec: `PHASE_34_HANDOFF.md → §4`.
-- **Prior (2026-04-27):** Phase 34c — `#acc-svc-repair` in `technician/index.html` wired by `field_forms.js?v=3`… (see `PROJECT_MAP.md → Build History → Phase 34c`).
-- **Also shipped:** Phase 34b (2026-04-27, dispatcher seeder), Phase 34a (2026-04-26, form-builder schema). Detail in `PROJECT_MAP.md → Build History`.
-- **Phase 33 verification** still pending on-device (smoke-tests a/b/c per `PHASE_34_HANDOFF.md → §2`); not blocking.
+- **Active Phase:** None. Phase 34 fully shipped (34a/b/c/d/e).
+- **Last shipped (2026-05-02):** Phase **34e** — Site Intel **Field Access Notes** rename (was "Field Bible") + **Access Photos** in the Site Intel modal (`technician/js/workspace_ui.js?v=11`; new `accessPhotoUrls[]` + `accessPhotoUpdatedAt` on `site_intelligence/{siteDocId}`). `VC_BUILD = "Phase34e-2026-05-02"`. ADR-014 appended (form_templates stays at root; tenant scoping deferred). `PHASE_34_HANDOFF.md` deleted. Detail in `PROJECT_MAP.md → Field Operations → Site Intel — Field Access Notes & Access Photos (Phase 34e)`.
+- **Prior (2026-04-27):** 34a (form-builder schema), 34b (9 seed templates), 34c (`#acc-svc-repair` repair branching), 34d (`#acc-tstat-label` thermostat labeling). All in `PROJECT_MAP.md → Build History`.
+- **Phase 33 verification** still pending on-device (smoke-tests a/b/c per former `PHASE_34_HANDOFF.md → §2`); not blocking.
 - **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding is dead (per user 2026-04-25); lazy-migration bridge in `shared/firebase_logic.js` left quiet.
 
 ## Active Blocker
 
 None. Two non-blocking carry-overs:
-- `KI-003` — Office Override iframe parity gap (design `ADR-013`; sequenced behind 34 ship).
-- `KI-004` — Field-app photo uploads dropped offline (design `ADR-012`; ships as 33 follow-up patch).
+- `KI-003` — Office Override iframe parity gap (design `ADR-013`).
+- `KI-004` — Field-app photo uploads dropped offline (design `ADR-012`; now also covers Phase 34e access photos — same `firebase.storage().ref().put()` pattern).
 
-## Immediate Next Step — Phase 34d on-device verification; then 34e when ready
+## Immediate Next Step — Phase 33 verification, then user-picks-from-On-Deck
 
-1. **Smoke-test Phase 34d on iPhone** per on-device checklist in the 34d commit / handoff §4 (thermostat accordion, pills, Firestore fields, soft toast only).
-2. **Phase 34e** on deck — `PHASE_34_HANDOFF.md → §5` (roof access + doc sync).
+1. **Smoke-test Phase 34e on iPhone** — open Site Intel modal: confirm "Field Access Notes" label, capture a photo with rear camera (or pick a file), verify thumbnail + caption editor + delete button render correctly, confirm Firestore `site_intelligence/{siteDocId}.accessPhotoUrls` is populated.
+2. **Phase 33 on-device verification** — Field-Add Equipment OCR smoke-tests (`PROJECT_MAP.md → Phase 33`). Use Vision Hub: capture nameplate photo → verify OCR fills manufacturer / model / serial / capacity (BTU / tons), edit Unit ID, save, confirm `tenants/{tenantId}/imported_equipment/{docId}` write + nameplate photo at `tenants/{tenantId}/imported_equipment_photos/{customerId}/{siteId}/{unitTag}/nameplate-{ts}.{ext}`.
+3. After Phase 33 confirms: pick next from **On Deck** below.
 
 ## On Deck
 
-- Phases **34d → 34e** — full specs in `PHASE_34_HANDOFF.md → §4 / §5` (do not re-derive).
 - `ROADMAP.md → Next Up` — Command Map TV Mode, Field Inventory Truck Stock.
+- `KI-004` follow-up patch (offline photo outbox per ADR-012) — picks up access photos from Phase 34e too.
+- `KI-003` — Office Override iframe parity (Phase 34 candidate per ADR-013).
 - `ROADMAP.md → Minor Tweaks & Polish` — KI-002 leftovers (B5/B6/B7, C1, C2, C4, E1, E3, E4); opportunistic only.
 - `ROADMAP.md → Icebox` — `ticketClass` (Service vs Project) epic; ADR before code.
 - Standing maintenance: Firestore rules for `portal_tokens` / `labor_logs`, optional short URL for Proof of Service, optional composite index for `labor_logs`, print/PDF chart timing, legacy `dispatcher/index.html` redirect-stub archive.

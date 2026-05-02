@@ -9,6 +9,15 @@
   var siteIntelUnsub = null;
   var lastIntelDocId = "";
 
+  /**
+   * Phase 34e — in-memory state for the open Site Intel modal session.
+   * `_siteIntelCurrentPhotos` holds the live `accessPhotoUrls` array; mutated by add/delete/caption
+   * flows then re-rendered. Cleared on every `openSiteIntelModal` so a stale session never leaks
+   * across two different sites.
+   */
+  var _siteIntelCurrentPhotos = [];
+  var _siteIntelCurrentDocId = "";
+
   function techName() {
     try {
       return String(localStorage.getItem("tp_saved_tech") || "").trim();
@@ -31,9 +40,38 @@
     return "";
   }
 
+  /**
+   * Phase 34e — lazy-inject CSS for the Access Photos grid + controls. Same pattern as the Phase 32a
+   * consent button (`ensureConsentButtonInDom`): keep the styles next to the cache-busted JS so a
+   * stale browser-cached `technician/index.html` cannot break the new UI.
+   */
+  function injectSiteIntelStyles() {
+    if (document.getElementById("vcSiteIntelInjectedCss")) return;
+    var st = document.createElement("style");
+    st.id = "vcSiteIntelInjectedCss";
+    st.textContent = [
+      ".vc-site-intel-photos { margin-top: 16px; padding-top: 14px; border-top: 1px solid #e5e7eb; }",
+      ".vc-site-intel-photos > label { display: block; font-size: 12px; font-weight: 700; color: #555; margin-bottom: 6px; }",
+      ".vc-site-intel-photos-hint { font-size: 12px; color: #7f8c8d; margin: 0 0 10px 0; line-height: 1.4; }",
+      ".vc-site-intel-photos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-bottom: 10px; }",
+      ".vc-site-intel-photo-tile { position: relative; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 6px; }",
+      ".vc-site-intel-photo-tile img { width: 100%; height: 90px; object-fit: cover; border-radius: 6px; cursor: pointer; background: #f1f5f9; display: block; }",
+      ".vc-site-intel-photo-caption { width: 100%; font-size: 12px; padding: 6px 8px; border: 1px solid #d1d9e0; border-radius: 4px; background: #fff; color: #2c3e50; box-sizing: border-box; font-family: inherit; }",
+      ".vc-site-intel-photo-caption:focus { outline: none; border-color: #0ea5e9; box-shadow: 0 0 0 2px rgba(14,165,233,0.2); }",
+      ".vc-site-intel-photo-delete { position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%; border: none; background: rgba(220,38,38,0.95); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; line-height: 1; padding: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; }",
+      ".vc-site-intel-photo-delete:hover { background: #dc2626; }",
+      ".vc-site-intel-photos__empty { color: #95a5a6; font-size: 12px; padding: 12px 4px; font-style: italic; text-align: center; }",
+      ".vc-site-intel-add-photo-btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 8px; border: 1px solid #0ea5e9; background: #fff; color: #0ea5e9; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }",
+      ".vc-site-intel-add-photo-btn:hover { background: #f0f9ff; }",
+      ".vc-site-intel-add-photo-btn:disabled { opacity: 0.6; cursor: wait; }"
+    ].join("\n");
+    document.head.appendChild(st);
+  }
+
   function ensureSiteIntelModal() {
     var existing = document.getElementById("vcSiteIntelModal");
     if (existing) return existing;
+    injectSiteIntelStyles();
     var wrap = document.createElement("div");
     wrap.id = "vcSiteIntelModal";
     wrap.className = "vc-modal hidden";
@@ -47,10 +85,18 @@
       '<h2 id="vcSiteIntelTitle">Site Intel</h2>' +
       '<button type="button" class="vc-modal-close" data-vc-site-intel-close="1" aria-label="Close">&times;</button>' +
       "</div>" +
-      '<p class="vc-modal-hint">Persistent notes for this site (ladder access, roof hatch, lock codes the office should know). Same text for every ticket at this address.</p>' +
+      '<p class="vc-modal-hint">Persistent notes for this site (ladder access, roof hatch, lock codes the office should know). Add photos of access issues or processes for future technicians. Same notes apply to every ticket at this address.</p>' +
       '<p id="vcSiteIntelLocationLabel" class="vc-site-intel-location"></p>' +
-      '<label for="vcSiteIntelBody">Field bible</label>' +
-      '<textarea id="vcSiteIntelBody" rows="10" placeholder="Roof access: east ladder…"></textarea>' +
+      '<label for="vcSiteIntelBody">Field Access Notes</label>' +
+      '<textarea id="vcSiteIntelBody" rows="8" placeholder="Roof access: east ladder. Lock code: 1234. Use west door after 6pm…"></textarea>' +
+      '<div class="vc-site-intel-photos">' +
+        '<label>Access Photos</label>' +
+        '<p class="vc-site-intel-photos-hint">Pictures of access issues or processes for future technicians (ladder placement, key locations, hatch routes, etc.)</p>' +
+        '<div id="vcSiteIntelPhotosGrid" class="vc-site-intel-photos-grid"></div>' +
+        '<input type="file" id="vcSiteIntelPhotoInput" accept="image/*" capture="environment" multiple style="display:none" />' +
+        '<button type="button" id="vcSiteIntelAddPhotoBtn" class="vc-site-intel-add-photo-btn">📷 Add photo</button>' +
+        '<p id="vcSiteIntelPhotoStatus" class="vc-modal-status" aria-live="polite"></p>' +
+      "</div>" +
       '<div class="vc-modal-actions">' +
       '<button type="button" class="btn btn-primary" id="vcSiteIntelSaveBtn">Save</button>' +
       "</div>" +
@@ -63,6 +109,18 @@
       }
     });
     document.getElementById("vcSiteIntelSaveBtn").addEventListener("click", saveSiteIntelFromModal);
+    var addBtn = document.getElementById("vcSiteIntelAddPhotoBtn");
+    var fileInp = document.getElementById("vcSiteIntelPhotoInput");
+    if (addBtn && fileInp) {
+      addBtn.addEventListener("click", function () { fileInp.click(); });
+      fileInp.addEventListener("change", function () {
+        if (fileInp.files && fileInp.files.length) {
+          handleSiteIntelPhotoFiles(fileInp.files);
+          fileInp.value = "";
+        }
+      });
+    }
+    wireSiteIntelPhotoGridEvents();
     return wrap;
   }
 
@@ -133,8 +191,13 @@
     var line = prefillLine != null ? String(prefillLine).trim() : locationLineFromDom();
     document.getElementById("vcSiteIntelLocationLabel").textContent = line || "—";
     document.getElementById("vcSiteIntelStatus").textContent = "";
+    var photoStatus = document.getElementById("vcSiteIntelPhotoStatus");
+    if (photoStatus) photoStatus.textContent = "";
     var body = document.getElementById("vcSiteIntelBody");
     body.value = "";
+    _siteIntelCurrentPhotos = [];
+    _siteIntelCurrentDocId = "";
+    renderSiteIntelPhotosGrid([]);
 
     if (!line || !window.DataProvider) {
       modal.classList.remove("hidden");
@@ -145,6 +208,7 @@
       modal.classList.remove("hidden");
       return;
     }
+    _siteIntelCurrentDocId = docId;
     var _dbOpen = firebase.firestore();
     var load =
       typeof VCFirestore !== "undefined" && VCFirestore.getSiteIntelDocOnceBridged
@@ -163,9 +227,23 @@
             });
     load
       .then(function (got) {
-        var t =
-          got && got.exists && got.data ? String(got.data.notes || "") : "";
-        body.value = t;
+        var d = got && got.exists && got.data ? got.data : {};
+        body.value = String(d.notes || "");
+        var rawPhotos = Array.isArray(d.accessPhotoUrls) ? d.accessPhotoUrls : [];
+        _siteIntelCurrentPhotos = rawPhotos
+          .map(function (p) {
+            return {
+              url: String((p && p.url) || ""),
+              storagePath: String((p && p.storagePath) || ""),
+              caption: String((p && p.caption) || ""),
+              addedBy: String((p && p.addedBy) || ""),
+              addedAt: String((p && p.addedAt) || ""),
+            };
+          })
+          .filter(function (p) {
+            return p.url;
+          });
+        renderSiteIntelPhotosGrid(_siteIntelCurrentPhotos);
         modal.classList.remove("hidden");
       })
       .catch(function () {
@@ -174,48 +252,375 @@
   }
 
   function saveSiteIntelFromModal() {
-    var modal = document.getElementById("vcSiteIntelModal");
+    /* Flush any focused photo-caption input first so its `change` listener fires before we save.
+       If we don't, a tech can type a caption and click Save without blurring the input — the typed
+       value is lost. We blur, wait one tick, then continue. */
+    var ae = document.activeElement;
+    var needsCaptionFlush =
+      ae && ae.classList && ae.classList.contains("vc-site-intel-photo-caption");
+    if (needsCaptionFlush) {
+      ae.blur();
+    }
+    var run = function () {
+      var modal = document.getElementById("vcSiteIntelModal");
+      var line = document.getElementById("vcSiteIntelLocationLabel").textContent.trim();
+      if (line === "—") line = locationLineFromDom();
+      var body = document.getElementById("vcSiteIntelBody");
+      var status = document.getElementById("vcSiteIntelStatus");
+      if (!line || !body) {
+        if (status) status.textContent = "Set location first.";
+        return;
+      }
+      if (!window.DataProvider || typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+        if (status) status.textContent = "Firebase not available.";
+        return;
+      }
+      var docId = DataProvider.siteIntelDocIdFromLocationLine(line);
+      var nk = DataProvider.normalizeLocationKey(line);
+      var payload = {
+        locationDisplay: line,
+        normalizedKey: nk,
+        notes: body.value || "",
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedByTech: techName(),
+      };
+      status.textContent = "Saving…";
+      var _dbSave = firebase.firestore();
+      var savePromise =
+        typeof VCFirestore !== "undefined" && VCFirestore.setSiteIntelMerged
+          ? VCFirestore.setSiteIntelMerged(_dbSave, docId, payload, true)
+          : (typeof VCFirestore !== "undefined"
+              ? VCFirestore.siteIntelligence(_dbSave)
+              : _dbSave.collection("site_intelligence")
+            )
+              .doc(docId)
+              .set(payload, { merge: true });
+      savePromise
+        .then(function () {
+          status.textContent = "Saved.";
+          var hasNotes = String(body.value || "").trim().length > 0;
+          var hasPhotos = Array.isArray(_siteIntelCurrentPhotos) && _siteIntelCurrentPhotos.length > 0;
+          setSiteIntelButtonState(hasNotes || hasPhotos);
+          if (modal) modal.classList.add("hidden");
+        })
+        .catch(function (err) {
+          status.textContent = err && err.message ? err.message : "Save failed.";
+          if (typeof window.VCSurfaceWriteFailure === "function") {
+            window.VCSurfaceWriteFailure("siteIntel:notesSave", err);
+          }
+        });
+    };
+    if (needsCaptionFlush) {
+      setTimeout(run, 60);
+    } else {
+      run();
+    }
+  }
+
+  /**
+   * Phase 34e — Site Access Photos.
+   * Photos are stored in Firebase Storage at `site_access_photos/{tenantId}/{siteDocId}/{ts}_{name}`
+   * and indexed on the `site_intelligence/{siteDocId}` doc as `accessPhotoUrls: Array<{
+   *   url, storagePath, caption, addedBy, addedAt
+   * }>`. ISO date strings (not serverTimestamp) so `arrayUnion` / `arrayRemove` structural-equality
+   * matching works inside arrays. All failure paths funnel through `VCSurfaceWriteFailure` per
+   * KI-002 Plan A so the iPhone debug overlay surfaces dropped writes.
+   */
+  function escapeSiteIntelHtmlAttr(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function getSiteIntelTenantId() {
+    if (typeof VCFirestore !== "undefined" && typeof VCFirestore.getTenantId === "function") {
+      var t = VCFirestore.getTenantId();
+      if (t) return String(t);
+    }
+    if (typeof APP_CONFIG !== "undefined" && APP_CONFIG && APP_CONFIG.tenantId) {
+      return String(APP_CONFIG.tenantId);
+    }
+    return "USA_HEATING_COOLING";
+  }
+
+  function siteAccessPhotoStorageBase(siteDocId) {
+    return "site_access_photos/" + getSiteIntelTenantId() + "/" + siteDocId + "/";
+  }
+
+  function siteIntelDocRefForId(docId) {
+    if (!docId || typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return null;
+    var _db = firebase.firestore();
+    return typeof VCFirestore !== "undefined"
+      ? VCFirestore.siteIntelligence(_db).doc(docId)
+      : _db.collection("site_intelligence").doc(docId);
+  }
+
+  function renderSiteIntelPhotosGrid(photos) {
+    var grid = document.getElementById("vcSiteIntelPhotosGrid");
+    if (!grid) return;
+    var arr = Array.isArray(photos) ? photos : [];
+    if (!arr.length) {
+      grid.innerHTML =
+        '<div class="vc-site-intel-photos__empty">No access photos yet. Tap “Add photo” to capture roof access, key locations, hatch routes, etc.</div>';
+      return;
+    }
+    var html = "";
+    for (var i = 0; i < arr.length; i++) {
+      var p = arr[i] || {};
+      var url = String(p.url || "");
+      if (!url) continue;
+      html +=
+        '<div class="vc-site-intel-photo-tile" data-vc-photo-url="' +
+        escapeSiteIntelHtmlAttr(url) +
+        '">' +
+          '<button type="button" class="vc-site-intel-photo-delete" aria-label="Delete photo" data-vc-action="delete" title="Delete photo">×</button>' +
+          '<img src="' + escapeSiteIntelHtmlAttr(url) + '" alt="Site access photo" loading="lazy" />' +
+          '<input type="text" class="vc-site-intel-photo-caption" maxlength="120" placeholder="Caption…" value="' +
+          escapeSiteIntelHtmlAttr(p.caption || "") +
+          '" />' +
+        "</div>";
+    }
+    grid.innerHTML = html;
+  }
+
+  function uploadSiteIntelPhotoFile(file, siteDocId) {
+    if (typeof firebase === "undefined" || !firebase.storage) {
+      return Promise.reject(new Error("Cloud storage is not available."));
+    }
+    var ts = Date.now();
+    var orig = String((file && file.name) || "photo.jpg");
+    var dot = orig.lastIndexOf(".");
+    var ext = dot >= 0 ? orig.slice(dot).toLowerCase().replace(/[^.\w]/g, "") : ".jpg";
+    if (!ext || ext === ".") ext = ".jpg";
+    var safeBase = orig.replace(/[^\w.\-]+/g, "_").slice(0, 60);
+    if (!new RegExp(ext.replace(".", "\\.") + "$", "i").test(safeBase)) {
+      safeBase = safeBase + ext;
+    }
+    var path = siteAccessPhotoStorageBase(siteDocId) + ts + "_" + safeBase;
+    var ref = firebase.storage().ref().child(path);
+    return ref.put(file, { contentType: (file && file.type) || "image/jpeg" }).then(function () {
+      return ref.getDownloadURL().then(function (url) {
+        return { url: url, storagePath: path };
+      });
+    });
+  }
+
+  function handleSiteIntelPhotoFiles(fileList) {
+    var docId = _siteIntelCurrentDocId;
+    var ps = document.getElementById("vcSiteIntelPhotoStatus");
+    if (!docId || typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      if (ps) ps.textContent = "Open a site first.";
+      return;
+    }
+    var btn = document.getElementById("vcSiteIntelAddPhotoBtn");
+    var files = [];
+    var max = (fileList && fileList.length) || 0;
+    for (var i = 0; i < max; i++) {
+      var f = fileList[i];
+      if (f && f.size > 0) files.push(f);
+    }
+    if (!files.length) return;
+    if (btn) btn.disabled = true;
+
+    var ref = siteIntelDocRefForId(docId);
+    if (!ref) {
+      if (ps) ps.textContent = "Firebase not available.";
+      if (btn) btn.disabled = false;
+      return;
+    }
+
     var line = document.getElementById("vcSiteIntelLocationLabel").textContent.trim();
     if (line === "—") line = locationLineFromDom();
-    var body = document.getElementById("vcSiteIntelBody");
-    var status = document.getElementById("vcSiteIntelStatus");
-    if (!line || !body) {
-      if (status) status.textContent = "Set location first.";
+    var nk =
+      window.DataProvider && typeof DataProvider.normalizeLocationKey === "function"
+        ? DataProvider.normalizeLocationKey(line)
+        : "";
+
+    var ok = 0;
+    var fail = 0;
+    var idx = 0;
+    function updateProgress() {
+      if (ps) ps.textContent = "Uploading " + (idx + 1) + " of " + files.length + "…";
+    }
+    function finish() {
+      if (btn) btn.disabled = false;
+      if (ps) {
+        ps.textContent =
+          ok + (ok === 1 ? " photo" : " photos") + " uploaded" +
+          (fail ? " — " + fail + " failed" : "") + ".";
+        setTimeout(function () {
+          if (ps && ps.textContent.indexOf("uploaded") !== -1) ps.textContent = "";
+        }, 4000);
+      }
+    }
+    function next() {
+      if (idx >= files.length) {
+        finish();
+        return;
+      }
+      updateProgress();
+      var file = files[idx];
+      uploadSiteIntelPhotoFile(file, docId)
+        .then(function (up) {
+          var entry = {
+            url: up.url,
+            storagePath: up.storagePath,
+            caption: "",
+            addedBy: techName() || "",
+            addedAt: new Date().toISOString(),
+          };
+          var FV = firebase.firestore.FieldValue;
+          var patch = {
+            accessPhotoUrls: FV.arrayUnion(entry),
+            accessPhotoUpdatedAt: FV.serverTimestamp(),
+            locationDisplay: line || "",
+            normalizedKey: nk,
+          };
+          return ref.set(patch, { merge: true }).then(function () {
+            _siteIntelCurrentPhotos.push(entry);
+            renderSiteIntelPhotosGrid(_siteIntelCurrentPhotos);
+            ok++;
+          });
+        })
+        .catch(function (err) {
+          fail++;
+          if (typeof window.VCSurfaceWriteFailure === "function") {
+            window.VCSurfaceWriteFailure("siteIntel:photoUpload", err);
+          }
+        })
+        .then(function () {
+          idx++;
+          next();
+        });
+    }
+    next();
+  }
+
+  function deleteSiteIntelPhoto(photoUrl) {
+    var docId = _siteIntelCurrentDocId;
+    if (!docId || !photoUrl) return;
+    var entry = null;
+    for (var i = 0; i < _siteIntelCurrentPhotos.length; i++) {
+      if (_siteIntelCurrentPhotos[i].url === photoUrl) {
+        entry = _siteIntelCurrentPhotos[i];
+        break;
+      }
+    }
+    if (!entry) return;
+    if (!window.confirm("Delete this photo? This cannot be undone.")) return;
+    var ps = document.getElementById("vcSiteIntelPhotoStatus");
+    if (ps) ps.textContent = "Deleting…";
+    var ref = siteIntelDocRefForId(docId);
+    if (!ref) {
+      if (ps) ps.textContent = "Firebase not available.";
       return;
     }
-    if (!window.DataProvider || typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
-      if (status) status.textContent = "Firebase not available.";
-      return;
-    }
-    var docId = DataProvider.siteIntelDocIdFromLocationLine(line);
-    var nk = DataProvider.normalizeLocationKey(line);
-    var payload = {
-      locationDisplay: line,
-      normalizedKey: nk,
-      notes: body.value || "",
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedByTech: techName(),
-    };
-    status.textContent = "Saving…";
-    var _dbSave = firebase.firestore();
-    var savePromise =
-      typeof VCFirestore !== "undefined" && VCFirestore.setSiteIntelMerged
-        ? VCFirestore.setSiteIntelMerged(_dbSave, docId, payload, true)
-        : (typeof VCFirestore !== "undefined"
-            ? VCFirestore.siteIntelligence(_dbSave)
-            : _dbSave.collection("site_intelligence")
-          )
-            .doc(docId)
-            .set(payload, { merge: true });
-    savePromise
+    var FV = firebase.firestore.FieldValue;
+    ref
+      .set(
+        {
+          accessPhotoUrls: FV.arrayRemove(entry),
+          accessPhotoUpdatedAt: FV.serverTimestamp(),
+        },
+        { merge: true }
+      )
       .then(function () {
-        status.textContent = "Saved.";
-        setSiteIntelButtonState(String(body.value || "").trim().length > 0);
-        if (modal) modal.classList.add("hidden");
+        _siteIntelCurrentPhotos = _siteIntelCurrentPhotos.filter(function (p) {
+          return p.url !== photoUrl;
+        });
+        renderSiteIntelPhotosGrid(_siteIntelCurrentPhotos);
+        /* Best-effort delete the underlying Storage file. An orphan file is harmless
+           (the doc no longer references it); a failed delete shouldn't block the user. */
+        if (entry.storagePath && firebase.storage) {
+          firebase.storage().ref().child(entry.storagePath).delete().catch(function () {});
+        }
+        if (ps) {
+          ps.textContent = "Photo deleted.";
+          setTimeout(function () { if (ps) ps.textContent = ""; }, 3000);
+        }
       })
       .catch(function (err) {
-        status.textContent = err && err.message ? err.message : "Save failed.";
+        if (ps) ps.textContent = "Delete failed.";
+        if (typeof window.VCSurfaceWriteFailure === "function") {
+          window.VCSurfaceWriteFailure("siteIntel:photoDelete", err);
+        }
       });
+  }
+
+  function updateSiteIntelPhotoCaption(photoUrl, newCaption) {
+    var docId = _siteIntelCurrentDocId;
+    if (!docId || !photoUrl) return;
+    var idx = -1;
+    for (var i = 0; i < _siteIntelCurrentPhotos.length; i++) {
+      if (_siteIntelCurrentPhotos[i].url === photoUrl) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) return;
+    var current = _siteIntelCurrentPhotos[idx];
+    var trimmed = String(newCaption || "").slice(0, 120);
+    if (current.caption === trimmed) return;
+    var ref = siteIntelDocRefForId(docId);
+    if (!ref) return;
+    /* arrayRemove(old) + arrayUnion(new) cannot share the same field in one set call (last write
+       on the same field wins), so we do a full read-modify-write of `accessPhotoUrls`. The array is
+       small (a handful of entries per site) so the extra read is negligible. */
+    var newArr = _siteIntelCurrentPhotos.slice();
+    newArr[idx] = {
+      url: current.url,
+      storagePath: current.storagePath,
+      caption: trimmed,
+      addedBy: current.addedBy,
+      addedAt: current.addedAt,
+    };
+    var FV = firebase.firestore.FieldValue;
+    ref
+      .set(
+        {
+          accessPhotoUrls: newArr,
+          accessPhotoUpdatedAt: FV.serverTimestamp(),
+        },
+        { merge: true }
+      )
+      .then(function () {
+        _siteIntelCurrentPhotos = newArr;
+      })
+      .catch(function (err) {
+        if (typeof window.VCSurfaceWriteFailure === "function") {
+          window.VCSurfaceWriteFailure("siteIntel:captionUpdate", err);
+        }
+      });
+  }
+
+  function wireSiteIntelPhotoGridEvents() {
+    var grid = document.getElementById("vcSiteIntelPhotosGrid");
+    if (!grid || grid.dataset.vcWired === "1") return;
+    grid.dataset.vcWired = "1";
+    grid.addEventListener("click", function (e) {
+      var t = e.target;
+      var del = t && t.closest ? t.closest("[data-vc-action='delete']") : null;
+      if (del) {
+        var tile = del.closest(".vc-site-intel-photo-tile");
+        var url = tile ? tile.getAttribute("data-vc-photo-url") : "";
+        if (url) deleteSiteIntelPhoto(url);
+        return;
+      }
+      var img = t && t.closest ? t.closest("img") : null;
+      if (img && img.src) {
+        try { window.open(img.src, "_blank", "noopener,noreferrer"); } catch (e2) {}
+      }
+    });
+    grid.addEventListener("change", function (e) {
+      var t = e.target;
+      var inp = t && t.closest ? t.closest(".vc-site-intel-photo-caption") : null;
+      if (!inp) return;
+      var tile = inp.closest(".vc-site-intel-photo-tile");
+      var url = tile ? tile.getAttribute("data-vc-photo-url") : "";
+      if (url) updateSiteIntelPhotoCaption(url, inp.value);
+    });
   }
 
   /**

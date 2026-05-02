@@ -63,7 +63,7 @@ All paths below are relative to the repo root. Memory files live in `PROJECT_STA
 ## 3. UI & BRANDING STANDARDS
 
 - **Vertex pillar selects:** Use the standardized pill-selects with the orange focus ring (`#f39c12`), chevron icons, and specific padding.
-- **Terminology:** - USE: "Inter-Office Comms", "Site Intel", "Field Bible", "Shadow Mode".
+- **Terminology:** - USE: "Inter-Office Comms", "Site Intel", "Field Access Notes" (formerly "Field Bible"), "Shadow Mode".
   - AVOID: "ServiceTitan", "BuildOps", "Dark Channel".
 - **Mobile First:** Technician UI must be optimized for one-handed use. Buttons must be descriptive (e.g., "🎤 Hold to dictate").
 - **No LaTeX Prose:** Use LaTeX ONLY for math/formulas. Use standard Markdown for all regular text.
