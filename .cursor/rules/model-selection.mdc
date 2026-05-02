@@ -5,6 +5,8 @@ alwaysApply: true
 
 # Model selection (cost-aware)
 
+These rules exist so the repo **keeps notes** on the **cheapest model that was still good enough** per task shape. **`MODEL_DOSSIER.md`** holds tiers, workspace names, and the **Task outcome log** — treat the log as the evolving answer to “can we go cheaper next time?”
+
 ## Before substantive work
 
 1. Open **`PROJECT_STATUS/MODEL_DOSSIER.md`** and map the request to a **task archetype** (T0–T4). **Grep § Task outcome log** for similar past work — prioritize rows with strong **Conf after %** and **Tier fit** (`ok` / `could_use_smaller` vs `needed_bigger`) per **Using the log**.

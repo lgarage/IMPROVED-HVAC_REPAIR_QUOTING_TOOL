@@ -84,7 +84,7 @@ All paths below are relative to the repo root. Memory files live in `PROJECT_STA
 
 ## 6. MODEL ESCALATION PROTOCOL
 
-Confidence-based guardrail. **Not** automatic model switching — the AI pauses and asks the user to switch models when warranted. **Prefer the *cheapest* Cursor tier that still meets minimum capability** for the task; use **`PROJECT_STATUS/MODEL_DOSSIER.md`** (task archetypes + registry) so recommendations stay consistent. Goal: prevent bad data, protect business workflows, avoid unnecessary use of maximum-reasoning models.
+Confidence-based guardrail. **Not** automatic model switching — the AI pauses and asks the user to switch models when warranted. **This repo tracks “cheapest but good enough” in markdown** (`MODEL_DOSSIER.md`: archetypes, **Workspace enabled models**, **Task outcome log**). Prefer the **lowest-cost enabled model** that still meets **minimum capability and safety** for the task; follow the dossier and logged **Tier fit** / **Conf after** so picks improve over time. Goal: avoid bad data and wasted spend on overpowered models.
 
 ### 6A. Task Classification (run BEFORE any work)
 

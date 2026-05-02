@@ -1,18 +1,20 @@
 # Cursor model dossier (capability & cost heuristic)
 
-> **Purpose:** Give agents a **single source of truth** for *which Cursor chat/agent model tier fits which kind of work*, so recommendations favor the **cheapest tier that still meets minimum capability** — not “always use the strongest model.”
+> **North star:** Track, in markdown, the **cheapest Cursor model that is still good enough** for each kind of task on this repo — not “default to the strongest.” **`MODEL_DOSSIER.md`** (static tiers + **workspace picker names**) and **§ Task outcome log** (what actually worked) are the **shared notes**; `.cursorrules` §6 and **`model-selection.mdc`** tell agents how to use them **before** any implementation.
+>
+> **Purpose:** Single source of truth so recommendations favor **minimum spend for acceptable quality and safety**, grounded in archetypes, enabled models, and logged outcomes.
 >
 > **Tier 1 read:** Skim this file when classifying a task; do **not** load it end-to-end every turn. Grep by task keyword or jump to **§ Task archetypes → minimum tier**, then **§ Workspace enabled models** for the exact picker name to recommend **before any implementation** (`.cursorrules` §6B1).
 >
 > **Maintenance:** Cursor adds, renames, or deprecates models over time. When your Cursor **Settings → Models** toggles change, update **§ Workspace enabled models** (this repo) **and** the generic **§ Registry** if families shift. Pricing is account/plan-dependent — this file uses **relative** cost only (↓ cheaper → ↑ pricier).
 >
-> **Calibration:** After substantive work, append/update **§ Task outcome log** with **Conf start %** (opening classification), **Conf after %** (honest post-task), **Tier used**, and **Tier fit** (`ok` | `could_use_smaller` | `needed_bigger`). Grep that section when classifying similar work.
+> **Calibration:** After substantive work, **append § Task outcome log** — that row is how we **remember** the cheapest-good model for “things like this.” Include **Conf start %**, **Conf after %**, **Tier used**, **Tier fit** (`ok` | `could_use_smaller` | `needed_bigger`). Grep that section when classifying similar work.
 
 ---
 
 ## Task outcome log (calibration)
 
-**Purpose:** Running record of **what was done**, **Conf start / Conf after (%)**, **Tier used**, **Tier fit**, and **outcome**, so recommendations can follow **this repo’s history**, not only the static archetype table.
+**Purpose:** Empirical notebook — **which model was good enough** for real tasks, so the next similar task can start one notch **cheaper** when the log supports it (or **stronger** when it doesn’t). Pair with **§ Workspace enabled models** and **§ Task archetypes** so picks stay tied to **actual picker names**, not vibes.
 
 ### How to add a row (agents)
 
@@ -165,5 +167,5 @@ If `.cursorrules` says **HIGH / UNCERTAIN → stop and escalate**, that **overri
 
 ## Changelog
 
-- **2026-05-02:** **§ Workspace enabled models** — concrete Cursor picker names for this repo, tier mapping, default “switch to” before work; maintenance note for toggles.
-- **2026-05-02:** Initial dossier; **§ Task outcome log** (Conf start/after, tier used, **Tier fit**, outcome, grep-based calibration + retention); link from `.cursorrules` §6 and `model-selection.mdc`.
+- **2026-05-02:** **North star** — cheapest-good tracking in MD; **§ Workspace enabled models**; outcome-log framing; `.cursorrules` §6 + `model-selection.mdc`.
+- **2026-05-02:** Initial dossier; **§ Task outcome log** (Conf start/after, tier used, **Tier fit**, outcome, grep-based calibration + retention).
