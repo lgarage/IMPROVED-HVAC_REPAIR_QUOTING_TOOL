@@ -1618,6 +1618,32 @@ body.vc-override-active #vcOfficeOverrideBanner {
 }
 .dictation-site-nav .ws-customer { font-size: 20px; font-weight: 800; margin-bottom: 6px; color: #f1f5f9; }
 .dictation-site-nav .ws-ticket { font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold; }
+.dictation-site-nav .ws-reason-for-call {
+  margin-top: 10px;
+  font-size: 12px;
+  background: rgba(255,255,255,0.2);
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: #cbd5e1;
+  line-height: 1.45;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.dictation-site-nav .ws-reason-for-call.hidden { display: none !important; }
+.dictation-site-nav .ws-reason-for-call-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+.dictation-site-nav .ws-reason-for-call-body {
+  font-weight: 600;
+  color: #e2e8f0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .dictation-site-nav .ws-address { margin-bottom: 12px; }
 .dictation-site-nav .ws-site-intel-row {
   display: flex;
@@ -3556,6 +3582,10 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
         Return to Schedule to pick a ticket
       </button>
       <div id="ws-ticket" class="ws-ticket">NO TICKET</div>
+      <div id="ws-reason-for-call" class="ws-reason-for-call hidden" role="region" aria-label="Reason for call" aria-hidden="true">
+        <div class="ws-reason-for-call-label">Reason for call</div>
+        <div id="ws-reason-for-call-text" class="ws-reason-for-call-body"></div>
+      </div>
     </nav>
   </div>
 
@@ -4219,7 +4249,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34e-no-location-accordion-2026-05-02";
+window.VC_BUILD = "Phase34e-ws-reason-banner-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -4840,6 +4870,34 @@ function applyMode(){
   }
 }
 
+/** Sticky workspace header — reason for call (SERVICE #reason, else ticket issue). */
+function getWorkspaceReasonForCallText() {
+  if (typeof activeTicket === "undefined" || !activeTicket) return "";
+  if (currentMode === "SERVICE") {
+    const r = document.getElementById("reason");
+    const v = r ? String(r.value || "").trim() : "";
+    if (v) return v;
+    return String(activeTicket.issue || "").trim();
+  }
+  return String(activeTicket.issue || "").trim();
+}
+
+function syncWorkspaceReasonBanner() {
+  const wrap = document.getElementById("ws-reason-for-call");
+  const textEl = document.getElementById("ws-reason-for-call-text");
+  if (!wrap || !textEl) return;
+  const t = getWorkspaceReasonForCallText();
+  if (!t) {
+    wrap.classList.add("hidden");
+    textEl.textContent = "";
+    wrap.setAttribute("aria-hidden", "true");
+    return;
+  }
+  wrap.classList.remove("hidden");
+  textEl.textContent = t;
+  wrap.setAttribute("aria-hidden", "false");
+}
+
 /* ---------- roster from Dispatch (Firestore app_config/technicians) ---------- */
 async function fetchTechnicianRosterFromCloud() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return [];
@@ -5207,6 +5265,17 @@ window.cleanAddressForNavigation = cleanAddressForNavigation;
       launchNavigation(cleanAddressForNavigation(loc ? loc.value : ''));
     });
   }
+})();
+
+(function wireWorkspaceReasonBannerFromField() {
+  const reasonEl = document.getElementById("reason");
+  if (!reasonEl || reasonEl.dataset.wsBannerSync === "1") return;
+  reasonEl.dataset.wsBannerSync = "1";
+  function go() {
+    if (typeof syncWorkspaceReasonBanner === "function") syncWorkspaceReasonBanner();
+  }
+  reasonEl.addEventListener("input", go);
+  reasonEl.addEventListener("change", go);
 })();
 
 function unsubscribeSchedule() {
@@ -6086,6 +6155,7 @@ function openWorkspace(ticketId) {
       detail: { ticketId: ticketId, mode: currentMode, ticket: activeTicket }
     }));
   } catch (evtErr) { /* CustomEvent not supported — non-fatal */ }
+  if (typeof syncWorkspaceReasonBanner === "function") syncWorkspaceReasonBanner();
 }
 
 /* ---------- location local formatting fallback ---------- */
@@ -7459,6 +7529,7 @@ function setFields(d){
   [ "equipment","notes","used","next", "serviceEquipment","reason","diagnosis","repairsMade","serviceUsed","quoteParts","recommendations", "quoteEquip","quoteIssue","quoteRepairs","quoteTesting","quoteRecs"
   ].forEach(id => autoGrow(document.getElementById(id)));
   populateHistoryCustomers();
+  if (typeof syncWorkspaceReasonBanner === "function") syncWorkspaceReasonBanner();
 }
 
 function saveDraft(){ try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(getFields())); }catch(e){} }
@@ -7715,6 +7786,7 @@ function validateNeedsRepairQuote() {
   if (currentMode !== "SERVICE") {
     currentMode = "SERVICE";
     applyMode();
+    if (typeof syncWorkspaceReasonBanner === "function") syncWorkspaceReasonBanner();
     const accParts = document.getElementById("acc-parts-svc");
     if (accParts) accParts.classList.add("open");
     const accStatus = document.getElementById("acc-status");
