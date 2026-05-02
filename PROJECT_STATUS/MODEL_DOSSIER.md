@@ -65,6 +65,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-02 | Field app: Add additional forms panel — narrower sheet, list rows vs primary buttons (`vc-forms-list`) | LOW | T1 | Fast | 73% | 92% | ok | ok | Cursor: **Composer 2**; `technician/index.html` `#vcFormsPanel` markup + scoped CSS; IDs unchanged for `field_forms.js` |
 | 2026-05-02 | Field app: move Work Order Forms accordion → hamburger menu as "Add additional forms" overlay panel | LOW | T2 | Balanced | 78% | 90% | ok | ok | Cursor: **Sonnet 4.6**; `technician/index.html` remove `#acc-field-forms`; add `vcFormsPanel` overlay + `btnOpenFormsPanel` hidden trigger + `wsSiteMenuForms` menu item + `wireFormsPanel()` |
 | 2026-05-02 | Field app: hamburger menu beside customer name (Site Intel, History, View Site Equipment) | LOW | T2 | Balanced | 78% | 88% | ok | ok | Cursor: **Sonnet 4.6**; `technician/index.html` `.ws-site-menu-wrap` + dropdown + JS + MutationObserver |
 | 2026-05-02 | Field app: Site Intel → customer row; History + View Site Equipment → intel row | LOW | T1 | Balanced | 76% | 88% | ok | ok | Cursor: **Sonnet 4.6**; `technician/index.html` `.ws-customer-row` wrapper + CSS |

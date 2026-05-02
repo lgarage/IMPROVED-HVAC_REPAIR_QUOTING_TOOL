@@ -3538,6 +3538,64 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
 .vc-overlay-panel-body {
   overflow-y: auto; padding: 16px 20px 32px; -webkit-overflow-scrolling: touch; flex: 1;
 }
+/* Add additional forms — compact sheet + plain list rows (IDs preserved for field_forms.js) */
+#vcFormsPanel.vc-overlay-panel { align-items: flex-end; }
+#vcFormsPanel .vc-overlay-panel-inner {
+  width: calc(100% - 48px);
+  max-width: 296px;
+  margin-left: auto;
+  margin-right: auto;
+  max-height: 55vh;
+  border-radius: 14px;
+  box-shadow: 0 -2px 20px rgba(15,23,42,0.14);
+}
+#vcFormsPanel .vc-overlay-panel-head { padding: 12px 14px 8px; }
+#vcFormsPanel .vc-overlay-panel-title { font-size: 15px; font-weight: 800; }
+#vcFormsPanel .vc-overlay-panel-body { padding: 10px 14px 18px; }
+.vc-forms-panel-hint {
+  font-size: 11px;
+  color: #64748b;
+  margin: 0 0 8px;
+  line-height: 1.35;
+}
+.vc-forms-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fafafa;
+}
+.vc-forms-list__row { margin: 0; padding: 0; border-bottom: 1px solid #e8ecf0; }
+.vc-forms-list__row:last-child { border-bottom: none; }
+.vc-forms-list__btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+  line-height: 1.35;
+  -webkit-tap-highlight-color: transparent;
+}
+.vc-forms-list__btn:hover,
+.vc-forms-list__btn:active { background: #f0f9ff; }
+.vc-forms-list__meta { font-weight: 500; color: #64748b; }
+#vcFormsPanel .form-intent-banner {
+  margin: 8px 0;
+  padding: 6px 8px;
+  font-size: 11px;
+  border-radius: 8px;
+}
 .vc-panel-section { margin-bottom: 24px; }
 .vc-panel-section-label {
   font-size: 11px; font-weight: 800; text-transform: uppercase;
@@ -4176,21 +4234,21 @@ button#techDisplayLabel:active { opacity: 0.75; }
       <button type="button" id="vcFormsPanelClose" class="vc-overlay-panel-close" aria-label="Close">✕</button>
     </div>
     <div class="vc-overlay-panel-body">
-      <p style="font-size: 12px; color: #7f8c8d; margin: 0 0 12px 0; line-height: 1.45">
-        Custom checklists and repair quotes with optional photo evidence. Saved to the cloud and linked to the selected equipment.
-      </p>
-      <div style="display: flex; flex-direction: column; gap: 10px">
-        <button type="button" id="btnLaunchStandardPm" class="btn btn-primary" style="margin: 0">
-          Standard PM
-        </button>
-        <button type="button" id="btnLaunchRepairQuote" class="btn btn-primary" style="margin: 0; background: #16a085">
-          Repair Quote
-        </button>
-        <div id="formIntentBanner" class="form-intent-banner hidden"></div>
-        <button type="button" id="btnScanNotesForForms" class="btn btn-primary" style="margin: 0; background: #34495e">
-          Check notes for required forms (AI)
-        </button>
-      </div>
+      <p class="vc-forms-panel-hint">Saved to the cloud and linked to the selected equipment.</p>
+      <ul class="vc-forms-list">
+        <li class="vc-forms-list__row">
+          <button type="button" id="btnLaunchStandardPm" class="vc-forms-list__btn">Standard PM</button>
+        </li>
+        <li class="vc-forms-list__row">
+          <button type="button" id="btnLaunchRepairQuote" class="vc-forms-list__btn">Repair Quote</button>
+        </li>
+      </ul>
+      <div id="formIntentBanner" class="form-intent-banner hidden"></div>
+      <ul class="vc-forms-list" aria-label="AI tools">
+        <li class="vc-forms-list__row">
+          <button type="button" id="btnScanNotesForForms" class="vc-forms-list__btn">Check notes for required forms <span class="vc-forms-list__meta">(AI)</span></button>
+        </li>
+      </ul>
     </div>
   </div>
 </div>
