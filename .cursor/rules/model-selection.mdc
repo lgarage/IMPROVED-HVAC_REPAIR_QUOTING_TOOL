@@ -1,0 +1,22 @@
+---
+description: Recommend cheapest Cursor model tier that fits the task using MODEL_DOSSIER; strict gate before implementation
+alwaysApply: true
+---
+
+# Model selection (cost-aware)
+
+## Before substantive work
+
+1. Open **`PROJECT_STATUS/MODEL_DOSSIER.md`** and map the request to a **task archetype** (T0–T4). **Grep § Task outcome log** for similar past work — prioritize rows with strong **Conf after %** and **Tier fit** (`ok` / `could_use_smaller` vs `needed_bigger`) per **Using the log**.
+2. Recommend the **lowest tier** that fits, then map to **one exact enabled name** from **`MODEL_DOSSIER.md` § Workspace enabled models** (use **§ Default “switch to” before work**; Vertex Core / Firebase / tenant / field critical / Office Override → **Opus 4.7** first per dossier). Fall back to **§ Registry** families only if the workspace section is missing or stale.
+3. Output **§6B** first: the 4-line block with **Recommended model** = that **exact string** (e.g. `Composer 2`, `Sonnet 4.6`, `Codex 5.3`, `Opus 4.7`), not “Balanced” or “Premium.”
+4. **§6B1 hard stop (no implementation this turn):** After the block, only model recommendation + gate boilerplate + “Waiting for your model confirmation…”. **No** file edits, patches, or mutating terminal commands until the user sends **`Model switched — proceed`**, **`Override: … — proceed`**, or **`Pre-approved model: … — proceed`** (see `.cursorrules` §6G). Narrow exception: same user message already contains one of those phrases **and** the task text.
+5. When prompting **inside** the gate turn:
+   - **LOW / T0–T1** and chat might be **Strong** → note they may switch **down** to the named cheaper tier for this task.
+   - **HIGH / UNCERTAIN / T3+** and minimum is **Strong** → insist on switching **up** before implementation after they clear the gate.
+
+If `.cursorrules` §6 mandates **§6C** escalation for HIGH/UNCERTAIN, output that block when required; the dossier does not override safety stops. **§6G** still requires the model gate before implementation.
+
+## After substantive work
+
+6. **Log one row** in **`MODEL_DOSSIER.md` → § Task outcome log** (newest first): Date, short task, Class, Arch, **Tier used** (from gate), **Conf start %**, **Conf after %**, **Tier fit** (`ok` | `could_use_smaller` | `needed_bigger`), **Outcome**, Note. See that section for **when to skip** and **Vertex Core** limits on downgrading from the log.

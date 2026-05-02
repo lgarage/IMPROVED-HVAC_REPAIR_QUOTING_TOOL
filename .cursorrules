@@ -17,6 +17,7 @@ That is the entire mandatory read at session start. Total budget: ~1.5k tokens.
 
 | File                                            | Read only when…                                                                                                                                                 |
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PROJECT_STATUS/MODEL_DOSSIER.md`               | **Picking a Cursor chat model** for the task (cost vs capability); **before** recommending a concrete picker name. **Skim § Task archetypes, § Workspace enabled models, § Registry — do not read end-to-end every turn.** |
 | `PROJECT_STATUS/KNOWN_ISSUES.md`                | A `KI-NNN` is referenced in Tier 1 or you're touching code listed under one. **Grep by id or affected file.**                                                   |
 | `PROJECT_STATUS/PROJECT_MAP.md`                 | You need a path / hook / domain detail for shipped functionality. **Grep by feature, file, or `Phase N`. Do not read end-to-end unless first-time onboarding.** |
 | `PROJECT_STATUS/DECISIONS.md`                   | About to reverse or contradict a past choice. **Search by `ADR-NNN` or topic.**                                                                                 |
@@ -35,6 +36,7 @@ All paths below are relative to the repo root. Memory files live in `PROJECT_STA
 - **`PROJECT_STATUS/PROJECT_MAP.md`:** Implemented features only, organized by domain. `Current Focus` at the bottom collapses to a 3-line pointer into `CURRENT_STATE.md` and `KNOWN_ISSUES.md`. Do not let it grow into a debugging journal again.
 - **`PROJECT_STATUS/ROADMAP.md`:** Unbuilt ideas only. Once a phase enters active build it is tracked in `CURRENT_STATE.md`; once it ships, it moves into `PROJECT_MAP.md → Build History`.
 - **`PROJECT_STATUS/AI_CONTEXT_PROJECT_OVERVIEW.md`:** Stable high-level architecture handoff. Update only on major architectural shifts.
+- **`PROJECT_STATUS/MODEL_DOSSIER.md`:** Cursor **model tiers**, task archetypes T0–T4, **§ Workspace enabled models** (this repo’s toggled-on names + default “switch to” before work), generic **§ Registry**, and **§ Task outcome log** (Conf start/after, **Tier fit**, outcome — newest first). Used by `.cursorrules` §6 and `.cursor/rules/model-selection.mdc`. **Update** when Settings → Models toggles change and after substantive sessions. Archive older rows per dossier § Retention.
 
 ### 1C. PROJECT_MAP.md Editing Rules
 
@@ -82,13 +84,14 @@ All paths below are relative to the repo root. Memory files live in `PROJECT_STA
 
 ## 6. MODEL ESCALATION PROTOCOL
 
-Confidence-based guardrail. **Not** automatic model switching — the AI pauses and asks the user to escalate from Sonnet to Opus 4.7 only when warranted. Goal: prevent bad data, protect business workflows, reduce unnecessary Opus usage.
+Confidence-based guardrail. **Not** automatic model switching — the AI pauses and asks the user to switch models when warranted. **Prefer the *cheapest* Cursor tier that still meets minimum capability** for the task; use **`PROJECT_STATUS/MODEL_DOSSIER.md`** (task archetypes + registry) so recommendations stay consistent. Goal: prevent bad data, protect business workflows, avoid unnecessary use of maximum-reasoning models.
 
 ### 6A. Task Classification (run BEFORE any work)
 
-- **LOW RISK:** UI / CSS changes; small isolated bug fixes; markdown / documentation updates; simple single-file logic.
-- **HIGH RISK:** multi-file changes; Firestore / data-model writes; offline sync logic; anything affecting dispatcher workflow; anything affecting field workflow; dictation parsing / repair extraction; quoting / parts / business-critical data; modifying validation rules.
-- **UNCERTAIN:** ambiguous instructions; unclear mapping of units / repairs; conflicting or incomplete data; confidence < 80%.
+- **Consult** `PROJECT_STATUS/MODEL_DOSSIER.md` — map the request to a **task archetype** (T0–T4) and the **minimum tier** (Fast / Balanced / Strong) that fits.
+- **LOW RISK:** UI / CSS changes; small isolated bug fixes; markdown / documentation updates; simple single-file logic. — Usually **T0–T1** → dossier **Fast** or **Balanced** (pick the lowest tier that still fits).
+- **HIGH RISK:** multi-file changes; Firestore / data-model writes; offline sync logic; anything affecting dispatcher workflow; anything affecting field workflow; dictation parsing / repair extraction; quoting / parts / business-critical data; modifying validation rules. — Usually **≥ T3** → dossier **Strong** (e.g. Opus-class or equivalent in Registry).
+- **UNCERTAIN:** ambiguous instructions; unclear mapping of units / repairs; conflicting or incomplete data; confidence < 80%. — **Strong** until clarified.
 
 ### 6B. Required Output (ALWAYS FIRST, every response)
 
@@ -96,27 +99,50 @@ Every response must begin with this exact 4-line block:
 
 ```
 Task classification: LOW | HIGH | UNCERTAIN
-Recommended model: Sonnet | Opus 4.7
+Recommended model: <exact picker string — use MODEL_DOSSIER.md § Workspace enabled models first; else § Registry; favor cheapest enabled model that passes minimum capability>
 Confidence: XX%
 Reason: <1–2 lines>
 ```
 
-### 6B1. Mandatory Hard Stop After Classification Block.
+Immediately after the block (same message, not a second reply), add **mandatory model-gate instructions** (see **§6B1**). You may still add **one short line** of cost hint (cheaper vs stronger) when helpful.
 
-After outputting the 4-line classification block, **output nothing else — no plans, no analysis, no code, no next steps, no explanatory text.** End your response immediately after the 4-line block.
+### 6B1. Mandatory Hard Stop After Classification Block + model gate
 
-The user must explicitly send a follow-up message to continue. That follow-up is the confirmation that they have read the classification, verified the model, and are ready to proceed. Only then may the AI generate any further content.
+**First response to a new task** (or when the user’s message does **not** already clear the model gate — see **§6G**): after the 4-line block, output **only**:
 
-**The only exception:** if the user's message that triggered this response explicitly includes a phrase such as "proceed", "go ahead", "confirmed", "you have approval", or "pre-approved" directed at this specific task, the AI may continue past the classification block without stopping.
+1. One short paragraph telling the user **which Cursor model to select** (from `MODEL_DOSSIER.md` **§ Workspace enabled models** — default “switch to” table; fall back to § Registry if needed) and **why**.
+2. This **exact boilerplate** (adapt the model name inline):
 
-Add a closing sentence that says "waiting for your confirmation" after the 4-line block. Then, just stop. Do not provide any additional information.
+   *Switch that model in Cursor’s model picker, then reply with **one** of these (copy/paste and fill in):*
+   - `Model switched — proceed` *(you switched to the recommended model)*
+   - `Override: <exact model name you are using> — proceed` *(you intentionally stayed on or chose a different model)*
+   - `Pre-approved model: <name> — proceed` *(only if your **current** chat is already on `<name>` and it matches or exceeds the recommended tier)*
+
+3. Closing sentence: **Waiting for your model confirmation — no file edits or implementation until you send one of the lines above.**
+
+**Do not** output plans, diffs, code, terminal commands, or tool-driven implementation in this turn.
+
+**Narrow exception — same user message already cleared the gate:** if the user’s message **already** contains `Model switched — proceed`, `Override: … — proceed`, or `Pre-approved model: … — proceed` **and** the task text, you may skip the hard stop and implement in one turn. Otherwise the **next** user message must clear the gate before any implementation.
+
+### 6G. Model gate before implementation (tooling)
+
+**Implementation** means: editing project files, running commands that mutate the repo or deploy, or producing apply-ready patches — not read-only answers with no repo changes.
+
+- **Do not** perform implementation until the **latest user message** satisfies **§6B1** (one of the three approved reply patterns).
+- **Read-only** exploration (searching/reading files **without** edits) is discouraged before the gate if it would substitute for starting implementation; if the user explicitly asked **read-only** reconnaissance only, you may read after `Override: … — proceed` or `Model switched — proceed` scoped as *investigation only* — still require the gate so the model is recorded as intentional.
+
+### 6H. After implementation — log calibration
+
+When substantive work finishes, add/update **`PROJECT_STATUS/MODEL_DOSSIER.md` § Task outcome log** with **Conf after %** and **Tier fit** (see dossier). Those fields refine future model picks.
 
 ### 6C. Escalation Behavior
 
-If the task is **HIGH** or **UNCERTAIN**: do **NOT** proceed with implementation. Instead output the following block and **wait for user confirmation** before continuing:
+If the task is **HIGH** or **UNCERTAIN**: do **NOT** proceed with implementation. Instead output the following block and **wait for user confirmation** before continuing. Set **Recommended** to a **Strong** model from **`MODEL_DOSSIER.md` § Workspace enabled models** (e.g. **Opus 4.7**, **Codex 5.3**, **GPT-5.5** per dossier defaults) — exact Cursor-picker label, not a vague “better model.”
 
 ```
-⚠️ SWITCH TO OPUS 4.7 REQUIRED
+⚠️ SWITCH TO STRONGER MODEL REQUIRED (per MODEL_DOSSIER)
+
+Recommended: <concrete Cursor model name — Strong tier>
 
 Reason: <clear explanation>
 
@@ -142,5 +168,9 @@ Proposed Plan:
 
 ### 6F. Execution Rule
 
-- **LOW RISK:** proceed using Sonnet; keep scope tight; no refactors.
-- **HIGH / UNCERTAIN:** STOP → escalate → wait.
+- **LOW RISK:** after **§6G** model gate is cleared, proceed using the **effective** model the user confirmed (recommended or Override); keep scope tight; no refactors.
+- **HIGH / UNCERTAIN:** output **§6C** block first; still require **§6G** after user switches before implementation.
+
+### 6I. Conflict
+
+If product or Cursor behavior makes strict gating impossible, **STATE** that once and follow **§6B1** as closely as possible; still log **Override** when the user could not switch.
