@@ -3604,7 +3604,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
       </div>
     </div>
     <label for="dictationHubNotes" class="visually-hidden">Technician notes</label>
-    <textarea id="dictationHubNotes" placeholder="Technician notes — speak, type, or paste here. The office will format this for the customer." rows="6" autocomplete="off"></textarea>
+    <textarea id="dictationHubNotes" placeholder="Technician notes — speak, type, or paste here. ✨ Improve with AI fixes grammar and punctuation only; your wording stays yours." rows="6" autocomplete="off"></textarea>
     <div class="dictation-action-tray-wrap">
       <div class="dictation-action-tray-head">Dynamic action tray — units on site</div>
       <div id="dictationActionTray" class="dictation-action-tray">
@@ -4249,7 +4249,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34e-ws-reason-banner-2026-05-02";
+window.VC_BUILD = "Phase34e-dictation-light-edit-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -8831,7 +8831,7 @@ window.onload = async function(){
     <script src="js/data_provider.js?v=1"></script>
     <script src="js/workspace_ui.js?v=11"></script>
     <script src="js/location_manager.js?v=1"></script>
-    <script src="../dictation_hub.js?v=11"></script>
+    <script src="../dictation_hub.js?v=12"></script>
     <script src="../equipment_hub.js?v=1"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>

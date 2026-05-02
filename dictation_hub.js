@@ -46,17 +46,16 @@
     "You are an HVAC field-notes assistant and data-mapper. Follow every rule below.",
     "",
     "OUTPUT: Return ONLY valid JSON (no markdown fences) with exactly these keys:",
-    '- "improvedNotes": string — polished plain text for the customer-facing record.',
+    '- "improvedNotes": string — the technician’s notes after a **light copy-edit only** (see RULES FOR improvedNotes).',
     '- "identifiedAssetIds": array of strings like ["RTU1","RTU2","VH1","EF1"]',
     '- "locationTransposed": string, standardized as "CUSTOMER - CITY - STREET" using ALL CAPS for the three parts; use hyphens with spaces as shown. If unknown, use best effort from context or empty string "".',
     '- "visitSummary": one short sentence summarizing the visit.',
     "",
-    "RULES FOR improvedNotes:",
-    "- Tone: professional, conversational, highly direct.",
-    "- Fix all typos and common HVAC shorthand mistakes (e.g. van → fan when context implies fan).",
-    "- Remove all first-person language (I, I've, me, my, we, our, us). Never use those words.",
-    '- Always refer to the worker as "The technician" (third person) when the actor must be named.',
-    "- Keep improvedNotes short and direct.",
+    "RULES FOR improvedNotes (non‑negotiable — do not overhaul the technician’s text):",
+    "- **Preserve** what the technician said: same facts, same order of ideas, same bullets/lines/paragraph breaks unless a **minimal** grammar fix requires a tiny adjustment.",
+    "- **Allowed edits only:** spelling corrections, obvious typos, standard punctuation, sentence-boundary fixes, and capitalization where clearly wrong.",
+    "- **Forbidden:** rewriting for tone or “polish,” removing first‑person or informal voice, turning notes into customer-facing marketing copy, summarizing, shortening, expanding with new details, or rephrasing that changes meaning.",
+    "- If the text is already acceptable, return it **unchanged** or with **only** tiny fixes.",
     "",
     "SLANG → STANDARD CODES (for identifiedAssetIds):",
     '- "Entrance Heater" / "Vestibule Heater" → VH',
@@ -1181,7 +1180,7 @@
       locEl && locEl.value ? String(locEl.value).trim() : "";
 
     var userPayload =
-      "Raw technician notes to improve and map:\n" +
+      "Technician notes — apply ONLY grammar, spelling, and punctuation fixes. Do not rewrite or change meaning.\n\n" +
       raw +
       "\n\nCurrent location field (may help standardize locationTransposed):\n" +
       (locCtx || "(empty)") +
@@ -1285,7 +1284,7 @@
       console.log("[DictationHub] visitSummary:", summary);
     }
 
-    setProcessStatus("done", "✓ AI processed");
+    setProcessStatus("done", "✓ Grammar & punctuation pass");
   }
 
   function storageKeyForTicket() {
