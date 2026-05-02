@@ -65,6 +65,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-02 | Field app: Remove Schedule/History/Profile nav; profile panel on name badge; site-history panel next to Site Intel | UNCERTAIN | T2 | Balanced | 62% | 78% | ok | ok | Cursor: **Sonnet 4.6**; `technician/index.html` nav + overlay panels + JS wiring; VC_BUILD Phase34j |
 | 2026-05-02 | Field app: Dictation hub SERVICE label — office sync → Inter-office notes | LOW | T0 | Fast | 90% | 92% | ok | ok | Cursor: **Composer 2**; `technician/index.html` `applyMode` `#dictationHubNotesSubLabel`; VC_BUILD Phase34i |
 | 2026-05-02 | Field app: Improve with AI — SERVICE edits diagnosis/repairs/recommendations only; skips Technician notes (office sync) | LOW | T2 | Fast | n/a | 82% est | ok | ok | Cursor: **Composer 2** (retrospective; §6B gate had been skipped on implement). **Gemini (Improve with AI):** `GEMINI_GENERATE_MODEL` from `firebase-config.js` (repo default `gemini-2.5-flash`); `SYSTEM_INSTRUCTION_DIAGNOSTICS` + `dictation_hub.js?v=13`. |
 | 2026-05-02 | Field app: SERVICE diagnostics in dictation hub; #reason hidden (header banner) | LOW | T2 | Balanced | 82% | 85% | ok | ok | Cursor: not recorded; `technician/index.html` applyMode + hidden `#reason` |

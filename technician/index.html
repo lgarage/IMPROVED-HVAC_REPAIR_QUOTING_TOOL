@@ -3463,6 +3463,58 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   white-space: pre-line;
 }
 .vision-hub-save-error.hidden { display: none; }
+
+/* ---------- Profile + Site History overlay panels ---------- */
+.vc-overlay-panel {
+  position: fixed; inset: 0; z-index: 20000;
+  background: rgba(15,23,42,0.55);
+  display: flex; align-items: flex-end;
+}
+.vc-overlay-panel.hidden { display: none !important; }
+.vc-overlay-panel-inner {
+  background: #fff; width: 100%; max-height: 88vh;
+  border-radius: 18px 18px 0 0;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 -4px 32px rgba(15,23,42,0.18);
+}
+.vc-overlay-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 12px; border-bottom: 1px solid #e1e8ed; flex-shrink: 0;
+}
+.vc-overlay-panel-title { font-size: 18px; font-weight: 800; color: #0f172a; }
+.vc-overlay-panel-close {
+  font-size: 18px; color: #64748b; background: none; border: none;
+  padding: 4px 10px; cursor: pointer; border-radius: 6px; line-height: 1;
+}
+.vc-overlay-panel-body {
+  overflow-y: auto; padding: 16px 20px 32px; -webkit-overflow-scrolling: touch; flex: 1;
+}
+.vc-panel-section { margin-bottom: 24px; }
+.vc-panel-section-label {
+  font-size: 11px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 10px;
+}
+.vc-panel-name { font-size: 16px; font-weight: 700; color: #0ea5e9; margin-bottom: 12px; }
+.vc-panel-logout-btn {
+  background: #e74c3c; color: #fff; border: none; padding: 10px 18px;
+  border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; width: 100%;
+}
+.vc-panel-jobs-list { display: flex; flex-direction: column; gap: 8px; min-height: 32px; }
+.vc-panel-job-card {
+  background: #f8fafc; border: 1px solid #e1e8ed; border-radius: 8px; padding: 12px 14px;
+}
+.vc-panel-job-card-date { font-size: 12px; color: #64748b; font-weight: 600; }
+.vc-panel-job-card-loc { font-size: 14px; font-weight: 700; color: #0f172a; margin: 2px 0; }
+.vc-panel-job-card-type { font-size: 12px; color: #7f8c8d; }
+.vc-panel-empty { font-size: 13px; color: #94a3b8; text-align: center; padding: 16px 0; }
+/* Make the tech badge tappable */
+button#techDisplayLabel {
+  cursor: pointer; font-family: inherit; text-align: right;
+  -webkit-tap-highlight-color: transparent;
+}
+button#techDisplayLabel:active { opacity: 0.75; }
+/* History button next to Site Intel */
+.ws-history-btn { margin-left: 8px; }
 </style>
 </head>
 <body>
@@ -3528,7 +3580,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
     <img id="vcBrandLogo" src="../vertex_core_logo.png" alt="" width="120" height="40" onerror="this.outerHTML='<span style=\'font-weight:800;color:#0ea5e9;font-size:14px;\'>FIELD APP</span>'">
     <div class="app-header-meta">
       <span id="vcFieldOfflineBadge" class="vc-field-offline-badge hidden" role="status" aria-live="polite" title="Firestore is reading from local cache or the device is offline. Data syncs when signal returns."></span>
-      <span id="techDisplayLabel" class="tech-profile-badge">Loading…</span>
+      <button type="button" id="techDisplayLabel" class="tech-profile-badge" aria-haspopup="dialog" aria-expanded="false">Loading…</button>
       <div id="vcShadowTechSelector" class="vc-shadow-tech-selector hidden" aria-label="Shadow tech switcher">
         <button
           type="button"
@@ -3557,9 +3609,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   <div id="vcCoachToast" class="vc-coach-toast hidden" role="alert" aria-live="assertive"></div>
   <nav class="app-main-nav" aria-label="Main">
     <button type="button" class="nav-item active" id="nav-schedule" onclick="switchScreen('schedule')">📋 Schedule</button>
-    <button type="button" class="nav-item" id="nav-history" onclick="switchScreen('history')">🕒 History</button>
     <button type="button" class="nav-item hidden" id="nav-clock" onclick="switchScreen('lite')">⏱ Time</button>
-    <button type="button" class="nav-item" id="nav-profile" onclick="switchScreen('profile')">👤 Profile</button>
   </nav>
 </header>
 
@@ -3621,6 +3671,7 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
       <div id="ws-customer" class="ws-customer">Select a Job</div>
       <div class="ws-site-intel-row">
         <button type="button" id="wsSiteIntelBtn" class="ws-site-intel-btn" title="Site-specific intel (roof access, etc.)">Site Intel</button>
+        <button type="button" id="wsHistoryBtn" class="ws-site-intel-btn ws-history-btn" title="Service history for this site">🕒 History</button>
       </div>
       <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
         Return to Schedule to pick a ticket
@@ -4036,6 +4087,52 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   </div>
 </div>
 
+<!-- Profile overlay panel (opened by tapping the tech name badge) -->
+<div id="vcProfilePanel" class="vc-overlay-panel hidden" role="dialog" aria-label="Profile and settings" aria-modal="true">
+  <div class="vc-overlay-panel-inner">
+    <div class="vc-overlay-panel-head">
+      <span class="vc-overlay-panel-title">Settings</span>
+      <button type="button" id="vcProfilePanelClose" class="vc-overlay-panel-close" aria-label="Close">✕</button>
+    </div>
+    <div class="vc-overlay-panel-body">
+      <div class="vc-panel-section">
+        <div class="vc-panel-section-label">Logged in as</div>
+        <div id="vcProfilePanelName" class="vc-panel-name"></div>
+        <button type="button" id="vcProfilePanelLogout" class="vc-panel-logout-btn">Log Out / Switch User</button>
+      </div>
+      <div class="vc-panel-section">
+        <div class="vc-panel-section-label">My jobs — last 30 days</div>
+        <div id="vcProfileJobsList" class="vc-panel-jobs-list"></div>
+      </div>
+      <div class="vc-panel-section">
+        <div class="vc-panel-section-label">🗺️ Navigation Preferences</div>
+        <p class="map-pref-hint" style="margin:8px 0 10px;">Choose which app opens when you tap a job address.</p>
+        <div class="map-pref-options" role="radiogroup" aria-label="Preferred maps app">
+          <label class="map-pref-label" id="vcProfileMapPrefLabelGoogle">
+            <input type="radio" name="vc_profile_map_app" value="google" id="vcProfileMapPrefGoogle"> Google Maps
+          </label>
+          <label class="map-pref-label" id="vcProfileMapPrefLabelApple">
+            <input type="radio" name="vc_profile_map_app" value="apple" id="vcProfileMapPrefApple"> Apple Maps
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Site History overlay panel (opened by History button next to Site Intel) -->
+<div id="vcSiteHistoryPanel" class="vc-overlay-panel hidden" role="dialog" aria-label="Site service history" aria-modal="true">
+  <div class="vc-overlay-panel-inner">
+    <div class="vc-overlay-panel-head">
+      <span class="vc-overlay-panel-title" id="vcSiteHistoryPanelTitle">Site History</span>
+      <button type="button" id="vcSiteHistoryPanelClose" class="vc-overlay-panel-close" aria-label="Close">✕</button>
+    </div>
+    <div class="vc-overlay-panel-body">
+      <div id="vcSiteHistoryContent"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 window.VC_FIELD_APP_LOADED_AT = Date.now();
 /* ---------- constants & arrays ---------- */
@@ -4280,7 +4377,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34i-inter-office-notes-label-2026-05-02";
+window.VC_BUILD = "Phase34j-profile-panel-site-history-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -8557,6 +8654,136 @@ function initShadowViewerFromUrl() {
   return true;
 }
 
+/* ---------- Profile panel ---------- */
+function renderProfileJobsList() {
+  var list = document.getElementById('vcProfileJobsList');
+  if (!list) return;
+  var data = getHistoryData();
+  var cutoff = dateFromToday(-30);
+  var jobs = [];
+  Object.keys(data).forEach(function (cust) {
+    Object.keys(data[cust]).forEach(function (loc) {
+      (data[cust][loc] || []).forEach(function (visit) {
+        if (visit.date && visit.date >= cutoff) {
+          jobs.push({ date: visit.date, location: loc, type: visit.mode || 'PM' });
+        }
+      });
+    });
+  });
+  jobs.sort(function (a, b) { return b.date.localeCompare(a.date); });
+  if (!jobs.length) {
+    list.innerHTML = '<div class="vc-panel-empty">No completed jobs in the last 30 days.</div>';
+    return;
+  }
+  list.innerHTML = jobs.map(function (j) {
+    return '<div class="vc-panel-job-card">' +
+      '<div class="vc-panel-job-card-date">' + escapeHtml(j.date) + '</div>' +
+      '<div class="vc-panel-job-card-loc">' + escapeHtml(j.location) + '</div>' +
+      '<div class="vc-panel-job-card-type">' + escapeHtml(j.type) + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+function wireProfilePanel() {
+  var trigger = document.getElementById('techDisplayLabel');
+  var panel = document.getElementById('vcProfilePanel');
+  var closeBtn = document.getElementById('vcProfilePanelClose');
+  var logoutBtn = document.getElementById('vcProfilePanelLogout');
+  var googRadio = document.getElementById('vcProfileMapPrefGoogle');
+  var applRadio = document.getElementById('vcProfileMapPrefApple');
+  if (!panel) return;
+
+  function openProfilePanel() {
+    var nameEl = document.getElementById('vcProfilePanelName');
+    if (nameEl) nameEl.textContent = currentTechProfile || 'Unknown';
+    var mapVal = localStorage.getItem('preferred_map_app') || 'google';
+    if (googRadio) { googRadio.checked = (mapVal !== 'apple'); }
+    if (applRadio) { applRadio.checked = (mapVal === 'apple'); }
+    renderProfileJobsList();
+    panel.classList.remove('hidden');
+    if (trigger) trigger.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeProfilePanel() {
+    panel.classList.add('hidden');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  }
+  if (trigger) trigger.addEventListener('click', openProfilePanel);
+  if (closeBtn) closeBtn.addEventListener('click', closeProfilePanel);
+  panel.addEventListener('click', function (e) { if (e.target === panel) closeProfilePanel(); });
+  if (logoutBtn) logoutBtn.addEventListener('click', function () { closeProfilePanel(); switchUser(); });
+  if (googRadio) googRadio.addEventListener('change', function () {
+    if (this.checked) { localStorage.setItem('preferred_map_app', 'google'); initMapPreferenceUI(); }
+  });
+  if (applRadio) applRadio.addEventListener('change', function () {
+    if (this.checked) { localStorage.setItem('preferred_map_app', 'apple'); initMapPreferenceUI(); }
+  });
+}
+
+/* ---------- Site history panel ---------- */
+function vcShowSiteHistoryDetail(idx, el) {
+  var loc = (typeof activeTicket !== 'undefined' && activeTicket) ? (activeTicket.location || '') : '';
+  if (!loc) { var locEl = document.getElementById('location'); if (locEl) loc = locEl.value.trim(); }
+  var customer = getCustomerFromLocation(loc);
+  var data = getHistoryData();
+  var visits = (data[customer] && data[customer][loc]) ? data[customer][loc] : [];
+  document.querySelectorAll('#vcSiteHistoryContent .history-item').forEach(function (item) {
+    item.classList.remove('active');
+  });
+  if (el) el.classList.add('active');
+  var detail = document.getElementById('vcSiteHistoryDetail');
+  var report = document.getElementById('vcSiteHistoryReport');
+  if (detail) detail.classList.remove('hidden');
+  if (report && visits[idx]) report.textContent = visits[idx].report || '(no report saved)';
+}
+
+function renderSiteHistoryPanel() {
+  var content = document.getElementById('vcSiteHistoryContent');
+  var titleEl = document.getElementById('vcSiteHistoryPanelTitle');
+  if (!content) return;
+  var loc = (typeof activeTicket !== 'undefined' && activeTicket) ? (activeTicket.location || '') : '';
+  if (!loc) { var locEl = document.getElementById('location'); if (locEl) loc = locEl.value.trim(); }
+  if (!loc) {
+    content.innerHTML = '<div class="vc-panel-empty">Open a job to see site history.</div>';
+    if (titleEl) titleEl.textContent = 'Site History';
+    return;
+  }
+  var customer = getCustomerFromLocation(loc);
+  if (titleEl) titleEl.textContent = (customer || loc) + ' — History';
+  var data = getHistoryData();
+  var visits = (data[customer] && data[customer][loc]) ? data[customer][loc] : [];
+  if (!visits.length) {
+    content.innerHTML = '<div class="vc-panel-empty">No visit history found for this site yet.</div>';
+    return;
+  }
+  var html = visits.map(function (visit, idx) {
+    var s = buildVisitSummary(visit);
+    return '<div class="history-item' + (idx === 0 ? ' active' : '') + '" onclick="vcShowSiteHistoryDetail(' + idx + ', this)">' +
+      '<div class="history-title">' + escapeHtml(s.date) + ' \u2013 ' + escapeHtml(s.type) + '</div>' +
+      '<div class="history-sub">' + escapeHtml(s.details) + '</div>' +
+      '</div>';
+  }).join('');
+  html += '<div id="vcSiteHistoryDetail" class="hidden" style="margin-top:14px;">' +
+    '<pre id="vcSiteHistoryReport" style="white-space:pre-wrap;font-size:12px;color:#374151;' +
+    'background:#f8fafc;border:1px solid #e1e8ed;border-radius:8px;padding:12px;' +
+    'overflow:auto;max-height:38vh;"></pre></div>';
+  content.innerHTML = html;
+  vcShowSiteHistoryDetail(0, content.querySelector('.history-item'));
+}
+
+function wireSiteHistoryPanel() {
+  var btn = document.getElementById('wsHistoryBtn');
+  var panel = document.getElementById('vcSiteHistoryPanel');
+  var closeBtn = document.getElementById('vcSiteHistoryPanelClose');
+  if (!panel) return;
+  function openPanel() { renderSiteHistoryPanel(); panel.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+  function closePanel() { panel.classList.add('hidden'); document.body.style.overflow = ''; }
+  if (btn) btn.addEventListener('click', openPanel);
+  if (closeBtn) closeBtn.addEventListener('click', closePanel);
+  panel.addEventListener('click', function (e) { if (e.target === panel) closePanel(); });
+}
+
 /* ---------- init ---------- */
 window.onload = async function(){
   if (initShadowViewerFromUrl()) {
@@ -8605,6 +8832,8 @@ window.onload = async function(){
   }
 
   document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
+  wireProfilePanel();
+  wireSiteHistoryPanel();
   if (typeof wireCoachingInbox === 'function') wireCoachingInbox();
   if (typeof writeLivePresence === 'function') writeLivePresence();
   window.setInterval(function () {
