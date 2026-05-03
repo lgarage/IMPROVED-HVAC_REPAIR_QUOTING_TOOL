@@ -8,6 +8,7 @@
 
   var siteIntelUnsub = null;
   var lastIntelDocId = "";
+  var _siteIntelAutoBridgeByDoc = {};
 
   /**
    * Phase 34e — in-memory state for the open Site Intel modal session.
@@ -153,6 +154,91 @@
       siteIntelUnsub = null;
     }
     lastIntelDocId = "";
+  }
+
+  function latestTechnicianInterOfficeNotesFromTicket() {
+    if (typeof activeTicket === "undefined" || !activeTicket) return "";
+    var internal = String(activeTicket.internal_comms || "").trim();
+    if (internal) return internal;
+    /* Fallback: some legacy flows only carried the field-report string. Keep this
+       as a last resort so reload still hydrates Site Intel even on old rows. */
+    return String(activeTicket.techNotes || "").trim();
+  }
+
+  /**
+   * Reload bridge: move the latest ticket-side technician notes into this site's
+   * Site Intel inter-office field so the value survives reloads and appears in the
+   * Site Intel modal immediately for the customer/site.
+   */
+  function bridgeLatestTechnicianNotesIntoSiteIntel() {
+    var meta = siteIntelDocRef();
+    if (!meta || !meta.docId) return;
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+    if (!window.DataProvider) return;
+    var latest = latestTechnicianInterOfficeNotesFromTicket();
+    if (!latest) return;
+    if (_siteIntelAutoBridgeByDoc[meta.docId] === latest) return;
+
+    var line = String(meta.line || locationLineFromDom() || "").trim();
+    var normalized =
+      typeof DataProvider.normalizeLocationKey === "function"
+        ? DataProvider.normalizeLocationKey(line)
+        : String(line || "").trim().toLowerCase();
+    var by = techName();
+    if (!by) by = "Field";
+    var _db = firebase.firestore();
+    var read =
+      typeof VCFirestore !== "undefined" && VCFirestore.getSiteIntelDocOnceBridged
+        ? VCFirestore.getSiteIntelDocOnceBridged(_db, meta.docId)
+        : (typeof VCFirestore !== "undefined"
+            ? VCFirestore.siteIntelligence(_db)
+            : _db.collection("site_intelligence")
+          )
+            .doc(meta.docId)
+            .get()
+            .then(function (snap) {
+              return { exists: snap.exists, data: snap.exists ? snap.data() : null };
+            });
+
+    read
+      .then(function (got) {
+        var d = got && got.exists && got.data ? got.data : {};
+        var existing = String(d.technicianInterOfficeNotes || "").trim();
+        if (existing === latest) {
+          _siteIntelAutoBridgeByDoc[meta.docId] = latest;
+          return;
+        }
+        var payload = {
+          locationDisplay: line,
+          normalizedKey: normalized,
+          technicianInterOfficeNotes: latest,
+          technicianInterOfficeUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          technicianInterOfficeUpdatedBy: by,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        };
+        var write =
+          typeof VCFirestore !== "undefined" && VCFirestore.setSiteIntelMerged
+            ? VCFirestore.setSiteIntelMerged(_db, meta.docId, payload, true)
+            : (typeof VCFirestore !== "undefined"
+                ? VCFirestore.siteIntelligence(_db)
+                : _db.collection("site_intelligence")
+              )
+                .doc(meta.docId)
+                .set(payload, { merge: true });
+        return write.then(function () {
+          _siteIntelAutoBridgeByDoc[meta.docId] = latest;
+          var modal = document.getElementById("vcSiteIntelModal");
+          var interOfficeBody = document.getElementById("vcSiteIntelInterOfficeBody");
+          if (modal && !modal.classList.contains("hidden") && interOfficeBody) {
+            interOfficeBody.value = latest;
+          }
+        });
+      })
+      .catch(function (err) {
+        if (typeof window.VCSurfaceWriteFailure === "function") {
+          window.VCSurfaceWriteFailure("siteIntel:reloadBridge", err);
+        }
+      });
   }
 
   function subscribeSiteIntelPulse() {
@@ -951,6 +1037,7 @@
   function workspaceUiOnOpen() {
     ensureOfficeOverrideWorkspaceUnlocked();
     subscribeSiteIntelPulse();
+    bridgeLatestTechnicianNotesIntoSiteIntel();
     var btn = document.getElementById("wsSiteIntelBtn");
     if (btn && !btn.dataset.wired) {
       btn.dataset.wired = "1";
