@@ -1582,10 +1582,12 @@
           var t = data.internal_comms != null ? String(data.internal_comms) : "";
           var el = getNotesEl();
           if (!el) return;
-          /* Don't clobber a seeded prior-tech value (or the user's typing) with
-             empty when a transient cached snapshot fires before the bridged data
-             arrives. Only let real (non-empty) live updates flow through. */
+          /* Don't clobber a non-empty textarea with an empty transient snapshot. */
           if (!t && el.value && el.value.trim()) return;
+          /* Prior-tech notes belong in Site Intel; don't pre-fill a blank
+             textarea from the initial snapshot. Live updates are still allowed
+             when Office Override is active so dispatch edits reach the tech. */
+          if (t && !el.value.trim() && window.VC_OFFICE_OVERRIDE !== true) return;
           /* Don't clobber the user's in-progress typing or a pending local save. */
           if (document.activeElement === el) return;
           if (internalCloudDebounce) return;
@@ -1640,11 +1642,16 @@
         ) {
           var el = getNotesEl();
           if (!el) return;
-          /* Don't clobber a seeded prior-tech value with empty when the bridged
-             read couldn't surface either field (offline, TWIN_PILLARS bridge
-             mismatch, etc.). The live onSnapshot listener will still pick up
-             real updates as they arrive. */
+          /* Don't clobber a non-empty textarea with an empty cloud response
+             (offline, bridge mismatch, etc.). */
           if (!t && el.value && el.value.trim()) return;
+          /* Prior-tech notes belong in Site Intel; don't pre-fill a blank
+             textarea from the cloud on workspace open. Still update localStorage
+             so the tech's own future saves are cached correctly. */
+          if (t && !el.value.trim()) {
+            try { localStorage.setItem("dictationHubNotes_" + ticketId, t); } catch (e) {}
+            return;
+          }
           /* Don't clobber the user's in-progress typing or a pending local save. */
           if (document.activeElement === el) return;
           if (internalCloudDebounce) return;
@@ -1673,30 +1680,11 @@
         return;
       }
       var seed = loadNotesTextForTicketId(activeTicket.id);
-      /* Seed from the in-memory ticket doc when the local cache is empty so a
-         tech (or the dispatcher simulator) opening a previously-submitted ticket
-         on a fresh device sees the prior tech's notes immediately, instead of
-         a blank textarea while waiting on (or losing the race to) the async
-         cloud fetch + onSnapshot listener.
-
-         Order of fallback: internal_comms (live thread, what the office sees)
-         → techNotes (formatted final report saved on Complete & Sync) so a
-         historical ticket with only a submitted report still shows content. */
-      if (!seed || !String(seed).trim()) {
-        var fromTicket = "";
-        if (activeTicket.internal_comms != null) {
-          fromTicket = String(activeTicket.internal_comms);
-        }
-        if ((!fromTicket || !fromTicket.trim()) && activeTicket.techNotes != null) {
-          fromTicket = String(activeTicket.techNotes);
-        }
-        if (fromTicket && fromTicket.trim()) {
-          seed = fromTicket;
-          try {
-            localStorage.setItem("dictationHubNotes_" + activeTicket.id, seed);
-          } catch (eStore) {}
-        }
-      }
+      /* Only restore the tech's own in-progress notes from localStorage.
+         Prior-tech notes (internal_comms / techNotes from a previous visit)
+         are bridged into site_intelligence.technicianInterOfficeNotes and shown
+         in the Site Intel modal — the workspace textarea starts blank for a
+         fresh visit so there is no confusion about whose notes are whose. */
       el.value = seed || "";
       fetchInternalCommsFromCloud(activeTicket.id);
       subscribeInternalCommsForTicket(activeTicket.id);
