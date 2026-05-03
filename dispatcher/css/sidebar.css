@@ -112,15 +112,18 @@
 .sidebar.collapsed .sidebar-wordmark {
   display: none !important;
 }
-.sidebar.collapsed .mini-logo {
+/* Collapsed rail: show mark SVG instead of "VC" text — sized slightly larger than the old abbrev */
+.sidebar.collapsed .sidebar-vc-abbrev {
   display: none !important;
 }
-.sidebar.collapsed .sidebar-vc-abbrev {
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  width: 100%;
+.sidebar.collapsed .mini-logo {
+  display: block !important;
+  margin: 4px auto 2px;
+  max-width: 76px;
+  max-height: 96px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 .sidebar-toggle-btn {
   background: transparent;
