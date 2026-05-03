@@ -1701,6 +1701,12 @@ body.vc-override-active #vcOfficeOverrideBanner {
   top: calc(env(safe-area-inset-top) + 118px);
   z-index: 95;
 }
+/* Shadow viewer / dispatcher simulator iframe (`vc_shadow_viewer`): real header stack is shorter than
+   the +118px assumption — sticky site banner sat too low and scrolling exposed a bright band between
+   Schedule and PLANET FITNESS. Tighten offset only for this mode so standalone phones keep the safer default. */
+body.vc-shadow-viewer .workspace-site-banner-sticky {
+  top: calc(env(safe-area-inset-top) + 104px);
+}
 .dictation-site-nav .ws-customer-row {
   display: flex;
   align-items: center;
@@ -1844,7 +1850,7 @@ body.vc-override-active #vcOfficeOverrideBanner {
   white-space: pre-wrap;
   word-break: break-word;
 }
-.dictation-site-nav .ws-address { margin-bottom: 12px; }
+.dictation-site-nav .ws-address { margin-bottom: 6px; }
 .ws-site-intel-btn {
   font-family: inherit;
   font-size: 13px;
@@ -4616,7 +4622,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34n-workspace-header-tight-spacing-2026-05-02";
+window.VC_BUILD = "Phase34o-workspace-sticky-shadow-gap-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
