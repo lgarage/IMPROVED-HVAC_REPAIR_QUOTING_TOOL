@@ -4614,7 +4614,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34k-prev-submission-panel-2026-05-02";
+window.VC_BUILD = "Phase34l-status-gate-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -8251,6 +8251,27 @@ function validateRecommendedRepairLabor() {
   return { ok: true };
 }
 
+/**
+ * Gate: technician must explicitly change the job status away from the default
+ * "Dispatched" before syncing. Scrolls the inline status selector into view so
+ * they can update it without hunting for it.
+ */
+function validateJobStatusUpdated() {
+  const status = (document.getElementById("finalJobStatus") || {}).value || "";
+  if (status === "Dispatched") {
+    const inline = document.getElementById("wsJobStatusInline");
+    if (inline) {
+      try { inline.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {}
+      setTimeout(function () { try { inline.focus(); } catch (e) {} }, 300);
+    }
+    return {
+      ok: false,
+      message: "Please update the job status before syncing.\n\nTap the status selector at the top of the workspace and choose the outcome (Completed, Quote Needed, or Parts on Order)."
+    };
+  }
+  return { ok: true };
+}
+
 /** When final status is "Needs Repair Quote", parts + labor for the quote must be filled (Service Call §3). */
 function validateNeedsRepairQuote() {
   const status = document.getElementById("finalJobStatus").value;
@@ -8313,6 +8334,11 @@ document.getElementById("generate").onclick = async function(){
   if (wsScreen && wsScreen.classList.contains("is-historical-job")) {
     return;
   }
+  const statusCheck = validateJobStatusUpdated();
+  if (!statusCheck.ok) {
+    alert(statusCheck.message);
+    return;
+  }
   maybeSoftNudgeThermostatLabeling();
   const laborCheck = validateRecommendedRepairLabor();
   if (!laborCheck.ok) {
@@ -8333,6 +8359,12 @@ document.getElementById("generate").onclick = async function(){
 document.getElementById("reportPreviewSyncBtn").onclick = async function(){
   const wsScreen = document.getElementById("screen-workspace");
   if (wsScreen && wsScreen.classList.contains("is-historical-job")) {
+    return;
+  }
+  const statusCheck = validateJobStatusUpdated();
+  if (!statusCheck.ok) {
+    alert(statusCheck.message);
+    closeReportPreview();
     return;
   }
   maybeSoftNudgeThermostatLabeling();
