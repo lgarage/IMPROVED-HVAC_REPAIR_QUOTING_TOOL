@@ -8086,6 +8086,32 @@ function isMissingQuotePartOrLabor(value) {
   return false;
 }
 
+/**
+ * When the technician's Recommendations field implied a repair (AI or manual entry filled
+ * quoteParts in §2 — Parts & Quote Info) but quoteLabor is still missing, block sync.
+ * This prevents a ticket from closing without labor on a recommended repair, even when
+ * the job status was not explicitly set to "Needs Repair Quote".
+ * Only enforced in SERVICE mode (where §2 is visible and relevant).
+ */
+function validateRecommendedRepairLabor() {
+  if (currentMode !== "SERVICE") return { ok: true };
+  const qp = (document.getElementById("quoteParts") || {}).value || "";
+  const ql = (document.getElementById("quoteLabor") || {}).value || "";
+  const hasRecommendedParts = !isMissingQuotePartOrLabor(qp);
+  const laborMissing = isMissingQuotePartOrLabor(ql);
+  if (hasRecommendedParts && laborMissing) {
+    const accParts = document.getElementById("acc-parts-svc");
+    if (accParts) accParts.classList.add("open");
+    const qlEl = document.getElementById("quoteLabor");
+    if (qlEl) setTimeout(function () { qlEl.focus(); }, 150);
+    return {
+      ok: false,
+      message: "Recommended repair: enter labor hours in section 2 (Parts & Quote Info) before syncing."
+    };
+  }
+  return { ok: true };
+}
+
 /** When final status is "Needs Repair Quote", parts + labor for the quote must be filled (Service Call §3). */
 function validateNeedsRepairQuote() {
   const status = document.getElementById("finalJobStatus").value;
@@ -8149,6 +8175,11 @@ document.getElementById("generate").onclick = async function(){
     return;
   }
   maybeSoftNudgeThermostatLabeling();
+  const laborCheck = validateRecommendedRepairLabor();
+  if (!laborCheck.ok) {
+    alert(laborCheck.message);
+    return;
+  }
   const check = validateNeedsRepairQuote();
   if (!check.ok) {
     alert(check.message);
@@ -8166,6 +8197,11 @@ document.getElementById("reportPreviewSyncBtn").onclick = async function(){
     return;
   }
   maybeSoftNudgeThermostatLabeling();
+  const laborCheck = validateRecommendedRepairLabor();
+  if (!laborCheck.ok) {
+    alert(laborCheck.message);
+    return;
+  }
   const check = validateNeedsRepairQuote();
   if (!check.ok) {
     alert(check.message);
