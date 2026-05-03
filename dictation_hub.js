@@ -1624,10 +1624,15 @@
             });
     load
       .then(function (got) {
-        var t =
-          got && got.exists && got.data && got.data.internal_comms != null
-            ? String(got.data.internal_comms)
-            : "";
+        var data = got && got.exists && got.data ? got.data : null;
+        var ic =
+          data && data.internal_comms != null ? String(data.internal_comms) : "";
+        var tn = data && data.techNotes != null ? String(data.techNotes) : "";
+        /* Prior-tech notes priority: live thread (`internal_comms`) first; if it's
+           empty fall back to the formatted final report (`techNotes`) so a
+           previously-submitted historical ticket displays content the dispatcher
+           already shows in its "Technician report (Field app):" panel. */
+        var t = ic.trim() ? ic : tn.trim() ? tn : "";
         if (
           typeof activeTicket !== "undefined" &&
           activeTicket &&
@@ -1636,7 +1641,7 @@
           var el = getNotesEl();
           if (!el) return;
           /* Don't clobber a seeded prior-tech value with empty when the bridged
-             read couldn't surface internal_comms (offline, TWIN_PILLARS bridge
+             read couldn't surface either field (offline, TWIN_PILLARS bridge
              mismatch, etc.). The live onSnapshot listener will still pick up
              real updates as they arrive. */
           if (!t && el.value && el.value.trim()) return;

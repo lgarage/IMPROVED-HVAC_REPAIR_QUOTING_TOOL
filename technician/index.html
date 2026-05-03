@@ -4530,7 +4530,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34k-prior-notes-hydrate-2026-05-02";
+window.VC_BUILD = "Phase34k-prior-notes-cloud-fallback-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -4686,6 +4686,21 @@ window.VC_BUILD = "Phase34k-prior-notes-hydrate-2026-05-02";
         var at = (typeof activeTicket !== "undefined" && activeTicket && activeTicket.id) ? activeTicket.id : "(none)";
         lines.push("active ticket: " + at);
       } catch (e) { lines.push("active ticket: ?"); }
+      try {
+        /* Phase 34k — show whether prior-tech notes are present in the in-memory ticket
+           and whether the dictation hub textarea actually got hydrated, so a "notes
+           missing on the phone" report can be triaged in seconds without remote DevTools. */
+        if (typeof activeTicket !== "undefined" && activeTicket && activeTicket.id) {
+          var icRaw = activeTicket.internal_comms;
+          var tnRaw = activeTicket.techNotes;
+          var icLen = (icRaw == null) ? "null" : String(icRaw).length;
+          var tnLen = (tnRaw == null) ? "null" : String(tnRaw).length;
+          lines.push("actT.ic.len=" + icLen + " actT.tn.len=" + tnLen);
+          var dhEl = document.getElementById("dictationHubNotes");
+          var dhLen = dhEl ? String(dhEl.value || "").length : "(no el)";
+          lines.push("dh.notes.len=" + dhLen);
+        }
+      } catch (e) { lines.push("actT.notes: ?"); }
       try {
         var screen = "?";
         var screens = document.querySelectorAll(".screen.active, [id^='screen-'].active");
@@ -9350,7 +9365,7 @@ window.onload = async function(){
     <script src="js/data_provider.js?v=1"></script>
     <script src="js/workspace_ui.js?v=11"></script>
     <script src="js/location_manager.js?v=1"></script>
-    <script src="../dictation_hub.js?v=15"></script>
+    <script src="../dictation_hub.js?v=16"></script>
     <script src="../equipment_hub.js?v=1"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>
