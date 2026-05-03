@@ -865,6 +865,68 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   line-height: 1.4;
   box-shadow: 0 2px 12px rgba(14, 165, 233, 0.35);
 }
+.ws-prev-submission {
+  background: #0f1d2e;
+  border: 1px solid rgba(14, 165, 233, 0.45);
+  border-radius: 12px;
+  padding: 14px 14px 12px;
+  margin: 12px 0 14px;
+  color: #e2e8f0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.ws-prev-submission.hidden,
+.ws-prev-submission[hidden] { display: none !important; }
+.ws-prev-submission__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.ws-prev-submission__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.2px;
+}
+.ws-prev-submission__toggle {
+  background: transparent;
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  color: #38bdf8;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ws-prev-submission__toggle:hover { background: rgba(56, 189, 248, 0.12); }
+.ws-prev-submission__hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+.ws-prev-submission__body {
+  margin: 0;
+  background: #0b1626;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #e2e8f0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow: auto;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.ws-prev-submission.is-collapsed .ws-prev-submission__body,
+.ws-prev-submission.is-collapsed .ws-prev-submission__hint { display: none; }
 body.vc-office-override #vcOfficeOverrideBanner,
 body.vc-override-active #vcOfficeOverrideBanner {
   display: none !important;
@@ -3856,6 +3918,28 @@ button#techDisplayLabel:active { opacity: 0.75; }
     <p>Saved successfully. You can return to your schedule.</p>
   </div>
 
+  <section
+    id="workspacePreviousSubmission"
+    class="ws-prev-submission hidden"
+    aria-labelledby="wsPrevSubmissionTitle"
+    hidden
+  >
+    <header class="ws-prev-submission__head">
+      <h3 id="wsPrevSubmissionTitle" class="ws-prev-submission__title">📄 Previously submitted report</h3>
+      <button
+        type="button"
+        id="wsPrevSubmissionToggle"
+        class="ws-prev-submission__toggle"
+        aria-expanded="true"
+        aria-controls="wsPrevSubmissionBody"
+      >Hide</button>
+    </header>
+    <p class="ws-prev-submission__hint" id="wsPrevSubmissionHint">
+      Read-only — the last report a technician synced for this ticket. Use the form below for any new findings or follow-ups.
+    </p>
+    <pre id="wsPrevSubmissionBody" class="ws-prev-submission__body"></pre>
+  </section>
+
   <section class="dictation-hub-shell" aria-labelledby="dictationHubSectionTitle">
     <div class="dictation-hub-top">
       <h2 class="dictation-hub-title" id="dictationHubSectionTitle">Technician notes</h2>
@@ -4530,7 +4614,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34k-prior-notes-cloud-fallback-2026-05-02";
+window.VC_BUILD = "Phase34k-prev-submission-panel-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -6123,6 +6207,45 @@ function escapeAttrForUrl(s) {
     .replace(/</g, '&lt;');
 }
 
+/* Phase 34k — Read-only "Previously submitted report" panel.
+   Shows `activeTicket.techNotes` (the formatted final report from the last
+   Complete & Sync, same content the dispatcher renders as "Technician report
+   (Field app):") above the dictation hub on workspace open, so a follow-up
+   tech (or office in override / dispatcher simulator) sees what the previous
+   visit submitted without needing to re-parse the report into the new-visit
+   input fields. New input fields stay empty so a fresh follow-up entry can
+   be written; the addendum CTA still applies on historical (read-only) tickets. */
+function renderWorkspacePreviousSubmission(ticket) {
+  const wrap = document.getElementById('workspacePreviousSubmission');
+  if (!wrap) return;
+  const body = document.getElementById('wsPrevSubmissionBody');
+  const toggle = document.getElementById('wsPrevSubmissionToggle');
+  const text = ticket && ticket.techNotes != null ? String(ticket.techNotes) : '';
+  if (!text || !text.trim()) {
+    wrap.classList.add('hidden');
+    wrap.hidden = true;
+    if (body) body.textContent = '';
+    return;
+  }
+  if (body) body.textContent = text;
+  wrap.classList.remove('hidden');
+  wrap.hidden = false;
+  /* Default expanded on each open; idempotent click handler collapses on tap. */
+  wrap.classList.remove('is-collapsed');
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.textContent = 'Hide';
+    if (!toggle.dataset.vcWired) {
+      toggle.dataset.vcWired = '1';
+      toggle.addEventListener('click', function () {
+        const collapsed = wrap.classList.toggle('is-collapsed');
+        toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        toggle.textContent = collapsed ? 'Show' : 'Hide';
+      });
+    }
+  }
+}
+
 function renderWorkspaceCustomerEvidence(ticket) {
   const el = document.getElementById('workspaceCustomerEvidence');
   if (!el) return;
@@ -6444,6 +6567,7 @@ function openWorkspace(ticketId) {
 
   document.getElementById('successCard').style.display = 'none';
   if (typeof hideFormIntentBanner === 'function') hideFormIntentBanner();
+  renderWorkspacePreviousSubmission(activeTicket);
   renderWorkspaceCustomerEvidence(activeTicket);
   renderWorkspaceFieldEvidence(activeTicket);
   applyMode();
