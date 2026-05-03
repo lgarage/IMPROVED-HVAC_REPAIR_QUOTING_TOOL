@@ -1740,12 +1740,11 @@ body.vc-override-active #vcOfficeOverrideBanner {
   background: #fff;
 }
 .ws-site-menu-btn.site-intel--has-data {
-  background: #f4d03f;
-  border-color: #d4ac0d;
-  animation: vc-site-intel-pulse 2s ease-in-out infinite;
-  box-shadow: 0 0 0 2px rgba(244,208,63,0.45);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.25);
 }
-.ws-site-menu-btn.site-intel--has-data .ws-site-menu-btn__bar { background: #1a1a1a; }
+.ws-site-menu-btn.site-intel--has-data .ws-site-menu-btn__bar { background: #f1f5f9; }
 .ws-site-menu-dropdown {
   position: absolute;
   top: calc(100% + 6px);
@@ -4616,7 +4615,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34p-workspace-sticky-measure-shell-2026-05-02";
+window.VC_BUILD = "Phase34q-site-menu-btn-neutral-intel-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
