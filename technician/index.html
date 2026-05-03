@@ -1720,14 +1720,18 @@ body.vc-override-active #vcOfficeOverrideBanner {
 .dictation-site-nav .ws-ticket { font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold; }
 .dictation-site-nav .ws-ticket-shadow-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 8px 10px;
+  gap: 8px;
   margin-bottom: 10px;
 }
 .dictation-site-nav .ws-ticket-shadow-row .ws-ticket {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
   margin-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .vc-header-shadow-tech-anchor:empty {
   display: none !important;
@@ -1735,9 +1739,8 @@ body.vc-override-active #vcOfficeOverrideBanner {
 .ws-job-status-inline {
   font-size: 11px;
   font-weight: 700;
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 170px;
+  flex: 0 0 auto;
+  max-width: min(170px, 42vw);
   border: 1px solid rgba(255,255,255,0.28);
   border-radius: 4px;
   padding: 3px 6px;
@@ -4026,25 +4029,22 @@ button#techDisplayLabel:active { opacity: 0.75; }
     </div>
   </div>
 
-  <div class="accordion" id="acc-status" style="margin-bottom: 20px;">
-    <div class="accordion-header" onclick="toggleAccordion('acc-status')">4. Job Status</div>
-    <div class="accordion-body">
-      <label style="margin-top:0;">Link repair to equipment (optional)</label>
-      <select id="linkedEquipmentSelect" data-smart-equipment="true" disabled>
-        <option value="">— None —</option>
-      </select>
-      <p style="font-size: 12px; color: #7f8c8d; margin: 8px 0 0 0; line-height: 1.4">
-        Tie this visit to a unit from the Equipment Hub so future history shows on that unit.
-      </p>
-      <label>Select Final Status</label>
-      <select id="finalJobStatus" style="font-weight: bold; border-color: #0ea5e9;">
-        <option value="Completed">Completed (Ready to Bill)</option>
-        <option value="Needs Repair Quote">Needs Repair Quote</option>
-        <option value="Parts on Order">Parts on Order / Return Trip Needed</option>
-        <option value="Dispatched">Still In Progress (Coming back later)</option>
-      </select>
-    </div>
+  <div id="acc-status" class="vc-linked-equipment-block" style="margin-bottom: 15px;">
+    <label style="margin-top:0;">Link repair to equipment (optional)</label>
+    <select id="linkedEquipmentSelect" data-smart-equipment="true" disabled>
+      <option value="">— None —</option>
+    </select>
+    <p style="font-size: 12px; color: #7f8c8d; margin: 8px 0 0 0; line-height: 1.4">
+      Tie this visit to a unit from the Equipment Hub so future history shows on that unit.
+    </p>
   </div>
+  <!-- Mirrored by #wsJobStatusInline in the site banner; kept for sync/report JS -->
+  <select id="finalJobStatus" class="visually-hidden" tabindex="-1" aria-hidden="true">
+    <option value="Completed">Completed (Ready to Bill)</option>
+    <option value="Needs Repair Quote">Needs Repair Quote</option>
+    <option value="Parts on Order">Parts on Order / Return Trip Needed</option>
+    <option value="Dispatched">Still In Progress (Coming back later)</option>
+  </select>
 
   <!-- Phase 34d — Thermostat labeling (one accordion; FAB is shared below workspaceLockScope — visible for PM / Service / Quote) -->
   <div class="accordion vc-accordion" id="acc-tstat-label" style="margin-bottom: 15px;">
@@ -8094,8 +8094,8 @@ function validateNeedsRepairQuote() {
     if (typeof syncWorkspaceReasonBanner === "function") syncWorkspaceReasonBanner();
     const accParts = document.getElementById("acc-parts-svc");
     if (accParts) accParts.classList.add("open");
-    const accStatus = document.getElementById("acc-status");
-    if (accStatus) accStatus.classList.add("open");
+    const wsInline = document.getElementById("wsJobStatusInline");
+    if (wsInline) try { wsInline.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) {}
     return {
       ok: false,
       message: "Switched to Service Call so you can enter the repair quote. Fill in section 3 — Parts needed for repair quote and Labor for repair quote — then tap Complete & Sync again."
