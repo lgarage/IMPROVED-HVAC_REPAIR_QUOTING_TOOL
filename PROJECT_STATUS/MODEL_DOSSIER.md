@@ -66,6 +66,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-02 | Field app: #acc-svc-repair collapsed by default (strip initial accordion open) | LOW | T0 | Fast | ~96% | ~97% | ok | ok | Cursor: **Composer 2**; `technician/index.html` `#acc-svc-repair`; simulator uses same shell |
 | 2026-05-02 | Field app: Remove smart-select scan row + Equipment Hub blurb under linked equipment | LOW | T0–T1 | Fast | ~91% | ~93% | ok | ok | Cursor: **Composer 2**; `equipment_smart_select.js` drops scan option + change handler; `#acc-status` `<p>` removed; `SCAN_NEW_EQUIPMENT_VALUE` kept for field_forms |
 | 2026-05-02 | Field app: Default job status Dispatched (in progress) on inline + hidden selects | LOW | T0 | Fast | ~94% | ~95% | ok | ok | Cursor: **Composer 2**; `selected` on `value="Dispatched"` in `#wsJobStatusInline` + `#finalJobStatus` |
 | 2026-05-02 | Field app: Remove Job Status accordion; ticket row nowrap + SR helper scroll to inline status | LOW | T0–T1 | Fast | ~92% | ~93% | ok | ok | Cursor: **Composer 2**; `#acc-status` → linked-equipment-only block; `#finalJobStatus` visually-hidden; sync unchanged |
