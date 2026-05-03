@@ -1729,15 +1729,27 @@ body.vc-override-active #vcOfficeOverrideBanner {
   flex: 0 1 auto;
   margin-bottom: 0;
 }
-.ws-shadow-tech-anchor:empty,
 .vc-header-shadow-tech-anchor:empty {
   display: none !important;
 }
-.dictation-site-nav .ws-shadow-tech-anchor .vc-shadow-tech-selector {
-  width: auto;
-  flex: 1 1 140px;
-  max-width: min(260px, 58vw);
+.ws-job-status-inline {
+  font-size: 11px;
+  font-weight: 700;
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 170px;
+  border: 1px solid rgba(255,255,255,0.28);
+  border-radius: 4px;
+  padding: 3px 6px;
+  background: rgba(14,165,233,0.18);
+  color: #e2e8f0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.ws-job-status-inline:focus {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 1px;
 }
 .dictation-site-nav .ws-reason-for-call {
   margin-top: 10px;
@@ -3822,7 +3834,12 @@ button#techDisplayLabel:active { opacity: 0.75; }
       </button>
       <div class="ws-ticket-shadow-row">
         <div id="ws-ticket" class="ws-ticket">NO TICKET</div>
-        <div id="wsShadowTechAnchor" class="ws-shadow-tech-anchor"></div>
+        <select id="wsJobStatusInline" class="ws-job-status-inline" aria-label="Job status">
+          <option value="Completed">✅ Completed</option>
+          <option value="Needs Repair Quote">📋 Quote Needed</option>
+          <option value="Parts on Order">📦 Parts Ordered</option>
+          <option value="Dispatched">🔄 In Progress</option>
+        </select>
       </div>
       <div id="ws-reason-for-call" class="ws-reason-for-call hidden" role="region" aria-label="Reason for call" aria-hidden="true">
         <div class="ws-reason-for-call-label">Reason for call</div>
@@ -6426,6 +6443,7 @@ function openWorkspace(ticketId) {
   }
   switchScreen('workspace');
   saveDraft();
+  if (typeof syncJobStatusInline === "function") syncJobStatusInline();
   if (typeof refreshJobLinkedEquipmentDropdown === "function") refreshJobLinkedEquipmentDropdown();
   if (typeof startDictationHubFromWorkspace === "function") startDictationHubFromWorkspace();
   if (typeof window.workspaceUiOnOpen === "function") window.workspaceUiOnOpen();
@@ -8360,12 +8378,28 @@ function vcRelocateShadowTechSelector() {
   if (window.VC_SHADOW_VIEWER !== true) return;
   const box = document.getElementById("vcShadowTechSelector");
   const headerSlot = document.getElementById("headerShadowTechAnchor");
-  const wsSlot = document.getElementById("wsShadowTechAnchor");
-  if (!box || !headerSlot || !wsSlot) return;
-  const wsScreen = document.getElementById("screen-workspace");
-  const onWorkspace = wsScreen && wsScreen.classList.contains("active");
-  (onWorkspace ? wsSlot : headerSlot).appendChild(box);
+  if (!box || !headerSlot) return;
+  if (!headerSlot.contains(box)) headerSlot.appendChild(box);
   if (typeof positionShadowTechDropdown === "function") positionShadowTechDropdown();
+}
+
+function syncJobStatusInline() {
+  const main = document.getElementById("finalJobStatus");
+  const inline = document.getElementById("wsJobStatusInline");
+  if (!main || !inline) return;
+  inline.value = main.value;
+}
+
+function wireJobStatusInlineSync() {
+  const main = document.getElementById("finalJobStatus");
+  const inline = document.getElementById("wsJobStatusInline");
+  if (!main || !inline || inline.dataset.syncWired === "1") return;
+  inline.dataset.syncWired = "1";
+  main.addEventListener("change", function () { inline.value = main.value; });
+  inline.addEventListener("change", function () {
+    main.value = inline.value;
+    if (typeof saveDraft === "function") saveDraft();
+  });
 }
 
 function updateShadowTechTriggerLabel(displayName) {
@@ -8959,6 +8993,7 @@ window.onload = async function(){
     try { wireProfilePanel(); } catch (e) {}
     try { wireSiteHistoryPanel(); } catch (e) {}
     try { wireFormsPanel(); } catch (e) {}
+    try { wireJobStatusInlineSync(); } catch (e) {}
     return;
   }
   initMapPreferenceUI();
@@ -9005,6 +9040,7 @@ window.onload = async function(){
   wireProfilePanel();
   wireSiteHistoryPanel();
   wireFormsPanel();
+  wireJobStatusInlineSync();
   if (typeof wireCoachingInbox === 'function') wireCoachingInbox();
   if (typeof writeLivePresence === 'function') writeLivePresence();
   window.setInterval(function () {
