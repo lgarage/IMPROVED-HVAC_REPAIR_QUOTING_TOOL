@@ -4029,8 +4029,8 @@ button#techDisplayLabel:active { opacity: 0.75; }
     </div>
   </div>
 
-  <div id="acc-status" class="vc-linked-equipment-block" style="margin-bottom: 15px;">
-    <label style="margin-top:0;">Link repair to equipment (optional)</label>
+  <div id="acc-status" class="hidden" aria-hidden="true">
+    <!-- Kept for populate/sync/draft (#linkedEquipmentSelect); not shown in field or shadow viewer -->
     <select id="linkedEquipmentSelect" data-smart-equipment="true" disabled>
       <option value="">— None —</option>
     </select>
