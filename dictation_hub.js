@@ -1580,14 +1580,18 @@
           }
           var data = snap && snap.exists ? snap.data() || {} : {};
           var t = data.internal_comms != null ? String(data.internal_comms) : "";
-          try { localStorage.setItem("dictationHubNotes_" + tid, t); } catch (e) {}
           var el = getNotesEl();
           if (!el) return;
+          /* Don't clobber a seeded prior-tech value (or the user's typing) with
+             empty when a transient cached snapshot fires before the bridged data
+             arrives. Only let real (non-empty) live updates flow through. */
+          if (!t && el.value && el.value.trim()) return;
           /* Don't clobber the user's in-progress typing or a pending local save. */
           if (document.activeElement === el) return;
           if (internalCloudDebounce) return;
           if (notesDebounce) return;
           if (el.value === t) return;
+          try { localStorage.setItem("dictationHubNotes_" + tid, t); } catch (e) {}
           el.value = t;
         },
         function (err) {
@@ -1624,16 +1628,31 @@
           got && got.exists && got.data && got.data.internal_comms != null
             ? String(got.data.internal_comms)
             : "";
-        try {
-          localStorage.setItem("dictationHubNotes_" + ticketId, t);
-        } catch (e) {}
         if (
           typeof activeTicket !== "undefined" &&
           activeTicket &&
           activeTicket.id === ticketId
         ) {
           var el = getNotesEl();
-          if (el) el.value = t;
+          if (!el) return;
+          /* Don't clobber a seeded prior-tech value with empty when the bridged
+             read couldn't surface internal_comms (offline, TWIN_PILLARS bridge
+             mismatch, etc.). The live onSnapshot listener will still pick up
+             real updates as they arrive. */
+          if (!t && el.value && el.value.trim()) return;
+          /* Don't clobber the user's in-progress typing or a pending local save. */
+          if (document.activeElement === el) return;
+          if (internalCloudDebounce) return;
+          if (notesDebounce) return;
+          if (el.value === t) return;
+          try {
+            localStorage.setItem("dictationHubNotes_" + ticketId, t);
+          } catch (e) {}
+          el.value = t;
+        } else {
+          try {
+            localStorage.setItem("dictationHubNotes_" + ticketId, t);
+          } catch (e) {}
         }
       })
       .catch(function () {});
@@ -1648,7 +1667,32 @@
         if (v != null) el.value = v;
         return;
       }
-      el.value = loadNotesTextForTicketId(activeTicket.id);
+      var seed = loadNotesTextForTicketId(activeTicket.id);
+      /* Seed from the in-memory ticket doc when the local cache is empty so a
+         tech (or the dispatcher simulator) opening a previously-submitted ticket
+         on a fresh device sees the prior tech's notes immediately, instead of
+         a blank textarea while waiting on (or losing the race to) the async
+         cloud fetch + onSnapshot listener.
+
+         Order of fallback: internal_comms (live thread, what the office sees)
+         → techNotes (formatted final report saved on Complete & Sync) so a
+         historical ticket with only a submitted report still shows content. */
+      if (!seed || !String(seed).trim()) {
+        var fromTicket = "";
+        if (activeTicket.internal_comms != null) {
+          fromTicket = String(activeTicket.internal_comms);
+        }
+        if ((!fromTicket || !fromTicket.trim()) && activeTicket.techNotes != null) {
+          fromTicket = String(activeTicket.techNotes);
+        }
+        if (fromTicket && fromTicket.trim()) {
+          seed = fromTicket;
+          try {
+            localStorage.setItem("dictationHubNotes_" + activeTicket.id, seed);
+          } catch (eStore) {}
+        }
+      }
+      el.value = seed || "";
       fetchInternalCommsFromCloud(activeTicket.id);
       subscribeInternalCommsForTicket(activeTicket.id);
     } catch (e) {}
