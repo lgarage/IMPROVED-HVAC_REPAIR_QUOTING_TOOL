@@ -193,12 +193,30 @@
       }
     }
 
+    var isFieldApp =
+      typeof global.location !== "undefined" &&
+      /\/technician\/index\.html/i.test(String(global.location.pathname));
+
     var logo = document.getElementById("vcBrandLogo");
     if (logo && resolvedLogo) {
-      logo.src = resolvedLogo;
+      var inSidebar =
+        logo.closest &&
+        typeof logo.closest === "function" &&
+        logo.closest(".sidebar-header");
+      var headerLogoUrl =
+        isFieldApp || inSidebar ? resolvedMini || resolvedLogo : resolvedLogo;
+      logo.src = headerLogoUrl;
       logo.alt = cfg.brandName || "Company logo";
-      vcSetVertexLogoTint(logo, resolvedLogo);
+      vcSetVertexLogoTint(logo, headerLogoUrl);
     }
+    var dispatchBarLogo = document.getElementById("vcDispatchDashboardBarLogo");
+    if (dispatchBarLogo && (resolvedMini || resolvedLogo)) {
+      var barUrl = resolvedMini || resolvedLogo;
+      dispatchBarLogo.src = barUrl;
+      dispatchBarLogo.alt = cfg.brandName || "Company logo";
+      vcSetVertexLogoTint(dispatchBarLogo, barUrl);
+    }
+
     var mini = document.getElementById("vcBrandLogoMini");
     if (mini && resolvedMini) {
       mini.src = resolvedMini;
@@ -212,8 +230,7 @@
       vcSetVertexLogoTint(printLogo, resolvedLogo);
     }
 
-    var isField = /technician\/index\.html/i.test(String(global.location && global.location.pathname));
-    document.title = isField
+    document.title = isFieldApp
       ? (cfg.shortBrand || "Field") + " Field App"
       : (cfg.shortBrand || "Vertex Core") + " | Dispatcher";
 

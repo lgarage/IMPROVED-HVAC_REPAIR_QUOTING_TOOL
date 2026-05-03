@@ -26,7 +26,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
     <script src="firebase-config.js?v=4"></script>
     <script src="shared/firebase_config.js?v=1"></script>
-    <script src="shared/config.js?v=4"></script>
+    <script src="shared/config.js?v=5"></script>
     <script src="shared/firebase_logic.js?v=3"></script>
     <script src="shared/client_portal_logic.js?v=2"></script>
     <script>
@@ -119,6 +119,25 @@
         border: 1px solid #eaeaea;
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      }
+      .vc-dispatch-dashboard-bar-start {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      #vcDispatchDashboardBarLogo {
+        height: 28px;
+        width: auto;
+        max-width: 34px;
+        object-fit: contain;
+        flex-shrink: 0;
+        display: block;
+      }
+      /* Navy mark on white bar (match sidebar header logos) */
+      #vcDispatchDashboardBarLogo.vc-brand-logo-primary-tint {
+        filter: brightness(0) saturate(100%) invert(9%) sepia(22%) saturate(3600%) hue-rotate(185deg)
+          brightness(0.94) contrast(1.08);
       }
       .vc-dispatch-dashboard-bar-title {
         font-weight: 800;
@@ -2282,7 +2301,7 @@
         <div class="sidebar-brand-lockup">
           <img
             id="vcBrandLogo"
-            src="vertex_core_logo.png"
+            src="vertex_core_logo_only.png"
             alt=""
             class="full-logo"
           />
@@ -2696,7 +2715,16 @@
       <div id="view-service" class="app-view active">
         <div class="dispatch-dashboard-layout">
           <div class="vc-dispatch-dashboard-bar" id="vcDispatchDashboardBar">
-            <span class="vc-dispatch-dashboard-bar-title">Dispatcher</span>
+            <div class="vc-dispatch-dashboard-bar-start">
+              <img
+                id="vcDispatchDashboardBarLogo"
+                src="vertex_core_logo_only.png"
+                alt=""
+                width="34"
+                height="28"
+              />
+              <span class="vc-dispatch-dashboard-bar-title">Dispatcher</span>
+            </div>
             <div class="vc-shadow-controls">
               <label for="vcShadowUserSelect" class="vc-shadow-label">Shadow View</label>
               <select
