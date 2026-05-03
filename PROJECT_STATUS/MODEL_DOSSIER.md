@@ -66,6 +66,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-02 | Field app + simulator: Recommendations → auto-fill quoteParts/quoteLabor in Parts & Quote Info; labor-missing prompt + accordion open | LOW | T2 | Balanced | 79% | 85% | ok | ok | Cursor: **Sonnet 4.6**; `dictation_hub.js` `SYSTEM_INSTRUCTION_DIAGNOSTICS` + `processVisitNotes` diagnostics branch; `_laborPromptNeeded` flag + `setProcessStatus` |
 | 2026-05-02 | Field app + simulator: Combined Findings/diagnosis & Repairs into single hub field + SERVICE report + dictation/improve-ai + invoice parse | LOW | T0–T2 | Fast | ~92% | ~93% | ok | ok | Cursor: **Composer 2**; `technician/index.html` `#diagnosis`/`#repairsMade` hidden placeholder; draft merge legacy `repairsMade`; `dictation_hub.js` + `invoice.js` |
 | 2026-05-02 | Field app: #acc-svc-repair collapsed by default (strip initial accordion open) | LOW | T0 | Fast | ~96% | ~97% | ok | ok | Cursor: **Composer 2**; `technician/index.html` `#acc-svc-repair`; simulator uses same shell |
 | 2026-05-02 | Field app: Remove smart-select scan row + Equipment Hub blurb under linked equipment | LOW | T0–T1 | Fast | ~91% | ~93% | ok | ok | Cursor: **Composer 2**; `equipment_smart_select.js` drops scan option + change handler; `#acc-status` `<p>` removed; `SCAN_NEW_EQUIPMENT_VALUE` kept for field_forms |

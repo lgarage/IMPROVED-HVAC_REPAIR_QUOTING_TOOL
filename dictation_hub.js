@@ -72,7 +72,7 @@
     "If quantity is unclear, infer conservatively from context or use a single unit (…1).",
   ].join("\n");
 
-  /** Improve-with-AI when #svcDiagnosticsFields is visible (SERVICE hub): grammar/punctuation on combined findings/repairs + recommendations; never fills #dictationHubNotes. */
+  /** Improve-with-AI when #svcDiagnosticsFields is visible (SERVICE hub): grammar/punctuation on combined findings/repairs + recommendations; extracts quote parts & labor; never fills #dictationHubNotes. */
   var SYSTEM_INSTRUCTION_DIAGNOSTICS = [
     "You are an HVAC field-notes assistant and data-mapper. Follow every rule below.",
     "",
@@ -81,6 +81,8 @@
     "OUTPUT: Return ONLY valid JSON (no markdown fences) with exactly these keys:",
     '- "findingsDiagnosticsRepairs": string — light copy-edit of the combined findings/diagnosis and repairs text (see RULES FOR TEXT FIELDS). If empty or missing, use "".',
     '- "recommendations": string — light copy-edit of Recommendations. If empty/missing, use "".',
+    '- "quoteParts": string — parts, equipment, or materials explicitly mentioned in Recommendations that need to be ordered or quoted for the repair (item name + quantity, e.g. "1 GAS VALVE, 1 INDUCER MOTOR"). Copy exact item names and quantities from the text. If none mentioned, use "".',
+    '- "quoteLabor": string — labor time or hours mentioned in Recommendations for completing the repair (e.g. "3 HOURS", "half day"). If not mentioned anywhere in Recommendations, use "".',
     '- "identifiedAssetIds": array of strings like ["RTU1","RTU2","VH1","EF1"]',
     '- "locationTransposed": string, standardized as "CUSTOMER - CITY - STREET" using ALL CAPS for the three parts; use hyphens with spaces as shown. If unknown, use best effort from context or empty string "".',
     '- "visitSummary": one short sentence summarizing the visit.',
@@ -1215,6 +1217,7 @@
   async function processVisitNotes(text, processOpts) {
     processOpts = processOpts || {};
     var diagnosticsMode = processOpts.diagnostics === true;
+    var _laborPromptNeeded = false;
     var raw = String(text || "").trim();
     if (!raw) {
       throw new Error(
@@ -1353,6 +1356,36 @@
         if (rField) rField.value = "";
       }
       if (recOut != null && recField) recField.value = recOut;
+
+      // Parse quoteParts and quoteLabor from recommendations and prefill Parts & Quote Info
+      var qPartsOut = pickParsedString(parsed, ["quoteParts", "quote_parts"]);
+      var qLaborOut = pickParsedString(parsed, ["quoteLabor", "quote_labor"]);
+      var qpField = document.getElementById("quoteParts");
+      var qlField = document.getElementById("quoteLabor");
+      var accPartsSvc = document.getElementById("acc-parts-svc");
+
+      if (qPartsOut && String(qPartsOut).trim() && qpField && !qpField.value.trim()) {
+        qpField.value = String(qPartsOut).trim();
+        try { if (typeof autoGrow === "function") autoGrow(qpField); } catch (_e) {}
+      }
+      if (qLaborOut && String(qLaborOut).trim() && qlField && !qlField.value.trim()) {
+        qlField.value = String(qLaborOut).trim();
+      }
+
+      // Open the accordion if AI contributed any quote data or we need to prompt for labor
+      var qpAfter = qpField ? qpField.value.trim() : "";
+      var qlAfter = qlField ? qlField.value.trim() : "";
+      if (qpAfter || qLaborOut) {
+        if (accPartsSvc) accPartsSvc.classList.add("open");
+      }
+
+      // Prompt the user to fill in labor when parts are listed but labor is still missing
+      if (qpAfter && !qlAfter) {
+        _laborPromptNeeded = true;
+        if (accPartsSvc) accPartsSvc.classList.add("open");
+        if (qlField) setTimeout(function () { qlField.focus(); }, 150);
+      }
+
       if (typeof saveDraft === "function") saveDraft();
     }
 
@@ -1374,7 +1407,11 @@
       console.log("[DictationHub] visitSummary:", summary);
     }
 
-    setProcessStatus("done", "✓ Grammar & punctuation pass");
+    if (_laborPromptNeeded) {
+      setProcessStatus("", "⚠️ Parts & Quote Info (section 2) — enter labor hours to complete the quote.");
+    } else {
+      setProcessStatus("done", "✓ Grammar & punctuation pass");
+    }
   }
 
   function storageKeyForTicket() {
