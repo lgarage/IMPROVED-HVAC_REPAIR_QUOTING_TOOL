@@ -89,6 +89,8 @@
       '<p id="vcSiteIntelLocationLabel" class="vc-site-intel-location"></p>' +
       '<label for="vcSiteIntelBody">Field Access Notes</label>' +
       '<textarea id="vcSiteIntelBody" rows="8" placeholder="Roof access: east ladder. Lock code: 1234. Use west door after 6pm…"></textarea>' +
+      '<label for="vcSiteIntelInterOfficeBody" style="margin-top:10px;">Technician Notes (Inter-Office)</label>' +
+      '<textarea id="vcSiteIntelInterOfficeBody" rows="5" readonly style="background:#f8fafc;color:#334155;" placeholder="Latest technician inter-office notes for this customer/site appear here after Complete & Sync."></textarea>' +
       '<div class="vc-site-intel-photos">' +
         '<label>Access Photos</label>' +
         '<p class="vc-site-intel-photos-hint">Pictures of access issues or processes for future technicians (ladder placement, key locations, hatch routes, etc.)</p>' +
@@ -194,7 +196,9 @@
     var photoStatus = document.getElementById("vcSiteIntelPhotoStatus");
     if (photoStatus) photoStatus.textContent = "";
     var body = document.getElementById("vcSiteIntelBody");
+    var interOfficeBody = document.getElementById("vcSiteIntelInterOfficeBody");
     body.value = "";
+    if (interOfficeBody) interOfficeBody.value = "";
     _siteIntelCurrentPhotos = [];
     _siteIntelCurrentDocId = "";
     renderSiteIntelPhotosGrid([]);
@@ -229,6 +233,9 @@
       .then(function (got) {
         var d = got && got.exists && got.data ? got.data : {};
         body.value = String(d.notes || "");
+        if (interOfficeBody) {
+          interOfficeBody.value = String(d.technicianInterOfficeNotes || "");
+        }
         var rawPhotos = Array.isArray(d.accessPhotoUrls) ? d.accessPhotoUrls : [];
         _siteIntelCurrentPhotos = rawPhotos
           .map(function (p) {

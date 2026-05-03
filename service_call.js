@@ -1097,6 +1097,154 @@ function gatherServiceData() {
     };
 }
 
+function normalizeSiteIntelLocationLine(locationLine) {
+    return String(locationLine || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+}
+
+function siteIntelDocIdFromLocationLine(locationLine) {
+    var key = normalizeSiteIntelLocationLine(locationLine);
+    if (!key) return "";
+    var h = 5381;
+    for (var i = 0; i < key.length; i++) {
+        h = (h * 33) ^ key.charCodeAt(i);
+    }
+    return "vc_site_" + (h >>> 0).toString(16);
+}
+
+function buildSiteIntelLocationLineFromServiceForm() {
+    var cust = String((document.getElementById("scCustNameInput") || {}).value || "").trim().toUpperCase();
+    var street = String((document.getElementById("scCustStreetInput") || {}).value || "").trim().toUpperCase();
+    if (cust && street) return cust + " - " + street;
+    return cust || street || "";
+}
+
+function setDispatcherSiteIntelStatus(text, isError) {
+    var el = document.getElementById("scSiteIntelStatus");
+    if (!el) return;
+    el.textContent = String(text || "");
+    el.style.color = isError ? "#e74c3c" : "#64748b";
+}
+
+function clearDispatcherSiteIntelEditors() {
+    var notes = document.getElementById("scSiteIntelInput");
+    var interOffice = document.getElementById("scSiteIntelInterOfficeInput");
+    if (notes) notes.value = "";
+    if (interOffice) interOffice.value = "";
+    setDispatcherSiteIntelStatus("");
+}
+
+async function loadDispatcherSiteIntelForCurrentForm() {
+    var notes = document.getElementById("scSiteIntelInput");
+    var interOffice = document.getElementById("scSiteIntelInterOfficeInput");
+    if (!notes || !interOffice) return;
+
+    var line = buildSiteIntelLocationLineFromServiceForm();
+    if (!line) {
+        clearDispatcherSiteIntelEditors();
+        setDispatcherSiteIntelStatus("Enter customer + street to load Site Intel.");
+        return;
+    }
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+        clearDispatcherSiteIntelEditors();
+        setDispatcherSiteIntelStatus("Firebase not connected.", true);
+        return;
+    }
+
+    var docId = siteIntelDocIdFromLocationLine(line);
+    if (!docId) {
+        clearDispatcherSiteIntelEditors();
+        setDispatcherSiteIntelStatus("Unable to build Site Intel id.", true);
+        return;
+    }
+
+    setDispatcherSiteIntelStatus("Loading Site Intel...");
+    try {
+        var _db = firebase.firestore();
+        var got =
+            typeof VCFirestore !== "undefined" && VCFirestore.getSiteIntelDocOnceBridged
+                ? await VCFirestore.getSiteIntelDocOnceBridged(_db, docId)
+                : await (
+                      typeof VCFirestore !== "undefined"
+                          ? VCFirestore.siteIntelligence(_db)
+                          : _db.collection("site_intelligence")
+                  )
+                      .doc(docId)
+                      .get()
+                      .then(function (snap) {
+                          return { exists: snap.exists, data: snap.exists ? snap.data() : null };
+                      });
+        var d = got && got.exists && got.data ? got.data : {};
+        notes.value = String(d.notes || "");
+        interOffice.value = String(d.technicianInterOfficeNotes || "");
+        setDispatcherSiteIntelStatus("Site Intel loaded.");
+    } catch (e) {
+        clearDispatcherSiteIntelEditors();
+        setDispatcherSiteIntelStatus(e && e.message ? e.message : "Failed to load Site Intel.", true);
+    }
+}
+
+async function saveDispatcherSiteIntelFromForm() {
+    var notes = document.getElementById("scSiteIntelInput");
+    var interOffice = document.getElementById("scSiteIntelInterOfficeInput");
+    var btn = document.getElementById("scSiteIntelSaveBtn");
+    if (!notes || !interOffice) return;
+    var line = buildSiteIntelLocationLineFromServiceForm();
+    if (!line) {
+        setDispatcherSiteIntelStatus("Enter customer + street before saving Site Intel.", true);
+        return;
+    }
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+        setDispatcherSiteIntelStatus("Firebase not connected.", true);
+        return;
+    }
+    var docId = siteIntelDocIdFromLocationLine(line);
+    if (!docId) {
+        setDispatcherSiteIntelStatus("Unable to build Site Intel id.", true);
+        return;
+    }
+    var managerName = "";
+    try {
+        managerName = String(localStorage.getItem("pulse_manager_name") || "").trim();
+    } catch (e) {}
+    if (!managerName) managerName = "Office";
+
+    var payload = {
+        locationDisplay: line,
+        normalizedKey: normalizeSiteIntelLocationLine(line),
+        notes: String(notes.value || ""),
+        technicianInterOfficeNotes: String(interOffice.value || ""),
+        technicianInterOfficeUpdatedBy: managerName,
+        technicianInterOfficeUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedByTech: managerName,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    if (btn) btn.disabled = true;
+    setDispatcherSiteIntelStatus("Saving Site Intel...");
+    try {
+        var _db = firebase.firestore();
+        if (typeof VCFirestore !== "undefined" && VCFirestore.setSiteIntelMerged) {
+            await VCFirestore.setSiteIntelMerged(_db, docId, payload, true);
+        } else {
+            await (
+                typeof VCFirestore !== "undefined"
+                    ? VCFirestore.siteIntelligence(_db)
+                    : _db.collection("site_intelligence")
+            )
+                .doc(docId)
+                .set(payload, { merge: true });
+        }
+        setDispatcherSiteIntelStatus("Site Intel saved.");
+        if (typeof showSaveCue === "function") showSaveCue("✓ Site Intel saved");
+    } catch (e) {
+        setDispatcherSiteIntelStatus(e && e.message ? e.message : "Site Intel save failed.", true);
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
 function clearServiceForm() {
     // Reset UI to "New Ticket" Mode
     document.getElementById('serviceFormTitle').innerText = "Log New Service Call";
@@ -1149,6 +1297,7 @@ function clearServiceForm() {
     document.getElementById('scIssueInput').value = "";
     document.getElementById('scEquipInput').value = "";
     document.getElementById('scNotesInput').value = "";
+    clearDispatcherSiteIntelEditors();
     const scTn = document.getElementById('scTechNotesReadonly');
     if (scTn) scTn.value = "";
     const scMemo = document.getElementById('scClientPortalMemo');
@@ -1635,6 +1784,7 @@ async function loadServiceCall(dbId) {
     if (typeof renderDispatcherFieldEvidenceOverrides === 'function') {
         renderDispatcherFieldEvidenceOverrides(data);
     }
+    await loadDispatcherSiteIntelForCurrentForm();
 }
 
 // --- HELPER FUNCTION: FORMAT TIME FOR BLOCKS ---
@@ -3664,6 +3814,37 @@ try {
                 },
                 true
             );
+        }
+    }
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();
+
+(function wireDispatcherSiteIntelUi() {
+    function init() {
+        var saveBtn = document.getElementById("scSiteIntelSaveBtn");
+        if (saveBtn && !saveBtn.dataset.vcWired) {
+            saveBtn.dataset.vcWired = "1";
+            saveBtn.addEventListener("click", function () {
+                saveDispatcherSiteIntelFromForm();
+            });
+        }
+        var cust = document.getElementById("scCustNameInput");
+        var street = document.getElementById("scCustStreetInput");
+        if (cust && !cust.dataset.vcSiteIntelBlurWired) {
+            cust.dataset.vcSiteIntelBlurWired = "1";
+            cust.addEventListener("blur", function () {
+                loadDispatcherSiteIntelForCurrentForm();
+            });
+        }
+        if (street && !street.dataset.vcSiteIntelBlurWired) {
+            street.dataset.vcSiteIntelBlurWired = "1";
+            street.addEventListener("blur", function () {
+                loadDispatcherSiteIntelForCurrentForm();
+            });
         }
     }
     if (document.readyState === "loading") {

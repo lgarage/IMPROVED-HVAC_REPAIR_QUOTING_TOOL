@@ -27,7 +27,7 @@
     <script src="firebase-config.js?v=4"></script>
     <script src="shared/firebase_config.js?v=1"></script>
     <script src="shared/config.js?v=4"></script>
-    <script src="shared/firebase_logic.js?v=2"></script>
+    <script src="shared/firebase_logic.js?v=3"></script>
     <script src="shared/client_portal_logic.js?v=2"></script>
     <script>
       /** KI-002 Plan B4 — dispatcher BUILD stamp, mirrors `window.VC_BUILD` in `technician/index.html`.
@@ -3619,6 +3619,61 @@
 
             <div class="form-row">
               <div class="input-group" style="width: 100%">
+                <label for="scSiteIntelInput">Site Intel (customer-wide)</label>
+                <textarea
+                  id="scSiteIntelInput"
+                  style="
+                    resize: vertical;
+                    min-height: 90px;
+                    font-family: inherit;
+                    width: 100%;
+                    box-sizing: border-box;
+                  "
+                  placeholder="Persistent site intelligence shared across tickets at this address (access rules, lock codes, hazards, etc.)"
+                ></textarea>
+                <label for="scSiteIntelInterOfficeInput" style="margin-top: 8px"
+                  >Technician Notes (Inter-Office, site-level)</label
+                >
+                <textarea
+                  id="scSiteIntelInterOfficeInput"
+                  style="
+                    resize: vertical;
+                    min-height: 90px;
+                    font-family: inherit;
+                    width: 100%;
+                    box-sizing: border-box;
+                  "
+                  placeholder="Latest technician inter-office notes to keep on the customer Site Intel record."
+                ></textarea>
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 12px;
+                    margin-top: 8px;
+                    flex-wrap: wrap;
+                  "
+                >
+                  <button
+                    type="button"
+                    id="scSiteIntelSaveBtn"
+                    class="gen-btn"
+                    style="width: auto; background: #0ea5e9; padding: 9px 14px"
+                  >
+                    Save Site Intel
+                  </button>
+                  <span
+                    id="scSiteIntelStatus"
+                    style="font-size: 12px; color: #64748b"
+                    aria-live="polite"
+                  ></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="input-group" style="width: 100%">
                 <label>Technician report (Field app)</label>
                 <textarea
                   id="scTechNotesReadonly"
@@ -7112,7 +7167,7 @@
         switchTab("pulse");
       }
     </script>
-    <script src="service_call.js?v=68"></script>
+    <script src="service_call.js?v=69"></script>
     <script src="dispatcher/js/ai_report_reviewer.js?v=2"></script>
     <script src="dispatcher/js/insights_manager.js?v=4"></script>
     <script src="dispatcher/js/report_builder.js?v=3"></script>

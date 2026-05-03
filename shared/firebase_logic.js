@@ -482,7 +482,13 @@
     if (isSandboxDataPath() || !isBridgeTenant()) {
       return tRef.onSnapshot(
         function (snap) {
-          var notes = snap.exists && snap.data() ? String(snap.data().notes || "").trim() : "";
+          var notes = "";
+          if (snap.exists && snap.data()) {
+            var data = snap.data() || {};
+            var base = String(data.notes || "").trim();
+            var interOffice = String(data.technicianInterOfficeNotes || "").trim();
+            notes = (base + "\n" + interOffice).trim();
+          }
           onNotesTrimmed(notes);
         },
         onError
@@ -494,10 +500,16 @@
     function emit() {
       var tEx = lastT && lastT.exists;
       var rEx = lastR && lastR.exists;
-      var tNotes =
-        tEx && lastT.data() ? String(lastT.data().notes || "").trim() : "";
-      var rNotes =
-        rEx && lastR.data() ? String(lastR.data().notes || "").trim() : "";
+      var tNotes = "";
+      var rNotes = "";
+      if (tEx && lastT.data()) {
+        var tData = lastT.data() || {};
+        tNotes = (String(tData.notes || "").trim() + "\n" + String(tData.technicianInterOfficeNotes || "").trim()).trim();
+      }
+      if (rEx && lastR.data()) {
+        var rData = lastR.data() || {};
+        rNotes = (String(rData.notes || "").trim() + "\n" + String(rData.technicianInterOfficeNotes || "").trim()).trim();
+      }
       if (tEx) {
         onNotesTrimmed(tNotes);
         return;

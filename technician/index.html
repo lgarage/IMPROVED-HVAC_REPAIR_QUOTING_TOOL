@@ -12,7 +12,7 @@
 <script src="../firebase-config.js?v=4"></script>
 <script src="../shared/firebase_config.js?v=1"></script>
 <script src="../shared/config.js?v=4"></script>
-<script src="../shared/firebase_logic.js?v=2"></script>
+<script src="../shared/firebase_logic.js?v=3"></script>
 <script src="../shared/client_portal_logic.js?v=2"></script>
 <script src="js/vc_entitlements.js?v=1"></script>
 <script src="js/time_tracker.js?v=2"></script>
@@ -8059,11 +8059,13 @@ async function uploadReportToCloud(visitData, fullReportText) {
     if (ticketId) {
         const ticketUpdate = { status: finalStatus, techNotes: fullReportText };
         if (linkedEquipmentId) ticketUpdate.Linked_Equipment_ID = linkedEquipmentId;
+        var _hubNotesTrimmed = "";
         try {
           var _notesKey = 'dictationHubNotes_' + ticketId;
           var _hubNotes = localStorage.getItem(_notesKey) || '';
           if (!_hubNotes.trim()) _hubNotes = localStorage.getItem('dictationHubInternal_' + ticketId) || '';
-          if (_hubNotes.trim()) ticketUpdate.internal_comms = _hubNotes;
+          _hubNotesTrimmed = String(_hubNotes || '').trim();
+          if (_hubNotesTrimmed) ticketUpdate.internal_comms = _hubNotesTrimmed;
         } catch (e) {}
         var _scWritePromise = (typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged)
           ? VCFirestore.setServiceCallMerged(db, ticketId, ticketUpdate, true)
@@ -8074,6 +8076,42 @@ async function uploadReportToCloud(visitData, fullReportText) {
             throw e;
           })
         );
+        if (
+          _hubNotesTrimmed &&
+          typeof DataProvider !== "undefined" &&
+          typeof DataProvider.siteIntelDocIdFromLocationLine === "function"
+        ) {
+          try {
+            var _locLine = "";
+            var _custName = String((activeTicket && activeTicket.customerName) || '').trim();
+            var _addr = String((activeTicket && activeTicket.locationAddress) || '').trim();
+            if (_custName && _addr) _locLine = _custName + " - " + _addr;
+            else _locLine = _custName || _addr;
+            var _siteDocId = DataProvider.siteIntelDocIdFromLocationLine(_locLine);
+            if (_siteDocId) {
+              var _sitePayload = {
+                locationDisplay: _locLine,
+                normalizedKey: typeof DataProvider.normalizeLocationKey === "function" ? DataProvider.normalizeLocationKey(_locLine) : String(_locLine || '').trim().toLowerCase(),
+                technicianInterOfficeNotes: _hubNotesTrimmed,
+                technicianInterOfficeUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                technicianInterOfficeUpdatedBy: String(localStorage.getItem('tp_saved_tech') || currentTechProfile || '').trim() || "Field",
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              };
+              var _siteWritePromise =
+                (typeof VCFirestore !== "undefined" && VCFirestore.setSiteIntelMerged)
+                  ? VCFirestore.setSiteIntelMerged(db, _siteDocId, _sitePayload, true)
+                  : (typeof VCFirestore !== "undefined" ? VCFirestore.siteIntelligence(db) : db.collection("site_intelligence"))
+                      .doc(_siteDocId)
+                      .set(_sitePayload, { merge: true });
+              _vcReportWritePromises.push(
+                _siteWritePromise.catch(function (e) {
+                  if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("uploadReportToCloud:site_intelligence.set", e);
+                  throw e;
+                })
+              );
+            }
+          } catch (e) {}
+        }
         if (typeof window.UFXAdapter !== 'undefined' && typeof window.UFXAdapter.pushTicketSummary === 'function') {
           var ufxVisit = visitData || {};
           var resolution = '';
@@ -9536,7 +9574,7 @@ window.onload = async function(){
     <script src="../equipment_smart_select.js?v=2"></script>
     <script src="js/ufx_adapter.js?v=1"></script>
     <script src="js/data_provider.js?v=1"></script>
-    <script src="js/workspace_ui.js?v=11"></script>
+    <script src="js/workspace_ui.js?v=12"></script>
     <script src="js/location_manager.js?v=1"></script>
     <script src="../dictation_hub.js?v=16"></script>
     <script src="../equipment_hub.js?v=1"></script>
