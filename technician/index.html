@@ -4614,7 +4614,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34l-status-gate-2026-05-02";
+window.VC_BUILD = "Phase34m-location-city-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -6514,6 +6514,23 @@ function openWorkspaceLiteReadonly(ticketId) {
   if (typeof writeLivePresence === 'function') writeLivePresence();
 }
 
+/**
+ * Builds the `Business - City - Street` display string for the hidden `#location`
+ * input on workspace open.  Gracefully handles tickets where:
+ *  - `custCity` is missing/empty → falls back to 2-part `Business - Street`
+ *  - `locationAddress` was stored with a stale "UNKNOWN - " prefix → stripped
+ */
+function buildWorkspaceLocationString(ticket) {
+  const name = (ticket.customerName || "").trim();
+  const city = (ticket.custCity || "").trim().toUpperCase();
+  // Strip any stale "UNKNOWN - " segment that may have been persisted in locationAddress
+  const addr = (ticket.locationAddress || "").trim().replace(/^UNKNOWN\s*-\s*/i, "");
+  if (city && city !== "UNKNOWN") {
+    return `${name} - ${city} - ${addr}`;
+  }
+  return `${name} - ${addr}`;
+}
+
 function openWorkspace(ticketId) {
   try {
     if (
@@ -6543,7 +6560,7 @@ function openWorkspace(ticketId) {
   document.getElementById('ws-ticket').innerText = `${activeTicket.ticketNum} • ${activeTicket.jobType}`;
 
   document.getElementById('ticketSelector').value = ticketId;
-  document.getElementById('location').value = `${activeTicket.customerName} - ${activeTicket.locationAddress}`;
+  document.getElementById('location').value = buildWorkspaceLocationString(activeTicket);
   ["unitTagMake", "unitTagModel", "unitTagSerial", "unitTagJob", "unitTagMarker", "unitTagInstallDate"].forEach(function (id) {
     var el = document.getElementById(id);
     if (el) el.value = "";
