@@ -325,6 +325,36 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
   On activate: `officeOverrideAcknowledged: false` (reset) + clear stale ack timestamps. On deactivate: delete every override field including the ack ones. Plus the existing `beforeunload` safety still calls `toggleOfficeOverride(false)` to prevent a stuck flag.
 - **Decision:** see `DECISIONS.md → ADR-010` for why the consent gate runs only on the cross-device Firestore path and not on the local postMessage path.
 
+#### Customer Directory → Site History modal (per-location chronological view)
+
+**User Guide**
+
+- Open the **Customer Directory** from the dispatcher sidebar. Search or expand a customer to reveal its locations.
+- Each location row now has a **📜 History** button (cyan, next to **Select Location** / **X**). Click it to open the **Site History** modal for that exact site.
+- The modal title shows the customer name and the address line; subtitle shows the **LOC-XXXX** id.
+- Top summary pills: total ticket count, last-visit date, **Site Intel: yes / none**, and per-status counts.
+- **Site Intelligence** section: shows the current **Field Access Notes**, last-updated tech and timestamp, and a 📷 photo count when access photos exist (Phase 34e bridge).
+- **Service tickets & visits** section: every ticket matched to this site, **newest date first**. Each row shows the status chip, date, job type, ticket number, assigned techs, priority, and (when present) `📄 N completed reports`. **Click any ticket row** to jump straight to **Service Call Intake** with that ticket loaded — no need to copy ticket numbers.
+- Empty state: explicit "No service tickets recorded for this site (matched by LOC id or customer + street)." so the dispatcher knows the modal worked but the site truly has no history.
+- Close via **×**, click-outside, or **Esc**.
+
+**Technical Specs**
+
+- Module: `customer_directory.js?v=27` — appended `vcSiteHistoryBoot` IIFE; lazy-injects `#vcSiteHistoryModal` (direct child of `<body>`) and a single `<style id="vcSiteHistoryStyles">` block on first open (KI-001 / Phase 34e cache-bust-safe pattern — a stale cached `index.html` cannot break the modal).
+- Trigger: `renderCustomerDirectory()` row markup adds `<button class="vc-site-history-btn" onclick="openSiteHistoryFromDirectory(...)">📜 History</button>` next to **Select Location** / **X**. All seven args are single-quote-escaped via the same `safeRawName` / `safeStreet` pattern used by the existing **Select Location** button.
+- Site identity matching (no schema migration required):
+  - **Primary:** `service_calls.locationNum === <LOC-XXXX>` (precise; the `locationNum` field is set whenever a dispatcher selected the location from the directory via `loadCustomerIntoForm`).
+  - **Fallback:** `normName(service_calls.customerName) === normName(<custName>) && normStreet(service_calls.locationAddress) === normStreet(<street>)` (covers older tickets predating `locationNum` capture). Both helpers uppercase and collapse internal whitespace.
+  - Each matched ticket carries `_matchKind: "loc" | "cust+street"` so the row meta can show which path matched (helps audit data hygiene).
+- Reads (all bridge-aware via `VCFirestore`, no writes):
+  - `VCFirestore.loadServiceCallsMergedOnce(db)` — full tenant + root merge for **TWIN_PILLARS**, tenant-only otherwise.
+  - `VCFirestore.getSiteIntelDocOnceBridged(db, docId)` — `docId` computed by an inline mirror of `technician/js/data_provider.js#siteIntelDocIdFromLocationLine` (djb2-style hash of `"<custName> - <street>"` lowercased + collapsed → `vc_site_<hex>`), so the dispatcher reads the same Site Intel doc the field app writes.
+  - `VCFirestore.queryCompletedReportsWhereMerged(db, "linkedTicketId", "in", chunk, 50)` — chunked at 10 ids/query to honor Firestore's `in` cap; first 30 matched tickets fetched (cap covers the dense cases without runaway reads). **Field name is `linkedTicketId`**, NOT `serviceCallId` — `technician/index.html#uploadReportToCloud` writes `linkedTicketId: ticketId || "None"` on every completed_reports doc.
+- Render: `renderSiteHistory(site, tickets, siteIntel, reportsByTicketId)`. Tickets sorted by `date` desc (string compare on `YYYY-MM-DD`); tickets with no date sink. Status chips colored via `statusChipColor()` (green Completed/Verified, cyan Dispatched/In Progress, amber Unassigned/Scheduled, gray Cancelled, slate default). Issue text truncated at 220 chars with ellipsis.
+- Click-through: `openTicketFromSiteHistory(ticketId)` closes both `#vcSiteHistoryModal` and `#customerModal`, calls `switchTab('service')` (best-effort, try/catch), then `loadServiceCall(ticketId)` from `service_call.js`. Falls back to `navigator.clipboard.writeText(ticketId)` + alert if `loadServiceCall` is missing.
+- Esc / click-outside dismiss: idempotent global keydown listener guarded by `window.__vcSiteHistoryEscWired`; backdrop click compares `e.target === modal`.
+- Cache-bust: `customer_directory.js?v=26` → `?v=27` in `index.html`; `window.VC_BUILD = "Phase34b-2026-04-27"` → `"SiteHistory-from-CustDir-2026-05-02"`. **No tenant Firestore writes**, **no schema changes**, **no `shared/firebase_logic.js` change**.
+
 #### Live Inter-Office Feed (Pulse)
 
 **User Guide**

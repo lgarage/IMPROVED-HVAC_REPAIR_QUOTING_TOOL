@@ -413,13 +413,18 @@ function renderCustomerDirectory() {
                     if(phone) displayLoc += ` <span style="color:#3498db; font-size:11px;">${phone}</span>`;
                     if(city || state || zip) displayLoc += `<br><span style="color:#777;">${city}, ${state} ${zip}</span>`;
 
+                    const safeStreet = street.replace(/'/g, "\\'");
+                    const safeCity   = city.replace(/'/g, "\\'");
+                    const safeState  = state.replace(/'/g, "\\'");
+                    const safeZip    = String(zip).replace(/'/g, "\\'");
                     locsHTML += `
                         <tr>
                             <td style="width: 5%; color:#ccc; text-align:right;">↳</td>
-                            <td style="width: 45%;">${displayLoc}</td>
+                            <td style="width: 40%;">${displayLoc}</td>
                             <td style="width: 20%; color:#555;">${locId}</td>
-                            <td style="width: 30%; text-align: right;">
-                                <button class="select-cust-btn" onclick="loadCustomerIntoForm('${safeRawName}', '${custId}', '${street.replace(/'/g, "\\'")}', '${city.replace(/'/g, "\\'")}', '${state.replace(/'/g, "\\'")}', '${zip}', '${locId}', '${contact.replace(/'/g, "\\'")}', '${phone}', '${email}', '${(locData.parentId || '').replace(/'/g, "\\'")}')">Select Location</button>
+                            <td style="width: 35%; text-align: right;">
+                                <button class="vc-site-history-btn" title="Show everything that has happened at this site" onclick="openSiteHistoryFromDirectory('${safeRawName}', '${custId}', '${locId}', '${safeStreet}', '${safeCity}', '${safeState}', '${safeZip}')">📜 History</button>
+                                <button class="select-cust-btn" style="margin-left:5px;" onclick="loadCustomerIntoForm('${safeRawName}', '${custId}', '${safeStreet}', '${safeCity}', '${safeState}', '${safeZip}', '${locId}', '${contact.replace(/'/g, "\\'")}', '${phone}', '${email}', '${(locData.parentId || '').replace(/'/g, "\\'")}')">Select Location</button>
                                 <button class="delete-btn" style="padding: 6px 10px; margin-left: 5px;" onclick="deleteCustomerLocation('${safeRawName}', '${locId}')">X</button>
                             </td>
                         </tr>
@@ -770,3 +775,417 @@ async function confirmLinkParent() {
 }
 
 
+// ====================================================================
+// --- SITE HISTORY MODAL ---
+// Click 📜 History on any location row in the Customer Directory →
+// shows everything that has happened at that exact site:
+//   • service tickets (matched by locationNum LOC-XXXX, fallback customerName + street)
+//   • completed visit reports (per matching ticket)
+//   • Site Intelligence (Field Access Notes + access photo count)
+// All reads go through the bridge-aware VCFirestore helpers; no writes.
+// ====================================================================
+
+(function vcSiteHistoryBoot() {
+    "use strict";
+
+    // -------- helpers --------
+
+    function escapeHtml(s) {
+        return String(s == null ? "" : s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function normStreet(s) {
+        return String(s || "").trim().toUpperCase().replace(/\s+/g, " ");
+    }
+
+    function normName(s) {
+        return String(s || "").trim().toUpperCase().replace(/\s+/g, " ");
+    }
+
+    function fmtDate(s) {
+        var v = String(s || "").trim();
+        if (!v) return "—";
+        // Accept YYYY-MM-DD or full ISO; render YYYY-MM-DD
+        var m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) return m[0];
+        try {
+            var d = new Date(v);
+            if (!isNaN(d.getTime())) {
+                return d.getFullYear() + "-" +
+                    String(d.getMonth() + 1).padStart(2, "0") + "-" +
+                    String(d.getDate()).padStart(2, "0");
+            }
+        } catch (e) {}
+        return v;
+    }
+
+    function fmtTs(ts) {
+        if (!ts) return "—";
+        try {
+            if (typeof ts.toDate === "function") {
+                return ts.toDate().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+            }
+            if (ts.seconds != null) {
+                return new Date(ts.seconds * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+            }
+            var d = new Date(ts);
+            if (!isNaN(d.getTime())) {
+                return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+            }
+        } catch (e) {}
+        return "—";
+    }
+
+    function statusChipColor(status) {
+        var s = String(status || "").toLowerCase();
+        if (s.indexOf("complete") >= 0 || s.indexOf("verified") >= 0 || s.indexOf("ready for billing") >= 0) return "#16a34a";
+        if (s.indexOf("cancel") >= 0) return "#7f8c8d";
+        if (s.indexOf("dispatch") >= 0 || s.indexOf("in progress") >= 0) return "#0ea5e9";
+        if (s.indexOf("unassign") >= 0 || s.indexOf("scheduled") >= 0) return "#f59e0b";
+        return "#64748b";
+    }
+
+    function buildSiteIntelDocId(displayLine) {
+        // Mirror technician/js/data_provider.js#siteIntelDocIdFromLocationLine
+        var key = String(displayLine || "").trim().toLowerCase().replace(/\s+/g, " ");
+        if (!key) return "";
+        var h = 5381;
+        for (var i = 0; i < key.length; i++) {
+            h = (h * 33) ^ key.charCodeAt(i);
+        }
+        return "vc_site_" + (h >>> 0).toString(16);
+    }
+
+    function injectStylesOnce() {
+        if (document.getElementById("vcSiteHistoryStyles")) return;
+        var css = document.createElement("style");
+        css.id = "vcSiteHistoryStyles";
+        css.textContent = ""
+            + ".vc-site-history-btn{background:#0ea5e9;color:#fff;border:none;padding:6px 10px;font-size:11px;border-radius:4px;cursor:pointer;font-weight:600;}"
+            + ".vc-site-history-btn:hover{background:#0284c7;}"
+            + "#vcSiteHistoryModal{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:10001;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;}"
+            + "#vcSiteHistoryModal.is-open{display:flex;}"
+            + ".vc-sh-card{background:#fff;width:min(820px,100%);border-radius:10px;box-shadow:0 18px 50px rgba(15,23,42,0.35);border:1px solid #e2e8f0;display:flex;flex-direction:column;max-height:calc(100vh - 60px);}"
+            + ".vc-sh-head{padding:16px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}"
+            + ".vc-sh-title{margin:0;font-size:16px;color:#0ea5e9;}"
+            + ".vc-sh-sub{margin:4px 0 0;font-size:12px;color:#64748b;}"
+            + ".vc-sh-close{background:transparent;border:none;font-size:22px;color:#64748b;cursor:pointer;line-height:1;padding:0 4px;}"
+            + ".vc-sh-close:hover{color:#e74c3c;}"
+            + ".vc-sh-body{padding:14px 18px 18px;overflow-y:auto;}"
+            + ".vc-sh-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}"
+            + ".vc-sh-pill{font-size:11px;padding:4px 10px;border-radius:999px;background:#eef2f5;color:#475569;font-weight:600;}"
+            + ".vc-sh-pill.is-warn{background:#fef3c7;color:#92400e;}"
+            + ".vc-sh-section{margin-top:10px;}"
+            + ".vc-sh-section h3{margin:0 0 8px;font-size:12px;color:#0ea5e9;text-transform:uppercase;letter-spacing:.04em;}"
+            + ".vc-sh-row{padding:10px 12px;border:1px solid #e2e8f0;border-radius:6px;background:#fafbfc;margin-bottom:8px;cursor:pointer;transition:background .15s;}"
+            + ".vc-sh-row:hover{background:#eef2f5;border-color:#cbd5e1;}"
+            + ".vc-sh-row.is-static{cursor:default;}"
+            + ".vc-sh-row.is-static:hover{background:#fafbfc;border-color:#e2e8f0;}"
+            + ".vc-sh-row-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;color:#1e293b;}"
+            + ".vc-sh-chip{font-size:10px;padding:2px 8px;border-radius:999px;color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}"
+            + ".vc-sh-row-meta{font-size:12px;color:#64748b;margin-top:4px;}"
+            + ".vc-sh-row-issue{font-size:12px;color:#334155;margin-top:6px;line-height:1.4;}"
+            + ".vc-sh-empty{padding:14px;text-align:center;color:#94a3b8;font-style:italic;font-size:13px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:6px;}"
+            + ".vc-sh-loading{padding:30px;text-align:center;color:#64748b;font-size:13px;}"
+            + ".vc-sh-err{padding:12px;background:#fee2e2;border:1px solid #fecaca;border-radius:6px;color:#991b1b;font-size:12px;}";
+        document.head.appendChild(css);
+    }
+
+    function injectModalOnce() {
+        if (document.getElementById("vcSiteHistoryModal")) return;
+        injectStylesOnce();
+        var wrap = document.createElement("div");
+        wrap.id = "vcSiteHistoryModal";
+        wrap.innerHTML = ""
+            + "<div class='vc-sh-card' role='dialog' aria-modal='true' aria-labelledby='vcSiteHistoryTitle'>"
+            + "  <div class='vc-sh-head'>"
+            + "    <div>"
+            + "      <h2 id='vcSiteHistoryTitle' class='vc-sh-title'>Site History</h2>"
+            + "      <p id='vcSiteHistorySub' class='vc-sh-sub'></p>"
+            + "    </div>"
+            + "    <button type='button' class='vc-sh-close' aria-label='Close' onclick='closeSiteHistoryModal()'>×</button>"
+            + "  </div>"
+            + "  <div id='vcSiteHistoryBody' class='vc-sh-body'><div class='vc-sh-loading'>Loading site history…</div></div>"
+            + "</div>";
+        document.body.appendChild(wrap);
+        // Click-outside dismiss
+        wrap.addEventListener("click", function (e) {
+            if (e.target === wrap) closeSiteHistoryModal();
+        });
+        // Escape dismiss (single global listener; idempotent via flag)
+        if (!window.__vcSiteHistoryEscWired) {
+            window.__vcSiteHistoryEscWired = true;
+            document.addEventListener("keydown", function (e) {
+                if (e.key === "Escape") {
+                    var m = document.getElementById("vcSiteHistoryModal");
+                    if (m && m.classList.contains("is-open")) closeSiteHistoryModal();
+                }
+            });
+        }
+    }
+
+    // -------- public openers --------
+
+    window.openSiteHistoryFromDirectory = function (custName, custId, locId, street, city, state, zip) {
+        injectModalOnce();
+        var modal = document.getElementById("vcSiteHistoryModal");
+        var titleEl = document.getElementById("vcSiteHistoryTitle");
+        var subEl = document.getElementById("vcSiteHistorySub");
+        var bodyEl = document.getElementById("vcSiteHistoryBody");
+
+        var addressLine = [street, [city, state].filter(Boolean).join(", "), zip]
+            .filter(function (p) { return p && String(p).trim(); })
+            .join("  ·  ");
+
+        titleEl.textContent = "Site History — " + custName;
+        subEl.textContent = addressLine + "   ·   " + (locId || "(no LOC id)");
+        bodyEl.innerHTML = "<div class='vc-sh-loading'>Loading site history…</div>";
+        modal.classList.add("is-open");
+
+        loadAndRenderSiteHistory({
+            custName: custName,
+            custId: custId,
+            locId: locId,
+            street: street,
+            city: city,
+            state: state,
+            zip: zip,
+        }).catch(function (err) {
+            console.error("[Site History] load failed:", err);
+            bodyEl.innerHTML = "<div class='vc-sh-err'>Failed to load site history: " +
+                escapeHtml(err && err.message ? err.message : String(err)) + "</div>";
+        });
+    };
+
+    window.closeSiteHistoryModal = function () {
+        var modal = document.getElementById("vcSiteHistoryModal");
+        if (modal) modal.classList.remove("is-open");
+    };
+
+    // -------- data load + render --------
+
+    async function loadAndRenderSiteHistory(site) {
+        var bodyEl = document.getElementById("vcSiteHistoryBody");
+
+        if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+            bodyEl.innerHTML = "<div class='vc-sh-err'>Firebase is not initialized — cannot load site history.</div>";
+            return;
+        }
+        if (typeof VCFirestore === "undefined" || typeof VCFirestore.loadServiceCallsMergedOnce !== "function") {
+            bodyEl.innerHTML = "<div class='vc-sh-err'>VCFirestore helpers are missing — cannot load site history.</div>";
+            return;
+        }
+
+        var db = firebase.firestore();
+
+        // 1. Service tickets — pull all (bridge-aware) and filter client-side.
+        //    Match priority:
+        //      a) ticket.locationNum === site.locId  (precise; LOC-XXXX captured at intake)
+        //      b) ticket.customerName matches  AND  ticket.locationAddress matches site.street
+        var matchedTickets = [];
+        try {
+            var snap = await VCFirestore.loadServiceCallsMergedOnce(db);
+            var targetLoc = String(site.locId || "").trim();
+            var targetCustU = normName(site.custName);
+            var targetStreetU = normStreet(site.street);
+            snap.forEach(function (doc) {
+                var d = (doc && typeof doc.data === "function") ? (doc.data() || {}) : (doc.data || {});
+                var id = doc.id;
+                var ticketLoc = String(d.locationNum || "").trim();
+                var matchedByLoc = !!(targetLoc && ticketLoc && ticketLoc === targetLoc);
+                var matchedByCustStreet = false;
+                if (!matchedByLoc) {
+                    var tCustU = normName(d.customerName);
+                    var tStreetU = normStreet(d.locationAddress);
+                    matchedByCustStreet = (
+                        targetCustU && tCustU === targetCustU &&
+                        targetStreetU && tStreetU === targetStreetU
+                    );
+                }
+                if (matchedByLoc || matchedByCustStreet) {
+                    d._id = id;
+                    d._matchKind = matchedByLoc ? "loc" : "cust+street";
+                    matchedTickets.push(d);
+                }
+            });
+        } catch (e) {
+            console.warn("[Site History] service_calls load failed:", e);
+        }
+
+        // Sort: newest date first; tickets without a date sink to bottom.
+        matchedTickets.sort(function (a, b) {
+            var ad = String(a.date || "");
+            var bd = String(b.date || "");
+            if (!ad && bd) return 1;
+            if (ad && !bd) return -1;
+            if (ad < bd) return 1;
+            if (ad > bd) return -1;
+            return 0;
+        });
+
+        // 2. Site Intel doc (Field Access Notes + access photo count).
+        var siteIntel = null;
+        try {
+            var displayLine = String(site.custName || "").trim() + " - " + String(site.street || "").trim();
+            var docId = buildSiteIntelDocId(displayLine);
+            if (docId && typeof VCFirestore.getSiteIntelDocOnceBridged === "function") {
+                var got = await VCFirestore.getSiteIntelDocOnceBridged(db, docId);
+                if (got && got.exists) siteIntel = got.data || {};
+            }
+        } catch (e) {
+            console.warn("[Site History] site_intelligence load failed:", e);
+        }
+
+        // 3. Completed reports — query by linkedTicketId for the matched tickets (keeps it cheap).
+        //    `linkedTicketId` is what `technician/index.html#uploadReportToCloud` writes on every
+        //    completed_reports doc (NOT `serviceCallId`). Bridge-aware via VCFirestore helper.
+        var reportsByTicketId = {};
+        try {
+            if (typeof VCFirestore.queryCompletedReportsWhereMerged === "function" && matchedTickets.length) {
+                var ids = matchedTickets.slice(0, 30).map(function (t) { return t._id; }).filter(Boolean);
+                var chunks = [];
+                for (var i = 0; i < ids.length; i += 10) chunks.push(ids.slice(i, i + 10));
+                for (var c = 0; c < chunks.length; c++) {
+                    try {
+                        var rows = await VCFirestore.queryCompletedReportsWhereMerged(
+                            db, "linkedTicketId", "in", chunks[c], 50
+                        );
+                        rows.forEach(function (r) {
+                            var d = r.data || {};
+                            var sid = String(d.linkedTicketId || "");
+                            if (!sid) return;
+                            if (!reportsByTicketId[sid]) reportsByTicketId[sid] = [];
+                            reportsByTicketId[sid].push({ id: r.id, data: d });
+                        });
+                    } catch (e2) {
+                        console.warn("[Site History] completed_reports chunk failed:", e2);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("[Site History] completed_reports load failed:", e);
+        }
+
+        renderSiteHistory(site, matchedTickets, siteIntel, reportsByTicketId);
+    }
+
+    function renderSiteHistory(site, tickets, siteIntel, reportsByTicketId) {
+        var bodyEl = document.getElementById("vcSiteHistoryBody");
+
+        // Top-level summary pills.
+        var lastDate = tickets.length ? fmtDate(tickets[0].date) : "—";
+        var statuses = {};
+        tickets.forEach(function (t) {
+            var s = String(t.status || "Unknown");
+            statuses[s] = (statuses[s] || 0) + 1;
+        });
+        var pills = [];
+        pills.push("<span class='vc-sh-pill'>" + tickets.length + " ticket" + (tickets.length === 1 ? "" : "s") + "</span>");
+        pills.push("<span class='vc-sh-pill'>Last visit: " + escapeHtml(lastDate) + "</span>");
+        var siteIntelHas = !!(siteIntel && (
+            (siteIntel.notes && String(siteIntel.notes).trim()) ||
+            (Array.isArray(siteIntel.accessPhotoUrls) && siteIntel.accessPhotoUrls.length)
+        ));
+        pills.push("<span class='vc-sh-pill" + (siteIntelHas ? "" : " is-warn") + "'>Site Intel: " + (siteIntelHas ? "yes" : "none") + "</span>");
+        Object.keys(statuses).slice(0, 4).forEach(function (s) {
+            pills.push("<span class='vc-sh-pill'>" + escapeHtml(s) + ": " + statuses[s] + "</span>");
+        });
+
+        var html = "<div class='vc-sh-meta'>" + pills.join("") + "</div>";
+
+        // -- Site Intel section --
+        html += "<div class='vc-sh-section'><h3>Site Intelligence (Field Access Notes)</h3>";
+        if (siteIntelHas) {
+            var notes = siteIntel.notes ? String(siteIntel.notes).trim() : "";
+            var photoCount = Array.isArray(siteIntel.accessPhotoUrls) ? siteIntel.accessPhotoUrls.length : 0;
+            var updatedAt = siteIntel.updatedAt || siteIntel.accessPhotoUpdatedAt;
+            html += "<div class='vc-sh-row is-static'>";
+            html += "<div class='vc-sh-row-top'>";
+            html += "<span class='vc-sh-chip' style='background:#0ea5e9;'>NOTES</span>";
+            html += "<span>" + (siteIntel.updatedByTech ? escapeHtml(siteIntel.updatedByTech) : "Unknown tech") + "</span>";
+            html += "<span style='color:#94a3b8;font-size:11px;'>· updated " + escapeHtml(fmtTs(updatedAt)) + "</span>";
+            if (photoCount) html += "<span class='vc-sh-pill' style='margin-left:auto;'>📷 " + photoCount + " photo" + (photoCount === 1 ? "" : "s") + "</span>";
+            html += "</div>";
+            if (notes) html += "<div class='vc-sh-row-issue'>" + escapeHtml(notes).replace(/\n/g, "<br>") + "</div>";
+            else html += "<div class='vc-sh-row-meta'><em>No text notes — only access photos.</em></div>";
+            html += "</div>";
+        } else {
+            html += "<div class='vc-sh-empty'>No Site Intelligence recorded for this site yet.</div>";
+        }
+        html += "</div>";
+
+        // -- Service tickets section --
+        html += "<div class='vc-sh-section'><h3>Service tickets &amp; visits</h3>";
+        if (!tickets.length) {
+            html += "<div class='vc-sh-empty'>No service tickets recorded for this site (matched by LOC id or customer + street).</div>";
+        } else {
+            tickets.forEach(function (t) {
+                var color = statusChipColor(t.status);
+                var tid = String(t._id || "");
+                var safeTid = tid.replace(/'/g, "\\'");
+                var date = fmtDate(t.date);
+                var jt = t.jobType ? String(t.jobType) : "Service";
+                var status = t.status ? String(t.status) : "—";
+                var ticketNum = t.ticketNum ? String(t.ticketNum) : tid;
+                var techs = "";
+                if (Array.isArray(t.assignedTechs) && t.assignedTechs.length) techs = t.assignedTechs.join(", ");
+                else if (t.assignedTech) techs = String(t.assignedTech);
+                var issueRaw = String(t.issue || "").trim();
+                var issue = issueRaw ? (issueRaw.length > 220 ? issueRaw.slice(0, 220) + "…" : issueRaw) : "";
+                var matchHint = t._matchKind === "loc" ? "matched LOC" : "matched cust+street";
+                var reports = reportsByTicketId[tid] || [];
+                var reportLine = reports.length
+                    ? "📄 " + reports.length + " completed report" + (reports.length === 1 ? "" : "s")
+                    : "";
+
+                html += "<div class='vc-sh-row' onclick=\"openTicketFromSiteHistory('" + safeTid + "')\" title='Open ticket #" + escapeHtml(ticketNum) + " in Service Call Intake'>";
+                html += "<div class='vc-sh-row-top'>";
+                html += "<span class='vc-sh-chip' style='background:" + color + ";'>" + escapeHtml(status) + "</span>";
+                html += "<strong>" + escapeHtml(date) + "</strong>";
+                html += "<span style='color:#475569;'>· " + escapeHtml(jt) + "</span>";
+                html += "<span style='color:#94a3b8;font-size:11px;margin-left:auto;'>#" + escapeHtml(ticketNum) + " · " + escapeHtml(matchHint) + "</span>";
+                html += "</div>";
+                var metaBits = [];
+                if (techs) metaBits.push("👷 " + escapeHtml(techs));
+                if (t.priority) metaBits.push("🏷️ " + escapeHtml(String(t.priority)));
+                if (reportLine) metaBits.push(reportLine);
+                if (metaBits.length) html += "<div class='vc-sh-row-meta'>" + metaBits.join("   ·   ") + "</div>";
+                if (issue) html += "<div class='vc-sh-row-issue'>" + escapeHtml(issue) + "</div>";
+                html += "</div>";
+            });
+        }
+        html += "</div>";
+
+        bodyEl.innerHTML = html;
+    }
+
+    // Click on a ticket row → load it in Service Call Intake (uses existing dispatcher flow).
+    window.openTicketFromSiteHistory = function (ticketId) {
+        if (!ticketId) return;
+        try {
+            // Customer Directory + Site History modals out of the way.
+            if (typeof closeSiteHistoryModal === "function") closeSiteHistoryModal();
+            if (typeof closeCustomerDirectory === "function") closeCustomerDirectory();
+            // Switch to Service Call Intake if we know how.
+            if (typeof switchTab === "function") {
+                try { switchTab("service"); } catch (e) {}
+            }
+            if (typeof loadServiceCall === "function") {
+                loadServiceCall(ticketId);
+            } else {
+                console.warn("[Site History] loadServiceCall not available — leaving ticket id in clipboard.");
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ticketId);
+                } catch (e2) {}
+                alert("Ticket id copied: " + ticketId);
+            }
+        } catch (e) {
+            console.error("[Site History] openTicketFromSiteHistory failed:", e);
+        }
+    };
+})();
