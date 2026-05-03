@@ -72,21 +72,20 @@
     "If quantity is unclear, infer conservatively from context or use a single unit (…1).",
   ].join("\n");
 
-  /** Improve-with-AI when #svcDiagnosticsFields is visible (SERVICE hub): grammar/punctuation only on three fields; never fills #dictationHubNotes. */
+  /** Improve-with-AI when #svcDiagnosticsFields is visible (SERVICE hub): grammar/punctuation on combined findings/repairs + recommendations; never fills #dictationHubNotes. */
   var SYSTEM_INSTRUCTION_DIAGNOSTICS = [
     "You are an HVAC field-notes assistant and data-mapper. Follow every rule below.",
     "",
-    "INPUT: The user message contains labeled blocks: Findings / diagnosis, Repairs made, Recommendations (some may be omitted if empty).",
+    "INPUT: The user message contains labeled blocks: Findings / diagnosis & repairs made, and Recommendations (some may be omitted if empty).",
     "",
     "OUTPUT: Return ONLY valid JSON (no markdown fences) with exactly these keys:",
-    '- "diagnosis": string — light copy-edit of the Findings/diagnosis text (see RULES FOR TEXT FIELDS). If that block was empty or missing, use "".',
-    '- "repairsMade": string — same for Repairs made. If empty/missing, use "".',
-    '- "recommendations": string — same for Recommendations. If empty/missing, use "".',
+    '- "findingsDiagnosticsRepairs": string — light copy-edit of the combined findings/diagnosis and repairs text (see RULES FOR TEXT FIELDS). If empty or missing, use "".',
+    '- "recommendations": string — light copy-edit of Recommendations. If empty/missing, use "".',
     '- "identifiedAssetIds": array of strings like ["RTU1","RTU2","VH1","EF1"]',
     '- "locationTransposed": string, standardized as "CUSTOMER - CITY - STREET" using ALL CAPS for the three parts; use hyphens with spaces as shown. If unknown, use best effort from context or empty string "".',
     '- "visitSummary": one short sentence summarizing the visit.',
     "",
-    "RULES FOR TEXT FIELDS diagnosis, repairsMade, recommendations (non‑negotiable):",
+    "RULES FOR TEXT FIELDS findingsDiagnosticsRepairs and recommendations (non‑negotiable):",
     "- **Preserve** what the technician said: same facts, same order of ideas, same bullets/lines/paragraph breaks unless a **minimal** grammar fix requires a tiny adjustment.",
     "- **Allowed edits only:** spelling corrections, obvious typos, standard punctuation, sentence-boundary fixes, and capitalization where clearly wrong.",
     "- **Forbidden:** rewriting for tone or “polish,” removing first‑person or informal voice, customer-facing marketing copy, summarizing, shortening, expanding with new details, or rephrasing that changes meaning.",
@@ -115,14 +114,11 @@
 
   function collectDiagnosticsTextForAi() {
     var dEl = document.getElementById("diagnosis");
-    var rEl = document.getElementById("repairsMade");
     var recEl = document.getElementById("recommendations");
     var d = dEl ? String(dEl.value || "").trim() : "";
-    var r = rEl ? String(rEl.value || "").trim() : "";
     var rec = recEl ? String(recEl.value || "").trim() : "";
     var parts = [];
-    if (d) parts.push("Findings / diagnosis:\n" + d);
-    if (r) parts.push("Repairs made:\n" + r);
+    if (d) parts.push("Findings / diagnosis & repairs made:\n" + d);
     if (rec) parts.push("Recommendations:\n" + rec);
     return parts.join("\n\n");
   }
@@ -1336,14 +1332,26 @@
         }
       }
     } else {
+      var mergedOut = pickParsedString(parsed, [
+        "findingsDiagnosticsRepairs",
+        "findings_diagnostics_repairs",
+        "findingsDiagnosisRepairs",
+      ]);
       var dOut = pickParsedString(parsed, ["diagnosis", "findingsDiagnosis", "findings_diagnosis"]);
       var rOut = pickParsedString(parsed, ["repairsMade", "repairs_made"]);
       var recOut = pickParsedString(parsed, ["recommendations", "recommendation"]);
       var dField = document.getElementById("diagnosis");
       var rField = document.getElementById("repairsMade");
       var recField = document.getElementById("recommendations");
-      if (dOut != null && dField) dField.value = dOut;
-      if (rOut != null && rField) rField.value = rOut;
+      if (mergedOut != null && dField) {
+        dField.value = mergedOut;
+        if (rField) rField.value = "";
+      } else if (dField) {
+        var dv = dOut != null ? String(dOut).trim() : "";
+        var rv = rOut != null ? String(rOut).trim() : "";
+        dField.value = dv && rv ? dv + "\n\n" + rv : dv || rv || "";
+        if (rField) rField.value = "";
+      }
       if (recOut != null && recField) recField.value = recOut;
       if (typeof saveDraft === "function") saveDraft();
     }

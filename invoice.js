@@ -143,8 +143,10 @@ async function parsePastedNotes() {
     const invDiagInput = document.getElementById("invDiag");
     const svcDiag = extract("Findings\\s*[/\\\\]\\s*Diagnosis");
     const explicitDiag = extract("Diagnosis");
+    const svcMergedFindings = extract("Findings\\s*[/\\\\]\\s*diagnosis\\s*&\\s*repairs\\s*made");
     let diagVal = "";
     if (explicitDiag) diagVal = explicitDiag.replace(/\n/g, " ").trim();
+    else if (svcMergedFindings) diagVal = svcMergedFindings.replace(/\n/g, " ").trim();
     else if (svcDiag) diagVal = svcDiag.replace(/\n/g, " ").trim();
     if (invDiagInput) {
         if (/^n\/?a\.?$/i.test(diagVal)) invDiagInput.value = "";
@@ -260,6 +262,7 @@ function hasRecognizableInvoiceTemplate(src, rawOpt) {
         line("Repairs\\s+Completed") ||
         line("Reason\\s+for\\s+call") ||
         line("Findings\\s*/\\s*Diagnosis") ||
+        line("Findings\\s*/\\s*diagnosis\\s*&\\s*repairs\\s*made") ||
         line("Repairs\\s+made") ||
         line("Notes\\s*/\\s*repairs") ||
         line("Work\\s+done") ||

@@ -3866,10 +3866,9 @@ button#techDisplayLabel:active { opacity: 0.75; }
       </div>
     </div>
     <div id="svcDiagnosticsFields" class="svc-diagnostics-in-hub hidden">
-      <label for="diagnosis">Findings / Diagnosis</label>
-      <textarea id="diagnosis" placeholder="Example: RTU1 heat exchanger is cracked." rows="4" autocomplete="off"></textarea>
-      <label for="repairsMade">Repairs made</label>
-      <textarea id="repairsMade" placeholder="Example: Confirmed failure and shut unit down." rows="4" autocomplete="off"></textarea>
+      <label for="diagnosis">Findings / diagnosis &amp; repairs made</label>
+      <textarea id="diagnosis" placeholder="Example: Crack found on RTU1 heat exchanger. Confirmed failure, shut unit down and tagged out." rows="8" autocomplete="off"></textarea>
+      <textarea id="repairsMade" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true"></textarea>
       <label for="recommendations">Recommendations / Next steps</label>
       <textarea id="recommendations" placeholder="Example: Replace RTU1 due to cracked heat exchanger." rows="3" autocomplete="off"></textarea>
     </div>
@@ -7793,7 +7792,8 @@ function getFields(){
     used: document.getElementById("used").value || "", cost: document.getElementById("cost").value || "",
     next: document.getElementById("next").value || "", workdone: document.getElementById("workdone").value || "",
     serviceEquipment: document.getElementById("serviceEquipment").value || "", reason: document.getElementById("reason").value || "",
-    diagnosis: document.getElementById("diagnosis").value || "", repairsMade: document.getElementById("repairsMade").value || "",
+    diagnosis: document.getElementById("diagnosis").value || "",
+    repairsMade: "",
     serviceUsed: document.getElementById("serviceUsed").value || "", serviceCost: document.getElementById("serviceCost").value || "",
     quoteParts: document.getElementById("quoteParts").value || "", quoteLabor: document.getElementById("quoteLabor").value || "",
     recommendations: document.getElementById("recommendations").value || "", quoteEquip: document.getElementById("quoteEquip").value || "",
@@ -7820,7 +7820,12 @@ function setFields(d){
   document.getElementById("used").value = d.used || ""; document.getElementById("cost").value = d.cost || "";
   document.getElementById("next").value = d.next || ""; document.getElementById("workdone").value = d.workdone || DEFAULT_PM_WORKDONE;
   document.getElementById("serviceEquipment").value = d.serviceEquipment || ""; document.getElementById("reason").value = d.reason || "";
-  document.getElementById("diagnosis").value = d.diagnosis || ""; document.getElementById("repairsMade").value = d.repairsMade || "";
+  var _dxSvc = String(d.diagnosis || "").trim();
+  var _rmSvc = String(d.repairsMade || "").trim();
+  document.getElementById("diagnosis").value =
+    _dxSvc && _rmSvc ? _dxSvc + "\n\n" + _rmSvc : _dxSvc || _rmSvc || "";
+  var _rmHidden = document.getElementById("repairsMade");
+  if (_rmHidden) _rmHidden.value = "";
   document.getElementById("serviceUsed").value = d.serviceUsed || ""; document.getElementById("serviceCost").value = d.serviceCost || "";
   document.getElementById("quoteParts").value = d.quoteParts || ""; document.getElementById("quoteLabor").value = d.quoteLabor || "";
   document.getElementById("recommendations").value = d.recommendations || ""; document.getElementById("quoteEquip").value = d.quoteEquip || "";
@@ -8041,14 +8046,14 @@ async function buildReportFromForm() {
     const serviceEquipDisplay = parseEquipCodes(serviceEquipRaw).length ? expandEquipment(serviceEquipRaw) : (serviceEquipRaw || "Not listed");
     const reason = document.getElementById("reason").value.trim() || "Not listed.";
     const diagnosis = document.getElementById("diagnosis").value.trim() || "Not listed.";
-    const repairsMade = document.getElementById("repairsMade").value.trim() || "None.";
+    const repairsMade = "";
     const used = document.getElementById("serviceUsed").value.trim() ? normalizeParts(document.getElementById("serviceUsed").value) : "NONE";
     const cost = document.getElementById("serviceCost").value || "Unknown";
     const quoteParts = document.getElementById("quoteParts").value.trim() ? normalizeParts(document.getElementById("quoteParts").value) : "NONE";
     const quoteLabor = document.getElementById("quoteLabor").value.trim() || "NONE";
     const recommendations = document.getElementById("recommendations").value.trim() || "None.";
 
-    report = `SERVICE CALL\n\nLocation:\n${finalLocationDisplay}\n\nDate:\n${date}${nameplateBlock}\n\nEquipment worked on:\n${serviceEquipDisplay}\n\nReason for call:\n${reason}\n\nFindings / Diagnosis:\n${diagnosis}\n\nRepairs made:\n${repairsMade}\n\nParts used:\n${used}\n\nCost of parts (if known):\n${cost}\n\nParts needed for repair quote:\n${quoteParts}\n\nLabor for repair quote:\n${quoteLabor}\n\nRecommendations / Next steps:\n${recommendations}\n\nPictures:\nRepair photos attached.\n`;
+    report = `SERVICE CALL\n\nLocation:\n${finalLocationDisplay}\n\nDate:\n${date}${nameplateBlock}\n\nEquipment worked on:\n${serviceEquipDisplay}\n\nReason for call:\n${reason}\n\nFindings / diagnosis & repairs made:\n${diagnosis}\n\nParts used:\n${used}\n\nCost of parts (if known):\n${cost}\n\nParts needed for repair quote:\n${quoteParts}\n\nLabor for repair quote:\n${quoteLabor}\n\nRecommendations / Next steps:\n${recommendations}\n\nPictures:\nRepair photos attached.\n`;
     visit = { date, mode: "SERVICE CALL", customer: getCustomerFromLocation(location), location, equipmentWorkedOn: serviceEquipDisplay, reason, diagnosis, repairsMade, partsUsed: used, cost, quoteParts, quoteLabor, recommendations, report, ...ut };
 
   } else if(currentMode === "QUOTE") {
@@ -8212,7 +8217,7 @@ function addEnterFormatter(id, formatter){
   const el = document.getElementById(id);
   if(!el) return;
   el.addEventListener("keydown", (e) => {
-    if( e.key === "Enter" && !["notes","reason","diagnosis","repairsMade","recommendations", "quoteIssue", "quoteRepairs", "quoteTesting", "quoteRecs"].includes(id) ){
+    if( e.key === "Enter" && !["notes","reason","diagnosis","recommendations", "quoteIssue", "quoteRepairs", "quoteTesting", "quoteRecs"].includes(id) ){
       e.preventDefault(); formatter(); e.target.blur();
     }
   });
