@@ -579,7 +579,7 @@
     });
   }
 
-  /** Populate Job Status dropdown (smart equipment: scan new + units). */
+  /** Populate linked-equipment dropdown (site units from Firestore). */
   function refreshJobLinkedEquipmentDropdown() {
     var sel = $("linkedEquipmentSelect");
     if (!sel) return;

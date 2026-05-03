@@ -1,10 +1,11 @@
 /**
- * Smart equipment dropdown: site units + first option opens AI data plate scanner.
- * Depends on: firebase, activeTicket, getParentCompany, EquipmentManager, #location
+ * Smart equipment dropdown: site units (+ None). Refreshes from Firestore when a job is open.
+ * Depends on: firebase, activeTicket, #location
  */
 (function () {
   "use strict";
 
+  /** Legacy sentinel; retained for field_forms / draft checks that reject non-unit ids. */
   var SCAN_NEW_VALUE = "__TP_SCAN_NEW_EQUIPMENT__";
 
   function sanitizePathSegment(s) {
@@ -26,43 +27,8 @@
     return el && el.value ? String(el.value).trim() : "";
   }
 
-  function openScannerForActiveJob() {
-    if (typeof activeTicket === "undefined" || !activeTicket) {
-      alert("Select a job from your schedule first.");
-      return;
-    }
-    var locLine = getLocationLine();
-    if (!locLine) {
-      alert("Set the location field before scanning new equipment.");
-      return;
-    }
-    if (typeof EquipmentManager === "undefined" || !EquipmentManager.open) {
-      alert("Equipment scanner is not loaded.");
-      return;
-    }
-    var run = function (parentCompany) {
-      EquipmentManager.open({
-        parentCompany: parentCompany || "—",
-        customer: activeTicket.customerName,
-        locationDisplay: locLine,
-        locationId: sanitizePathSegment(locLine),
-      });
-    };
-    if (typeof getParentCompany === "function") {
-      getParentCompany(locLine)
-        .then(function (pc) {
-          run(pc || "—");
-        })
-        .catch(function () {
-          run("—");
-        });
-    } else {
-      run("—");
-    }
-  }
-
   /**
-   * Rebuild options: [+ Scan New…], — None —, then units.
+   * Rebuild options: — None —, then units (no in-dropdown scan launcher).
    * @param {HTMLSelectElement} selectEl
    * @param {string} [preserveValue] value to restore if still present
    */
@@ -72,11 +38,7 @@
       preserveValue != null ? preserveValue : String(selectEl.value || "");
     var locLine = getLocationLine();
     if (typeof activeTicket === "undefined" || !activeTicket || !locLine) {
-      selectEl.innerHTML =
-        "<option value=\"" +
-        SCAN_NEW_VALUE +
-        "\">[+ Scan New Equipment Data Plate]</option>" +
-        "<option value=\"\">— None —</option>";
+      selectEl.innerHTML = "<option value=\"\">— None —</option>";
       selectEl.disabled = true;
       selectEl.value = "";
       return Promise.resolve();
@@ -86,9 +48,6 @@
     var locationId = sanitizePathSegment(locLine);
 
     selectEl.innerHTML =
-      "<option value=\"" +
-      SCAN_NEW_VALUE +
-      "\">[+ Scan New Equipment Data Plate]</option>" +
       "<option value=\"\">— None —</option>" +
       "<option disabled>Loading…</option>";
 
@@ -97,11 +56,7 @@
       !firebase.apps ||
       !firebase.apps.length
     ) {
-      selectEl.innerHTML =
-        "<option value=\"" +
-        SCAN_NEW_VALUE +
-        "\">[+ Scan New Equipment Data Plate]</option>" +
-        "<option value=\"\">— None —</option>";
+      selectEl.innerHTML = "<option value=\"\">— None —</option>";
       return Promise.resolve();
     }
 
@@ -114,11 +69,7 @@
       .collection("Equipment")
       .get()
       .then(function (snap) {
-        var opts =
-          "<option value=\"" +
-          SCAN_NEW_VALUE +
-          "\">[+ Scan New Equipment Data Plate]</option>" +
-          "<option value=\"\">— None —</option>";
+        var opts = "<option value=\"\">— None —</option>";
         snap.forEach(function (doc) {
           var d = doc.data() || {};
           var composite = makeEquipmentId(customerId, locationId, doc.id);
@@ -128,9 +79,6 @@
             String(d.dataPlatePhotoUrl || "").trim() &&
             String(d.overallPhotoUrl || "").trim()
           );
-          var optTitle = verified
-            ? "Identity Verified: Photos & Specs on file."
-            : "";
           opts +=
             "<option value=\"" +
             escapeAttr(composite) +
@@ -156,17 +104,13 @@
           })
         ) {
           selectEl.value = keep;
-        } else if (keep === SCAN_NEW_VALUE) {
+        } else {
           selectEl.value = "";
         }
       })
       .catch(function (e) {
         console.error("[SmartEquipmentSelect]", e);
-        selectEl.innerHTML =
-          "<option value=\"" +
-          SCAN_NEW_VALUE +
-          "\">[+ Scan New Equipment Data Plate]</option>" +
-          "<option value=\"\">— None —</option>";
+        selectEl.innerHTML = "<option value=\"\">— None —</option>";
       });
   }
 
@@ -187,14 +131,6 @@
     if (!selectEl || selectEl.dataset.smartEquipmentBound === "1") return;
     selectEl.dataset.smartEquipmentBound = "1";
     selectEl.addEventListener("change", function () {
-      if (selectEl.value !== SCAN_NEW_VALUE) {
-        if (typeof saveDraft === "function") saveDraft();
-        return;
-      }
-      selectEl.dataset.openingScanner = "1";
-      openScannerForActiveJob();
-      selectEl.value = "";
-      selectEl.dataset.openingScanner = "";
       if (typeof saveDraft === "function") saveDraft();
     });
   }
@@ -238,5 +174,4 @@
   window.refreshSmartEquipmentSelect = refreshSmartEquipmentSelect;
   window.bindSmartEquipmentSelect = bindSmartEquipmentSelect;
   window.refreshAllSmartEquipmentSelects = refreshAllSmartEquipmentSelects;
-  window.openEquipmentScannerForActiveJob = openScannerForActiveJob;
 })();
