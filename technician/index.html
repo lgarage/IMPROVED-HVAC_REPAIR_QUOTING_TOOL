@@ -1718,6 +1718,27 @@ body.vc-override-active #vcOfficeOverrideBanner {
 .ws-site-menu-item:hover { background: #f0f9ff; }
 .ws-site-menu-item.site-intel--has-data { color: #b45309; }
 .dictation-site-nav .ws-ticket { font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold; }
+.dictation-site-nav .ws-ticket-shadow-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-bottom: 10px;
+}
+.dictation-site-nav .ws-ticket-shadow-row .ws-ticket {
+  flex: 0 1 auto;
+  margin-bottom: 0;
+}
+.ws-shadow-tech-anchor:empty,
+.vc-header-shadow-tech-anchor:empty {
+  display: none !important;
+}
+.dictation-site-nav .ws-shadow-tech-anchor .vc-shadow-tech-selector {
+  width: auto;
+  flex: 1 1 140px;
+  max-width: min(260px, 58vw);
+  min-width: 0;
+}
 .dictation-site-nav .ws-reason-for-call {
   margin-top: 10px;
   font-size: 12px;
@@ -3686,27 +3707,29 @@ button#techDisplayLabel:active { opacity: 0.75; }
     <div class="app-header-meta">
       <span id="vcFieldOfflineBadge" class="vc-field-offline-badge hidden" role="status" aria-live="polite" title="Firestore is reading from local cache or the device is offline. Data syncs when signal returns."></span>
       <button type="button" id="techDisplayLabel" class="tech-profile-badge" aria-haspopup="dialog" aria-expanded="false">Loading…</button>
-      <div id="vcShadowTechSelector" class="vc-shadow-tech-selector hidden" aria-label="Shadow tech switcher">
-        <button
-          type="button"
-          id="vcShadowTechSelectorTrigger"
-          class="vc-shadow-tech-selector-trigger"
-          aria-expanded="false"
-          aria-haspopup="listbox"
-        >
-          <span id="vcShadowTechSelectorTriggerLabel" class="vc-shadow-tech-selector-trigger-label">👁 Shadow</span>
-          <span class="vc-shadow-tech-selector-chevron" aria-hidden="true">▾</span>
-        </button>
-        <div id="vcShadowTechSelectorDropdown" class="vc-shadow-tech-selector-dropdown hidden" role="presentation">
-          <label for="vcShadowTechSearch" class="visually-hidden">Search technicians</label>
-          <input
-            type="search"
-            id="vcShadowTechSearch"
-            class="vc-shadow-tech-selector-search"
-            placeholder="Search technicians…"
-            autocomplete="off"
-          />
-          <div id="vcShadowTechList" class="vc-shadow-tech-selector-list" role="listbox" aria-label="Technicians"></div>
+      <div id="headerShadowTechAnchor" class="vc-header-shadow-tech-anchor">
+        <div id="vcShadowTechSelector" class="vc-shadow-tech-selector hidden" aria-label="Shadow tech switcher">
+          <button
+            type="button"
+            id="vcShadowTechSelectorTrigger"
+            class="vc-shadow-tech-selector-trigger"
+            aria-expanded="false"
+            aria-haspopup="listbox"
+          >
+            <span id="vcShadowTechSelectorTriggerLabel" class="vc-shadow-tech-selector-trigger-label">👁 Shadow</span>
+            <span class="vc-shadow-tech-selector-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div id="vcShadowTechSelectorDropdown" class="vc-shadow-tech-selector-dropdown hidden" role="presentation">
+            <label for="vcShadowTechSearch" class="visually-hidden">Search technicians</label>
+            <input
+              type="search"
+              id="vcShadowTechSearch"
+              class="vc-shadow-tech-selector-search"
+              placeholder="Search technicians…"
+              autocomplete="off"
+            />
+            <div id="vcShadowTechList" class="vc-shadow-tech-selector-list" role="listbox" aria-label="Technicians"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -3797,7 +3820,10 @@ button#techDisplayLabel:active { opacity: 0.75; }
       <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
         Return to Schedule to pick a ticket
       </button>
-      <div id="ws-ticket" class="ws-ticket">NO TICKET</div>
+      <div class="ws-ticket-shadow-row">
+        <div id="ws-ticket" class="ws-ticket">NO TICKET</div>
+        <div id="wsShadowTechAnchor" class="ws-shadow-tech-anchor"></div>
+      </div>
       <div id="ws-reason-for-call" class="ws-reason-for-call hidden" role="region" aria-label="Reason for call" aria-hidden="true">
         <div class="ws-reason-for-call-label">Reason for call</div>
         <div id="ws-reason-for-call-text" class="ws-reason-for-call-body"></div>
@@ -4817,6 +4843,7 @@ function switchScreen(screenName) {
   if (screenName === 'history') populateHistoryCustomers();
 
   window.scrollTo(0,0);
+  if (typeof vcRelocateShadowTechSelector === "function") vcRelocateShadowTechSelector();
   if (typeof writeLivePresence === 'function') writeLivePresence();
 }
 
@@ -8329,6 +8356,18 @@ function vcShadowAttr(s) {
     .replace(/</g, "&lt;");
 }
 
+function vcRelocateShadowTechSelector() {
+  if (window.VC_SHADOW_VIEWER !== true) return;
+  const box = document.getElementById("vcShadowTechSelector");
+  const headerSlot = document.getElementById("headerShadowTechAnchor");
+  const wsSlot = document.getElementById("wsShadowTechAnchor");
+  if (!box || !headerSlot || !wsSlot) return;
+  const wsScreen = document.getElementById("screen-workspace");
+  const onWorkspace = wsScreen && wsScreen.classList.contains("active");
+  (onWorkspace ? wsSlot : headerSlot).appendChild(box);
+  if (typeof positionShadowTechDropdown === "function") positionShadowTechDropdown();
+}
+
 function updateShadowTechTriggerLabel(displayName) {
   const el = document.getElementById("vcShadowTechSelectorTriggerLabel");
   if (!el) return;
@@ -8762,6 +8801,7 @@ function initShadowViewerFromUrl() {
   }
   initShadowTechSelectorPopulate();
   wireShadowTechSelectorUi();
+  if (typeof vcRelocateShadowTechSelector === "function") vcRelocateShadowTechSelector();
   if (!presenceKey || typeof firebase === 'undefined' || !firebase.apps.length) return true;
   if (typeof VCFirestore === 'undefined' || !VCFirestore.livePresence) return true;
   wireShadowPresenceForKey(presenceKey);
