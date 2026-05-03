@@ -12,7 +12,7 @@
     /** Default Vertex Core asset; override per tenant via Settings → Branding (URL or path). */
     logoUrl: "vertex_core_logo.png",
     /** Mark-only asset for collapsed dispatcher sidebar (no wordmark). */
-    logoUrlMini: "vertex_core_logo_only.png",
+    logoUrlMini: "vertex_core_logo_only.svg",
     primaryColor: "#0ea5e9",
     accentColor: "#c89b53",
     adminUnlockPin: "beta",
@@ -163,7 +163,11 @@
   function vcSetVertexLogoTint(el, resolvedUrl) {
     if (!el) return;
     var f = vcLogoFilenameFromResolved(resolvedUrl);
-    if (f === "vertex_core_logo.png" || f === "vertex_core_logo_only.png") {
+    if (
+      f === "vertex_core_logo.png" ||
+      f === "vertex_core_logo_only.png" ||
+      f === "vertex_core_logo_only.svg"
+    ) {
       el.classList.add("vc-brand-logo-primary-tint");
     } else {
       el.classList.remove("vc-brand-logo-primary-tint");
@@ -187,7 +191,7 @@
     } else {
       var fullFn = vcLogoFilenameFromResolved(resolvedLogo);
       if (fullFn === "vertex_core_logo.png") {
-        resolvedMini = resolveLogoUrl("vertex_core_logo_only.png");
+        resolvedMini = resolveLogoUrl("vertex_core_logo_only.svg");
       } else {
         resolvedMini = resolvedLogo;
       }

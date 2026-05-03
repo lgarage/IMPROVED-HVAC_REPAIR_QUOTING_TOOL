@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
 <script src="../firebase-config.js?v=4"></script>
 <script src="../shared/firebase_config.js?v=1"></script>
-<script src="../shared/config.js?v=5"></script>
+<script src="../shared/config.js?v=6"></script>
 <script src="../shared/firebase_logic.js?v=3"></script>
 <script src="../shared/client_portal_logic.js?v=2"></script>
 <script src="js/vc_entitlements.js?v=1"></script>
@@ -3786,7 +3786,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
 
 <header class="app-top-shell" role="banner">
   <div class="app-header-row">
-    <img id="vcBrandLogo" src="../vertex_core_logo_only.png" alt="" width="40" height="40" onerror="this.outerHTML='<span style=\'font-weight:800;color:#0ea5e9;font-size:14px;\'>FIELD APP</span>'">
+    <img id="vcBrandLogo" src="../vertex_core_logo_only.svg" alt="" width="40" height="40" onerror="this.outerHTML='<span style=\'font-weight:800;color:#0ea5e9;font-size:14px;\'>FIELD APP</span>'">
     <div class="app-header-meta">
       <span id="vcFieldOfflineBadge" class="vc-field-offline-badge hidden" role="status" aria-live="polite" title="Firestore is reading from local cache or the device is offline. Data syncs when signal returns."></span>
       <button type="button" id="techDisplayLabel" class="tech-profile-badge" aria-haspopup="dialog" aria-expanded="false">Loading…</button>
@@ -4620,7 +4620,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34r-brand-logo-mark-dispatch-field-2026-05-02";
+window.VC_BUILD = "Phase34s-logo-mini-svg-2026-05-02";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
