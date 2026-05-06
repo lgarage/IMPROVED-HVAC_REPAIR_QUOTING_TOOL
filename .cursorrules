@@ -100,6 +100,30 @@ A fresh AI reading Tier 1 will see this pointer and know to fetch the plan doc *
 - **Current Focus pointer:** Keep the `Current Focus` block at the bottom of `PROJECT_MAP.md` to **3 lines maximum** that point into `CURRENT_STATE.md` and `KNOWN_ISSUES.md`. Detailed blocker write-ups belong in `KNOWN_ISSUES.md`, not here.
 - **Handling Pivots:** If the development focus shifts or a phase is paused to address a bug, log the pivot in `CURRENT_STATE.md` and (if architectural) add a `DECISIONS.md` ADR. Leave the original phase unchecked in `PROJECT_MAP.md → Build History` until it is truly completed.
 
+#### Phase numbering rules (new phase number vs. sub-letter)
+
+**Use a NEW phase number** when ANY of the following are true:
+- The work introduces a **new `shared/` module** (new JS file under `shared/`).
+- The work creates a **new Firestore collection or document schema** not touched by the current phase.
+- The work delivers a **fundamentally different user-facing capability** (e.g. a new Settings section, a new sidebar view, a new security layer).
+- The work was **explicitly requested as a separate feature**, not as a follow-up fix to an in-flight phase.
+
+**Use a sub-letter (e.g. 35a, 35b)** when ALL of the following are true:
+- The work is a **direct extension or bug-fix of the parent phase's core idea** (same feature, more slices).
+- It touches the **same files and collections** as the parent phase (or adds at most one new file that is clearly part of the same feature).
+- It would **not make sense as a standalone phase** in a retrospective ("Phase 34b" = "repair branching for the field forms Phase 34 introduced" — obviously part of 34).
+
+**Examples applying the rule:**
+| Work | Verdict | Reason |
+|------|---------|--------|
+| 34a–e: field workspace forms, labels, photos | Sub-letters of 34 ✓ | All extend the same field workspace; same files; same feature goal |
+| Customer Entitlements Platform (`shared/entitlements.js`, new Firestore doc, new Settings UI) | **New phase (35)** | New shared module, new Firestore doc, new capability |
+| Inter-Office Feed re-gate via `vcHasFeature()` | **Part of Phase 35** | Directly consumed the entitlements platform just shipped in 35; not independent |
+| Per-User Feature Toggles (`shared/auth.js`, `firestore.rules`, new Firestore collection) | **New phase (36)** | New shared module, new security layer, completely different capability from 35 |
+| A follow-up bugfix to Phase 35's Settings UI | Sub-letter of 35 (35a) | Fixes the phase-35 UI; same files; same feature |
+
+**When in doubt: new phase number.** It is cheaper to have slightly more phase numbers than to lose track of what shipped when.
+
 ## 2. ARCHITECTURAL GUARDRAILS
 
 - **Tenant Isolation:** All writes must be sandboxed under `tenants/{tenantId}/`.
