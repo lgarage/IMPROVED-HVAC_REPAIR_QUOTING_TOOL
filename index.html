@@ -39,7 +39,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Slice4b-Bootstrap-PwReset-2026-05-06";
+      window.VC_BUILD = "Slice4c-AuthBar-2026-05-06";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -5358,6 +5358,68 @@
             <h2>System Settings</h2>
           </div>
 
+          <!-- Admin auth bar — sign in / signed-in status, always visible at top of Settings -->
+          <div
+            id="vcSettingsAuthBar"
+            style="
+              background:#f8fafc;
+              border:1px solid #e2e8f0;
+              border-radius:10px;
+              padding:14px 18px;
+              margin-bottom:18px;
+              display:flex;
+              flex-wrap:wrap;
+              align-items:center;
+              gap:12px;
+            "
+          >
+            <!-- signed-out state -->
+            <div id="vcAuthBarSignedOut" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;width:100%">
+              <span style="font-size:13px;font-weight:600;color:#334155;margin-right:4px">🔐 Admin sign-in</span>
+              <input
+                type="email"
+                id="vcAuthBarEmail"
+                placeholder="Admin email"
+                autocomplete="email"
+                style="padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;min-width:200px;flex:1;max-width:280px"
+              />
+              <input
+                type="password"
+                id="vcAuthBarPassword"
+                placeholder="Password"
+                autocomplete="current-password"
+                style="padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;min-width:140px;flex:1;max-width:200px"
+              />
+              <button
+                type="button"
+                id="vcAuthBarSignInBtn"
+                class="gen-btn"
+                style="background:#0ea5e9;color:#fff;padding:7px 16px;font-size:13px;white-space:nowrap"
+              >Sign in</button>
+              <button
+                type="button"
+                id="vcAuthBarForgotBtn"
+                style="background:none;border:none;color:#0ea5e9;font-size:12px;cursor:pointer;padding:0;text-decoration:underline;white-space:nowrap"
+              >Forgot password?</button>
+              <span id="vcAuthBarErr" style="font-size:12px;color:#dc2626;width:100%"></span>
+              <span id="vcAuthBarResetMsg" style="font-size:12px;color:#16a34a;width:100%;display:none"></span>
+            </div>
+            <!-- signed-in state -->
+            <div id="vcAuthBarSignedIn" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;width:100%">
+              <span style="font-size:18px">✅</span>
+              <div style="flex:1">
+                <span style="font-size:14px;font-weight:600;color:#166534">Signed in as admin</span>
+                <br>
+                <span id="vcAuthBarEmail2" style="font-size:12px;color:#64748b"></span>
+              </div>
+              <button
+                type="button"
+                id="vcAuthBarSignOutBtn"
+                style="background:none;border:1px solid #e2e8f0;border-radius:6px;color:#64748b;font-size:12px;cursor:pointer;padding:5px 12px"
+              >Sign out</button>
+            </div>
+          </div>
+
           <div class="form-section" id="vcEntitlementsSection">
             <h4>🎚️ Plan &amp; Feature Entitlements</h4>
             <p style="font-size: 13px; color: #666">
@@ -5458,51 +5520,22 @@
               the tenant plan doesn't include.
             </p>
 
-            <!-- sign-in card (hidden when VCAuth.isAdmin() === true) -->
+            <!-- nudge shown when not signed in -->
             <div
               id="vcUESignInCard"
               style="
                 display:none;
-                background:#f8fafc;
-                border:1px solid #e2e8f0;
+                background:#fefce8;
+                border:1px solid #fde68a;
                 border-radius:8px;
-                padding:16px;
-                max-width:360px;
+                padding:10px 14px;
+                max-width:480px;
                 margin-bottom:16px;
+                font-size:13px;
+                color:#92400e;
               "
             >
-              <p style="font-size:13px;font-weight:600;margin:0 0 10px 0;color:#334155">
-                Admin sign-in required
-              </p>
-              <input
-                type="email"
-                id="vcUESignInEmail"
-                placeholder="Admin email"
-                autocomplete="email"
-                style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-bottom:8px"
-              />
-              <input
-                type="password"
-                id="vcUESignInPassword"
-                placeholder="Password"
-                autocomplete="current-password"
-                style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-bottom:8px"
-              />
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                <button
-                  type="button"
-                  id="vcUESignInBtn"
-                  class="gen-btn"
-                  style="background:#0ea5e9;color:#fff;padding:8px 18px;font-size:13px"
-                >Sign in</button>
-                <button
-                  type="button"
-                  id="vcUEForgotPwBtn"
-                  style="background:none;border:none;color:#0ea5e9;font-size:12px;cursor:pointer;padding:0;text-decoration:underline"
-                >Forgot password?</button>
-                <span id="vcUESignInErr" style="font-size:12px;color:#dc2626"></span>
-              </div>
-              <span id="vcUEResetMsg" style="font-size:12px;color:#16a34a;display:none;margin-top:6px;display:block"></span>
+              ⬆️ Sign in as admin at the top of this page to manage per-user feature access.
             </div>
 
             <!-- user search -->
@@ -7695,6 +7728,135 @@
         } else {
           syncPulseNav();
           syncAiReviewerBtn();
+        }
+      })();
+    </script>
+
+    <script>
+      /**
+       * Settings admin auth bar — sign-in / signed-in status at top of Settings.
+       * Mirrors VCAuth state; also drives the Per-User section's nudge card.
+       */
+      (function vcSettingsAuthBarBoot() {
+        function $(id) { return document.getElementById(id); }
+
+        function syncBar() {
+          var adminIn = typeof VCAuth !== "undefined" && VCAuth.isAdmin && VCAuth.isAdmin();
+          var signedOut = $("vcAuthBarSignedOut");
+          var signedIn  = $("vcAuthBarSignedIn");
+          if (signedOut) signedOut.style.display = adminIn ? "none" : "flex";
+          if (signedIn)  signedIn.style.display  = adminIn ? "flex" : "none";
+          if (adminIn) {
+            var emailEl = $("vcAuthBarEmail2");
+            if (emailEl) {
+              var u = VCAuth.currentUser && VCAuth.currentUser();
+              emailEl.textContent = (u && u.email) ? u.email : "";
+            }
+          }
+          // Also sync the Per-User nudge card.
+          if (typeof window.VcUserEntitlementsAdmin !== "undefined" &&
+              VcUserEntitlementsAdmin.renderForCurrentUser) {
+            VcUserEntitlementsAdmin.renderForCurrentUser();
+          }
+        }
+
+        function wireOnce() {
+          var signInBtn = $("vcAuthBarSignInBtn");
+          if (signInBtn && !signInBtn.dataset.vcWired) {
+            signInBtn.dataset.vcWired = "1";
+            signInBtn.addEventListener("click", function () {
+              var err = $("vcAuthBarErr");
+              var resetMsg = $("vcAuthBarResetMsg");
+              var email = ($("vcAuthBarEmail") || {}).value || "";
+              var pwd   = ($("vcAuthBarPassword") || {}).value || "";
+              if (!email || !pwd) {
+                if (err) err.textContent = "Email and password required.";
+                return;
+              }
+              if (err) err.textContent = "";
+              if (resetMsg) { resetMsg.textContent = ""; resetMsg.style.display = "none"; }
+              signInBtn.disabled = true;
+              signInBtn.textContent = "Signing in…";
+              VCAuth.signIn(email.trim(), pwd)
+                .then(function () {
+                  signInBtn.disabled = false;
+                  signInBtn.textContent = "Sign in";
+                  syncBar();
+                })
+                .catch(function (e) {
+                  signInBtn.disabled = false;
+                  signInBtn.textContent = "Sign in";
+                  if (err) err.textContent = (e && e.message) ? e.message : "Sign-in failed.";
+                });
+            });
+          }
+
+          var forgotBtn = $("vcAuthBarForgotBtn");
+          if (forgotBtn && !forgotBtn.dataset.vcWired) {
+            forgotBtn.dataset.vcWired = "1";
+            forgotBtn.addEventListener("click", function () {
+              var err = $("vcAuthBarErr");
+              var resetMsg = $("vcAuthBarResetMsg");
+              var email = ($("vcAuthBarEmail") || {}).value || "";
+              if (!email) {
+                if (err) err.textContent = "Enter your email above first.";
+                return;
+              }
+              if (err) err.textContent = "";
+              if (typeof firebase === "undefined" || typeof firebase.auth !== "function") {
+                if (err) err.textContent = "Firebase not ready.";
+                return;
+              }
+              forgotBtn.disabled = true;
+              forgotBtn.textContent = "Sending…";
+              firebase.auth().sendPasswordResetEmail(email.trim())
+                .then(function () {
+                  forgotBtn.disabled = false;
+                  forgotBtn.textContent = "Forgot password?";
+                  if (resetMsg) {
+                    resetMsg.textContent = "✓ Reset email sent to " + email.trim() + ". Check your inbox.";
+                    resetMsg.style.display = "block";
+                  }
+                })
+                .catch(function (e) {
+                  forgotBtn.disabled = false;
+                  forgotBtn.textContent = "Forgot password?";
+                  if (err) err.textContent = (e && e.message) ? e.message : "Reset failed.";
+                });
+            });
+          }
+
+          var signOutBtn = $("vcAuthBarSignOutBtn");
+          if (signOutBtn && !signOutBtn.dataset.vcWired) {
+            signOutBtn.dataset.vcWired = "1";
+            signOutBtn.addEventListener("click", function () {
+              signOutBtn.disabled = true;
+              signOutBtn.textContent = "Signing out…";
+              VCAuth.signOut()
+                .then(function () {
+                  signOutBtn.disabled = false;
+                  signOutBtn.textContent = "Sign out";
+                  syncBar();
+                })
+                .catch(function () {
+                  signOutBtn.disabled = false;
+                  signOutBtn.textContent = "Sign out";
+                });
+            });
+          }
+        }
+
+        function boot() {
+          if (typeof VCAuth === "undefined") return;
+          VCAuth.onReady(function () { syncBar(); });
+          wireOnce();
+          syncBar();
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", boot);
+        } else {
+          boot();
         }
       })();
     </script>
