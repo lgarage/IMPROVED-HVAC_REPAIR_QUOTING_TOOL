@@ -39,7 +39,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Slice4c-AuthBar-2026-05-06";
+      window.VC_BUILD = "Slice4d-AuthBar-UX-2026-05-06";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -5511,31 +5511,37 @@
 
           <!-- Slice 3 — Per-User Feature Access -->
           <div class="form-section" id="vcUserEntitlementsSection">
-            <h4>👤 Per-User Feature Access</h4>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+              <h4 style="margin:0">👤 Per-User Feature Access</h4>
+              <span
+                id="vcUEAuthStatus"
+                style="font-size:12px;padding:3px 10px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:600;display:none"
+              >✓ Admin signed in</span>
+            </div>
             <p style="font-size:13px;color:#666;margin:0 0 12px 0">
-              Override individual tenant-level feature flags per staff member.
-              Overrides are stored on the user's roster doc
+              Override feature flags per staff member. <strong>Admin sign-in required</strong>
+              to search users or save changes. Overrides are stored on the user's roster doc
               (<code>tenants/{tid}/users/{docId}.featureOverrides</code>).
               Tenant entitlements remain the ceiling — you cannot grant a feature
               the tenant plan doesn't include.
             </p>
 
-            <!-- nudge shown when not signed in -->
+            <!-- locked state shown when not signed in -->
             <div
               id="vcUESignInCard"
               style="
                 display:none;
-                background:#fefce8;
-                border:1px solid #fde68a;
+                background:#f1f5f9;
+                border:1px solid #e2e8f0;
                 border-radius:8px;
                 padding:10px 14px;
                 max-width:480px;
                 margin-bottom:16px;
                 font-size:13px;
-                color:#92400e;
+                color:#475569;
               "
             >
-              ⬆️ Sign in as admin at the top of this page to manage per-user feature access.
+              🔒 Sign in as admin above to search staff and manage feature access.
             </div>
 
             <!-- user search -->
@@ -7899,10 +7905,12 @@
         function syncAuthCard() {
           var card = $("vcUESignInCard");
           var searchRow = $("vcUESearchRow");
+          var badge = $("vcUEAuthStatus");
           if (!card || !searchRow) return;
           var adminIn = typeof VCAuth !== "undefined" && VCAuth.isAdmin && VCAuth.isAdmin();
           card.style.display = adminIn ? "none" : "block";
           searchRow.style.display = adminIn ? "flex" : "none";
+          if (badge) badge.style.display = adminIn ? "inline-block" : "none";
           if (!adminIn) {
             if ($("vcUEEditorPanel")) $("vcUEEditorPanel").style.display = "none";
             if ($("vcUEResultsList")) $("vcUEResultsList").style.display = "none";
