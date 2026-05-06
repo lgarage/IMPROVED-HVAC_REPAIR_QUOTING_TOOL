@@ -36,7 +36,52 @@ All paths below are relative to the repo root. Memory files live in `PROJECT_STA
 - **`PROJECT_STATUS/PROJECT_MAP.md`:** Implemented features only, organized by domain. `Current Focus` at the bottom collapses to a 3-line pointer into `CURRENT_STATE.md` and `KNOWN_ISSUES.md`. Do not let it grow into a debugging journal again.
 - **`PROJECT_STATUS/ROADMAP.md`:** Unbuilt ideas only. Once a phase enters active build it is tracked in `CURRENT_STATE.md`; once it ships, it moves into `PROJECT_MAP.md → Build History`.
 - **`PROJECT_STATUS/AI_CONTEXT_PROJECT_OVERVIEW.md`:** Stable high-level architecture handoff. Update only on major architectural shifts.
-- **`PROJECT_STATUS/MODEL_DOSSIER.md`:** Agent **running notes** for model choice: tiers, **Workspace enabled models**, **Registry**, **§ Task outcome log** by **task type** (not every trivial edit). **§6H**: after substantive work that **adds learning**, append a row unless the dossier **skip** rules apply; default **ok** if the user doesn’t report failure. Strive to **reuse** the log when recommending. Update workspace toggles when Settings → Models change. Archive older rows per dossier § Retention.
+- **`PROJECT_STATUS/MODEL_DOSSIER.md`:** Agent **running notes** for model choice: tiers, **Workspace enabled models**, **Registry**, **§ Task outcome log** by **task type** (not every trivial edit). **§6H**: after substantive work that **adds learning**, append a row unless the dossier **skip** rules apply; default **ok** if the user doesn't report failure. Strive to **reuse** the log when recommending. Update workspace toggles when Settings → Models change. Archive older rows per dossier § Retention.
+- **`PROJECT_STATUS/<PHASE>_PLAN.md` (handoff plan docs):** One file per active multi-slice phase, created per **§1D**. Deleted (or folded into `PROJECT_MAP.md → Build History`) when the phase fully ships. `CURRENT_STATE.md` **must** link to it by exact filename.
+
+### 1D. Handoff Plan Protocol — keeping a fresh AI on track
+
+**When to create.** If an active phase has ≥ 2 remaining slices that require design details (schemas, pseudocode, file task list, cache-bust map) that won't fit the `CURRENT_STATE.md` 30-line cap, the AI that finishes the current slice **must** create or update `PROJECT_STATUS/<PHASE>_PLAN.md` before ending that session.
+
+**Trigger for the next AI.** `CURRENT_STATE.md → Immediate Next Step` must contain the exact line:
+`📋 See PROJECT_STATUS/<PHASE>_PLAN.md for full slice detail.`
+A fresh AI reading Tier 1 will see this pointer and know to fetch the plan doc **before classifying the task or composing §6B**.
+
+**Required sections (keep each section bullet-tight — no prose paragraphs):**
+
+```
+## Prerequisites
+- <deploy steps, env requirements, what must already be shipped before this slice>
+
+## Data shape
+- <schema as inline code block — field names, types, optional/required>
+
+## Algorithm / Resolver  (omit if slice has no logic decisions)
+- <pseudocode, 5–15 lines max>
+
+## Slices remaining
+### Slice N — <title>
+- **Scope:** <one sentence>
+- **Files to touch:** <explicit list>
+- **Cache-busts:** <`file.js?vX→vY`, VC_BUILD value>
+- **Recommended model:** <exact Cursor picker name> (reason in one clause)
+- **Confidence:** ~XX%
+- **Out of scope:** <explicit non-goals for this slice>
+
+### Slice N+1 — <title>
+...
+
+## Invariants (things every slice must not break)
+- <list>
+```
+
+**Lifecycle rules:**
+1. Create the plan doc at the **end** of the session that ships the first slice, before sign-off.
+2. Update the plan doc at the **end** of every session that ships a subsequent slice (mark the slice complete, remove its entry if nothing remains).
+3. When the last slice ships: delete the plan doc, add a one-liner to `PROJECT_MAP.md → Build History`, and remove the `📋 See …` pointer from `CURRENT_STATE.md`.
+4. **Do not** put the plan doc in Tier 2 cold-reads table — it is fetched only when `CURRENT_STATE.md` has the explicit pointer.
+
+**§6B1 step 0 addendum:** If `CURRENT_STATE.md` contains a `📋 See PROJECT_STATUS/<file>_PLAN.md` line, read that file **before** composing the §6B block so the recommended model and scope are accurate from the first turn of the new session.
 
 ### 1C. PROJECT_MAP.md Editing Rules
 

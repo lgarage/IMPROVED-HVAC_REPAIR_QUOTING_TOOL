@@ -22,11 +22,13 @@ None. Two non-blocking carry-overs:
 
 ## Immediate Next Step — Per-User Feature Toggles Slices 2–4 (MVP cut)
 
-1. **Slice 1 deployment runbook (one-time, BEFORE Slice 2):** add your verified Firebase Auth admin email to BOTH `shared/config.js` `APP_CONFIG.bootstrapAdminEmails` AND `firestore.rules` → `isBootstrapAdmin()` inline list, create the admin user in Firebase Auth Console, verify the email, then `firebase deploy --only firestore:rules`.
-2. **Slice 2** — Add `featureOverrides` map on `users/{uid}` + new `shared/user_entitlements.js` resolver (`VCUserEntitlements.has(featureId, userProfile)`). T2 — re-gate, likely Sonnet 4.6.
-3. **Slice 3** — Per-user toggle UI in dispatcher Settings (search user → per-feature `Inherit / Force ON / Force OFF` grid → save). Re-gate per slice.
-4. **Slice 4** — Replace one `vcHasFeature("aiReportReviewer")` call site with `VCUserEntitlements.has(...)` end-to-end as proof. Re-gate per slice.
-5. **Slice 5+ (post-MVP):** standalone `admin/index.html`, broaden coverage, add audit log.
+📋 See `PROJECT_STATUS/PER_USER_FEATURE_TOGGLES_PLAN.md` for full slice detail.
+
+1. **Deploy Slice 1 first** (runbook in plan doc § Prerequisites — must be done before Slices 2–4).
+2. **Slice 2** — `shared/user_entitlements.js` resolver. Re-gate → **Sonnet 4.6**.
+3. **Slice 3** — Per-user toggle UI + sign-in card in dispatcher Settings. Re-gate → **Sonnet 4.6**.
+4. **Slice 4** — Gate `aiReportReviewer` end-to-end as proof. Re-gate → **Sonnet 4.6**.
+5. **Slice 5** (post-MVP) — standalone `admin/index.html`. Re-gate → **Opus 4.7**.
 
 Smoke-tests carried over (non-blocking): Phase 34e Field Access Notes on iPhone; Phase 33 Field-Add Equipment OCR on Vision Hub.
 
