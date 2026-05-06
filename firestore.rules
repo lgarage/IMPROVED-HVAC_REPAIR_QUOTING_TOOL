@@ -1,0 +1,177 @@
+rules_version = '2';
+
+// ============================================================
+// Vertex Core — Firestore Security Rules
+// Slice 1 (Per-User Feature Toggles foundation) — 2026-05-06
+// ============================================================
+//
+// v1 STRATEGY: preserve current open behavior for legacy paths
+// (the dispatcher and field app currently run without Firebase
+// Auth on most flows, including the unauthenticated proof-of-
+// service portal). Lock down ONLY the new admin surfaces this
+// slice introduces:
+//
+//   • tenants/{tid}/config/entitlements          (write = admin)
+//   • tenants/{tid}/admins/{adminDoc}            (write = admin)
+//   • tenants/{tid}/users/{uid}.featureOverrides (write = admin)
+//
+// Future slices will progressively narrow the catch-all-style
+// allows below as Auth coverage spreads. See DECISIONS.md
+// → ADR-015 for the rationale.
+//
+// ⚠️  BEFORE FIRST DEPLOY:
+//   1. Add at least one admin email to the inline list inside
+//      isBootstrapAdmin() below (the only place rules read from).
+//   2. Run `firebase deploy --only firestore:rules`.
+//   3. Sign in to dispatcher with that email; from there you can
+//      add more admin uids to tenants/{tid}/admins/by_uid.uids
+//      via the Slice 3 admin UI (or Firebase Console).
+//
+// ⚠️  RULE EVALUATION SEMANTICS:
+//   Firestore OR-combines all matching `allow` expressions — a
+//   permissive `match /{document=**} { allow ...: if true; }`
+//   would override the locks below. This file therefore lists
+//   each open path explicitly and has NO catch-all allow.
+//   Anything not matched falls through to default-deny.
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----- Helpers --------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isBootstrapAdmin() {
+      // Edit this list to seed the first admin(s). Lower-case the
+      // email; Firebase Auth tokens carry the email exactly as
+      // entered at sign-in, but custom claim `email` matches the
+      // signup form. Keep this list short — long-term admin state
+      // belongs in tenants/{tid}/admins/by_uid.
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          // "[email protected]"
+        ];
+    }
+
+    function isStoredAdmin(tid) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/tenants/$(tid)/admins/by_uid)
+        && get(/databases/$(database)/documents/tenants/$(tid)/admins/by_uid).data.uids[request.auth.uid] == true;
+    }
+
+    function isAdmin(tid) {
+      return isBootstrapAdmin() || isStoredAdmin(tid);
+    }
+
+    // ----- LOCKED: tenant entitlements (Slice 1 target) ------
+    match /tenants/{tid}/config/entitlements {
+      allow read: if true;
+      allow write: if isAdmin(tid);
+    }
+
+    // ----- LOCKED: tenant admin list (Slice 1 target) --------
+    // Read requires sign-in (don't leak the admin list to
+    // anonymous callers). Write requires admin.
+    match /tenants/{tid}/admins/{adminDoc} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin(tid);
+    }
+
+    // ----- LOCKED: user.featureOverrides field --------------
+    // The user document itself stays readable by anyone (the
+    // field app's vc_entitlements.js currently reads it without
+    // auth to determine Lite-seat / sandbox state). Writes that
+    // touch `featureOverrides` require admin; writes that don't
+    // (e.g. dispatcher CSV import setting role / payrollNameUpper)
+    // keep the open default.
+    match /tenants/{tid}/users/{uid} {
+      allow read: if true;
+      allow create: if !('featureOverrides' in request.resource.data) || isAdmin(tid);
+      allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['featureOverrides']) || isAdmin(tid);
+      allow delete: if isAdmin(tid);
+    }
+
+    // ----- Tenant config OTHER than entitlements ------------
+    // (entitlements is locked above; everything else open for now.)
+    match /tenants/{tid}/config/{configDoc} {
+      allow read, write: if configDoc != "entitlements";
+    }
+
+    // ============================================================
+    // Open paths (explicit — see "RULE EVALUATION SEMANTICS" above
+    // for why we don't use a catch-all `match /{document=**}`).
+    // Each entry preserves current operational behavior.
+    // ============================================================
+
+    // ----- Tenant subcollections ----------------------------
+    match /tenants/{tid}/service_calls/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/site_intelligence/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/live_presence/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/imported_equipment/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/imported_equipment_photos/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/labor_logs/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/portal_tokens/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/roster/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/field_quotes/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/pm_records/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/field_form_submissions/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/on_call_state/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/completed_reports/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/sandbox/{document=**} {
+      allow read, write: if true;
+    }
+
+    // ----- Root legacy bridge collections (TWIN_PILLARS) -----
+    // Lazy-migration bridge per ADR-003.
+    match /service_calls/{document=**} {
+      allow read, write: if true;
+    }
+    match /site_intelligence/{document=**} {
+      allow read, write: if true;
+    }
+    match /completed_reports/{document=**} {
+      allow read, write: if true;
+    }
+
+    // ----- Root legacy paths still accessed today -----------
+    match /customers/{cid}/sites/{sid}/assets/{document=**} {
+      allow read, write: if true;
+    }
+    match /form_templates/{document=**} {
+      allow read, write: if true;
+    }
+    match /app_config/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

@@ -16,6 +16,15 @@
     primaryColor: "#0ea5e9",
     accentColor: "#c89b53",
     adminUnlockPin: "beta",
+    /**
+     * Slice 1 (Per-User Feature Toggles, ADR-015) — bootstrap admin
+     * email list for `shared/auth.js` (`VCAuth.isAdmin()`).
+     * MUST mirror the email list inside `firestore.rules` →
+     * `isBootstrapAdmin()` for the gate to actually fire end-to-end.
+     * Lower-case; verified Firebase Auth users with one of these
+     * emails are admins even before tenants/{tid}/admins/by_uid exists.
+     */
+    bootstrapAdminEmails: [],
   };
 
   /**

@@ -6,8 +6,10 @@
 
 ## Snapshot
 
-- **Active Phase:** None. Phase 34 fully shipped (34a/b/c/d/e).
-- **Last shipped (2026-05-02):** Phase **34e** — Site Intel **Field Access Notes** rename (was "Field Bible") + **Access Photos** in the Site Intel modal (`technician/js/workspace_ui.js?v=11`; new `accessPhotoUrls[]` + `accessPhotoUpdatedAt` on `site_intelligence/{siteDocId}`). `VC_BUILD = "Phase34e-2026-05-02"`. ADR-014 appended (form_templates stays at root; tenant scoping deferred). `PHASE_34_HANDOFF.md` deleted. Detail in `PROJECT_MAP.md → Field Operations → Site Intel — Field Access Notes & Access Photos (Phase 34e)`.
+- **Active Phase:** Per-User Feature Toggles (Slice 1 of 5 shipped, Slices 2–4 are MVP scope; design in `DECISIONS.md → ADR-015`).
+- **Last shipped (2026-05-06):** Slice 1 — Auth + Rules foundation. New `firestore.rules` (locks `tenants/{tid}/config/entitlements` + `admins/*` + `users/{uid}.featureOverrides` writes; preserves current open behavior on every other path), new `firestore.indexes.json`, `firebase.json` gains firestore section, new `shared/auth.js` (`VCAuth` API), `bootstrapAdminEmails: []` on `APP_CONFIG`. `index.html` loads `firebase-auth-compat.js?v=10.8.1` + `shared/auth.js?v=1`; `shared/config.js?v=6→v=7`; `VC_BUILD = "Slice1-Auth-Foundation-2026-05-06"`. **Rules NOT auto-deployed** — user must add their email to `isBootstrapAdmin()` in `firestore.rules` AND `bootstrapAdminEmails` in `shared/config.js`, then `firebase deploy --only firestore:rules`.
+- **Prior (2026-05-06):** Customer Entitlements Platform (`shared/entitlements.js` + dispatcher Settings "Plan & Feature Entitlements" admin section); Inter-Office Feed re-gated by `vcHasFeature("interOfficeFeed")`; `VC_BUILD = "Gated-InterOffice-Feed-2026-05-06"` superseded by Slice 1 stamp above.
+- **Prior (2026-05-02):** Phase **34e** — Site Intel **Field Access Notes** rename + **Access Photos** in the Site Intel modal (`technician/js/workspace_ui.js?v=11`). Detail in `PROJECT_MAP.md → Field Operations → Site Intel — Field Access Notes & Access Photos (Phase 34e)`.
 - **Prior (2026-04-27):** 34a (form-builder schema), 34b (9 seed templates), 34c (`#acc-svc-repair` repair branching), 34d (`#acc-tstat-label` thermostat labeling). All in `PROJECT_MAP.md → Build History`.
 - **Phase 33 verification** still pending on-device (smoke-tests a/b/c per former `PHASE_34_HANDOFF.md → §2`); not blocking.
 - **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding is dead (per user 2026-04-25); lazy-migration bridge in `shared/firebase_logic.js` left quiet.
@@ -18,11 +20,15 @@ None. Two non-blocking carry-overs:
 - `KI-003` — Office Override iframe parity gap (design `ADR-013`).
 - `KI-004` — Field-app photo uploads dropped offline (design `ADR-012`; now also covers Phase 34e access photos — same `firebase.storage().ref().put()` pattern).
 
-## Immediate Next Step — Phase 33 verification, then user-picks-from-On-Deck
+## Immediate Next Step — Per-User Feature Toggles Slices 2–4 (MVP cut)
 
-1. **Smoke-test Phase 34e on iPhone** — open Site Intel modal: confirm "Field Access Notes" label, capture a photo with rear camera (or pick a file), verify thumbnail + caption editor + delete button render correctly, confirm Firestore `site_intelligence/{siteDocId}.accessPhotoUrls` is populated.
-2. **Phase 33 on-device verification** — Field-Add Equipment OCR smoke-tests (`PROJECT_MAP.md → Phase 33`). Use Vision Hub: capture nameplate photo → verify OCR fills manufacturer / model / serial / capacity (BTU / tons), edit Unit ID, save, confirm `tenants/{tenantId}/imported_equipment/{docId}` write + nameplate photo at `tenants/{tenantId}/imported_equipment_photos/{customerId}/{siteId}/{unitTag}/nameplate-{ts}.{ext}`.
-3. After Phase 33 confirms: pick next from **On Deck** below.
+1. **Slice 1 deployment runbook (one-time, BEFORE Slice 2):** add your verified Firebase Auth admin email to BOTH `shared/config.js` `APP_CONFIG.bootstrapAdminEmails` AND `firestore.rules` → `isBootstrapAdmin()` inline list, create the admin user in Firebase Auth Console, verify the email, then `firebase deploy --only firestore:rules`.
+2. **Slice 2** — Add `featureOverrides` map on `users/{uid}` + new `shared/user_entitlements.js` resolver (`VCUserEntitlements.has(featureId, userProfile)`). T2 — re-gate, likely Sonnet 4.6.
+3. **Slice 3** — Per-user toggle UI in dispatcher Settings (search user → per-feature `Inherit / Force ON / Force OFF` grid → save). Re-gate per slice.
+4. **Slice 4** — Replace one `vcHasFeature("aiReportReviewer")` call site with `VCUserEntitlements.has(...)` end-to-end as proof. Re-gate per slice.
+5. **Slice 5+ (post-MVP):** standalone `admin/index.html`, broaden coverage, add audit log.
+
+Smoke-tests carried over (non-blocking): Phase 34e Field Access Notes on iPhone; Phase 33 Field-Add Equipment OCR on Vision Hub.
 
 ## On Deck
 

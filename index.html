@@ -23,11 +23,13 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
     <script src="firebase-config.js?v=4"></script>
     <script src="shared/firebase_config.js?v=1"></script>
-    <script src="shared/config.js?v=6"></script>
+    <script src="shared/config.js?v=7"></script>
     <script src="shared/firebase_logic.js?v=3"></script>
+    <script src="shared/auth.js?v=1"></script>
     <script src="shared/entitlements.js?v=1"></script>
     <script src="shared/client_portal_logic.js?v=2"></script>
     <script>
@@ -36,7 +38,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Gated-InterOffice-Feed-2026-05-06";
+      window.VC_BUILD = "Slice1-Auth-Foundation-2026-05-06";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();

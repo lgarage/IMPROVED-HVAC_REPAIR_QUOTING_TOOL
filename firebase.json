@@ -7,10 +7,15 @@
       "**/node_modules/**",
       ".git/**",
       ".github/**",
+      "firestore.rules",
       "firestore.indexes.json",
       "README.md",
       "INVOICE_PARSER.md",
       "technician/README.md"
     ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }
