@@ -6,9 +6,10 @@
 
 ## Snapshot
 
-- **Active Phase:** Per-User Feature Toggles (Slices 1–4 shipped; Slice 5 post-MVP; design in `DECISIONS.md → ADR-015`).
-- **Last shipped (2026-05-06):** Slices 2–4 — `shared/user_entitlements.js` resolver (`VCUserEntitlements.has(featureId, userProfile)` — 4-step precedence: tenant ceiling → role jail → user override → tenant default; `vc:user-entitlements-changed` event; localStorage cold-boot cache); Dispatcher Settings "👤 Per-User Feature Access" section (user search, three-state Inherit/Force ON/Force OFF grid, admin sign-in card, save to `users/{docId}.featureOverrides`); `#scAiReportReviewerBtn` show/hide gated by `VCUserEntitlements.has("aiReportReviewer", ...)` + live re-sync on `vc:user-entitlements-changed`; `ai_report_reviewer.js?v=3` `openModal` guards via `isFeatureEnabled()`; `VC_BUILD = "Slice4-UserGate-aiReviewer-2026-05-06"`.
-- **Prior (2026-05-06):** Slice 1 — Auth + Rules foundation. **Rules NOT auto-deployed** — add email to `isBootstrapAdmin()` + `bootstrapAdminEmails` then `firebase deploy --only firestore:rules`.
+- **Active Phase:** Per-User Feature Toggles — Slices 1–4 fully shipped + deployed. Bootstrap admin live. Slice 5 post-MVP.
+- **Last shipped (2026-05-06):** Slice4d — Auth bar UX polish. Persistent admin sign-in bar at top of System Settings (email + password + Sign in + Forgot password + signed-in state ✅ + Sign out). Per-User section shows green "✓ Admin signed in" badge when in, grey 🔒 nudge when out. `VC_BUILD = "Slice4d-AuthBar-UX-2026-05-06"`. GitHub Pages live at `lgarage.github.io/IMPROVED-HVAC_REPAIR_QUOTING_TOOL/`.
+- **Bootstrap admin configured (2026-05-06):** `dan.day@blackduckpartners.com` in `shared/config.js → bootstrapAdminEmails` + `firestore.rules → isBootstrapAdmin()` (email_verified check removed — bootstrap list is deploy-gated). Firebase Auth user created in `twin-pillars-app` project. Rules deployed via `firebase deploy --only firestore:rules`. Firebase CLI installed (`firebase-tools v15.16.0`), logged in as `dan.day@blackduckpartners.com`.
+- **Prior (2026-05-06):** Slices 2–4 — `shared/user_entitlements.js`, Per-User toggle UI, `aiReportReviewer` gated end-to-end.
 - **Prior (2026-05-06):** Customer Entitlements Platform (`shared/entitlements.js` + dispatcher Settings "Plan & Feature Entitlements" admin section); Inter-Office Feed re-gated by `vcHasFeature("interOfficeFeed")`; `VC_BUILD = "Gated-InterOffice-Feed-2026-05-06"` superseded by Slice 1 stamp above.
 - **Prior (2026-05-02):** Phase **34e** — Site Intel **Field Access Notes** rename + **Access Photos** in the Site Intel modal (`technician/js/workspace_ui.js?v=11`). Detail in `PROJECT_MAP.md → Field Operations → Site Intel — Field Access Notes & Access Photos (Phase 34e)`.
 - **Prior (2026-04-27):** 34a (form-builder schema), 34b (9 seed templates), 34c (`#acc-svc-repair` repair branching), 34d (`#acc-tstat-label` thermostat labeling). All in `PROJECT_MAP.md → Build History`.
@@ -23,11 +24,16 @@ None. Two non-blocking carry-overs:
 
 ## Immediate Next Step
 
-Verify Slices 2–4 in browser (no deploy needed — no Firestore rules changed):
-1. Dispatcher Settings → Admin tools → "👤 Per-User Feature Access" appears after PIN unlock.
-2. Sign in as admin email → search a staff member → toggle feature → Save → `#scAiReportReviewerBtn` shows/hides live without reload.
-3. Force OFF for your own profile → AI Reviewer button disappears; Force ON → reappears.
-4. **Slice 5** (post-MVP, next): standalone `admin/index.html`. Re-gate → **Opus 4.7**.
+**Smoke-test the live auth flow** (everything deployed, just needs user verification):
+1. Open dispatcher Settings → confirm auth bar shows at top of System Settings.
+2. Sign in with `dan.day@blackduckpartners.com` → bar shows ✅ green signed-in state.
+3. "👤 Per-User Feature Access" → search a staff member (e.g. "DAN DAY") → toggle a feature → Save → confirms live with no reload.
+4. Sign out → bar returns to sign-in form.
+
+**Next build candidates (pick one):**
+- **Manage Admins UI** — grant/revoke `isAdmin` on roster docs from Settings (T2, **Sonnet 4.6**). Discussed but not built; currently no in-app way to make others admins.
+- **Slice 5** — standalone `admin/index.html` + audit log. Re-gate → **Opus 4.7**.
+- **KI-004** — offline photo outbox (`shared/offline_storage_outbox.js`). Re-gate → **Opus 4.7**.
 
 Smoke-tests carried over (non-blocking): Phase 34e Field Access Notes on iPhone; Phase 33 Field-Add Equipment OCR on Vision Hub.
 
