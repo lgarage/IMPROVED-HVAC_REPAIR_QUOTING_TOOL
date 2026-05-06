@@ -31,6 +31,7 @@
     <script src="shared/firebase_logic.js?v=3"></script>
     <script src="shared/auth.js?v=1"></script>
     <script src="shared/entitlements.js?v=1"></script>
+    <script src="shared/user_entitlements.js?v=1"></script>
     <script src="shared/client_portal_logic.js?v=2"></script>
     <script>
       /** KI-002 Plan B4 — dispatcher BUILD stamp, mirrors `window.VC_BUILD` in `technician/index.html`.
@@ -38,7 +39,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Slice1-Auth-Foundation-2026-05-06";
+      window.VC_BUILD = "Slice4-UserGate-aiReviewer-2026-05-06";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -5446,6 +5447,143 @@
             </div>
           </div>
 
+          <!-- Slice 3 — Per-User Feature Access -->
+          <div class="form-section" id="vcUserEntitlementsSection">
+            <h4>👤 Per-User Feature Access</h4>
+            <p style="font-size:13px;color:#666;margin:0 0 12px 0">
+              Override individual tenant-level feature flags per staff member.
+              Overrides are stored on the user's roster doc
+              (<code>tenants/{tid}/users/{docId}.featureOverrides</code>).
+              Tenant entitlements remain the ceiling — you cannot grant a feature
+              the tenant plan doesn't include.
+            </p>
+
+            <!-- sign-in card (hidden when VCAuth.isAdmin() === true) -->
+            <div
+              id="vcUESignInCard"
+              style="
+                display:none;
+                background:#f8fafc;
+                border:1px solid #e2e8f0;
+                border-radius:8px;
+                padding:16px;
+                max-width:360px;
+                margin-bottom:16px;
+              "
+            >
+              <p style="font-size:13px;font-weight:600;margin:0 0 10px 0;color:#334155">
+                Admin sign-in required
+              </p>
+              <input
+                type="email"
+                id="vcUESignInEmail"
+                placeholder="Admin email"
+                autocomplete="email"
+                style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-bottom:8px"
+              />
+              <input
+                type="password"
+                id="vcUESignInPassword"
+                placeholder="Password"
+                autocomplete="current-password"
+                style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-bottom:8px"
+              />
+              <button
+                type="button"
+                id="vcUESignInBtn"
+                class="gen-btn"
+                style="background:#0ea5e9;color:#fff;padding:8px 18px;font-size:13px"
+              >Sign in</button>
+              <span id="vcUESignInErr" style="font-size:12px;color:#dc2626;margin-left:8px"></span>
+            </div>
+
+            <!-- user search -->
+            <div
+              id="vcUESearchRow"
+              style="display:flex;gap:8px;align-items:center;max-width:480px;margin-bottom:10px"
+            >
+              <input
+                type="search"
+                id="vcUESearchInput"
+                placeholder="Search staff by name or email…"
+                style="flex:1;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"
+              />
+              <button
+                type="button"
+                id="vcUESearchBtn"
+                class="gen-btn"
+                style="background:#0ea5e9;color:#fff;padding:8px 16px;font-size:13px"
+              >Search</button>
+            </div>
+
+            <!-- search results -->
+            <div
+              id="vcUEResultsList"
+              style="
+                display:none;
+                flex-direction:column;
+                gap:4px;
+                max-width:480px;
+                margin-bottom:12px;
+                max-height:220px;
+                overflow-y:auto;
+                border:1px solid #e2e8f0;
+                border-radius:6px;
+                background:#fff;
+              "
+            ></div>
+
+            <!-- selected user panel + feature grid (hidden until user selected) -->
+            <div id="vcUEEditorPanel" style="display:none">
+              <div
+                id="vcUESelectedUserBadge"
+                style="
+                  display:flex;
+                  align-items:center;
+                  gap:10px;
+                  background:#f1f5f9;
+                  border:1px solid #e2e8f0;
+                  border-radius:8px;
+                  padding:10px 14px;
+                  max-width:560px;
+                  margin-bottom:14px;
+                "
+              >
+                <span id="vcUESelectedName" style="font-weight:600;font-size:14px;color:#1e293b"></span>
+                <span id="vcUESelectedRole" style="font-size:11px;background:#e2e8f0;color:#475569;padding:2px 8px;border-radius:999px"></span>
+                <span id="vcUESelectedEmail" style="font-size:12px;color:#64748b;margin-left:auto"></span>
+                <button
+                  type="button"
+                  id="vcUEClearBtn"
+                  style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0 4px;line-height:1"
+                  title="Clear selection"
+                >×</button>
+              </div>
+
+              <div
+                id="vcUEFeatureGrid"
+                style="
+                  display:flex;
+                  flex-direction:column;
+                  gap:8px;
+                  max-width:720px;
+                  margin-bottom:14px;
+                "
+              ></div>
+
+              <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+                <button
+                  type="button"
+                  id="vcUESaveBtn"
+                  class="gen-btn"
+                  style="background:#16a34a;color:#fff;padding:10px 20px;font-size:14px"
+                >Save user overrides</button>
+                <span id="vcUESaveStatus" style="font-size:12px;color:#64748b;min-height:1.2em"></span>
+              </div>
+            </div>
+          </div>
+          <!-- /Slice 3 -->
+
           <div class="form-section" id="vcUserImportSection">
             <h4>Enterprise User Import (Vertex-Core Green Column)</h4>
             <p style="font-size: 13px; color: #666">
@@ -7479,9 +7617,35 @@
           }
         }
 
+        /**
+         * Slice 4 — show/hide the AI Report Reviewer button in Service Intake.
+         * Resolves via VCUserEntitlements (user override + tenant ceiling).
+         */
+        function syncAiReviewerBtn() {
+          var btn = document.getElementById("scAiReportReviewerBtn");
+          if (!btn) return;
+          var on = false;
+          try {
+            if (
+              typeof window.VCUserEntitlements !== "undefined" &&
+              VCUserEntitlements.has
+            ) {
+              var profile =
+                typeof window.VCAuth !== "undefined" && VCAuth.currentProfile
+                  ? VCAuth.currentProfile()
+                  : null;
+              on = VCUserEntitlements.has("aiReportReviewer", profile);
+            } else if (typeof vcHasFeature === "function") {
+              on = vcHasFeature("aiReportReviewer");
+            }
+          } catch (e) {}
+          btn.style.display = on ? "" : "none";
+        }
+
         window.addEventListener(VCEntitlements.CHANGE_EVENT, function () {
           syncDraftFromSnapshot();
           syncPulseNav();
+          syncAiReviewerBtn();
           if (
             document.getElementById("view-settings") &&
             document.getElementById("view-settings").classList.contains("active")
@@ -7489,6 +7653,9 @@
             renderAll();
           }
         });
+
+        // Slice 4: also re-sync when per-user overrides change.
+        window.addEventListener("vc:user-entitlements-changed", syncAiReviewerBtn);
 
         function bootSubscribe() {
           ensureSubscribed();
@@ -7508,14 +7675,454 @@
             wireOnce();
             renderAll();
           },
-          syncPulseNav: syncPulseNav
+          syncPulseNav: syncPulseNav,
+          syncAiReviewerBtn: syncAiReviewerBtn
         };
 
         if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", syncPulseNav);
+          document.addEventListener("DOMContentLoaded", function () {
+            syncPulseNav();
+            syncAiReviewerBtn();
+          });
         } else {
           syncPulseNav();
+          syncAiReviewerBtn();
         }
+      })();
+    </script>
+
+    <script>
+      /**
+       * Slice 3 — Per-User Feature Access admin controller.
+       *
+       * Manages the #vcUserEntitlementsSection inside dispatcher Settings:
+       *   - Sign-in card if VCAuth.isAdmin() is false
+       *   - User search (payrollNameUpper contains / emailLower exact, limit 10)
+       *   - Three-state feature grid: Inherit | Force ON | Force OFF
+       *   - Save writes featureOverrides + timestamps to the user's Firestore doc
+       *     (merge:true; guarded by VCAuth.requireAdmin + VCAuth.isPinUnlocked)
+       */
+      (function vcUserEntitlementsAdmin() {
+        if (
+          typeof window.VCUserEntitlements === "undefined" ||
+          typeof window.VCEntitlements === "undefined"
+        ) {
+          console.warn("[vcUEAdmin] VCUserEntitlements or VCEntitlements not loaded");
+          return;
+        }
+
+        /* ── state ──────────────────────────────────────────────── */
+        var selectedUser = null; // { docId, data }
+        var searchResults = [];
+
+        /* ── DOM helpers ────────────────────────────────────────── */
+        function $(id) { return document.getElementById(id); }
+
+        function setStatus(msg, color) {
+          var el = $("vcUESaveStatus");
+          if (!el) return;
+          el.textContent = msg || "";
+          el.style.color = color || "#64748b";
+        }
+
+        /* ── sign-in card visibility ────────────────────────────── */
+        function syncAuthCard() {
+          var card = $("vcUESignInCard");
+          var searchRow = $("vcUESearchRow");
+          if (!card || !searchRow) return;
+          var adminIn = typeof VCAuth !== "undefined" && VCAuth.isAdmin && VCAuth.isAdmin();
+          card.style.display = adminIn ? "none" : "block";
+          searchRow.style.display = adminIn ? "flex" : "none";
+          if (!adminIn) {
+            if ($("vcUEEditorPanel")) $("vcUEEditorPanel").style.display = "none";
+            if ($("vcUEResultsList")) $("vcUEResultsList").style.display = "none";
+          }
+        }
+
+        function wireSignInCard() {
+          var btn = $("vcUESignInBtn");
+          if (!btn || btn.dataset.vcWired) return;
+          btn.dataset.vcWired = "1";
+          btn.addEventListener("click", function () {
+            var err = $("vcUESignInErr");
+            var email = ($("vcUESignInEmail") || {}).value || "";
+            var pwd = ($("vcUESignInPassword") || {}).value || "";
+            if (!email || !pwd) {
+              if (err) err.textContent = "Email and password required.";
+              return;
+            }
+            if (err) err.textContent = "";
+            btn.disabled = true;
+            btn.textContent = "Signing in…";
+            VCAuth.signIn(email.trim(), pwd)
+              .then(function () {
+                btn.textContent = "Sign in";
+                btn.disabled = false;
+                syncAuthCard();
+              })
+              .catch(function (e) {
+                btn.textContent = "Sign in";
+                btn.disabled = false;
+                if (err) err.textContent = (e && e.message) ? e.message : "Sign-in failed.";
+              });
+          });
+        }
+
+        /* ── user search ────────────────────────────────────────── */
+        function doSearch() {
+          var q = (($("vcUESearchInput") || {}).value || "").trim();
+          if (!q) return;
+          var resultsEl = $("vcUEResultsList");
+          if (resultsEl) {
+            resultsEl.style.display = "flex";
+            resultsEl.innerHTML =
+              '<div style="padding:10px 12px;font-size:13px;color:#94a3b8">Searching…</div>';
+          }
+          if (
+            typeof firebase === "undefined" ||
+            !firebase.apps ||
+            !firebase.apps.length
+          ) {
+            if (resultsEl)
+              resultsEl.innerHTML =
+                '<div style="padding:10px 12px;font-size:13px;color:#dc2626">Firebase not available.</div>';
+            return;
+          }
+          var db = firebase.firestore();
+          var tid =
+            (typeof VCFirestore !== "undefined" && VCFirestore.getTenantId)
+              ? VCFirestore.getTenantId()
+              : (window.APP_CONFIG && APP_CONFIG.tenantId) || "";
+          if (!tid) {
+            if (resultsEl)
+              resultsEl.innerHTML =
+                '<div style="padding:10px 12px;font-size:13px;color:#dc2626">Tenant ID not set.</div>';
+            return;
+          }
+          var col = db.collection("tenants").doc(tid).collection("users");
+          var qUpper = q.toUpperCase();
+          var qLower = q.toLowerCase();
+
+          // Query by payrollNameUpper prefix + email exact in parallel.
+          Promise.all([
+            col
+              .where("payrollNameUpper", ">=", qUpper)
+              .where("payrollNameUpper", "<=", qUpper + "\uf8ff")
+              .limit(10)
+              .get(),
+            col.where("emailLower", "==", qLower).limit(5).get()
+          ])
+            .then(function (snaps) {
+              var seen = {};
+              var rows = [];
+              snaps.forEach(function (snap) {
+                snap.docs.forEach(function (doc) {
+                  if (seen[doc.id]) return;
+                  seen[doc.id] = true;
+                  rows.push({ docId: doc.id, data: doc.data() || {} });
+                });
+              });
+              searchResults = rows.slice(0, 10);
+              renderResults();
+            })
+            .catch(function (err) {
+              console.warn("[vcUEAdmin] search", err);
+              if (resultsEl)
+                resultsEl.innerHTML =
+                  '<div style="padding:10px 12px;font-size:13px;color:#dc2626">Search failed: ' +
+                  escHtml(String(err && err.message ? err.message : err)) +
+                  "</div>";
+            });
+        }
+
+        function escHtml(s) {
+          return String(s == null ? "" : s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        function renderResults() {
+          var el = $("vcUEResultsList");
+          if (!el) return;
+          if (!searchResults.length) {
+            el.style.display = "flex";
+            el.innerHTML =
+              '<div style="padding:10px 12px;font-size:13px;color:#94a3b8">No users found.</div>';
+            return;
+          }
+          el.style.display = "flex";
+          el.innerHTML = "";
+          searchResults.forEach(function (row) {
+            var d = row.data;
+            var name =
+              d.payrollNameUpper ||
+              ((d.firstName || "") + " " + (d.lastName || "")).trim() ||
+              row.docId;
+            var role = d.role || "";
+            var email = d.emailLower || d.email || "";
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.style.cssText =
+              "text-align:left;padding:9px 12px;border:none;border-bottom:1px solid #f1f5f9;" +
+              "background:#fff;cursor:pointer;font-size:13px;color:#1e293b;display:flex;gap:8px;align-items:center";
+            btn.innerHTML =
+              "<span style='font-weight:600'>" +
+              escHtml(name) +
+              "</span>" +
+              (role
+                ? "<span style='font-size:11px;background:#e2e8f0;color:#475569;padding:2px 7px;border-radius:999px'>" +
+                  escHtml(role) +
+                  "</span>"
+                : "") +
+              (email
+                ? "<span style='font-size:11px;color:#94a3b8;margin-left:auto'>" +
+                  escHtml(email) +
+                  "</span>"
+                : "");
+            btn.addEventListener("click", function () {
+              selectUser(row);
+            });
+            el.appendChild(btn);
+          });
+        }
+
+        /* ── user selection ─────────────────────────────────────── */
+        function selectUser(row) {
+          selectedUser = row;
+          var d = row.data;
+          var name =
+            d.payrollNameUpper ||
+            ((d.firstName || "") + " " + (d.lastName || "")).trim() ||
+            row.docId;
+
+          if ($("vcUESelectedName")) $("vcUESelectedName").textContent = name;
+          if ($("vcUESelectedRole"))
+            $("vcUESelectedRole").textContent = d.role || "—";
+          if ($("vcUESelectedEmail"))
+            $("vcUESelectedEmail").textContent = d.emailLower || d.email || "";
+
+          if ($("vcUEResultsList")) $("vcUEResultsList").style.display = "none";
+          if ($("vcUEEditorPanel")) $("vcUEEditorPanel").style.display = "block";
+
+          renderFeatureGrid(d.featureOverrides || {});
+          setStatus("");
+        }
+
+        /* ── feature grid ───────────────────────────────────────── */
+        function renderFeatureGrid(overrides) {
+          var container = $("vcUEFeatureGrid");
+          if (!container) return;
+          container.innerHTML = "";
+          var catalog = VCEntitlements.getFeatureCatalog();
+          catalog.forEach(function (feature) {
+            var tenantHas =
+              typeof vcHasFeature === "function" && vcHasFeature(feature.id);
+            var currentVal = Object.prototype.hasOwnProperty.call(overrides, feature.id)
+              ? (overrides[feature.id] ? "on" : "off")
+              : "inherit";
+
+            var row = document.createElement("div");
+            row.style.cssText =
+              "display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:9px 12px;" +
+              "border:1px solid #e2e8f0;border-radius:6px;background:" +
+              (tenantHas ? "#fff" : "#f8fafc") + ";opacity:" + (tenantHas ? "1" : "0.6");
+
+            var labelCol = document.createElement("div");
+            labelCol.style.cssText = "flex:1;min-width:180px";
+            labelCol.innerHTML =
+              "<span style='font-weight:600;font-size:13px;color:#1e293b'>" +
+              escHtml(feature.label) +
+              "</span>" +
+              "<br><span style='font-size:11px;color:#64748b'>" +
+              escHtml(feature.description || "") +
+              (tenantHas
+                ? ""
+                : " <em>(tenant plan doesn't include — cannot force ON)</em>") +
+              "</span>";
+
+            var radioGroup = document.createElement("div");
+            radioGroup.style.cssText = "display:flex;gap:8px;flex-wrap:wrap";
+            var groupName = "vcUEFeat_" + feature.id;
+
+            [
+              { val: "inherit", label: "Inherit" },
+              { val: "on", label: "Force ON" },
+              { val: "off", label: "Force OFF" }
+            ].forEach(function (opt) {
+              var lbl = document.createElement("label");
+              lbl.style.cssText =
+                "display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:#334155;" +
+                "padding:4px 10px;border-radius:999px;border:1px solid #e2e8f0;" +
+                "background:" +
+                (currentVal === opt.val ? "#dbeafe" : "#fff");
+              var radio = document.createElement("input");
+              radio.type = "radio";
+              radio.name = groupName;
+              radio.value = opt.val;
+              radio.checked = currentVal === opt.val;
+              radio.disabled = opt.val === "on" && !tenantHas;
+              radio.style.margin = "0";
+              radio.addEventListener("change", function () {
+                lbl.style.background = "#dbeafe";
+              });
+              var siblings = radioGroup.querySelectorAll("label");
+              radio.addEventListener("change", function () {
+                for (var i = 0; i < siblings.length; i++) {
+                  siblings[i].style.background = "#fff";
+                }
+                lbl.style.background = "#dbeafe";
+              });
+              lbl.appendChild(radio);
+              lbl.appendChild(document.createTextNode(opt.label));
+              radioGroup.appendChild(lbl);
+            });
+
+            row.appendChild(labelCol);
+            row.appendChild(radioGroup);
+            container.appendChild(row);
+          });
+        }
+
+        /* ── save ───────────────────────────────────────────────── */
+        function onSave() {
+          if (!selectedUser) return;
+          try {
+            VCAuth.requireAdmin("saveUserFeatureOverrides");
+          } catch (e) {
+            setStatus("Admin sign-in required.", "#dc2626");
+            return;
+          }
+          if (!VCAuth.isPinUnlocked()) {
+            setStatus("Unlock the admin PIN first.", "#dc2626");
+            return;
+          }
+          if (
+            typeof firebase === "undefined" ||
+            !firebase.apps ||
+            !firebase.apps.length
+          ) {
+            setStatus("Firebase not available.", "#dc2626");
+            return;
+          }
+
+          // Collect three-state values from the grid.
+          var catalog = VCEntitlements.getFeatureCatalog();
+          var newOverrides = {};
+          catalog.forEach(function (feature) {
+            var radios = document.querySelectorAll(
+              'input[name="vcUEFeat_' + feature.id + '"]'
+            );
+            radios.forEach(function (r) {
+              if (r.checked) {
+                if (r.value === "on") newOverrides[feature.id] = true;
+                else if (r.value === "off") newOverrides[feature.id] = false;
+                // "inherit" → key absent (don't write)
+              }
+            });
+          });
+
+          var db = firebase.firestore();
+          var tid =
+            (typeof VCFirestore !== "undefined" && VCFirestore.getTenantId)
+              ? VCFirestore.getTenantId()
+              : (window.APP_CONFIG && APP_CONFIG.tenantId) || "";
+          if (!tid) {
+            setStatus("Tenant ID not set.", "#dc2626");
+            return;
+          }
+
+          var saveBtn = $("vcUESaveBtn");
+          if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving…"; }
+          setStatus("");
+
+          var payload = {
+            featureOverrides: newOverrides,
+            featureOverridesUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            featureOverridesUpdatedBy: (VCAuth.currentUser() && VCAuth.currentUser().uid) || "unknown"
+          };
+
+          db.collection("tenants")
+            .doc(tid)
+            .collection("users")
+            .doc(selectedUser.docId)
+            .set(payload, { merge: true })
+            .then(function () {
+              if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save user overrides"; }
+              setStatus("✓ Saved", "#16a34a");
+              // Update local selectedUser so re-render is consistent.
+              selectedUser.data.featureOverrides = newOverrides;
+              // Fire user-entitlements-changed so Slice 4 call sites react live.
+              if (typeof window.dispatchEvent === "function" && typeof CustomEvent === "function") {
+                window.dispatchEvent(new CustomEvent(VCUserEntitlements.CHANGE_EVENT, {
+                  detail: { reason: "admin-save", docId: selectedUser.docId }
+                }));
+              }
+            })
+            .catch(function (err) {
+              if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save user overrides"; }
+              setStatus(
+                "Save failed: " + (err && err.message ? err.message : String(err)),
+                "#dc2626"
+              );
+              console.error("[vcUEAdmin] save", err);
+            });
+        }
+
+        /* ── wire buttons ───────────────────────────────────────── */
+        function wireOnce() {
+          var searchBtn = $("vcUESearchBtn");
+          if (searchBtn && !searchBtn.dataset.vcWired) {
+            searchBtn.dataset.vcWired = "1";
+            searchBtn.addEventListener("click", doSearch);
+          }
+          var searchInput = $("vcUESearchInput");
+          if (searchInput && !searchInput.dataset.vcWired) {
+            searchInput.dataset.vcWired = "1";
+            searchInput.addEventListener("keydown", function (e) {
+              if (e.key === "Enter") doSearch();
+            });
+          }
+          var saveBtn = $("vcUESaveBtn");
+          if (saveBtn && !saveBtn.dataset.vcWired) {
+            saveBtn.dataset.vcWired = "1";
+            saveBtn.addEventListener("click", onSave);
+          }
+          var clearBtn = $("vcUEClearBtn");
+          if (clearBtn && !clearBtn.dataset.vcWired) {
+            clearBtn.dataset.vcWired = "1";
+            clearBtn.addEventListener("click", function () {
+              selectedUser = null;
+              if ($("vcUEEditorPanel")) $("vcUEEditorPanel").style.display = "none";
+              if ($("vcUEResultsList")) $("vcUEResultsList").style.display = "none";
+              if ($("vcUESearchInput")) $("vcUESearchInput").value = "";
+              setStatus("");
+            });
+          }
+          wireSignInCard();
+        }
+
+        /* ── boot ───────────────────────────────────────────────── */
+        function boot() {
+          syncAuthCard();
+          wireOnce();
+          // Re-sync auth card when admin state changes.
+          if (typeof VCAuth !== "undefined" && VCAuth.onReady) {
+            VCAuth.onReady(function () { syncAuthCard(); });
+          }
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", boot);
+        } else {
+          boot();
+        }
+
+        window.VcUserEntitlementsAdmin = {
+          /** Call when Settings tab opens to ensure fresh wiring. */
+          renderForCurrentUser: function () { wireOnce(); syncAuthCard(); }
+        };
       })();
     </script>
 
@@ -7592,7 +8199,7 @@
       }
     </script>
     <script src="service_call.js?v=69"></script>
-    <script src="dispatcher/js/ai_report_reviewer.js?v=2"></script>
+    <script src="dispatcher/js/ai_report_reviewer.js?v=3"></script>
     <script src="dispatcher/js/insights_manager.js?v=4"></script>
     <script src="dispatcher/js/report_builder.js?v=3"></script>
     <script>

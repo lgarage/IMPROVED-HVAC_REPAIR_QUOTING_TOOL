@@ -433,6 +433,10 @@
     }
 
     async function openModal() {
+        if (!isFeatureEnabled()) {
+            console.warn("[VcAiReportReviewer] aiReportReviewer feature not enabled for this user.");
+            return;
+        }
         var idEl = document.getElementById("scCurrentId");
         var ticketId = idEl && idEl.value ? String(idEl.value).trim() : "";
         if (!ticketId) {
@@ -594,6 +598,25 @@
                 btn.textContent = "Approve & Save to Portal";
             }
         }
+    }
+
+    function isFeatureEnabled() {
+        try {
+            if (typeof window.VCUserEntitlements !== "undefined" && VCUserEntitlements.has) {
+                var profile =
+                    (typeof window.VCAuth !== "undefined" && VCAuth.currentProfile)
+                        ? VCAuth.currentProfile()
+                        : null;
+                return VCUserEntitlements.has("aiReportReviewer", profile);
+            }
+        } catch (e) {}
+        // Fallback: check tenant-level flag when VCUserEntitlements not yet loaded.
+        try {
+            if (typeof window.vcHasFeature === "function") {
+                return vcHasFeature("aiReportReviewer");
+            }
+        } catch (e) {}
+        return false;
     }
 
     function init() {

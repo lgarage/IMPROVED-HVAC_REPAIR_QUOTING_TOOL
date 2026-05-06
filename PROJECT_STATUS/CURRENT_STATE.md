@@ -6,8 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Per-User Feature Toggles (Slice 1 of 5 shipped, Slices 2–4 are MVP scope; design in `DECISIONS.md → ADR-015`).
-- **Last shipped (2026-05-06):** Slice 1 — Auth + Rules foundation. New `firestore.rules` (locks `tenants/{tid}/config/entitlements` + `admins/*` + `users/{uid}.featureOverrides` writes; preserves current open behavior on every other path), new `firestore.indexes.json`, `firebase.json` gains firestore section, new `shared/auth.js` (`VCAuth` API), `bootstrapAdminEmails: []` on `APP_CONFIG`. `index.html` loads `firebase-auth-compat.js?v=10.8.1` + `shared/auth.js?v=1`; `shared/config.js?v=6→v=7`; `VC_BUILD = "Slice1-Auth-Foundation-2026-05-06"`. **Rules NOT auto-deployed** — user must add their email to `isBootstrapAdmin()` in `firestore.rules` AND `bootstrapAdminEmails` in `shared/config.js`, then `firebase deploy --only firestore:rules`.
+- **Active Phase:** Per-User Feature Toggles (Slices 1–4 shipped; Slice 5 post-MVP; design in `DECISIONS.md → ADR-015`).
+- **Last shipped (2026-05-06):** Slices 2–4 — `shared/user_entitlements.js` resolver (`VCUserEntitlements.has(featureId, userProfile)` — 4-step precedence: tenant ceiling → role jail → user override → tenant default; `vc:user-entitlements-changed` event; localStorage cold-boot cache); Dispatcher Settings "👤 Per-User Feature Access" section (user search, three-state Inherit/Force ON/Force OFF grid, admin sign-in card, save to `users/{docId}.featureOverrides`); `#scAiReportReviewerBtn` show/hide gated by `VCUserEntitlements.has("aiReportReviewer", ...)` + live re-sync on `vc:user-entitlements-changed`; `ai_report_reviewer.js?v=3` `openModal` guards via `isFeatureEnabled()`; `VC_BUILD = "Slice4-UserGate-aiReviewer-2026-05-06"`.
+- **Prior (2026-05-06):** Slice 1 — Auth + Rules foundation. **Rules NOT auto-deployed** — add email to `isBootstrapAdmin()` + `bootstrapAdminEmails` then `firebase deploy --only firestore:rules`.
 - **Prior (2026-05-06):** Customer Entitlements Platform (`shared/entitlements.js` + dispatcher Settings "Plan & Feature Entitlements" admin section); Inter-Office Feed re-gated by `vcHasFeature("interOfficeFeed")`; `VC_BUILD = "Gated-InterOffice-Feed-2026-05-06"` superseded by Slice 1 stamp above.
 - **Prior (2026-05-02):** Phase **34e** — Site Intel **Field Access Notes** rename + **Access Photos** in the Site Intel modal (`technician/js/workspace_ui.js?v=11`). Detail in `PROJECT_MAP.md → Field Operations → Site Intel — Field Access Notes & Access Photos (Phase 34e)`.
 - **Prior (2026-04-27):** 34a (form-builder schema), 34b (9 seed templates), 34c (`#acc-svc-repair` repair branching), 34d (`#acc-tstat-label` thermostat labeling). All in `PROJECT_MAP.md → Build History`.
@@ -20,15 +21,13 @@ None. Two non-blocking carry-overs:
 - `KI-003` — Office Override iframe parity gap (design `ADR-013`).
 - `KI-004` — Field-app photo uploads dropped offline (design `ADR-012`; now also covers Phase 34e access photos — same `firebase.storage().ref().put()` pattern).
 
-## Immediate Next Step — Per-User Feature Toggles Slices 2–4 (MVP cut)
+## Immediate Next Step
 
-📋 See `PROJECT_STATUS/PER_USER_FEATURE_TOGGLES_PLAN.md` for full slice detail.
-
-1. **Deploy Slice 1 first** (runbook in plan doc § Prerequisites — must be done before Slices 2–4).
-2. **Slice 2** — `shared/user_entitlements.js` resolver. Re-gate → **Sonnet 4.6**.
-3. **Slice 3** — Per-user toggle UI + sign-in card in dispatcher Settings. Re-gate → **Sonnet 4.6**.
-4. **Slice 4** — Gate `aiReportReviewer` end-to-end as proof. Re-gate → **Sonnet 4.6**.
-5. **Slice 5** (post-MVP) — standalone `admin/index.html`. Re-gate → **Opus 4.7**.
+Verify Slices 2–4 in browser (no deploy needed — no Firestore rules changed):
+1. Dispatcher Settings → Admin tools → "👤 Per-User Feature Access" appears after PIN unlock.
+2. Sign in as admin email → search a staff member → toggle feature → Save → `#scAiReportReviewerBtn` shows/hides live without reload.
+3. Force OFF for your own profile → AI Reviewer button disappears; Force ON → reappears.
+4. **Slice 5** (post-MVP, next): standalone `admin/index.html`. Re-gate → **Opus 4.7**.
 
 Smoke-tests carried over (non-blocking): Phase 34e Field Access Notes on iPhone; Phase 33 Field-Add Equipment OCR on Vision Hub.
 
