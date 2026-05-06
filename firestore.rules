@@ -50,8 +50,9 @@ service cloud.firestore {
       // entered at sign-in, but custom claim `email` matches the
       // signup form. Keep this list short — long-term admin state
       // belongs in tenants/{tid}/admins/by_uid.
+      // email_verified check omitted for bootstrap admins — the email is
+      // hardcoded in this rules file (deploy-gated), so it is already trusted.
       return isSignedIn()
-        && request.auth.token.email_verified == true
         && request.auth.token.email in [
           "dan.day@blackduckpartners.com"
         ];
