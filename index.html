@@ -27,6 +27,7 @@
     <script src="shared/firebase_config.js?v=1"></script>
     <script src="shared/config.js?v=6"></script>
     <script src="shared/firebase_logic.js?v=3"></script>
+    <script src="shared/entitlements.js?v=1"></script>
     <script src="shared/client_portal_logic.js?v=2"></script>
     <script>
       /** KI-002 Plan B4 — dispatcher BUILD stamp, mirrors `window.VC_BUILD` in `technician/index.html`.
@@ -34,7 +35,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Strip-InterOffice-Feed-2026-05-06";
+      window.VC_BUILD = "Entitlements-Platform-2026-05-06";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -5303,6 +5304,95 @@
             <h2>System Settings</h2>
           </div>
 
+          <div class="form-section" id="vcEntitlementsSection">
+            <h4>🎚️ Plan &amp; Feature Entitlements</h4>
+            <p style="font-size: 13px; color: #666">
+              Toggle which premium features are available for the active customer
+              (<code>tenant</code>). Settings are stored in
+              <code>tenants/{tenantId}/config/entitlements</code> and apply
+              immediately to dispatcher and field surfaces. Changing the plan
+              applies that plan's defaults — switch to <strong>Custom</strong> if
+              you want fully manual control.
+            </p>
+            <div
+              id="vcEntitlementsHeader"
+              style="
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+                align-items: center;
+                margin: 4px 0 14px 0;
+              "
+            >
+              <div style="display: flex; flex-direction: column; gap: 4px">
+                <label
+                  for="vcEntitlementsPlanSelect"
+                  style="font-size: 12px; font-weight: 600; color: #475569"
+                  >Active plan</label
+                >
+                <select
+                  id="vcEntitlementsPlanSelect"
+                  style="
+                    padding: 8px 10px;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    min-width: 220px;
+                  "
+                ></select>
+              </div>
+              <button
+                type="button"
+                id="vcEntitlementsApplyPlanBtn"
+                class="gen-btn"
+                style="background: #0ea5e9; color: #fff; padding: 9px 16px; font-size: 13px"
+                title="Replace all toggles below with the selected plan's defaults."
+              >
+                Apply plan defaults
+              </button>
+              <span
+                id="vcEntitlementsTenantBadge"
+                style="
+                  font-size: 12px;
+                  background: #f1f5f9;
+                  border: 1px solid #e2e8f0;
+                  border-radius: 999px;
+                  padding: 4px 10px;
+                  color: #334155;
+                "
+              ></span>
+              <span
+                id="vcEntitlementsHydrationBadge"
+                style="font-size: 11px; color: #94a3b8"
+                >Loading…</span
+              >
+            </div>
+            <div
+              id="vcEntitlementsList"
+              style="
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                max-width: 720px;
+                margin-bottom: 14px;
+              "
+            ></div>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+              <button
+                type="button"
+                id="vcEntitlementsSaveBtn"
+                class="gen-btn"
+                style="background: #16a34a; color: #fff; padding: 10px 20px; font-size: 14px"
+              >
+                Save entitlements
+              </button>
+              <span
+                id="vcEntitlementsSaveStatus"
+                style="font-size: 12px; color: #64748b; min-height: 1.2em"
+              ></span>
+            </div>
+          </div>
+
           <div class="form-section" id="vcUserImportSection">
             <h4>Enterprise User Import (Vertex-Core Green Column)</h4>
             <p style="font-size: 13px; color: #666">
@@ -7022,6 +7112,9 @@
           if (typeof hydrateFieldFormTemplatesList === "function") {
             void hydrateFieldFormTemplatesList();
           }
+          if (typeof window.VcEntitlementsAdmin !== "undefined") {
+            window.VcEntitlementsAdmin.renderForCurrentTenant();
+          }
         }
         if (tabName === "insights") {
           if (typeof window.VcInsightsManager !== "undefined") {
@@ -7067,6 +7160,272 @@
         }
       }
 
+    </script>
+
+    <script>
+      /**
+       * Phase 35 — Entitlements admin UI + boot wiring (dispatcher).
+       *
+       * Reads the active customer's plan & feature flags from Firestore
+       * (`tenants/{tenantId}/config/entitlements` via VCEntitlements) and
+       * renders a per-feature toggle list inside Settings. Saves merge-write
+       * the doc and the live snapshot updates immediately for any consumer
+       * listening on `vc:entitlements-changed` or calling `vcHasFeature(id)`.
+       */
+      (function vcEntitlementsBootAndAdmin() {
+        if (typeof window.VCEntitlements === "undefined") {
+          console.warn("[VcEntitlementsAdmin] VCEntitlements not loaded");
+          return;
+        }
+
+        var DRAFT = null;
+        var subscribed = false;
+
+        function $(id) {
+          return document.getElementById(id);
+        }
+
+        function escapeHtml(s) {
+          return String(s == null ? "" : s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        function ensureSubscribed() {
+          if (subscribed) return;
+          if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
+          try {
+            var db = firebase.firestore();
+            VCEntitlements.subscribe(db, function (err) {
+              console.warn("[VCEntitlements] live update failed", err);
+            });
+            subscribed = true;
+          } catch (e) {
+            console.warn("[VCEntitlements] subscribe boot", e);
+          }
+        }
+
+        function syncDraftFromSnapshot() {
+          var snap = VCEntitlements.getSnapshot();
+          DRAFT = {
+            planId: snap.planId,
+            features: Object.assign({}, snap.features)
+          };
+        }
+
+        function setStatus(msg, color) {
+          var el = $("vcEntitlementsSaveStatus");
+          if (!el) return;
+          el.textContent = msg || "";
+          el.style.color = color || "#64748b";
+        }
+
+        function renderTenantBadge() {
+          var badge = $("vcEntitlementsTenantBadge");
+          if (!badge) return;
+          var tid =
+            (typeof VCFirestore !== "undefined" && VCFirestore.getTenantId)
+              ? VCFirestore.getTenantId()
+              : (window.APP_CONFIG && APP_CONFIG.tenantId) || "(unknown)";
+          badge.textContent = "Customer (tenant): " + tid;
+        }
+
+        function renderHydrationBadge() {
+          var el = $("vcEntitlementsHydrationBadge");
+          if (!el) return;
+          var snap = VCEntitlements.getSnapshot();
+          if (snap.hydrated) {
+            el.textContent = "Loaded from Firestore";
+            el.style.color = "#16a34a";
+          } else {
+            el.textContent = "Showing cached / default values until cloud loads…";
+            el.style.color = "#94a3b8";
+          }
+        }
+
+        function renderPlanSelect() {
+          var sel = $("vcEntitlementsPlanSelect");
+          if (!sel) return;
+          var plans = VCEntitlements.getPlanCatalog();
+          if (sel.options.length !== plans.length) {
+            sel.innerHTML = "";
+            plans.forEach(function (p) {
+              var opt = document.createElement("option");
+              opt.value = p.id;
+              opt.textContent = p.label;
+              opt.title = p.description || "";
+              sel.appendChild(opt);
+            });
+          }
+          sel.value = DRAFT && DRAFT.planId ? DRAFT.planId : VCEntitlements.DEFAULT_PLAN_ID;
+        }
+
+        function renderFeatureList() {
+          var host = $("vcEntitlementsList");
+          if (!host) return;
+          var catalog = VCEntitlements.getFeatureCatalog();
+          var rows = catalog
+            .map(function (f) {
+              var checked = !!(DRAFT && DRAFT.features && DRAFT.features[f.id]);
+              var pillClass =
+                f.tier === "premium"
+                  ? "vc-ent-pill vc-ent-pill--premium"
+                  : "vc-ent-pill vc-ent-pill--core";
+              var pillLabel = f.tier === "premium" ? "Premium" : "Core";
+              return (
+                '<label data-feature-id="' +
+                escapeHtml(f.id) +
+                '" style="display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;">' +
+                '<input type="checkbox" class="vc-ent-toggle" ' +
+                (checked ? "checked" : "") +
+                ' data-feature-id="' +
+                escapeHtml(f.id) +
+                '" style="margin-top:3px" />' +
+                '<div style="flex:1;min-width:0">' +
+                '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+                '<strong style="font-size:14px;color:#0f172a">' +
+                escapeHtml(f.label) +
+                "</strong>" +
+                '<span class="' +
+                pillClass +
+                '" style="font-size:11px;border-radius:999px;padding:2px 8px;' +
+                (f.tier === "premium"
+                  ? "background:#fef3c7;color:#92400e;border:1px solid #fcd34d;"
+                  : "background:#ecfdf5;color:#166534;border:1px solid #bbf7d0;") +
+                '">' +
+                pillLabel +
+                "</span>" +
+                '<code style="font-size:11px;color:#94a3b8">' +
+                escapeHtml(f.id) +
+                "</code>" +
+                "</div>" +
+                '<div style="font-size:12px;color:#64748b;margin-top:4px">' +
+                escapeHtml(f.description || "") +
+                "</div>" +
+                "</div>" +
+                "</label>"
+              );
+            })
+            .join("");
+          host.innerHTML = rows;
+
+          var toggles = host.querySelectorAll(".vc-ent-toggle");
+          for (var i = 0; i < toggles.length; i++) {
+            toggles[i].addEventListener("change", function (e) {
+              var id = e.target.getAttribute("data-feature-id");
+              if (!id || !DRAFT) return;
+              if (!DRAFT.features) DRAFT.features = {};
+              DRAFT.features[id] = !!e.target.checked;
+              setStatus("Unsaved changes — click Save entitlements.", "#b45309");
+            });
+          }
+        }
+
+        function renderAll() {
+          if (!DRAFT) syncDraftFromSnapshot();
+          renderTenantBadge();
+          renderHydrationBadge();
+          renderPlanSelect();
+          renderFeatureList();
+        }
+
+        function onApplyPlan() {
+          var sel = $("vcEntitlementsPlanSelect");
+          if (!sel || !DRAFT) return;
+          var planId = sel.value || VCEntitlements.DEFAULT_PLAN_ID;
+          DRAFT.planId = planId;
+          DRAFT.features = VCEntitlements.getDefaultsForPlan(planId);
+          renderFeatureList();
+          setStatus(
+            "Applied " + planId + " defaults — review then Save entitlements.",
+            "#b45309"
+          );
+        }
+
+        function onSave() {
+          if (!DRAFT) return;
+          if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+            setStatus("Firebase not initialized — sign in first.", "#dc2626");
+            return;
+          }
+          var btn = $("vcEntitlementsSaveBtn");
+          if (btn) btn.disabled = true;
+          setStatus("Saving…", "#0ea5e9");
+          var db = firebase.firestore();
+          var patch = {
+            planId: DRAFT.planId,
+            features: Object.assign({}, DRAFT.features)
+          };
+          try {
+            var auth = firebase.auth ? firebase.auth() : null;
+            if (auth && auth.currentUser && auth.currentUser.email) {
+              patch.updatedBy = auth.currentUser.email;
+            }
+          } catch (e) {}
+          VCEntitlements.savePatch(db, patch)
+            .then(function () {
+              setStatus("Saved.", "#16a34a");
+              if (typeof showSaveCue === "function") {
+                showSaveCue("✓ Entitlements saved");
+              }
+            })
+            .catch(function (err) {
+              VCSurfaceWriteFailure("VCEntitlements.savePatch", err);
+              setStatus(
+                "Save failed: " + (err && err.message ? err.message : "unknown"),
+                "#dc2626"
+              );
+            })
+            .finally(function () {
+              if (btn) btn.disabled = false;
+            });
+        }
+
+        function wireOnce() {
+          var planBtn = $("vcEntitlementsApplyPlanBtn");
+          var saveBtn = $("vcEntitlementsSaveBtn");
+          if (planBtn && !planBtn.dataset.vcWired) {
+            planBtn.dataset.vcWired = "1";
+            planBtn.addEventListener("click", onApplyPlan);
+          }
+          if (saveBtn && !saveBtn.dataset.vcWired) {
+            saveBtn.dataset.vcWired = "1";
+            saveBtn.addEventListener("click", onSave);
+          }
+        }
+
+        window.addEventListener(VCEntitlements.CHANGE_EVENT, function () {
+          syncDraftFromSnapshot();
+          if (
+            document.getElementById("view-settings") &&
+            document.getElementById("view-settings").classList.contains("active")
+          ) {
+            renderAll();
+          }
+        });
+
+        function bootSubscribe() {
+          ensureSubscribed();
+          if (!subscribed) {
+            window.setTimeout(bootSubscribe, 600);
+          }
+        }
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", bootSubscribe);
+        } else {
+          bootSubscribe();
+        }
+
+        window.VcEntitlementsAdmin = {
+          renderForCurrentTenant: function () {
+            ensureSubscribed();
+            wireOnce();
+            renderAll();
+          }
+        };
+      })();
     </script>
 
     <script src="dispatcher/js/navigation.js?v=1"></script>
