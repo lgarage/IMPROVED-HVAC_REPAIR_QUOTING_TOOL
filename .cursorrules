@@ -151,6 +151,23 @@ A fresh AI reading Tier 1 will see this pointer and know to fetch the plan doc *
 - **Cache Busting:** Always bump the `?v=N` query param in `index.html` when modifying JS or CSS files.
 - **Geo-Snapshots:** Every "Clock" or "Complete" action must await a 5-second `captureGeoSnapshot`.
 
+### 5A. Auto-commit & push after every code change (MANDATORY)
+
+After **every session that touches any file in the repo**, the AI **must** run the following three commands in the Cursor terminal before ending the turn — no exceptions, no waiting for the user to ask:
+
+```powershell
+git add -A
+git commit -m "<concise description of what changed>"
+git push
+```
+
+**Rules:**
+- Run all three as a single chained shell call so the user can see output.
+- The commit message must name the feature/fix — not just "update" or "changes."
+- If `git push` fails (e.g. diverged remote), report the error in chat; **do not** force-push.
+- This applies even to docs-only changes (`CURRENT_STATE.md`, `MODEL_DOSSIER.md`, etc.).
+- The user **never** needs to manually click Commit & Sync in the IDE — the AI handles it.
+
 ## 6. MODEL ESCALATION PROTOCOL
 
 ### 6§ Preamble — non‑negotiable (read first)
