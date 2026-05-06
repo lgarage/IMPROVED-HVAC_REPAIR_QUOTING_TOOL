@@ -53,7 +53,7 @@ service cloud.firestore {
       return isSignedIn()
         && request.auth.token.email_verified == true
         && request.auth.token.email in [
-          "daday1974@gmail.com"
+          "dan.day@blackduckpartners.com"
         ];
     }
 
