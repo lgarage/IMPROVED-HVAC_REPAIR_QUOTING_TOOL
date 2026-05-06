@@ -14,6 +14,7 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
+    <link rel="stylesheet" href="dispatcher/css/activity_feed.css?v=4" />
     <link rel="stylesheet" href="dispatcher/css/import_hub.css?v=4" />
     <link rel="stylesheet" href="dispatcher/css/insights.css?v=6" />
     <link rel="stylesheet" href="dispatcher/css/report_builder.css?v=4" />
@@ -35,7 +36,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Entitlements-Platform-2026-05-06";
+      window.VC_BUILD = "Gated-InterOffice-Feed-2026-05-06";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -2401,6 +2402,17 @@
             <span class="menu-text">Customer Directory</span></a
           >
         </li>
+        <li id="sidebar-nav-pulse" style="display:none">
+          <a
+            id="nav-pulse"
+            onclick="switchTab('pulse')"
+            title="Live inter-office messages and field activity"
+            ><span class="menu-icon"
+              ><i class="fas fa-broadcast-tower" aria-hidden="true"></i
+            ></span>
+            <span class="menu-text">Inter-Office Feed</span></a
+          >
+        </li>
         <li class="sidebar-item-has-submenu" id="sidebar-nav-reports">
           <button
             type="button"
@@ -3800,6 +3812,45 @@
             >
               Generate Service Ticket
             </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="view-pulse" class="app-view">
+        <div id="pulseDashboard" class="pulse-dashboard">
+          <div class="pulse-dashboard__header">
+            <h2>
+              <i class="fa-solid fa-building-user" aria-hidden="true"></i>
+              Live Inter-Office Feed
+            </h2>
+            <p class="pulse-dashboard__sub">
+              Real-time inter-office messages, site intel, and status changes from Firestore.
+              Click a row to open the ticket.
+            </p>
+          </div>
+          <div
+            id="pulseFeedList"
+            class="pulse-feed-list"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions"
+          ></div>
+          <div class="pulse-quick-reply">
+            <label for="pulseQuickReplyInput"
+              ><i class="fa-solid fa-comments" aria-hidden="true"></i> Quick reply
+              (Inter-Office Comms)</label
+            >
+            <div class="pulse-quick-reply__row">
+              <input
+                type="text"
+                id="pulseQuickReplyInput"
+                maxlength="2000"
+                placeholder="Type an inter-office message to the field…"
+                autocomplete="off"
+              />
+              <button type="button" id="pulseQuickReplyBtn">Send</button>
+            </div>
+            <p id="pulseQuickReplyHint" class="pulse-hint" aria-live="polite"></p>
           </div>
         </div>
       </div>
@@ -7021,6 +7072,7 @@
         currentActiveView = tabName;
 
         document.getElementById("view-service").classList.remove("active");
+        document.getElementById("view-pulse").classList.remove("active");
         document.getElementById("view-insights").classList.remove("active");
         document.getElementById("view-report-studio").classList.remove("active");
         document.getElementById("view-quoting").classList.remove("active");
@@ -7031,6 +7083,8 @@
         document.getElementById("view-settings").classList.remove("active");
 
         document.getElementById("nav-service").classList.remove("active-tab");
+        var navPulseEl = document.getElementById("nav-pulse");
+        if (navPulseEl) navPulseEl.classList.remove("active-tab");
         document.getElementById("nav-insights").classList.remove("active-tab");
         document.getElementById("nav-report-studio").classList.remove("active-tab");
         document.getElementById("nav-quoting").classList.remove("active-tab");
@@ -7074,6 +7128,19 @@
 
         if (typeof updateLocationDatalist === "function")
           updateLocationDatalist();
+
+        if (tabName === "pulse") {
+          if (
+            typeof vcHasFeature === "function" && vcHasFeature("interOfficeFeed") &&
+            typeof window.PulseActivityFeed !== "undefined"
+          ) {
+            window.PulseActivityFeed.start();
+          }
+        } else {
+          if (typeof window.PulseActivityFeed !== "undefined") {
+            window.PulseActivityFeed.stop();
+          }
+        }
 
         if (tabName === "service") {
           setTimeout(() => {
@@ -7396,8 +7463,23 @@
           }
         }
 
+        function syncPulseNav() {
+          var li = document.getElementById("sidebar-nav-pulse");
+          if (!li) return;
+          var on =
+            typeof vcHasFeature === "function" && vcHasFeature("interOfficeFeed");
+          li.style.display = on ? "" : "none";
+          if (!on) {
+            var currentView = document.getElementById("view-pulse");
+            if (currentView && currentView.classList.contains("active")) {
+              if (typeof switchTab === "function") switchTab("service");
+            }
+          }
+        }
+
         window.addEventListener(VCEntitlements.CHANGE_EVENT, function () {
           syncDraftFromSnapshot();
+          syncPulseNav();
           if (
             document.getElementById("view-settings") &&
             document.getElementById("view-settings").classList.contains("active")
@@ -7423,8 +7505,15 @@
             ensureSubscribed();
             wireOnce();
             renderAll();
-          }
+          },
+          syncPulseNav: syncPulseNav
         };
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", syncPulseNav);
+        } else {
+          syncPulseNav();
+        }
       })();
     </script>
 
@@ -7436,6 +7525,7 @@
     <script src="customer_directory.js?v=27"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js?v=2"></script>
+    <script src="dispatcher/js/activity_feed.js?v=1"></script>
     <script>
       /** KI-002 Plan B4 — populate the dispatcher BUILD chip with `window.VC_BUILD` and the loaded
        *  `shared/firebase_logic.js` version (set by the file's IIFE as `__VC_FIREBASE_LOGIC_VERSION`).
@@ -7482,9 +7572,22 @@
         }
       });
       window.addEventListener("hashchange", function () {
+        if (
+          window.location.hash === "#pulse" &&
+          typeof vcHasFeature === "function" && vcHasFeature("interOfficeFeed")
+        ) switchTab("pulse");
         if (window.location.hash === "#insights") switchTab("insights");
         if (window.location.hash === "#report-studio") switchTab("report-studio");
       });
+      if (
+        window.location.hash === "#pulse" &&
+        typeof vcHasFeature === "function" && vcHasFeature("interOfficeFeed")
+      ) {
+        switchTab("pulse");
+      }
+      if (typeof window.PulseActivityFeed !== "undefined") {
+        window.PulseActivityFeed.wireQuickReplyOnce();
+      }
     </script>
     <script src="service_call.js?v=69"></script>
     <script src="dispatcher/js/ai_report_reviewer.js?v=2"></script>
