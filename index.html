@@ -27,7 +27,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
     <script src="firebase-config.js?v=4"></script>
     <script src="shared/firebase_config.js?v=1"></script>
-    <script src="shared/config.js?v=7"></script>
+    <script src="shared/config.js?v=8"></script>
     <script src="shared/firebase_logic.js?v=3"></script>
     <script src="shared/auth.js?v=1"></script>
     <script src="shared/entitlements.js?v=1"></script>
@@ -39,7 +39,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Slice4-UserGate-aiReviewer-2026-05-06";
+      window.VC_BUILD = "Slice4b-Bootstrap-PwReset-2026-05-06";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -5488,13 +5488,21 @@
                 autocomplete="current-password"
                 style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;margin-bottom:8px"
               />
-              <button
-                type="button"
-                id="vcUESignInBtn"
-                class="gen-btn"
-                style="background:#0ea5e9;color:#fff;padding:8px 18px;font-size:13px"
-              >Sign in</button>
-              <span id="vcUESignInErr" style="font-size:12px;color:#dc2626;margin-left:8px"></span>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <button
+                  type="button"
+                  id="vcUESignInBtn"
+                  class="gen-btn"
+                  style="background:#0ea5e9;color:#fff;padding:8px 18px;font-size:13px"
+                >Sign in</button>
+                <button
+                  type="button"
+                  id="vcUEForgotPwBtn"
+                  style="background:none;border:none;color:#0ea5e9;font-size:12px;cursor:pointer;padding:0;text-decoration:underline"
+                >Forgot password?</button>
+                <span id="vcUESignInErr" style="font-size:12px;color:#dc2626"></span>
+              </div>
+              <span id="vcUEResetMsg" style="font-size:12px;color:#16a34a;display:none;margin-top:6px;display:block"></span>
             </div>
 
             <!-- user search -->
@@ -7745,6 +7753,7 @@
           btn.dataset.vcWired = "1";
           btn.addEventListener("click", function () {
             var err = $("vcUESignInErr");
+            var resetMsg = $("vcUEResetMsg");
             var email = ($("vcUESignInEmail") || {}).value || "";
             var pwd = ($("vcUESignInPassword") || {}).value || "";
             if (!email || !pwd) {
@@ -7752,6 +7761,7 @@
               return;
             }
             if (err) err.textContent = "";
+            if (resetMsg) { resetMsg.textContent = ""; resetMsg.style.display = "none"; }
             btn.disabled = true;
             btn.textContent = "Signing in…";
             VCAuth.signIn(email.trim(), pwd)
@@ -7766,6 +7776,47 @@
                 if (err) err.textContent = (e && e.message) ? e.message : "Sign-in failed.";
               });
           });
+
+          var forgotBtn = $("vcUEForgotPwBtn");
+          if (forgotBtn && !forgotBtn.dataset.vcWired) {
+            forgotBtn.dataset.vcWired = "1";
+            forgotBtn.addEventListener("click", function () {
+              var err = $("vcUESignInErr");
+              var resetMsg = $("vcUEResetMsg");
+              var email = ($("vcUESignInEmail") || {}).value || "";
+              if (!email) {
+                if (err) err.textContent = "Enter your email above first.";
+                return;
+              }
+              if (err) err.textContent = "";
+              if (
+                typeof firebase === "undefined" ||
+                !firebase.apps ||
+                !firebase.apps.length ||
+                typeof firebase.auth !== "function"
+              ) {
+                if (err) err.textContent = "Firebase not ready.";
+                return;
+              }
+              forgotBtn.disabled = true;
+              forgotBtn.textContent = "Sending…";
+              firebase.auth().sendPasswordResetEmail(email.trim())
+                .then(function () {
+                  forgotBtn.disabled = false;
+                  forgotBtn.textContent = "Forgot password?";
+                  if (resetMsg) {
+                    resetMsg.textContent = "✓ Password reset email sent to " + email.trim() + ". Check your inbox (and spam folder).";
+                    resetMsg.style.display = "block";
+                    resetMsg.style.color = "#16a34a";
+                  }
+                })
+                .catch(function (e) {
+                  forgotBtn.disabled = false;
+                  forgotBtn.textContent = "Forgot password?";
+                  if (err) err.textContent = (e && e.message) ? e.message : "Reset failed.";
+                });
+            });
+          }
         }
 
         /* ── user search ────────────────────────────────────────── */

@@ -24,7 +24,7 @@
      * Lower-case; verified Firebase Auth users with one of these
      * emails are admins even before tenants/{tid}/admins/by_uid exists.
      */
-    bootstrapAdminEmails: [],
+    bootstrapAdminEmails: ["daday1974@gmail.com"],
   };
 
   /**
