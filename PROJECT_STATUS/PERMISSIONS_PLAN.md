@@ -186,9 +186,11 @@ Call sites replace scattered `if (role === 'dispatcher')` checks with `if (hasCa
 
 ---
 
-## Open questions (resolve before Slice 2)
+## Decisions (locked 2026-05-07)
 
-1. **CSR vs Dispatcher app mode** — Same `index.html` with hidden elements, or a separate lighter shell for CSR? Recommendation: same shell with hidden elements until usage data shows a need for split.
-2. **Helper field access scope** — Can a helper open any ticket (with limited editing), or only tickets they are explicitly assigned to? Recommendation: only assigned tickets until you need broader.
-3. **Payroll surface location** — Dedicated tab in dispatcher, or a route in a future `admin/index.html` (Slice 5)? Recommendation: defer to `admin/index.html` so dispatcher stays ops-focused.
-4. **`permissionTags` as array or map?** — Array `["service_assign", "quoting_use"]` is simpler to query in Firestore rules; map `{service_assign: true}` is simpler for JavaScript key lookups. Recommendation: **array** (Firestore `array-contains` works cleanly; JS can use `includes()`).
+| # | Question | Decision |
+|---|----------|----------|
+| 1 | CSR vs Dispatcher app mode | **Same `index.html` shell with hidden elements.** No separate CSR shell until usage data shows a clear need. |
+| 2 | Helper ticket scope | **Assigned-only.** Helper can only open tickets they are explicitly assigned to; broader access requires an explicit tag override. |
+| 3 | Payroll tab location | **Deferred / TBD.** Do not add a payroll tab to the dispatcher shell yet. Revisit when the export feature is scoped — likely lands in a future `admin/index.html` (Slice 6). |
+| 4 | `permissionTags` storage format | **Array** — `permissionTags: ["service_assign", "quoting_use", …]`. Firestore `array-contains` rules work cleanly; JS uses `Array.includes()`. |

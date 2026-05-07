@@ -32,9 +32,9 @@ None. Two non-blocking carry-overs:
 4. Sign out → badge returns to grey.
 
 **Next build candidates (pick one):**
-- **Manage Admins UI** — grant/revoke `isAdmin` on roster docs from Settings (T2, **Sonnet 4.6**). Discussed but not built; currently no in-app way to make others admins.
-- **Slice 5** — standalone `admin/index.html` + audit log. Re-gate → **Opus 4.7**.
-- **KI-004** — offline photo outbox (`shared/offline_storage_outbox.js`). Re-gate → **Opus 4.7**.
+- **Manage Admins UI** — grant/revoke `isAdmin` on roster docs from Settings (T2, **Sonnet 4.6**). No in-app way to make others admins yet. 📋 See `PROJECT_STATUS/PERMISSIONS_PLAN.md` (roles, tags, presets, slice order — decisions locked 2026-05-07).
+- **Slice 5** — standalone `admin/index.html` + audit log. Re-gate → **Opus 4.6**.
+- **KI-004** — offline photo outbox (`shared/offline_storage_outbox.js`). Re-gate → **Opus 4.6**.
 
 Smoke-tests carried over (non-blocking): Phase 34e Field Access Notes on iPhone; Phase 33 Field-Add Equipment OCR on Vision Hub.
 
