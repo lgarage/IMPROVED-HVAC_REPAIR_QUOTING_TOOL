@@ -39,7 +39,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "SettingsSidebarNav-2026-05-07";
+      window.VC_BUILD = "MembersPane-2026-05-07";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -2494,6 +2494,102 @@
         border-radius: 10px !important;
         border-color: #e2e8f0 !important;
         background: #f8fafc !important;
+      }
+      /* ── Members pane ─────────────────────────────────────────────────── */
+      .vc-members-toolbar {
+        display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px;
+      }
+      .vc-members-tabs { display: flex; gap: 2px; }
+      .vc-members-tab {
+        background: none; border: 1px solid transparent; border-radius: 6px;
+        padding: 5px 12px; font-size: 12px; font-weight: 500; color: #64748b; cursor: pointer;
+      }
+      .vc-members-tab:hover { background: #e9eef4; color: #1e293b; }
+      .vc-members-tab-active {
+        background: #e0e7ef !important; color: #0f172a !important;
+        font-weight: 600 !important; border-color: #d1d9e2 !important;
+      }
+      .vc-members-body { display: flex; gap: 16px; align-items: flex-start; }
+      .vc-members-list {
+        flex: 0 0 260px; background: #fff; border: 1px solid #e2e8f0;
+        border-radius: 10px; overflow: hidden; min-height: 60px;
+      }
+      .vc-members-editor { flex: 1; min-width: 0; }
+      .vc-members-editor-hdr {
+        display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+      }
+      .vc-members-editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .vc-members-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 20px 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        display: flex; flex-direction: column;
+      }
+      /* member list rows */
+      .vc-mbr-row {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 12px; border: none; border-bottom: 1px solid #f1f5f9;
+        background: #fff; cursor: pointer; width: 100%; text-align: left;
+        transition: background 0.1s;
+      }
+      .vc-mbr-row:last-child { border-bottom: none; }
+      .vc-mbr-row:hover, .vc-mbr-row-sel { background: #eff6ff; }
+      .vc-mbr-avatar {
+        width: 30px; height: 30px; border-radius: 50%; background: #0ea5e9;
+        color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .vc-mbr-avatar-inactive { background: #94a3b8; }
+      .vc-mbr-info { flex: 1; min-width: 0; }
+      .vc-mbr-name {
+        font-size: 13px; font-weight: 600; color: #1e293b;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .vc-mbr-sub {
+        font-size: 11px; color: #94a3b8;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .vc-mbr-pill {
+        display: inline-block; font-size: 10px; font-weight: 600;
+        padding: 1px 6px; border-radius: 999px; margin-left: 4px;
+      }
+      .vc-mbr-pill-admin { background: #dbeafe; color: #1e40af; }
+      .vc-mbr-pill-inactive { background: #f1f5f9; color: #94a3b8; }
+      /* editor form fields */
+      .vc-mbr-field { margin-bottom: 12px; }
+      .vc-mbr-field > label {
+        display: block; font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 4px;
+      }
+      .vc-mbr-field input[type="text"],
+      .vc-mbr-field input[type="email"],
+      .vc-mbr-field input[type="password"],
+      .vc-mbr-field input[type="search"] {
+        width: 100%; box-sizing: border-box; padding: 8px 10px;
+        border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;
+      }
+      .vc-mbr-pass-row { display: flex; gap: 6px; align-items: center; }
+      .vc-mbr-pass-row input { flex: 1; }
+      .vc-mbr-pass-toggle {
+        background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 7px;
+        padding: 7px 10px; font-size: 13px; cursor: pointer; flex-shrink: 0;
+      }
+      /* access toggles */
+      .vc-mbr-access-list { display: flex; flex-direction: column; gap: 12px; }
+      .vc-mbr-access-item {
+        display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+      }
+      .vc-mbr-access-item input[type="checkbox"] {
+        width: 16px; height: 16px; accent-color: #0ea5e9;
+        margin-top: 3px; cursor: pointer; flex-shrink: 0;
+      }
+      .vc-mbr-access-item strong { font-size: 13px; color: #1e293b; }
+      .vc-mbr-access-item p { font-size: 11px; color: #94a3b8; margin: 2px 0 0; }
+      /* action buttons */
+      .vc-mbr-actions { margin-top: auto; padding-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+      /* responsive */
+      @media (max-width: 820px) {
+        .vc-members-body { flex-direction: column; }
+        .vc-members-list { flex: none; width: 100%; }
+        .vc-members-editor-grid { grid-template-columns: 1fr; }
       }
       /* ── end Settings styles ─────────────────────────────────────────── */
     </style>
@@ -5571,6 +5667,7 @@
 
           <p class="vc-snav-group-label">Roster</p>
           <button type="button" class="vc-snav-item" data-pane="technicians">👷 Technicians</button>
+          <button type="button" class="vc-snav-item" data-pane="members">👥 Members</button>
         </nav>
 
         <div class="form-container">
@@ -6247,6 +6344,146 @@
             </button>
           </div>
           </div><!-- /vcPane-technicians -->
+
+          <!-- ── pane: members ── -->
+          <div class="vc-settings-pane vc-pane-hidden" id="vcPane-members">
+
+            <!-- admin guard -->
+            <div id="vcMembersSignInCard"
+              style="display:none;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;
+                     padding:12px 16px;font-size:13px;color:#475569;margin-bottom:16px;">
+              🔒 Sign in as admin above to manage members.
+            </div>
+
+            <!-- main shell -->
+            <div id="vcMembersShell">
+              <!-- toolbar: tabs + search + add -->
+              <div class="vc-members-toolbar">
+                <div class="vc-members-tabs">
+                  <button type="button" class="vc-members-tab vc-members-tab-active" data-filter="active">Active</button>
+                  <button type="button" class="vc-members-tab" data-filter="inactive">Inactive</button>
+                  <button type="button" class="vc-members-tab" data-filter="all">All</button>
+                </div>
+                <input type="search" id="vcMembersSearch" placeholder="Search by name or email…"
+                  style="flex:1;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;min-width:180px" />
+                <button type="button" id="vcMembersAddBtn" class="gen-btn"
+                  style="background:#0ea5e9;color:#fff;padding:8px 16px;font-size:13px;white-space:nowrap;flex-shrink:0">
+                  + Add Member
+                </button>
+              </div>
+
+              <!-- two-column body: list + editor -->
+              <div class="vc-members-body">
+
+                <!-- LEFT: member list (rendered by JS) -->
+                <div id="vcMembersList" class="vc-members-list">
+                  <div style="padding:14px 12px;font-size:13px;color:#94a3b8">Loading…</div>
+                </div>
+
+                <!-- RIGHT: editor panel (hidden until row clicked or Add pressed) -->
+                <div id="vcMembersEditorCol" class="vc-members-editor" style="display:none">
+
+                  <div class="vc-members-editor-hdr">
+                    <span id="vcMembersEditorTitle" style="font-size:15px;font-weight:700;color:#0f172a">New Member</span>
+                    <button type="button" id="vcMembersEditorClose"
+                      style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:0 4px;line-height:1"
+                      title="Close">×</button>
+                  </div>
+
+                  <div class="vc-members-editor-grid">
+
+                    <!-- Profile card -->
+                    <div class="vc-members-card">
+                      <div class="vc-mbr-field">
+                        <label for="vcMbrFirstName">First name</label>
+                        <input type="text" id="vcMbrFirstName" placeholder="First name" autocomplete="off" />
+                      </div>
+                      <div class="vc-mbr-field">
+                        <label for="vcMbrLastName">Last name</label>
+                        <input type="text" id="vcMbrLastName" placeholder="Last name" autocomplete="off" />
+                      </div>
+                      <div class="vc-mbr-field">
+                        <label for="vcMbrEmail">Email address</label>
+                        <input type="email" id="vcMbrEmail" placeholder="user@company.com" autocomplete="off" />
+                      </div>
+                      <div class="vc-mbr-field">
+                        <label for="vcMbrRole">Role / Title</label>
+                        <input type="text" id="vcMbrRole" placeholder="e.g. Technician, Sales Rep…" />
+                      </div>
+                      <div class="vc-mbr-field">
+                        <label for="vcMbrInvitePass">Temporary / invite password</label>
+                        <div class="vc-mbr-pass-row">
+                          <input type="password" id="vcMbrInvitePass" placeholder="Set a temporary password" autocomplete="new-password" />
+                          <button type="button" id="vcMbrPassToggle" class="vc-mbr-pass-toggle" title="Show / hide password">👁</button>
+                        </div>
+                        <span style="font-size:11px;color:#94a3b8;margin-top:4px;display:block">
+                          Stored on the member's profile — visible to admins. Share this with the user in your invite.
+                        </span>
+                      </div>
+                      <div>
+                        <button type="button" id="vcMbrCopyInviteBtn"
+                          style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:7px;
+                                 padding:7px 14px;font-size:12px;cursor:pointer;color:#334155">
+                          📋 Copy invite message
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Access card -->
+                    <div class="vc-members-card">
+                      <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;
+                                  padding-bottom:10px;border-bottom:1px solid #f1f5f9">Access</div>
+                      <div class="vc-mbr-access-list">
+                        <label class="vc-mbr-access-item">
+                          <input type="checkbox" id="vcMbrIsAdmin" />
+                          <span>
+                            <strong>Administrator</strong>
+                            <p>Can manage settings, members, and entitlements</p>
+                          </span>
+                        </label>
+                        <label class="vc-mbr-access-item">
+                          <input type="checkbox" id="vcMbrIsTech" />
+                          <span>
+                            <strong>Technician</strong>
+                            <p>Appears in job assignment and field app roster</p>
+                          </span>
+                        </label>
+                        <label class="vc-mbr-access-item">
+                          <input type="checkbox" id="vcMbrIsSales" />
+                          <span>
+                            <strong>Sales</strong>
+                            <p>Has access to quoting and sales features</p>
+                          </span>
+                        </label>
+                        <label class="vc-mbr-access-item">
+                          <input type="checkbox" id="vcMbrTimeOnly" />
+                          <span>
+                            <strong>Time tracking only</strong>
+                            <p>Restricted seat — yellow indicator in roster</p>
+                          </span>
+                        </label>
+                      </div>
+
+                      <div class="vc-mbr-actions">
+                        <button type="button" id="vcMbrSaveBtn" class="gen-btn"
+                          style="background:#0ea5e9;color:#fff;padding:10px 20px;font-size:14px;width:100%">
+                          Save changes
+                        </button>
+                        <span id="vcMbrSaveStatus"
+                          style="font-size:12px;color:#64748b;text-align:center;min-height:1.2em;display:block"></span>
+                        <button type="button" id="vcMbrDeactivateBtn" class="gen-btn"
+                          style="background:#dc2626;color:#fff;padding:10px 20px;font-size:13px;width:100%;display:none">
+                          Deactivate account
+                        </button>
+                      </div>
+                    </div>
+
+                  </div><!-- /vc-members-editor-grid -->
+                </div><!-- /vcMembersEditorCol -->
+              </div><!-- /vc-members-body -->
+            </div><!-- /vcMembersShell -->
+          </div><!-- /vcPane-members -->
+
         </div>
       </div>
     </div>
@@ -9143,7 +9380,8 @@
           "import":       "Enterprise User Import",
           "integrations": "Integrations \u0026 API Keys",
           "forms":        "Field Form \u0026 Checklist Builder",
-          "technicians":  "Technicians \u0026 Inventory"
+          "technicians":  "Technicians \u0026 Inventory",
+          "members":      "Members"
         };
 
         function switchSettingsPane(paneId) {
@@ -9185,6 +9423,239 @@
           wireNav();
         }
       })();
+      /* ── Members pane controller ────────────────────────────────────── */
+      (function vcMembersPane() {
+        "use strict";
+        var S = { members: [], filter: "active", search: "", editing: null, isNew: false };
+        function $id(id) { return document.getElementById(id); }
+        function esc(s) {
+          return String(s == null ? "" : s)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+        function getTid() { return (window.APP_CONFIG && APP_CONFIG.tenantId) || ""; }
+        function getDb() {
+          return (typeof firebase !== "undefined" && firebase.apps && firebase.apps.length)
+            ? firebase.firestore() : null;
+        }
+        function adminEmail() {
+          try { return (firebase.auth().currentUser || {}).email || ""; } catch(e) { return ""; }
+        }
+        function emailDocId(email) {
+          return String(email).trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "unknown";
+        }
+        function presenceKey(first, last) {
+          return ((first + " " + last).trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64)) || "USER";
+        }
+        function loadMembers() {
+          var db = getDb(); var tid = getTid();
+          if (!db || !tid) { renderList(); return; }
+          db.collection("tenants").doc(tid).collection("users")
+            .get()
+            .then(function(snap) {
+              S.members = [];
+              snap.forEach(function(d) { S.members.push({ docId: d.id, data: d.data() }); });
+              S.members.sort(function(a, b) {
+                return String(a.data.payrollFullName || "").localeCompare(String(b.data.payrollFullName || ""));
+              });
+              renderList();
+            })
+            .catch(function(e) { console.warn("[Members]", e); });
+        }
+        function filtered() {
+          var q = S.search.toLowerCase();
+          return S.members.filter(function(m) {
+            var active = m.data.isActive !== false;
+            if (S.filter === "active" && !active) return false;
+            if (S.filter === "inactive" && active) return false;
+            if (q) {
+              var n = String(m.data.payrollFullName || "").toLowerCase();
+              var e = String(m.data.emailLower || m.data.email || "").toLowerCase();
+              if (n.indexOf(q) < 0 && e.indexOf(q) < 0) return false;
+            }
+            return true;
+          });
+        }
+        function renderList() {
+          var el = $id("vcMembersList"); if (!el) return;
+          var rows = filtered();
+          if (!rows.length) {
+            el.innerHTML = '<div style="padding:14px 12px;font-size:13px;color:#94a3b8">No members found.</div>';
+            return;
+          }
+          el.innerHTML = "";
+          rows.forEach(function(m) {
+            var d = m.data;
+            var name = String(d.payrollFullName || ((d.firstName||"")+" "+(d.lastName||"")).trim() || m.docId).trim();
+            var role = (d.roles && d.roles[0]) || d.role || "";
+            var email = d.emailLower || d.email || "";
+            var active = d.isActive !== false;
+            var sub = role || email;
+            var isSel = S.editing && S.editing.docId === m.docId;
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "vc-mbr-row" + (isSel ? " vc-mbr-row-sel" : "");
+            btn.innerHTML =
+              '<div class="vc-mbr-avatar' + (active ? "" : " vc-mbr-avatar-inactive") + '">' + esc((name[0]||"?").toUpperCase()) + '</div>' +
+              '<div class="vc-mbr-info">' +
+                '<div class="vc-mbr-name">' + esc(name) +
+                  (d.isAdmin ? '<span class="vc-mbr-pill vc-mbr-pill-admin">Admin</span>' : '') +
+                  (!active ? '<span class="vc-mbr-pill vc-mbr-pill-inactive">Inactive</span>' : '') +
+                '</div>' +
+                '<div class="vc-mbr-sub">' + esc(sub) + '</div>' +
+              '</div>';
+            btn.addEventListener("click", function() { openEditor(m); });
+            el.appendChild(btn);
+          });
+        }
+        function openEditor(m) {
+          S.editing = m || null; S.isNew = !m;
+          var d = m ? m.data : {};
+          var name = m ? String(d.payrollFullName || ((d.firstName||"")+" "+(d.lastName||"")).trim() || m.docId) : "";
+          if ($id("vcMembersEditorTitle")) $id("vcMembersEditorTitle").textContent = S.isNew ? "New Member" : "Edit " + name;
+          setVal("vcMbrFirstName", d.firstName || "");
+          setVal("vcMbrLastName", d.lastName || "");
+          setVal("vcMbrEmail", d.emailLower || d.email || "");
+          setVal("vcMbrRole", (d.roles && d.roles[0]) || d.role || "");
+          setVal("vcMbrInvitePass", d.invitePassword || "");
+          setCk("vcMbrIsAdmin", !!d.isAdmin);
+          setCk("vcMbrIsTech", !!d.isTech);
+          setCk("vcMbrIsSales", !!d.isSales);
+          setCk("vcMbrTimeOnly", !!d.timeTrackingOnly);
+          var db = $id("vcMbrDeactivateBtn");
+          if (db) {
+            if (S.isNew) { db.style.display = "none"; } else {
+              var active = d.isActive !== false;
+              db.style.display = "";
+              db.textContent = active ? "Deactivate account" : "Reactivate account";
+              db.style.background = active ? "#dc2626" : "#64748b";
+            }
+          }
+          var col = $id("vcMembersEditorCol"); if (col) col.style.display = "block";
+          setStatus("", "");
+          renderList();
+        }
+        function setVal(id, v) { var el = $id(id); if (el) el.value = v; }
+        function setCk(id, v) { var el = $id(id); if (el) el.checked = !!v; }
+        function getVal(id) { var el = $id(id); return el ? el.value.trim() : ""; }
+        function getCk(id) { var el = $id(id); return el ? el.checked : false; }
+        function setStatus(msg, type) {
+          var el = $id("vcMbrSaveStatus"); if (!el) return;
+          el.textContent = msg;
+          el.style.color = type === "err" ? "#dc2626" : type === "ok" ? "#16a34a" : "#64748b";
+        }
+        function guardAdmin(label) {
+          try { VCAuth.requireAdmin(label); } catch(e) { setStatus(e.message || "Admin sign-in required.", "err"); return false; }
+          if (!VCAuth.isPinUnlocked()) { setStatus("PIN required to save.", "err"); return false; }
+          return true;
+        }
+        function saveMember() {
+          if (!guardAdmin("saveMembers")) return;
+          var first = getVal("vcMbrFirstName"), last = getVal("vcMbrLastName"), email = getVal("vcMbrEmail").toLowerCase();
+          if (!first || !last) { setStatus("First and last name are required.", "err"); return; }
+          if (!email || email.indexOf("@") < 1) { setStatus("A valid email is required.", "err"); return; }
+          var docId = S.isNew ? emailDocId(email) : S.editing.docId;
+          var role = getVal("vcMbrRole");
+          var invPw = getVal("vcMbrInvitePass");
+          var payload = {
+            firstName: first, lastName: last, emailLower: email, email: email,
+            roles: role ? [role] : [], role: role,
+            isAdmin: getCk("vcMbrIsAdmin"), isTech: getCk("vcMbrIsTech"),
+            isSales: getCk("vcMbrIsSales"), timeTrackingOnly: getCk("vcMbrTimeOnly"),
+            payrollFullName: (first + " " + last).trim(),
+            payrollNameUpper: (first + " " + last).trim().toUpperCase(),
+            presenceKey: presenceKey(first, last),
+            isActive: true,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: adminEmail()
+          };
+          if (invPw) payload.invitePassword = invPw;
+          if (S.isNew) { payload.createdAt = firebase.firestore.FieldValue.serverTimestamp(); payload.createdBy = adminEmail(); }
+          var db = getDb(); var tid = getTid();
+          if (!db || !tid) { setStatus("Firebase not ready.", "err"); return; }
+          setStatus("Saving…", "");
+          db.collection("tenants").doc(tid).collection("users").doc(docId)
+            .set(payload, { merge: true })
+            .then(function() { setStatus("Saved.", "ok"); loadMembers(); })
+            .catch(function(e) { setStatus(e.message || "Save failed.", "err"); });
+        }
+        function toggleActive() {
+          if (S.isNew || !S.editing) return;
+          if (!guardAdmin("toggleMemberActive")) return;
+          var d = S.editing.data;
+          var willActivate = d.isActive === false;
+          var name = d.payrollFullName || "this member";
+          if (!confirm((willActivate ? "Reactivate " : "Deactivate ") + name + "?")) return;
+          var db = getDb(); var tid = getTid();
+          db.collection("tenants").doc(tid).collection("users").doc(S.editing.docId)
+            .update({
+              isActive: willActivate,
+              isActiveUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              isActiveUpdatedBy: adminEmail()
+            })
+            .then(function() {
+              setStatus(willActivate ? "Member reactivated." : "Member deactivated.", "ok");
+              loadMembers();
+              if (S.editing) { S.editing.data.isActive = willActivate; openEditor(S.editing); }
+            })
+            .catch(function(e) { setStatus(e.message || "Failed.", "err"); });
+        }
+        function copyInvite() {
+          var first = getVal("vcMbrFirstName"), email = getVal("vcMbrEmail"), pw = getVal("vcMbrInvitePass");
+          if (!email) { setStatus("Fill in email first.", "err"); return; }
+          var msg = "Hi " + (first || "there") + ",\n\n" +
+            "You have been invited to the dispatcher system.\n\n" +
+            "Login: " + email + "\n" +
+            (pw ? "Temporary password: " + pw + "\n" : "") +
+            "\nPlease sign in and change your password when prompted.\n\nThank you!";
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(msg).then(function() { setStatus("Invite copied to clipboard!", "ok"); });
+          } else { prompt("Copy this invite:", msg); }
+        }
+        function syncAuthCard() {
+          var admin = typeof VCAuth !== "undefined" && VCAuth.isAdmin && VCAuth.isAdmin();
+          var card = $id("vcMembersSignInCard"), shell = $id("vcMembersShell");
+          if (card) card.style.display = admin ? "none" : "block";
+          if (shell) shell.style.display = admin ? "" : "none";
+          if (admin && !S.members.length) loadMembers();
+        }
+        function wireOnce() {
+          var addBtn = $id("vcMembersAddBtn");
+          if (addBtn) addBtn.addEventListener("click", function() { openEditor(null); });
+          var closeBtn = $id("vcMembersEditorClose");
+          if (closeBtn) closeBtn.addEventListener("click", function() {
+            S.editing = null;
+            var col = $id("vcMembersEditorCol"); if (col) col.style.display = "none";
+            renderList();
+          });
+          var saveBtn = $id("vcMbrSaveBtn"); if (saveBtn) saveBtn.addEventListener("click", saveMember);
+          var deactBtn = $id("vcMbrDeactivateBtn"); if (deactBtn) deactBtn.addEventListener("click", toggleActive);
+          var copyBtn = $id("vcMbrCopyInviteBtn"); if (copyBtn) copyBtn.addEventListener("click", copyInvite);
+          var searchInp = $id("vcMembersSearch");
+          if (searchInp) searchInp.addEventListener("input", function() { S.search = searchInp.value; renderList(); });
+          document.querySelectorAll(".vc-members-tab").forEach(function(tab) {
+            tab.addEventListener("click", function() {
+              S.filter = tab.dataset.filter;
+              document.querySelectorAll(".vc-members-tab").forEach(function(t) { t.classList.remove("vc-members-tab-active"); });
+              tab.classList.add("vc-members-tab-active");
+              renderList();
+            });
+          });
+          var passToggle = $id("vcMbrPassToggle");
+          if (passToggle) passToggle.addEventListener("click", function() {
+            var inp = $id("vcMbrInvitePass"); if (!inp) return;
+            var show = inp.type === "password";
+            inp.type = show ? "text" : "password";
+            passToggle.textContent = show ? "🙈" : "👁";
+          });
+          document.addEventListener("vc:auth-state-changed", syncAuthCard);
+        }
+        var _wired = false;
+        function init() { if (_wired) return; _wired = true; wireOnce(); syncAuthCard(); }
+        window.VcMembersPane = { refresh: syncAuthCard };
+        if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", init); } else { init(); }
+      })();
+      /* ── end Members pane controller ────────────────────────────────── */
+
       /* ── end Settings inner-nav ─────────────────────────────────────── */
     </script>
     <script src="service_call.js?v=69"></script>
