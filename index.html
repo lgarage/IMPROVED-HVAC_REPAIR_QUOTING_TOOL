@@ -39,7 +39,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Slice4e-AuthStatusBadge-2026-05-07";
+      window.VC_BUILD = "ManageAdmins-2026-05-07";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -5645,6 +5645,144 @@
           </div>
           <!-- /Slice 3 -->
 
+          <!-- Manage Administrators — grant / revoke isAdmin on roster docs -->
+          <div class="form-section" id="vcManageAdminsSection">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+              <h4 style="margin:0">🛡️ Manage Administrators</h4>
+              <span
+                id="vcMAAuthStatus"
+                style="font-size:12px;padding:3px 10px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:600;display:none"
+              >✓ Admin signed in</span>
+            </div>
+            <p style="font-size:13px;color:#666;margin:0 0 12px 0">
+              Grant or revoke administrator access for roster members.
+              Admins can change plan &amp; feature entitlements, manage per-user overrides,
+              and grant admin to others. <strong>Admin sign-in required.</strong>
+              Changes are stored on the user's roster doc
+              (<code>tenants/{tid}/users/{docId}.isAdmin</code>) and take effect
+              on their next sign-in.
+            </p>
+
+            <!-- locked state -->
+            <div
+              id="vcMASignInCard"
+              style="
+                display:none;
+                background:#f1f5f9;
+                border:1px solid #e2e8f0;
+                border-radius:8px;
+                padding:10px 14px;
+                max-width:480px;
+                margin-bottom:16px;
+                font-size:13px;
+                color:#475569;
+              "
+            >
+              🔒 Sign in as admin above to search staff and manage administrator access.
+            </div>
+
+            <!-- search row -->
+            <div
+              id="vcMASearchRow"
+              style="display:flex;gap:8px;align-items:center;max-width:480px;margin-bottom:10px"
+            >
+              <input
+                type="search"
+                id="vcMASearchInput"
+                placeholder="Search staff by name or email…"
+                style="flex:1;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"
+              />
+              <button
+                type="button"
+                id="vcMASearchBtn"
+                class="gen-btn"
+                style="background:#0ea5e9;color:#fff;padding:8px 16px;font-size:13px"
+              >Search</button>
+            </div>
+
+            <!-- results -->
+            <div
+              id="vcMAResultsList"
+              style="
+                display:none;
+                flex-direction:column;
+                gap:4px;
+                max-width:480px;
+                margin-bottom:12px;
+                max-height:220px;
+                overflow-y:auto;
+                border:1px solid #e2e8f0;
+                border-radius:6px;
+                background:#fff;
+              "
+            ></div>
+
+            <!-- editor panel (hidden until user selected) -->
+            <div id="vcMAEditorPanel" style="display:none;max-width:560px">
+              <!-- selected user badge -->
+              <div
+                style="
+                  display:flex;
+                  align-items:center;
+                  gap:10px;
+                  flex-wrap:wrap;
+                  background:#f1f5f9;
+                  border:1px solid #e2e8f0;
+                  border-radius:8px;
+                  padding:10px 14px;
+                  margin-bottom:14px;
+                "
+              >
+                <span id="vcMASelectedName" style="font-weight:600;font-size:14px;color:#1e293b"></span>
+                <span id="vcMASelectedRole" style="font-size:11px;background:#e2e8f0;color:#475569;padding:2px 8px;border-radius:999px"></span>
+                <span id="vcMASelectedEmail" style="font-size:12px;color:#64748b;margin-left:auto"></span>
+                <button
+                  type="button"
+                  id="vcMAClearBtn"
+                  style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0 4px;line-height:1"
+                  title="Clear selection"
+                >×</button>
+              </div>
+
+              <!-- current admin status + action -->
+              <div
+                style="
+                  display:flex;
+                  flex-wrap:wrap;
+                  align-items:center;
+                  gap:14px;
+                  padding:14px 16px;
+                  border:1px solid #e2e8f0;
+                  border-radius:8px;
+                  background:#fff;
+                  margin-bottom:14px;
+                "
+              >
+                <div style="flex:1;min-width:200px">
+                  <div style="font-weight:600;font-size:13px;color:#1e293b;margin-bottom:2px">Administrator access</div>
+                  <div id="vcMACurrentStatus" style="font-size:12px;color:#64748b">Checking…</div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button
+                    type="button"
+                    id="vcMAGrantBtn"
+                    class="gen-btn"
+                    style="background:#16a34a;color:#fff;padding:7px 16px;font-size:13px;display:none"
+                  >Grant Admin</button>
+                  <button
+                    type="button"
+                    id="vcMARevokeBtn"
+                    class="gen-btn"
+                    style="background:#dc2626;color:#fff;padding:7px 16px;font-size:13px;display:none"
+                  >Revoke Admin</button>
+                </div>
+              </div>
+
+              <span id="vcMASaveStatus" style="font-size:12px;color:#64748b;min-height:1.2em;display:block;margin-top:4px"></span>
+            </div>
+          </div>
+          <!-- /Manage Administrators -->
+
           <div class="form-section" id="vcUserImportSection">
             <h4>Enterprise User Import (Vertex-Core Green Column)</h4>
             <p style="font-size: 13px; color: #666">
@@ -7795,10 +7933,14 @@
             }
           }
 
-          // Also sync the Per-User nudge card.
+          // Sync Per-User nudge card.
           if (typeof window.VcUserEntitlementsAdmin !== "undefined" &&
               VcUserEntitlementsAdmin.renderForCurrentUser) {
             VcUserEntitlementsAdmin.renderForCurrentUser();
+          }
+          // Sync Manage Admins section.
+          if (typeof window.VcManageAdmins !== "undefined" && VcManageAdmins.refresh) {
+            VcManageAdmins.refresh();
           }
         }
 
@@ -8379,6 +8521,287 @@
         window.VcUserEntitlementsAdmin = {
           /** Call when Settings tab opens to ensure fresh wiring. */
           renderForCurrentUser: function () { wireOnce(); syncAuthCard(); }
+        };
+      })();
+    </script>
+
+    <script>
+      /**
+       * Manage Administrators — grant / revoke isAdmin on roster user docs.
+       *
+       * Write target: tenants/{tid}/users/{docId}  (merge: true)
+       * Fields written: isAdmin, isAdminUpdatedAt (serverTimestamp), isAdminUpdatedBy (uid)
+       * Guard: VCAuth.requireAdmin + isPinUnlocked (client-side, same as Slice 3).
+       *
+       * isAdmin: true on the roster doc is checked by VCAuth.computeIsAdmin path (c)
+       * and takes effect on the grantee's next sign-in.
+       */
+      (function vcManageAdmins() {
+        function $(id) { return document.getElementById(id); }
+
+        function escHtml(s) {
+          return String(s == null ? "" : s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        function getTenantId() {
+          if (typeof VCFirestore !== "undefined" && VCFirestore.getTenantId) return VCFirestore.getTenantId();
+          return (window.APP_CONFIG && APP_CONFIG.tenantId) || "";
+        }
+
+        function setStatus(msg, color) {
+          var el = $("vcMASaveStatus");
+          if (!el) return;
+          el.textContent = msg || "";
+          el.style.color = color || "#64748b";
+        }
+
+        /* ── auth gate visibility ─────────────────────────────── */
+        var STATE = { selectedUser: null, searchResults: [] };
+
+        function syncAuthCard() {
+          var adminIn = typeof VCAuth !== "undefined" && VCAuth.isAdmin && VCAuth.isAdmin();
+          var card = $("vcMASignInCard");
+          var searchRow = $("vcMASearchRow");
+          var badge = $("vcMAAuthStatus");
+          if (card) card.style.display = adminIn ? "none" : "block";
+          if (searchRow) searchRow.style.display = adminIn ? "flex" : "none";
+          if (badge) badge.style.display = adminIn ? "inline-block" : "none";
+          if (!adminIn) {
+            if ($("vcMAEditorPanel")) $("vcMAEditorPanel").style.display = "none";
+            if ($("vcMAResultsList")) $("vcMAResultsList").style.display = "none";
+            STATE.selectedUser = null;
+          }
+        }
+
+        /* ── search ───────────────────────────────────────────── */
+        function doSearch() {
+          var q = (($("vcMASearchInput") || {}).value || "").trim();
+          if (!q) return;
+          var resultsEl = $("vcMAResultsList");
+          if (resultsEl) {
+            resultsEl.style.display = "flex";
+            resultsEl.innerHTML = '<div style="padding:10px 12px;font-size:13px;color:#94a3b8">Searching…</div>';
+          }
+          if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+            if (resultsEl) resultsEl.innerHTML = '<div style="padding:10px 12px;font-size:13px;color:#dc2626">Firebase not available.</div>';
+            return;
+          }
+          var tid = getTenantId();
+          if (!tid) {
+            if (resultsEl) resultsEl.innerHTML = '<div style="padding:10px 12px;font-size:13px;color:#dc2626">Tenant ID not set.</div>';
+            return;
+          }
+          var db = firebase.firestore();
+          var col = db.collection("tenants").doc(tid).collection("users");
+          var qUpper = q.toUpperCase();
+          var qLower = q.toLowerCase();
+
+          Promise.all([
+            col.where("payrollNameUpper", ">=", qUpper).where("payrollNameUpper", "<=", qUpper + "\uf8ff").limit(10).get(),
+            col.where("emailLower", "==", qLower).limit(5).get()
+          ]).then(function (snaps) {
+            var seen = {};
+            var rows = [];
+            snaps.forEach(function (snap) {
+              snap.docs.forEach(function (doc) {
+                if (seen[doc.id]) return;
+                seen[doc.id] = true;
+                rows.push({ docId: doc.id, data: doc.data() || {} });
+              });
+            });
+            STATE.searchResults = rows.slice(0, 10);
+            renderResults();
+          }).catch(function (err) {
+            if (resultsEl)
+              resultsEl.innerHTML = '<div style="padding:10px 12px;font-size:13px;color:#dc2626">Search failed: ' + escHtml(String(err && err.message ? err.message : err)) + "</div>";
+          });
+        }
+
+        function renderResults() {
+          var el = $("vcMAResultsList");
+          if (!el) return;
+          if (!STATE.searchResults.length) {
+            el.style.display = "flex";
+            el.innerHTML = '<div style="padding:10px 12px;font-size:13px;color:#94a3b8">No users found.</div>';
+            return;
+          }
+          el.style.display = "flex";
+          el.innerHTML = "";
+          STATE.searchResults.forEach(function (row) {
+            var d = row.data;
+            var name = d.payrollNameUpper || ((d.firstName || "") + " " + (d.lastName || "")).trim() || row.docId;
+            var role = d.role || "";
+            var email = d.emailLower || d.email || "";
+            var isAdminFlag = !!d.isAdmin;
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.style.cssText = "text-align:left;padding:9px 12px;border:none;border-bottom:1px solid #f1f5f9;" +
+              "background:#fff;cursor:pointer;font-size:13px;color:#1e293b;display:flex;gap:8px;align-items:center;width:100%";
+            btn.innerHTML =
+              "<span style='font-weight:600'>" + escHtml(name) + "</span>" +
+              (role ? "<span style='font-size:11px;background:#e2e8f0;color:#475569;padding:2px 7px;border-radius:999px'>" + escHtml(role) + "</span>" : "") +
+              (isAdminFlag ? "<span style='font-size:11px;background:#dcfce7;color:#166534;padding:2px 7px;border-radius:999px;font-weight:600'>Admin</span>" : "") +
+              (email ? "<span style='font-size:11px;color:#94a3b8;margin-left:auto'>" + escHtml(email) + "</span>" : "");
+            btn.addEventListener("click", function () { selectUser(row); });
+            el.appendChild(btn);
+          });
+        }
+
+        /* ── user selection ───────────────────────────────────── */
+        function selectUser(row) {
+          STATE.selectedUser = row;
+          var d = row.data;
+          var name = d.payrollNameUpper || ((d.firstName || "") + " " + (d.lastName || "")).trim() || row.docId;
+
+          if ($("vcMASelectedName")) $("vcMASelectedName").textContent = name;
+          if ($("vcMASelectedRole")) $("vcMASelectedRole").textContent = d.role || "—";
+          if ($("vcMASelectedEmail")) $("vcMASelectedEmail").textContent = d.emailLower || d.email || "";
+
+          if ($("vcMAResultsList")) $("vcMAResultsList").style.display = "none";
+          if ($("vcMAEditorPanel")) $("vcMAEditorPanel").style.display = "block";
+
+          renderAdminStatus(!!d.isAdmin, d.emailLower || d.email || "");
+          setStatus("");
+        }
+
+        function renderAdminStatus(isAdminFlag, userEmail) {
+          var statusEl = $("vcMACurrentStatus");
+          var grantBtn = $("vcMAGrantBtn");
+          var revokeBtn = $("vcMARevokeBtn");
+          if (!statusEl) return;
+
+          // Prevent self-revoke — bootstrap admin email can't be demoted via UI
+          var currentUserEmail = "";
+          var cu = typeof VCAuth !== "undefined" && VCAuth.currentUser && VCAuth.currentUser();
+          if (cu) currentUserEmail = (cu.email || "").toLowerCase();
+          var isSelf = currentUserEmail && userEmail && currentUserEmail === userEmail.toLowerCase();
+
+          if (isAdminFlag) {
+            statusEl.innerHTML = "<span style='font-weight:600;color:#166534'>✅ Administrator</span> — has admin access";
+            if (grantBtn) grantBtn.style.display = "none";
+            if (revokeBtn) {
+              revokeBtn.style.display = isSelf ? "none" : "inline-block";
+              if (isSelf) {
+                statusEl.innerHTML += " <em style='color:#94a3b8;font-size:11px'>(cannot revoke your own access here)</em>";
+              }
+            }
+          } else {
+            statusEl.innerHTML = "<span style='color:#64748b'>🔓 Standard user</span> — no admin access";
+            if (grantBtn) grantBtn.style.display = "inline-block";
+            if (revokeBtn) revokeBtn.style.display = "none";
+          }
+        }
+
+        /* ── save (grant / revoke) ────────────────────────────── */
+        function doSave(grantAdmin) {
+          if (!STATE.selectedUser) return;
+          try { VCAuth.requireAdmin("manageAdmins"); } catch (e) {
+            setStatus("Admin sign-in required.", "#dc2626"); return;
+          }
+          if (!VCAuth.isPinUnlocked()) {
+            setStatus("Unlock the admin PIN first.", "#dc2626"); return;
+          }
+          if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+            setStatus("Firebase not available.", "#dc2626"); return;
+          }
+          var tid = getTenantId();
+          if (!tid) { setStatus("Tenant ID not set.", "#dc2626"); return; }
+
+          var grantBtn = $("vcMAGrantBtn");
+          var revokeBtn = $("vcMARevokeBtn");
+          var activeBtn = grantAdmin ? grantBtn : revokeBtn;
+          if (activeBtn) { activeBtn.disabled = true; activeBtn.textContent = grantAdmin ? "Granting…" : "Revoking…"; }
+          setStatus("");
+
+          var db = firebase.firestore();
+          var payload = {
+            isAdmin: grantAdmin,
+            isAdminUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            isAdminUpdatedBy: (VCAuth.currentUser() && VCAuth.currentUser().uid) || "unknown"
+          };
+
+          db.collection("tenants").doc(tid).collection("users").doc(STATE.selectedUser.docId)
+            .set(payload, { merge: true })
+            .then(function () {
+              if (activeBtn) {
+                activeBtn.disabled = false;
+                activeBtn.textContent = grantAdmin ? "Grant Admin" : "Revoke Admin";
+              }
+              // Update local cache and re-render status
+              STATE.selectedUser.data.isAdmin = grantAdmin;
+              // Update the result list row too
+              STATE.searchResults.forEach(function (r) {
+                if (r.docId === STATE.selectedUser.docId) r.data.isAdmin = grantAdmin;
+              });
+              var userEmail = STATE.selectedUser.data.emailLower || STATE.selectedUser.data.email || "";
+              renderAdminStatus(grantAdmin, userEmail);
+              setStatus(grantAdmin ? "✓ Administrator access granted." : "✓ Administrator access revoked.", "#16a34a");
+            })
+            .catch(function (err) {
+              if (activeBtn) {
+                activeBtn.disabled = false;
+                activeBtn.textContent = grantAdmin ? "Grant Admin" : "Revoke Admin";
+              }
+              setStatus("Save failed: " + (err && err.message ? err.message : String(err)), "#dc2626");
+            });
+        }
+
+        /* ── wire buttons ─────────────────────────────────────── */
+        function wireOnce() {
+          var searchBtn = $("vcMASearchBtn");
+          if (searchBtn && !searchBtn.dataset.vcWired) {
+            searchBtn.dataset.vcWired = "1";
+            searchBtn.addEventListener("click", doSearch);
+          }
+          var searchInput = $("vcMASearchInput");
+          if (searchInput && !searchInput.dataset.vcWired) {
+            searchInput.dataset.vcWired = "1";
+            searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") doSearch(); });
+          }
+          var grantBtn = $("vcMAGrantBtn");
+          if (grantBtn && !grantBtn.dataset.vcWired) {
+            grantBtn.dataset.vcWired = "1";
+            grantBtn.addEventListener("click", function () { doSave(true); });
+          }
+          var revokeBtn = $("vcMARevokeBtn");
+          if (revokeBtn && !revokeBtn.dataset.vcWired) {
+            revokeBtn.dataset.vcWired = "1";
+            revokeBtn.addEventListener("click", function () { doSave(false); });
+          }
+          var clearBtn = $("vcMAClearBtn");
+          if (clearBtn && !clearBtn.dataset.vcWired) {
+            clearBtn.dataset.vcWired = "1";
+            clearBtn.addEventListener("click", function () {
+              STATE.selectedUser = null;
+              if ($("vcMAEditorPanel")) $("vcMAEditorPanel").style.display = "none";
+              if ($("vcMAResultsList")) $("vcMAResultsList").style.display = "none";
+              if ($("vcMASearchInput")) $("vcMASearchInput").value = "";
+              setStatus("");
+            });
+          }
+        }
+
+        /* ── boot ─────────────────────────────────────────────── */
+        function boot() {
+          syncAuthCard();
+          wireOnce();
+          if (typeof VCAuth !== "undefined" && VCAuth.onReady) {
+            VCAuth.onReady(function () { syncAuthCard(); });
+          }
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", boot);
+        } else {
+          boot();
+        }
+
+        window.VcManageAdmins = {
+          refresh: function () { wireOnce(); syncAuthCard(); }
         };
       })();
     </script>
