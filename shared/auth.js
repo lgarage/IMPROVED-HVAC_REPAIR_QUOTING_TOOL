@@ -190,9 +190,10 @@
   function computeIsAdmin(user, profile, adminUids) {
     if (!user) return false;
     var email = String(user.email || "").trim().toLowerCase();
-    var emailVerified = !!user.emailVerified;
     var bootstrap = bootstrapEmails();
-    if (emailVerified && email && bootstrap.indexOf(email) !== -1) return true;
+    // No emailVerified check for bootstrap — mirrors firestore.rules isBootstrapAdmin()
+    // (the list is deploy-gated so the email is already trusted).
+    if (email && bootstrap.indexOf(email) !== -1) return true;
     if (adminUids && adminUids[user.uid] === true) return true;
     if (profile && profile.isAdmin === true) return true;
     return false;

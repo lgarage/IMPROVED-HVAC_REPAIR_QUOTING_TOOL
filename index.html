@@ -39,7 +39,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Slice4d-AuthBar-UX-2026-05-06";
+      window.VC_BUILD = "Slice4e-AuthStatusBadge-2026-05-07";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -5356,6 +5356,20 @@
         <div class="form-container">
           <div class="tool-header">
             <h2>System Settings</h2>
+            <!-- Persistent auth status — always visible regardless of scroll; updated by syncBar() -->
+            <span
+              id="vcSettingsAuthStatus"
+              style="
+                font-size:12px;
+                font-weight:600;
+                padding:5px 13px;
+                border-radius:20px;
+                white-space:nowrap;
+                background:#f1f5f9;
+                color:#64748b;
+                border:1px solid #e2e8f0;
+              "
+            >🔓 Not signed in</span>
           </div>
 
           <!-- Admin auth bar — sign in / signed-in status, always visible at top of Settings -->
@@ -7748,17 +7762,39 @@
 
         function syncBar() {
           var adminIn = typeof VCAuth !== "undefined" && VCAuth.isAdmin && VCAuth.isAdmin();
+          var u = typeof VCAuth !== "undefined" && VCAuth.currentUser && VCAuth.currentUser();
           var signedOut = $("vcAuthBarSignedOut");
           var signedIn  = $("vcAuthBarSignedIn");
           if (signedOut) signedOut.style.display = adminIn ? "none" : "flex";
           if (signedIn)  signedIn.style.display  = adminIn ? "flex" : "none";
           if (adminIn) {
             var emailEl = $("vcAuthBarEmail2");
-            if (emailEl) {
-              var u = VCAuth.currentUser && VCAuth.currentUser();
-              emailEl.textContent = (u && u.email) ? u.email : "";
+            if (emailEl) emailEl.textContent = (u && u.email) ? u.email : "";
+          }
+
+          // Persistent header status badge — always visible at top of Settings
+          var badge = $("vcSettingsAuthStatus");
+          if (badge) {
+            if (adminIn && u) {
+              badge.textContent = "✅ Signed in as Administrator · " + (u.email || "");
+              badge.style.background = "#dcfce7";
+              badge.style.color = "#166534";
+              badge.style.borderColor = "#bbf7d0";
+            } else if (u && !adminIn) {
+              var profile = VCAuth.currentProfile && VCAuth.currentProfile();
+              var name = (profile && (profile.payrollName || profile.name || profile.payrollNameUpper)) || u.email || "";
+              badge.textContent = "👤 Signed in · " + name + " (no admin access)";
+              badge.style.background = "#eff6ff";
+              badge.style.color = "#1e40af";
+              badge.style.borderColor = "#bfdbfe";
+            } else {
+              badge.textContent = "🔓 Not signed in";
+              badge.style.background = "#f1f5f9";
+              badge.style.color = "#64748b";
+              badge.style.borderColor = "#e2e8f0";
             }
           }
+
           // Also sync the Per-User nudge card.
           if (typeof window.VcUserEntitlementsAdmin !== "undefined" &&
               VcUserEntitlementsAdmin.renderForCurrentUser) {
