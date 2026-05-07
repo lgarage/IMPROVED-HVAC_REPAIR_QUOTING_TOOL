@@ -39,7 +39,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "PayrollFullName-Display-2026-05-07";
+      window.VC_BUILD = "SettingsSidebarNav-2026-05-07";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -2295,21 +2295,88 @@
         cursor: not-allowed;
       }
 
-      /* ── Settings view — Cursor-inspired clean card layout ───────────── */
+      /* ── Settings view — Cursor-inspired sidebar + pane layout ─────────── */
+
+      /* outer shell: sidebar left, content right */
       #view-settings {
         background: #f1f5f9;
         min-height: 100%;
+        display: flex;
+        align-items: flex-start;
       }
+
+      /* ── Left nav sidebar ── */
+      #vcSettingsNav {
+        width: 210px;
+        min-width: 210px;
+        flex-shrink: 0;
+        align-self: flex-start;
+        position: sticky;
+        top: 0;
+        max-height: 100vh;
+        overflow-y: auto;
+        padding: 24px 8px 48px;
+        border-right: 1px solid #e2e8f0;
+        background: #f1f5f9;
+      }
+      .vc-snav-group-label {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #94a3b8;
+        padding: 18px 10px 5px;
+        margin: 0;
+        user-select: none;
+      }
+      .vc-snav-group-label:first-child {
+        padding-top: 4px;
+      }
+      .vc-snav-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: none;
+        border-radius: 6px;
+        padding: 7px 10px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #475569;
+        cursor: pointer;
+        transition: background 0.12s, color 0.12s;
+        margin-bottom: 1px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.45;
+      }
+      .vc-snav-item:hover {
+        background: #dde4ec;
+        color: #1e293b;
+      }
+      .vc-snav-item.vc-snav-active {
+        background: #e0e7ef;
+        color: #0f172a;
+        font-weight: 600;
+      }
+
+      /* ── Right content area ── */
       #view-settings .form-container {
+        flex: 1;
+        min-width: 0;
         background: transparent !important;
         box-shadow: none !important;
-        padding: 32px 32px 48px;
-        max-width: 900px !important;
+        padding: 28px 36px 48px 28px;
+        max-width: 100% !important;
       }
+
+      /* page title row */
       #view-settings .tool-header {
         margin-bottom: 8px;
         padding-bottom: 0;
         border-bottom: none;
+        flex-wrap: wrap;
       }
       #view-settings .tool-header h2 {
         font-size: 22px;
@@ -2318,10 +2385,7 @@
         letter-spacing: -0.3px;
         margin: 0;
       }
-      /* page-level divider below the header row — flex needs block after trick */
-      #view-settings .tool-header {
-        flex-wrap: wrap;
-      }
+      /* hairline divider under the header row */
       #view-settings .tool-header::after {
         content: '';
         display: block;
@@ -2330,6 +2394,7 @@
         background: #e2e8f0;
         margin-top: 14px;
       }
+
       /* auth bar — elevated white card */
       #vcSettingsAuthBar {
         background: #ffffff !important;
@@ -2340,6 +2405,12 @@
         margin-bottom: 20px !important;
         box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
       }
+
+      /* pane visibility */
+      .vc-settings-pane { display: block; }
+      .vc-settings-pane[hidden],
+      .vc-settings-pane.vc-pane-hidden { display: none !important; }
+
       /* section cards */
       #view-settings .form-section {
         background: #ffffff !important;
@@ -2353,7 +2424,7 @@
       #view-settings .form-section:hover {
         box-shadow: 0 4px 14px rgba(0,0,0,0.08) !important;
       }
-      /* section title */
+      /* section titles */
       #view-settings .form-section > h4,
       #view-settings .form-section > div > h4 {
         font-size: 15px !important;
@@ -2363,13 +2434,11 @@
         margin-bottom: 4px !important;
         letter-spacing: -0.1px;
       }
-      /* thin rule under section title — direct h4 child */
       #view-settings .form-section > h4 {
         padding-bottom: 12px;
         border-bottom: 1px solid #f1f5f9;
         margin-bottom: 14px !important;
       }
-      /* thin rule for sections where h4 is inside a flex wrapper div */
       #view-settings .form-section > div:first-child:has(> h4) {
         padding-bottom: 12px;
         border-bottom: 1px solid #f1f5f9;
@@ -2383,14 +2452,13 @@
         margin-top: 0 !important;
         margin-bottom: 16px !important;
       }
-      /* sub-headings used inside Manage Technicians etc. */
       #view-settings .form-section h5 {
         font-size: 13px;
         font-weight: 600;
         color: #334155;
         margin-bottom: 8px;
       }
-      /* Entitlements + feature toggle rows */
+      /* entitlement + UE feature toggle rows */
       #view-settings #vcEntitlementsList .vc-entitlement-row,
       #view-settings #vcUEFeatureGrid .vc-ue-row {
         border-radius: 8px;
@@ -2398,7 +2466,7 @@
         background: #f8fafc !important;
         padding: 10px 14px !important;
       }
-      /* search inputs scoped to settings */
+      /* inputs scoped to settings */
       #view-settings input[type="search"],
       #view-settings input[type="email"],
       #view-settings input[type="password"],
@@ -2415,13 +2483,13 @@
         border-color: #0ea5e9 !important;
         box-shadow: 0 0 0 3px rgba(14,165,233,0.12) !important;
       }
-      /* pill badges in headers */
+      /* auth status pill */
       #vcSettingsAuthStatus {
         font-size: 11px !important;
         font-weight: 600 !important;
         letter-spacing: 0.02em;
       }
-      /* on-call panel + similar inner panels */
+      /* on-call inner panel */
       #view-settings #onCallManagementPanel {
         border-radius: 10px !important;
         border-color: #e2e8f0 !important;
@@ -5487,9 +5555,27 @@
       </div>
 
       <div id="view-settings" class="app-view">
+        <!-- ── Settings inner nav sidebar ── -->
+        <nav id="vcSettingsNav" class="vc-settings-nav" aria-label="Settings navigation">
+          <p class="vc-snav-group-label">Account</p>
+          <button type="button" class="vc-snav-item vc-snav-active" data-pane="entitlements">🎚️ Plan &amp; Entitlements</button>
+
+          <p class="vc-snav-group-label">Admin</p>
+          <button type="button" class="vc-snav-item" data-pane="per-user">👤 Per-User Access</button>
+          <button type="button" class="vc-snav-item" data-pane="admins">🛡️ Administrators</button>
+          <button type="button" class="vc-snav-item" data-pane="import">📥 User Import</button>
+
+          <p class="vc-snav-group-label">Configuration</p>
+          <button type="button" class="vc-snav-item" data-pane="integrations">🔑 Integrations</button>
+          <button type="button" class="vc-snav-item" data-pane="forms">📋 Field Forms</button>
+
+          <p class="vc-snav-group-label">Roster</p>
+          <button type="button" class="vc-snav-item" data-pane="technicians">👷 Technicians</button>
+        </nav>
+
         <div class="form-container">
           <div class="tool-header">
-            <h2>System Settings</h2>
+            <h2 id="vcSettingsPaneTitle">Plan &amp; Entitlements</h2>
             <!-- Persistent auth status — always visible regardless of scroll; updated by syncBar() -->
             <span
               id="vcSettingsAuthStatus"
@@ -5568,6 +5654,8 @@
             </div>
           </div>
 
+          <!-- ── pane: entitlements ── -->
+          <div class="vc-settings-pane" id="vcPane-entitlements">
           <div class="form-section" id="vcEntitlementsSection">
             <h4>🎚️ Plan &amp; Feature Entitlements</h4>
             <p style="font-size: 13px; color: #666">
@@ -5657,6 +5745,10 @@
             </div>
           </div>
 
+          </div><!-- /vcPane-entitlements -->
+
+          <!-- ── pane: per-user ── -->
+          <div class="vc-settings-pane vc-pane-hidden" id="vcPane-per-user">
           <!-- Slice 3 — Per-User Feature Access -->
           <div class="form-section" id="vcUserEntitlementsSection">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
@@ -5777,8 +5869,11 @@
               </div>
             </div>
           </div>
+          </div><!-- /vcPane-per-user -->
           <!-- /Slice 3 -->
 
+          <!-- ── pane: admins ── -->
+          <div class="vc-settings-pane vc-pane-hidden" id="vcPane-admins">
           <!-- Manage Administrators — grant / revoke isAdmin on roster docs -->
           <div class="form-section" id="vcManageAdminsSection">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
@@ -5915,8 +6010,11 @@
               <span id="vcMASaveStatus" style="font-size:12px;color:#64748b;min-height:1.2em;display:block;margin-top:4px"></span>
             </div>
           </div>
+          </div><!-- /vcPane-admins -->
           <!-- /Manage Administrators -->
 
+          <!-- ── pane: import ── -->
+          <div class="vc-settings-pane vc-pane-hidden" id="vcPane-import">
           <div class="form-section" id="vcUserImportSection">
             <h4>Enterprise User Import (Vertex-Core Green Column)</h4>
             <p style="font-size: 13px; color: #666">
@@ -5948,8 +6046,11 @@
               Import users to Firestore
             </button>
           </div>
+          </div><!-- /vcPane-import -->
 
-          <div class="form-section">
+          <!-- ── pane: integrations ── -->
+          <div class="vc-settings-pane vc-pane-hidden" id="vcPane-integrations">
+          <div class="form-section" id="vcIntegrationsSection">
             <h4>Integrations &amp; API Keys</h4>
             <p style="font-size: 13px; color: #666">
               Store your Gemini API key in Firestore (not in source code). The key is used for
@@ -5997,7 +6098,10 @@
               </div>
             </div>
           </div>
+          </div><!-- /vcPane-integrations -->
 
+          <!-- ── pane: forms ── -->
+          <div class="vc-settings-pane vc-pane-hidden" id="vcPane-forms">
           <div class="form-section" id="fieldFormBuilderSection">
             <h4>📋 Field Form &amp; Checklist Builder</h4>
             <p style="font-size: 13px; color: #666">
@@ -6042,7 +6146,10 @@
               "
             ></div>
           </div>
+          </div><!-- /vcPane-forms -->
 
+          <!-- ── pane: technicians ── -->
+          <div class="vc-settings-pane vc-pane-hidden" id="vcPane-technicians">
           <div class="form-section">
             <h4>Manage Technicians & Truck Inventory</h4>
             <p style="font-size: 13px; color: #666">
@@ -6139,6 +6246,7 @@
               + Create New Template
             </button>
           </div>
+          </div><!-- /vcPane-technicians -->
         </div>
       </div>
     </div>
@@ -9025,6 +9133,59 @@
       if (typeof window.PulseActivityFeed !== "undefined") {
         window.PulseActivityFeed.wireQuickReplyOnce();
       }
+
+      /* ── Settings inner-nav pane switching ──────────────────────────── */
+      (function vcSettingsNav() {
+        var PANE_TITLES = {
+          "entitlements": "Plan \u0026 Feature Entitlements",
+          "per-user":     "Per-User Feature Access",
+          "admins":       "Manage Administrators",
+          "import":       "Enterprise User Import",
+          "integrations": "Integrations \u0026 API Keys",
+          "forms":        "Field Form \u0026 Checklist Builder",
+          "technicians":  "Technicians \u0026 Inventory"
+        };
+
+        function switchSettingsPane(paneId) {
+          /* hide all panes */
+          var panes = document.querySelectorAll(".vc-settings-pane");
+          panes.forEach(function (p) { p.classList.add("vc-pane-hidden"); });
+
+          /* show target pane */
+          var target = document.getElementById("vcPane-" + paneId);
+          if (target) { target.classList.remove("vc-pane-hidden"); }
+
+          /* update nav active state */
+          var items = document.querySelectorAll(".vc-snav-item");
+          items.forEach(function (btn) {
+            btn.classList.toggle("vc-snav-active", btn.dataset.pane === paneId);
+          });
+
+          /* update page title */
+          var titleEl = document.getElementById("vcSettingsPaneTitle");
+          if (titleEl && PANE_TITLES[paneId]) { titleEl.textContent = PANE_TITLES[paneId]; }
+        }
+
+        /* expose globally so other code can deep-link into a pane if needed */
+        window.switchSettingsPane = switchSettingsPane;
+
+        function wireNav() {
+          var nav = document.getElementById("vcSettingsNav");
+          if (!nav) return;
+          nav.addEventListener("click", function (e) {
+            var btn = e.target.closest(".vc-snav-item");
+            if (!btn) return;
+            switchSettingsPane(btn.dataset.pane);
+          });
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", wireNav);
+        } else {
+          wireNav();
+        }
+      })();
+      /* ── end Settings inner-nav ─────────────────────────────────────── */
     </script>
     <script src="service_call.js?v=69"></script>
     <script src="dispatcher/js/ai_report_reviewer.js?v=3"></script>
