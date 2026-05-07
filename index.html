@@ -9647,7 +9647,9 @@
             inp.type = show ? "text" : "password";
             passToggle.textContent = show ? "🙈" : "👁";
           });
-          document.addEventListener("vc:auth-state-changed", syncAuthCard);
+          if (typeof VCAuth !== "undefined" && VCAuth.onReady) {
+            VCAuth.onReady(function() { syncAuthCard(); });
+          }
         }
         var _wired = false;
         function init() { if (_wired) return; _wired = true; wireOnce(); syncAuthCard(); }
