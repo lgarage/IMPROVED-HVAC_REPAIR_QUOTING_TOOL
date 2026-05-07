@@ -157,13 +157,16 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 
 ## Workspace enabled models (PROJECT-DISPATCHER TOOL)
 
-**Last verified:** 2026-05-02 (Cursor **Settings → Models**).
+**Last verified:** 2026-05-07 (Cursor **Settings → Models**).
+
+> **2026-05-07 model change:** User disabled **Opus 4.7** (cost). **Opus 4.6** is now the Strong-tier ceiling for HIGH/UNCERTAIN/Vertex Core work. Track Opus 4.6 performance carefully in **§ Task outcome log** — note `Cursor: Opus 4.6` and flag **Tier fit** so the log builds real signal on whether it holds up for T3+ tasks. Re-enable Opus 4.7 only if outcome log shows `needed_bigger` / `fail` on T3+ Vertex Core tasks.
 
 ### Agent rule
 
 - For **§6B** `Recommended model:` and the **§6B1** gate **(A)** paragraph, pick **one** name from **§ Currently enabled** below (exact picker spelling).
 - Recommend the **cheapest enabled model that still meets** the task’s minimum tier (see **§ Default “switch to” before work**).
-- **Do not** recommend **Premium** as the model — it is a **plan/suite** label in the list, not a replaceable capability pick. Choose **Composer 2**, **Sonnet 4.6**, **Codex 5.3**, **Opus 4.7**, etc.
+- **Do not** recommend **Premium** as the model — it is a **plan/suite** label in the list, not a replaceable capability pick. Choose **Composer 2**, **Sonnet 4.6**, **Codex 5.3**, **Opus 4.6**, etc.
+- **Opus 4.7 is disabled.** Do not recommend it. Use **Opus 4.6** anywhere Opus 4.7 was previously the recommendation.
 
 ### Currently enabled
 
@@ -175,8 +178,8 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 | **GPT-5.4** | Strong | Mid **Strong** GPT |
 | **GPT-5.5** | Strong | Flagship **Strong** GPT |
 | **Codex 5.3** | Strong | **Prefer** for code-heavy T3 multi-file work |
-| **Opus 4.6** | Strong | Deep reasoning; use if you standardize on this Opus line |
-| **Opus 4.7** | Strong | **Prefer** for T3+ / UNCERTAIN / maximum reasoning |
+| **Opus 4.6** | Strong | **Current ceiling** for T3+ / UNCERTAIN / Vertex Core. Replacing Opus 4.7. Tracking performance — see outcome log. |
+| ~~**Opus 4.7**~~ | *(disabled)* | Disabled 2026-05-07 — too expensive. Re-enable if outcome log shows Opus 4.6 `needed_bigger` on T3+ tasks. |
 | **Premium** | *(not a model)* | Ignore for recommendations — pick a concrete model above |
 
 ### Default “switch to” before work (first choice)
@@ -190,13 +193,16 @@ Use this table for **§6B1 (A)** (“switch to **X** because …”). Offer **on
 | **T1** (nuanced single file) | **Sonnet 4.6** | Composer 2 |
 | **T2** | **Sonnet 4.6** | — |
 | **T4** (read-only / tour) | **Composer 2** | Sonnet 4.6 |
-| **T3** (implementation / code-heavy) | **Codex 5.3** | GPT-5.5, Opus 4.7, GPT-5.4, GPT-5.2 |
-| **T3 Vertex Core** (tenant, Firestore writes, field critical path, Office Override) | **Opus 4.7** | Codex 5.3, GPT-5.5 |
-| **T3+ / UNCERTAIN** | **Opus 4.7** | GPT-5.5, Codex 5.3 |
+| **T3** (implementation / code-heavy) | **Codex 5.3** | GPT-5.5, Opus 4.6, GPT-5.4, GPT-5.2 |
+| **T3 Vertex Core** (tenant, Firestore writes, field critical path, Office Override) | **Opus 4.6** | Codex 5.3, GPT-5.5 |
+| **T3+ / UNCERTAIN** | **Opus 4.6** | GPT-5.5, Codex 5.3 |
 
-### Currently disabled (optional — not required)
+### Currently disabled
 
-These were **off** at last verification; enable only if you want extra rungs (e.g. **GPT-5.4 Mini/Nano** for lighter GPT): Composer 1.5, Opus 4.5, Gemini 3.1 Pro, GPT-5.4 Mini, GPT-5.4 Nano.
+| Model | Reason / re-enable condition |
+|-------|------------------------------|
+| **Opus 4.7** | Disabled 2026-05-07 (cost). Re-enable if outcome log shows Opus 4.6 `needed_bigger` or `fail` on T3+ Vertex Core tasks. |
+| Composer 1.5, Opus 4.5, Gemini 3.1 Pro, GPT-5.4 Mini, GPT-5.4 Nano | Off at last verification; enable only if you want extra rungs. |
 
 ---
 
@@ -222,6 +228,7 @@ If `.cursorrules` says **HIGH / UNCERTAIN → stop and escalate**, that **overri
 
 ## Changelog
 
+- **2026-05-07:** **Opus 4.7 disabled** (cost). Opus 4.6 is new Strong ceiling for T3+/UNCERTAIN/Vertex Core. All "switch to" table entries updated. Tracking Opus 4.6 via outcome log.
 - **2026-05-02:** **Strict §6B1 flow** in `.cursorrules` §6B1 (steps 0–4, mandatory **(A)(B)(C)**); `.cursor/rules/model-selection.mdc` aligned; dossier cross-refs updated.
 - **2026-05-02:** **North star** reframed — agent notebook, **task-type** logging (not every task), **continuous improvement** / apply learned rows; §6H softened to match.
 - **2026-05-02:** **§6§ Preamble** (cross-ref): agent checklist step 4 — **no repo changes** until user sends approved proceed line; concrete picker name required.
