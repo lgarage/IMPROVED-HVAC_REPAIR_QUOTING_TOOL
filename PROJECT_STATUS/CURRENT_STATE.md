@@ -7,7 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Per-User Feature Toggles — Slices 1–4 fully shipped + deployed. Bootstrap admin live. Slice 5 post-MVP.
-- **Last shipped (2026-05-06):** Slice4d — Auth bar UX polish. Persistent admin sign-in bar at top of System Settings (email + password + Sign in + Forgot password + signed-in state ✅ + Sign out). Per-User section shows green "✓ Admin signed in" badge when in, grey 🔒 nudge when out. `VC_BUILD = "Slice4d-AuthBar-UX-2026-05-06"`. GitHub Pages live at `lgarage.github.io/IMPROVED-HVAC_REPAIR_QUOTING_TOOL/`.
+- **Last shipped (2026-05-07):** Slice4e — Persistent auth status badge in `.tool-header` (always visible top-right of System Settings heading; three states: 🔓 Not signed in / 👤 Signed in · name (no admin access) / ✅ Signed in as Administrator · email). Also fixed `shared/auth.js` `computeIsAdmin` bootstrap check — removed stale `emailVerified &&` guard that caused `VCAuth.isAdmin()` to return false after a valid sign-in. `VC_BUILD = "Slice4e-AuthStatusBadge-2026-05-07"`. GitHub Pages live at `lgarage.github.io/IMPROVED-HVAC_REPAIR_QUOTING_TOOL/`.
+- **Prior (2026-05-06):** Slice4d — Auth bar UX polish.
 - **Bootstrap admin configured (2026-05-06):** `dan.day@blackduckpartners.com` in `shared/config.js → bootstrapAdminEmails` + `firestore.rules → isBootstrapAdmin()` (email_verified check removed — bootstrap list is deploy-gated). Firebase Auth user created in `twin-pillars-app` project. Rules deployed via `firebase deploy --only firestore:rules`. Firebase CLI installed (`firebase-tools v15.16.0`), logged in as `dan.day@blackduckpartners.com`.
 - **Prior (2026-05-06):** Slices 2–4 — `shared/user_entitlements.js`, Per-User toggle UI, `aiReportReviewer` gated end-to-end.
 - **Prior (2026-05-06):** Customer Entitlements Platform (`shared/entitlements.js` + dispatcher Settings "Plan & Feature Entitlements" admin section); Inter-Office Feed re-gated by `vcHasFeature("interOfficeFeed")`; `VC_BUILD = "Gated-InterOffice-Feed-2026-05-06"` superseded by Slice 1 stamp above.
@@ -24,11 +25,11 @@ None. Two non-blocking carry-overs:
 
 ## Immediate Next Step
 
-**Smoke-test the live auth flow** (everything deployed, just needs user verification):
-1. Open dispatcher Settings → confirm auth bar shows at top of System Settings.
-2. Sign in with `dan.day@blackduckpartners.com` → bar shows ✅ green signed-in state.
-3. "👤 Per-User Feature Access" → search a staff member (e.g. "DAN DAY") → toggle a feature → Save → confirms live with no reload.
-4. Sign out → bar returns to sign-in form.
+**Smoke-test Slice4e auth badge (just deployed):**
+1. Open Settings → badge in heading row shows **🔓 Not signed in** (grey pill, top-right of "System Settings" title).
+2. Sign in with `dan.day@blackduckpartners.com` → badge flips to **✅ Signed in as Administrator · dan.day@blackduckpartners.com** (green).
+3. While signed in: "👤 Per-User Feature Access" → search a staff member → toggle a feature → Save.
+4. Sign out → badge returns to grey.
 
 **Next build candidates (pick one):**
 - **Manage Admins UI** — grant/revoke `isAdmin` on roster docs from Settings (T2, **Sonnet 4.6**). Discussed but not built; currently no in-app way to make others admins.
