@@ -991,8 +991,40 @@
     });
   }
 
+  /**
+   * Opens EquipmentManager directly (add a new unit) without first
+   * opening the Equipment Hub list — used by the workspace hamburger menu.
+   * Resolves location context from activeTicket the same way openEquipmentHub does.
+   */
+  function openAddEquipmentDirect() {
+    if (typeof activeTicket === "undefined" || !activeTicket) {
+      alert("Select a job from your schedule first.");
+      return;
+    }
+    if (typeof EquipmentManager === "undefined" || !EquipmentManager.open) {
+      alert("Equipment scanner is not loaded.");
+      return;
+    }
+    var locLine = getLocationLineForHub();
+    if (!locLine) {
+      alert("Set a location on this ticket before adding equipment.");
+      return;
+    }
+    var customerId = sanitizePathSegment(activeTicket.customerName || "");
+    var locationId = sanitizePathSegment(locLine);
+    resolveParentCompany(locLine).then(function (pc) {
+      EquipmentManager.open({
+        parentCompany:   pc || "—",
+        customer:        activeTicket.customerName || "—",
+        locationDisplay: locLine,
+        locationId:      locationId,
+      });
+    });
+  }
+
   window.openEquipmentHub = openEquipmentHub;
   window.closeEquipmentHub = closeEquipmentHub;
+  window.openAddEquipmentDirect = openAddEquipmentDirect;
   window.viewEquipmentHistory = viewEquipmentHistory;
   window.refreshJobLinkedEquipmentDropdown = refreshJobLinkedEquipmentDropdown;
   window.injectEquipmentUnit = injectEquipmentUnit;
