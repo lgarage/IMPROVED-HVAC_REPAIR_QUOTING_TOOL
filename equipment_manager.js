@@ -468,6 +468,7 @@
         generationConfig: {
           temperature: 0.2,
           maxOutputTokens: 2048,
+          responseMimeType: "application/json",
         },
       };
 
@@ -646,9 +647,12 @@
         return callGeminiVision(b64, mime, buildPlatePrompt()).then(function (text) {
           var data = parseGeminiJson(text);
           if (!data) {
-            console.warn("[EquipmentManager] Gemini parse failed", text);
+            console.warn("[EquipmentManager] Gemini parse failed — raw model output:", text);
+            var preview = text ? text.slice(0, 300) : "(empty)";
             alert(
-              "Could not parse Gemini response. Check console / enable Generative Language API for this key."
+              "Could not read the data plate automatically.\n\n" +
+              "Model response: " + preview + "\n\n" +
+              "Try a closer, well-lit photo. If this keeps happening, check Settings → Integrations that your Gemini API key is valid."
             );
             return;
           }
@@ -886,10 +890,11 @@
         var FV = firebase.firestore.FieldValue;
         if (Object.keys(fields).length === 0) {
           if (parsed === null || parsed === undefined) {
-            console.error("[Dictation] Nameplate OCR: invalid or empty JSON from model");
+            console.error("[Dictation] Nameplate OCR: invalid or empty JSON from model — raw:", text);
             if (typeof alert === "function") {
               alert(
-                "Could not read nameplate automatically. Please enter specs manually."
+                "Could not read nameplate automatically. Please enter specs manually.\n\n" +
+                "Tip: Try a closer, well-lit photo of the data plate."
               );
             }
           }
