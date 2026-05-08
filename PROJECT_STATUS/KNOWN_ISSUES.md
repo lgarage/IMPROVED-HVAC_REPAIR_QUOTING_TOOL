@@ -43,7 +43,7 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
   - Reference outbox pattern: `equipment_manager.js#ocrQueue` (lines 63–146 + `processOcrQueue` line 288 + `online` event hook line 1352).
   - Existing offline UI: `#vcFieldOfflineBadge` in `technician/index.html` (line ~4284 + ~4994 + ~5001), Submit Report offline branch (line ~7095), `VCSurfaceWriteFailure` in `shared/firebase_logic.js` (KI-002 Plan A standard).
   - Persistence init: `firebase-config.js` line 34 + `shared/firebase_config.js` line 13.
-- **Directive fix (proposed — see `DECISIONS.md → ADR-012`):** Build a single shared `shared/offline_storage_outbox.js` module modeled on `equipment_manager.js#ocrQueue`. Same `TwinPillarsOfflineDB` (version bump to 2, new `storageOutbox` object store). Public API: `OfflineStorageOutbox.enqueueUpload({ storagePath, blob, contentType, contextHook, label })` returning a queue id; `OfflineStorageOutbox.drain()` runs on `online` event + boot; `OfflineStorageOutbox.getPendingCount()` for the UI chip. Convert the 8 sites listed above to call `enqueueUpload` upfront when `!navigator.onLine` OR in the `.put` rejection catch. Surface a separate persistent chip `#vcPendingSyncChip` in the technician UI for queue depth (independent from the existing connectivity badge `#vcFieldOfflineBadge` per user 2026-04-25 — connectivity state and queue depth are independent signals; the queue can have items after signal returns while it drains). Per the KI-002 Plan A discipline, every upload-write that rejects must call `VCSurfaceWriteFailure` so the iPhone debug overlay surfaces it. Lazy-inject both UI elements per the `workspace_ui.js#ensureConsentButtonInDom` Phase 32a pattern; both must be direct children of `<body>` per the KI-001 / ADR-008 fixed-position discipline.
+- **Directive fix:** Design locked. See `DECISIONS.md → ADR-012` for the full spec (module shape, API, IDB version bump, dual UI signal, failure surfacing). Treat as a KI-002-style follow-up patch on Phase 33 (`VC_BUILD = "Phase33-followup-<date>"`); verification piggybacks on Phase 33 on-device smoke-tests.
 - **Treatment chosen by user 2026-04-25:** **Audit-only** for now. Implementation will be a **KI-002-style follow-up patch on Phase 33** (not a new phase). Verification will piggyback on Phase 33 on-device verification — once smoke-tests a/b/c pass (`CURRENT_STATE.md → Immediate Next Step`), this patch is the next thing to ship under a `Phase33-followup-<date>` `VC_BUILD` stamp; ADR-012 enumerates the additional smoke-tests (d) and (e).
 - **Workaround until shipped:** Tech should re-tap "Save" on Vision Hub once signal returns to re-upload the nameplate photo (the text fields will already be on the doc — re-saving with no field changes still triggers the photo upload because of the existing `Object.keys(changedFields).length === 0 && !visionHubPendingFile` short-circuit; if the tech kept the photo selection in the form, this works). For the other six sites, the photo is gone — the tech must take it again.
 
@@ -75,53 +75,13 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ---
 
-## (Archived in place for traceability — see Resolved (Reference) for the closeout summary)
+## (Resolved — see archive for full per-checkbox inventory)
 
-### KI-002 — Sync Risk Audit (2026-04-25): silent-failure & cache-versioning repair backlog [RESOLVED 2026-04-25]
+### KI-002 — Sync Risk Audit [RESOLVED 2026-04-25]
 
-A comprehensive audit of dispatcher ↔ field sync surfaces (Firestore reads/writes, real-time listeners, postMessage contracts, silent error handling, cache versioning) was completed 2026-04-25 immediately after Phase 32c shipped. It surfaced ~25 actionable repair items grouped into four plans. **None of these are blocking the Office Override workstream that just shipped** — they are pre-existing risks that were accepted for speed and now deserve dedicated attention before piling on more features. The user explicitly requested this audit before continuing with new feature work.
+Full per-checkbox inventory: see `KNOWN_ISSUES_ARCHIVE.md → KI-002`.
 
-**User decisions made during audit (locks scope):**
-- TWIN_PILLARS branding is gone — all paths are Vertex Core / `USA_HEATING_COOLING`. Bridge cleanup (originally Plan D) drops to nice-to-have; bridge-aware listeners are not required for live consumers.
-- `internal_comms` conflict resolution: **last writer wins** (no merge logic). Document this in code comments anywhere two paths can write the same field.
-- Equipment data path going forward: **CSV import + legacy + new field-add capture** (see Phase 33 in `ROADMAP.md`).
-
-**Plan A — Stop the silent failures (highest user impact, ~1 day): SHIPPED 2026-04-25.** Single commit batch; bumped `service_call.js?v=68` and `VC_BUILD = "KI002-A-2026-04-25"` once at the end.
-- [v] A1: `technician/index.html` (`uploadReportToCloud`) — both writes routed through `Promise.all`; offline still happy-path; online rejection renders red `⚠ Sync Failed` card on `#successCard` instead of false-green; `VCSurfaceWriteFailure` called for both writes.
-- [v] A2: `technician/index.html` (`writeLivePresence`) — one retry after 2.5s; on second failure sets `window.__vcPresenceOffline = true` and shows lazy-injected `#vcPresenceOfflineChip` (top-right red chip). Both attempts call `VCSurfaceWriteFailure`.
-- [v] A3: `dictation_hub.js` (`scheduleInternalCloudSave`) — extracted to new `runInternalCloudSave(tid, payload, isRetry)`; on failure shows lazy-injected `#dictationHubNotesError` "⚠ note not synced — tap to retry" sibling under `#dictationHubNotes`; tap re-runs the save with the stored payload.
-- [v] A4: `service_call.js` (`toggleOfficeOverride`) — Phase 32b empty-tid alarm pattern (red 3px outline + alert + warn) now also fires on actual Firestore write rejection. `VCSurfaceWriteFailure` first.
-- [v] A5: `technician/index.html` consent IIFE + `workspace_ui.js` lazy-inject path — both now show `⚠ Sync failed — tap to retry acknowledgement` instead of silently resetting to the original prompt; `VCSurfaceWriteFailure("OfficeOverride:ackWrite[(lazy)]", e)` first.
-- [v] A6: `technician/index.html` (coach-field delete) — one retry after 2s; both attempts call `VCSurfaceWriteFailure("coachField.delete:tryN", err)`.
-- [v] A7: `customer_directory.js` (`syncSingleCustomerToCloud`) — `showSaveCue("⚠ Customer saved locally only — cloud sync FAILED for <name>. Check connection.")` on cloud rejection; `VCSurfaceWriteFailure` first.
-- [v] A8: `shared/firebase_logic.js` (`setServiceCallMerged`) — now calls `VCRequireTicketId(ticketId, "setServiceCallMerged")`; returns `Promise.reject(new Error("setServiceCallMerged: empty ticket id"))` instead of writing to doc id `""`.
-- [v] A9: `dispatcher/js/shadow_mode.js` (`sendCoachPrompt` + `forceRemoteSync`) — `showSaveCue("⚠ Coach prompt FAILED to send …")` / `showSaveCue("⚠ Force-sync FAILED to send …")` on rejection; `VCSurfaceWriteFailure` first.
-- [v] **Standardize:** `VCRequireTicketId(tid, label)` and `VCSurfaceWriteFailure(ctx, err)` shipped in `shared/firebase_logic.js` (also published as bare globals `window.VCRequireTicketId` / `window.VCSurfaceWriteFailure`). Failures push onto a 10-deep `window.__vcWriteFailures` ring buffer that the iPhone debug overlay now renders (last 3 records, age in seconds, ctx, msg). Future call sites should use these helpers instead of `if (tid)` skips and `.catch(console.warn)`.
-
-**Plan B — Cache & version hygiene (~2 hours): subset B1+B2+B3+B4 SHIPPED 2026-04-25.** Single commit batch on top of Plan A.
-- [v] B1: `shared/firebase_logic.js?v=1` on all three callers (`index.html`, `technician/index.html`, `proof_of_service.html`). Added `FIREBASE_LOGIC_VERSION = 1` constant inside the IIFE that emits `[VC] firebase_logic v=1 loaded` on load and is exposed as `window.__VC_FIREBASE_LOGIC_VERSION` so the dispatcher BUILD chip can render the loaded version. Bump-in-lockstep procedure documented in the file header comment.
-- [v] B2: Added `?v=1` to all five unversioned tech bundle scripts in `technician/index.html`: `equipment_smart_select.js`, `ufx_adapter.js`, `location_manager.js`, `equipment_hub.js`, `field_forms.js`. (None are loaded by the dispatcher.)
-- [v] B3: Unified `equipment_manager.js?v=8` on the dispatcher (`index.html`); tech was already `?v=8`.
-- [v] B4: `window.VC_BUILD = "KI002-B-2026-04-25"` set near the top of dispatcher inline `<script>` (mirrors the `technician/index.html` pattern). New `#vcBuildChip` rendered inside `.sidebar-footer` (hidden when sidebar is collapsed via the existing rule); populated by `vcDispatcherBuildChipBoot` IIFE with `BUILD <stamp> · fb v<N>` (the `fb v<N>` half reads `window.__VC_FIREBASE_LOGIC_VERSION` from B1 so a stale `shared/firebase_logic.js` is visible at a glance). Click the chip to copy.
-- [ ] B5: `dispatcher/js/report_builder.js:138-140` loads `report_builder.css?v=1` while `index.html:20` loads `?v=4` — consolidate to one source.
-- [ ] B6: `sw.js` cache hygiene — bump `CACHE_NAME` on each deploy; add activate handler to delete old caches; consider network-first for `index.html`.
-- [ ] B7: Document the dispatcher-SW vs tech-no-SW asymmetry in `sw.js` and here under Environmental Gotchas.
-
-**Plan C — Listener hygiene & polling fixes (~half day):**
-- [ ] C1: `dispatcher/js/shadow_mode.js:147-167` — refcount + unsubscribe `subscribeLivePresenceIdle` (consumers: shadow modal, take-over button, syncDispatcherTicketIdToActiveTech). *(Deferred to ROADMAP — listener leak; not field-impact.)*
-- [ ] C2: `field_forms.js:496-510` — store unsub for `form_templates` listener; call on tab leave. *(Deferred to ROADMAP — listener leak; not field-impact.)*
-- [v] C3: `technician/index.html:7768-7789` — Shadow mirror polled 40×350ms then silently stalled if ticket id was outside the schedule date window. **SHIPPED 2026-04-25 (commit f4fe37a):** added `shadowMirrorOpenViaBridgedFetch(tid)` fallback that runs after polling exhausts — calls `VCFirestore.getServiceCallOnceBridged(db, tid)`, pushes the doc into `myTickets`, and calls `openWorkspace(tid)`. Every failure path (no firebase, no bridge helper, doc not found, fetch rejection, exception) routes through `VCSurfaceWriteFailure` so the iPhone debug overlay's `__vcWriteFailures` ring buffer surfaces the stall instead of swallowing it.
-- [ ] C4: postMessage receivers (`workspace_ui.js:301`, `technician/index.html:4163`, `shadow_mode.js:355`) — validate `event.origin === window.location.origin`. *(Deferred to ROADMAP — security hardening, no live exploit.)*
-
-**Plan E — Schema/typing cleanups (trivial):**
-- [ ] E1: `dispatcher/js/activity_feed.js:44-55` (`normalizeInternal`) — normalize `internal_comms` to a single canonical type on every write (string, per "last writer wins"). *(Deferred to ROADMAP — schema hygiene; reads already tolerate both shapes.)*
-- [v] E2: `dispatcher/js/client_notifications.js:16-20` (`getTenantIdSafe`) — remove `"TWIN_PILLARS"` fallback default; use `VCFirestore.getTenantId()` only. **SHIPPED 2026-04-25 (commit 79eb281):** `getTenantIdSafe` now defers to `VCFirestore.getTenantId()` (canonical helper) with `APP_CONFIG.tenantId` secondary and empty-string final fallback. Codebase grep verified that `dispatcher/js/client_notifications.js` was the **only** caller-side `"TWIN_PILLARS"` default outside the lazy-migration bridge in `shared/firebase_logic.js` (which the 2026-04-25 audit decision says to leave quiet because no live consumers need it). `dispatcher/js/client_notifications.js?v=2` bumped in `index.html`. `shared/firebase_logic.js` intentionally NOT touched (no `?v=2` bump needed).
-- [ ] E3: `settings.js:614-617` & `:632-635` — wrap dual roster + on-call writes in a `WriteBatch` so both succeed atomically (or neither). *(Deferred to ROADMAP — both writes already work; atomicity is a polish item.)*
-- [ ] E4: `dispatcher/js/ai_report_reviewer.js:563-583` — drop the redundant `syncSingleServiceCallToCloud(localRow)` after `setServiceCallMerged(memo)` (or refresh `localRow` from server first). *(Deferred to ROADMAP — perf/clarity; not user-visible.)*
-
-**Recommended ship order:** ~~A (full plan)~~ ✓ shipped 2026-04-25 → ~~B1+B2+B3+B4~~ ✓ shipped 2026-04-25 → ~~C3~~ ✓ shipped 2026-04-25 (commit f4fe37a) → ~~E2~~ ✓ shipped 2026-04-25 (commit 79eb281). **KI-002 closed 2026-04-25.** Remaining hygiene items (B5/B6/B7, C1, C2, C4, E1, E3, E4) migrated to `ROADMAP.md → Minor Tweaks & Polish` so they don't get lost; none are field-impact and they can be picked off opportunistically when their surrounding code is touched.
-
-**Decision deferred:** equipment data path long-term (legacy `customers/.../assets` vs tenant `imported_equipment`). Phase 33 (Field-Add Equipment) will need to settle this. Until then the existing parallel paths stay.
+Plans A+B (B1–B4)+C3+E2 shipped 2026-04-25. Commits: `e8f5cab` (Plan A), `b49eb23` (Plan B), `f4fe37a` (C3), `79eb281` (E2). Hygiene leftovers (B5/B6/B7, C1/C2/C4, E1/E3/E4) in `ROADMAP.md → Minor Tweaks & Polish`. Standing dev tools: `VCRequireTicketId` / `VCSurfaceWriteFailure` / `__vcWriteFailures` ring buffer / `#vcBuildChip` / lazy-injected sync-failure UI.
 
 ---
 

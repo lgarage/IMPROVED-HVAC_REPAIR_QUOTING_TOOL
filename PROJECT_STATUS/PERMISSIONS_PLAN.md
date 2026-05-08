@@ -5,6 +5,7 @@
 >
 > **Authority:** Supersedes informal role notes in chat. When code ships against this spec, update the relevant rows.
 > **Companion docs:** `DECISIONS.md → ADR-015` (auth architecture), `MODEL_DOSSIER.md` (model picks per task type).
+> **Status last verified:** 2026-05-07. Update this date when capability catalog or enforcement matrix is changed.
 
 ---
 

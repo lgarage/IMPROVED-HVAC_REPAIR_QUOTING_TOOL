@@ -12,6 +12,24 @@
 
 ---
 
+## Tier quick card (current defaults)
+
+_Fast lookup before §6B — use § Workspace enabled models for full alternates list._
+
+| Archetype | Recommended model | Notes |
+|-----------|------------------|-------|
+| T0–T1 mechanical | **Composer 2** | Typos, one-liner CSS, trivial renames |
+| T1 nuanced / T2 | **Sonnet 4.6** | Default daily implementation |
+| T3 code-heavy multi-file | **Codex 5.3** | Prefer over Opus for pure-code T3 |
+| T3 Vertex Core / T3+ / UNCERTAIN | **Opus 4.6** | Current ceiling — Opus 4.7 disabled 2026-05-07 |
+| T4 read-only / tour | **Composer 2** | Exploration, Q&A, architecture review |
+
+_Last verified: 2026-05-07. Full table: § Default "switch to" before work._
+
+→ **Outcome log** (calibration data): see § Outcome log (newest first) below.
+
+---
+
 ## Task outcome log (calibration)
 
 **Purpose:** **Experience memory** for the agent — by **task type** (archetype, domain, risk), **which tier/model was good enough**, so recommendations get **better over time**. Pair with **§ Workspace enabled models** and **§ Task archetypes** so picks stay tied to **actual picker names**, not vibes.
@@ -66,6 +84,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-08 | AI memory system optimization — 8-file audit + implementation: Feature Index + Build History split (`PROJECT_MAP_HISTORY.md`), `AI_CONTEXT` branding/data-model fixes, KI-002 archive (`KNOWN_ISSUES_ARCHIVE.md`), MODEL_DOSSIER tier quick card, DECISIONS ADR index, ROADMAP compression, PERMISSIONS timestamp | T4 read/T2 write | docs | Balanced | 72% | 84% | ok | ok | Cursor: **Sonnet 4.6**; 8 files edited + 3 new files created; surgical edits throughout; PROJECT_MAP.md reduced from >100k chars. Lesson: multi-file doc architecture audit = T4 analysis + T2 implementation; Sonnet 4.6 is correct tier. |
 | 2026-05-07 | Field app Equipment Hub: unit detail — photo thumbnails (Overall + Data Plate), tap-to-fullscreen lightbox (dark overlay, ✕ close, tap outside dismiss), 2-column profile grid (unit tag, brand, model, serial, mfr year, age, refrigerant, tonnage, voltage/phase, integrity score, CRV, prior repairs, proposed repair cost; empty fields hidden); CSS in `technician/index.html` | LOW | T2 | Balanced | 82% | 86% | ok | ok | Cursor: **Sonnet 4.6**; `equipment_hub.js?v=5`, `technician/index.html`; GitHub Pages; **on-device verification pending** (user last saw missing thumbnails/profile before these fixes). |
 | 2026-05-07 | Field app Equipment Manager + Hub: optimistic unit card inject + immediate Hub open after save; background Storage upload + Firestore write; race fix — `refreshEquipmentHubList()` re-fetch + auto re-render open detail so photo URLs appear without navigating away | LOW | T2–T3 | Balanced | 78% | 85% | ok | ok | Cursor: **Sonnet 4.6**; `equipment_manager.js?v=13`, `equipment_hub.js`. |
 | 2026-05-07 | Firestore rules: add `match /Customers/{document=**} { allow read, write: if true; }` — path was missing (default-deny), caused "Missing or insufficient permissions" in Equipment Hub; deployed to Firebase (`twin-pillars-app`) | LOW | T3 | Balanced | 74% | 88% | ok | ok | Cursor: **Sonnet 4.6**; `firestore.rules`. |

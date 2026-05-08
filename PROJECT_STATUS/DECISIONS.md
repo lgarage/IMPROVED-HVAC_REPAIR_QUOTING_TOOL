@@ -4,6 +4,28 @@ Append-only architectural decision record (ADR-lite). When you reverse or supers
 
 > **Tier 2 (cold) — pull on demand.** Search by `ADR-NNN` or topic; do not read end-to-end. Read protocol in `.cursorrules` §1A.
 
+## ADR Index
+
+| ADR | Title | Status | Date |
+|-----|-------|--------|------|
+| ADR-001 | Vanilla JS / Firebase, no build pipeline | Accepted | inception |
+| ADR-002 | Tenant isolation under `tenants/{tenantId}/…` | Accepted | Phase 10 |
+| ADR-003 | Lazy migration bridge for TWIN_PILLARS | Accepted | Phase 11 |
+| ADR-004 | Terminology pivot (Inter-Office Comms, Site Intel, Shadow Mode) | Accepted | Phase 11 |
+| ADR-005 | Single unified technician notes box | Accepted | Phase 27 |
+| ADR-006 | Office Override over Shadow Mode for editing | Accepted | Phase 30 |
+| ADR-007 | Memory architecture split (CURRENT_STATE / KNOWN_ISSUES / DECISIONS) | Accepted | — |
+| ADR-008 | Office Override visual chrome via fixed-position overlay div | Accepted | 2026-04-25 |
+| ADR-009 | Watch + Take Over: reuse existing Office Override modal | Accepted | Phase 31 |
+| ADR-010 | Office Override consent gate: cross-device only, not local postMessage | Accepted | Phase 32 |
+| ADR-011 | Phase 33 Field-Add Equipment: single canonical store + bridge read | Accepted | Phase 33 |
+| ADR-012 | Offline Storage outbox (`shared/offline_storage_outbox.js`) — design only, KI-004 | Accepted | 2026-04-25 |
+| ADR-013 | Live Workspace Mirror Phase 34 (`live_presence` extension) — design only, KI-003 | Accepted | 2026-04-25 |
+| ADR-014 | `form_templates` stays root cross-tenant catalog | Accepted | 2026-05-02 |
+| ADR-015 | Per-User Feature Toggles Slice 1: Firestore-only admin, conservative rules | Accepted | 2026-05-06 |
+
+---
+
 **Format**
 
 ```

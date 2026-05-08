@@ -1,6 +1,6 @@
-# Twin Pillars HVAC — Project Context for AI Assistants
+# Vertex Core — Project Context for AI Assistants
 
-This document gives **full architectural context** for the repository **IMPROVED-HVAC_REPAIR_QUOTING_TOOL** (also branded **Twin Pillars** in the UI). Use it to onboard another AI or developer in a new conversation without re-reading the entire codebase.
+This document gives **full architectural context** for the repository **IMPROVED-HVAC_REPAIR_QUOTING_TOOL** (product name: **Vertex Core**; legacy UI name "Twin Pillars" is retired — do not use it in new code or docs). Use it to onboard another AI or developer in a new conversation without re-reading the entire codebase.
 
 > **Tier 2 (cold) — first-time onboarding only, or major architectural shift.** Treat as historical context; **current naming conventions and feature locations live in `PROJECT_MAP.md`**, not here. Read protocol in `.cursorrules` §1A.
 
@@ -40,9 +40,17 @@ There is **no traditional backend server** in this repo: logic runs in the brows
 ├── firebase-config.js         # Firebase init, GEMINI_GENERATE_MODEL, getGeminiApiKey()
 ├── dictation_hub.js           # Dictation Hub: Rosetta mapping, asset tray, lifecycle UI
 ├── equipment_manager.js       # Equipment profile modal, Gemini vision plate OCR, dictation asset promotion/retire
-├── equipment_hub.js           # Legacy path: Customers/Locations/Equipment hub modal
+├── equipment_hub.js           # Legacy path: Customers/Locations/Equipment hub modal (bridge read)
 ├── field_forms.js             # Dynamic Firestore form templates + Gemini keyword intent
 ├── quoting.js, invoice.js, service_call.js, customer_directory.js, settings.js, app.js, …
+├── shared/
+│   ├── auth.js                # VCAuth — Firebase Auth wrapper, isAdmin, isPinUnlocked (Phase 36 Slice 1)
+│   ├── entitlements.js        # VCEntitlements — tenant feature-flag platform (Phase 35)
+│   ├── user_entitlements.js   # VCUserEntitlements — per-user feature override resolver (Phase 36 Slices 2-4)
+│   ├── firebase_logic.js      # Tenant bridge helpers, VCFirestore, VCRequireTicketId, VCSurfaceWriteFailure
+│   ├── config.js              # APP_CONFIG, VC_EQUIPMENT_TYPE_PREFIXES, bootstrapAdminEmails
+│   └── permissions.js         # (stub — hasCapability() to be built; see PERMISSIONS_PLAN.md)
+├── firestore.rules            # Firestore security rules (deployed via firebase CLI)
 ├── firestore.indexes.json
 ├── sw.js                      # Service worker (if used for caching)
 └── manifest.json              # PWA manifest (references root index; technician app is separate HTML)
@@ -54,7 +62,9 @@ Script **load order** on the technician page matters: e.g. `equipment_manager.js
 
 ## 4. Firebase Data Model (Relevant Pieces)
 
-### 4.1 Asset-centric path (Dictation Hub / new work)
+### 4.1 Asset-centric path (Dictation Hub / legacy bridge)
+
+> **ADR-011 (Phase 33) — canonical write path changed.** New equipment writes target `tenants/{tenantId}/imported_equipment`. The path below is now a **read-time bridge fallback only** — it is still read by `getEquipmentForSiteBridged()` in `shared/firebase_logic.js` but receives no new writes. See `DECISIONS.md → ADR-011`.
 
 Used by `dictation_hub.js` and `equipment_manager.js` (`dictationPromoteAssetPhoto`, `dictationRetireCurrentAsset`):
 
@@ -79,7 +89,7 @@ customers/.../assets/{assetDocId}/retired_history/{timestampDocId}
 
 Full snapshot of the asset before clear, plus `retiredAt`, `archiveId`. Parent asset is then cleared (specs/images) and marked vacant.
 
-### 4.2 Legacy equipment path (Equipment Hub modal)
+### 4.2 Legacy equipment path (Equipment Hub modal — read bridge only)
 
 `equipment_hub.js` still uses:
 
@@ -87,7 +97,7 @@ Full snapshot of the asset before clear, plus `retiredAt`, `archiveId`. Parent a
 Customers/{customerId}/Locations/{locationId}/Equipment/{unitDocId}
 ```
 
-This is a **parallel** hierarchy; long-term alignment with `customers/sites/assets` may be a migration topic.
+> **ADR-011 (Phase 33):** This path and `customers/.../assets` (§4.1) are now **read-only bridge fallbacks**. All new equipment writes go to `tenants/{tenantId}/imported_equipment` via `getEquipmentForSiteBridged()` in `shared/firebase_logic.js`. Do not write to legacy paths directly. See `DECISIONS.md → ADR-011`.
 
 ### 4.3 Other collections
 
@@ -202,6 +212,12 @@ Model id: **`GEMINI_GENERATE_MODEL`** (e.g. `gemini-2.5-flash`) in `firebase-con
 | Ghost card | UI card for an AI-identified unit not yet in Firestore |
 | Vacant slot | Asset doc exists but was **retired**; cleared for new install |
 | Promotion | Camera → Firebase Storage → Firestore merge (+ optional OCR) |
+| Vertex Core | Current product name (replaces retired "Twin Pillars" branding). Use this in all new code, docs, and UI copy. |
+| Site Intel | Persistent per-location notes, access photos, and Field Access Notes (formerly "Field Bible"). |
+| Inter-Office Comms | Internal tech ↔ dispatcher messaging channel. Formerly "Dark Channel." Enforced by `.cursorrules §3`. |
+| Shadow Mode | Read-only dispatcher mirror of a tech's active-ticket screen position. |
+| Office Override | Dispatcher-controlled editable iframe of the field app for a specific ticket, with tech consent gate (ADR-010). |
+| Field Bible / Field Access Notes | The persistent per-location notes textarea inside Site Intel (renamed in Phase 34e). |
 
 ---
 
