@@ -2615,6 +2615,27 @@ textarea { min-height: 80px; resize: vertical; }
 .ehub-unit-photo-label {
   font-size: 11px; color: #94a3b8;
 }
+/* Profile details grid */
+.ehub-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  margin: 12px 0 6px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+.ehub-detail-cell {
+  display: flex; flex-direction: column; gap: 1px;
+}
+.ehub-detail-label {
+  font-size: 10px; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.ehub-detail-value {
+  font-size: 14px; font-weight: 600; color: #1e293b;
+}
 /* Lightbox overlay */
 #ehubLightboxOverlay {
   position: fixed; inset: 0; z-index: 99999;
@@ -9662,7 +9683,7 @@ window.onload = async function(){
     <script src="js/workspace_ui.js?v=13"></script>
     <script src="js/location_manager.js?v=1"></script>
     <script src="../dictation_hub.js?v=17"></script>
-    <script src="../equipment_hub.js?v=4"></script>
+    <script src="../equipment_hub.js?v=5"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>

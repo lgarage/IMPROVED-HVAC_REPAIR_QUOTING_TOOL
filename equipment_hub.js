@@ -375,7 +375,8 @@
       escapeHtml(specs) +
       "</p>" +
       healthLine +
-      photosHtml;
+      photosHtml +
+      buildProfileDetailsHtml(profile);
 
     // Wire thumbnail tap → fullscreen lightbox
     header.querySelectorAll(".ehub-unit-photo-wrap[data-lightbox-src]").forEach(function (btn) {
@@ -620,6 +621,40 @@
     }
   }
 
+  function buildProfileDetailsHtml(profile) {
+    if (!profile) return "";
+    var rows = [
+      ["Unit Tag",          profile.unitTag],
+      ["Brand",             profile.brand],
+      ["Model",             profile.model],
+      ["Serial #",          profile.serialJob],
+      ["Manufacture Year",  profile.manufactureYear],
+      ["Age",               profile.ageYears ? profile.ageYears + " yrs" : ""],
+      ["Refrigerant",       profile.refrigerant],
+      ["Tonnage",           profile.tonnage ? profile.tonnage + " ton" : ""],
+      ["Voltage / Phase",   [profile.voltage, profile.phase].filter(Boolean).join(" / ")],
+      ["Integrity Score",   profile.healthScore != null && profile.healthScore !== ""
+                              ? profile.healthScore + " — Grade " + (profile.healthGrade || "?")
+                              : ""],
+      ["Est. CRV",          profile.estimatedCRV ? "$" + profile.estimatedCRV : ""],
+      ["Prior Repairs",     profile.totalPreviousRepairs ? "$" + profile.totalPreviousRepairs : ""],
+      ["Proposed Repair",   profile.proposedRepairCost ? "$" + profile.proposedRepairCost : ""],
+    ];
+
+    var cells = rows
+      .filter(function (r) { return r[1] && String(r[1]).trim() !== ""; })
+      .map(function (r) {
+        return "<div class=\"ehub-detail-cell\">" +
+          "<span class=\"ehub-detail-label\">" + escapeHtml(r[0]) + "</span>" +
+          "<span class=\"ehub-detail-value\">" + escapeHtml(String(r[1])) + "</span>" +
+          "</div>";
+      })
+      .join("");
+
+    if (!cells) return "";
+    return "<div class=\"ehub-detail-grid\">" + cells + "</div>";
+  }
+
   function openPhotoLightbox(src, alt) {
     var existing = document.getElementById("ehubLightboxOverlay");
     if (existing) existing.parentNode.removeChild(existing);
@@ -711,12 +746,19 @@
    * Re-fetch the equipment list for the current site from Firestore.
    * Called by EquipmentManager after the background upload + Firestore
    * write completes so the list reflects real photo URLs and the
-   * Verified badge.
+   * Verified badge.  If the detail view is currently open it is also
+   * re-rendered so photos appear without the tech having to navigate back.
    */
   function refreshEquipmentHubList() {
-    if (hubState.customerId && hubState.locationId) {
-      fetchEquipmentForSite(hubState.customerId, hubState.locationId);
-    }
+    if (!hubState.customerId || !hubState.locationId) return;
+    var selectedId = hubState.selectedEquipmentId;
+    fetchEquipmentForSite(hubState.customerId, hubState.locationId).then(function () {
+      // Re-render the open detail view so photos + full data show up
+      var histView = $("equipmentHubViewHistory");
+      if (selectedId && histView && !histView.classList.contains("hidden")) {
+        viewEquipmentHistory(selectedId);
+      }
+    });
   }
 
   window.openEquipmentHub = openEquipmentHub;
