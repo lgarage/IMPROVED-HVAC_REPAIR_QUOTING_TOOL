@@ -354,16 +354,14 @@
       if (overallSrc || plateSrc) {
         photosHtml += "<div class=\"ehub-unit-photos\">";
         if (overallSrc) {
-          photosHtml += "<div class=\"ehub-unit-photo-wrap\">" +
-            "<a href=\"" + escapeAttr(overallSrc) + "\" target=\"_blank\" rel=\"noopener\">" +
-            "<img class=\"ehub-unit-photo\" src=\"" + escapeAttr(overallSrc) + "\" alt=\"Overall photo\" /></a>" +
-            "<span class=\"ehub-unit-photo-label\">Overall</span></div>";
+          photosHtml += "<button type=\"button\" class=\"ehub-unit-photo-wrap\" data-lightbox-src=\"" + escapeAttr(overallSrc) + "\" data-lightbox-alt=\"Overall photo\">" +
+            "<img class=\"ehub-unit-photo\" src=\"" + escapeAttr(overallSrc) + "\" alt=\"Overall photo\" />" +
+            "<span class=\"ehub-unit-photo-label\">Overall</span></button>";
         }
         if (plateSrc) {
-          photosHtml += "<div class=\"ehub-unit-photo-wrap\">" +
-            "<a href=\"" + escapeAttr(plateSrc) + "\" target=\"_blank\" rel=\"noopener\">" +
-            "<img class=\"ehub-unit-photo\" src=\"" + escapeAttr(plateSrc) + "\" alt=\"Data plate\" /></a>" +
-            "<span class=\"ehub-unit-photo-label\">Data plate</span></div>";
+          photosHtml += "<button type=\"button\" class=\"ehub-unit-photo-wrap\" data-lightbox-src=\"" + escapeAttr(plateSrc) + "\" data-lightbox-alt=\"Data plate\">" +
+            "<img class=\"ehub-unit-photo\" src=\"" + escapeAttr(plateSrc) + "\" alt=\"Data plate\" />" +
+            "<span class=\"ehub-unit-photo-label\">Data plate</span></button>";
         }
         photosHtml += "</div>";
       }
@@ -378,6 +376,13 @@
       "</p>" +
       healthLine +
       photosHtml;
+
+    // Wire thumbnail tap → fullscreen lightbox
+    header.querySelectorAll(".ehub-unit-photo-wrap[data-lightbox-src]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        openPhotoLightbox(btn.getAttribute("data-lightbox-src"), btn.getAttribute("data-lightbox-alt") || "Photo");
+      });
+    });
 
     timeline.innerHTML =
       "<p class=\"equipment-hub-loading\">Loading history…</p>";
@@ -613,6 +618,39 @@
         }
       });
     }
+  }
+
+  function openPhotoLightbox(src, alt) {
+    var existing = document.getElementById("ehubLightboxOverlay");
+    if (existing) existing.parentNode.removeChild(existing);
+
+    var overlay = document.createElement("div");
+    overlay.id = "ehubLightboxOverlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", alt || "Photo");
+
+    var closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.id = "ehubLightboxClose";
+    closeBtn.setAttribute("aria-label", "Close photo");
+    closeBtn.textContent = "✕";
+
+    var img = document.createElement("img");
+    img.src = src;
+    img.alt = alt || "Photo";
+    img.id = "ehubLightboxImg";
+
+    overlay.appendChild(closeBtn);
+    overlay.appendChild(img);
+    document.body.appendChild(overlay);
+
+    function dismiss() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+    closeBtn.addEventListener("click", function (e) { e.stopPropagation(); dismiss(); });
+    overlay.addEventListener("click", dismiss);
+    img.addEventListener("click", function (e) { e.stopPropagation(); });
   }
 
   function initEquipmentHubUi() {

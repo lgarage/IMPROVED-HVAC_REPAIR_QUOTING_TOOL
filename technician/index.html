@@ -2602,6 +2602,10 @@ textarea { min-height: 80px; resize: vertical; }
 }
 .ehub-unit-photo-wrap {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: none; border: none; padding: 0; cursor: pointer;
+}
+.ehub-unit-photo-wrap:active .ehub-unit-photo {
+  opacity: 0.75;
 }
 .ehub-unit-photo {
   width: 110px; height: 80px; object-fit: cover;
@@ -2610,6 +2614,26 @@ textarea { min-height: 80px; resize: vertical; }
 }
 .ehub-unit-photo-label {
   font-size: 11px; color: #94a3b8;
+}
+/* Lightbox overlay */
+#ehubLightboxOverlay {
+  position: fixed; inset: 0; z-index: 99999;
+  background: rgba(0,0,0,0.92);
+  display: flex; align-items: center; justify-content: center;
+  cursor: zoom-out;
+}
+#ehubLightboxImg {
+  max-width: 96vw; max-height: 90vh;
+  object-fit: contain; border-radius: 4px;
+  cursor: default; box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+}
+#ehubLightboxClose {
+  position: absolute; top: 16px; right: 18px;
+  background: rgba(255,255,255,0.15); border: none;
+  color: #fff; font-size: 26px; line-height: 1;
+  width: 44px; height: 44px; border-radius: 50%;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  z-index: 100000;
 }
 .equipment-hub-timeline {
   list-style: none;
@@ -9638,7 +9662,7 @@ window.onload = async function(){
     <script src="js/workspace_ui.js?v=13"></script>
     <script src="js/location_manager.js?v=1"></script>
     <script src="../dictation_hub.js?v=17"></script>
-    <script src="../equipment_hub.js?v=2"></script>
+    <script src="../equipment_hub.js?v=3"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
