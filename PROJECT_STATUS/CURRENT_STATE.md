@@ -7,6 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Shadow Mode consent gate shipped. Next: pick from build candidates below.
+- **Last session (2026-05-08):** OCR diagnosis — no code change. Root cause: GCP API key HTTP referrer restriction blocks `twin-pillars-app.web.app`. Fix: add `https://twin-pillars-app.web.app/*` to the Gemini API key's allowed referrers in [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials).
 - **Last shipped (2026-05-08):** Phase 37 — Shadow Mode consent gate. Tech consent toggle writes `shadowConsent` to `live_presence`; dispatcher iframe gated; heartbeat strips `activeTicketId`/`screen` when consent is off (`FieldValue.delete`). `VC_BUILD = "ShadowConsent-2026-05-08"`.
 - **Prior (2026-05-08):** Hamburger "Site Notes" rename + "Add additional equipment"; AI memory system audit.
 - **Prior (2026-05-07):** Members pane, Manage Admins UI, Settings sidebar nav, auth badge, auth.js fix.
