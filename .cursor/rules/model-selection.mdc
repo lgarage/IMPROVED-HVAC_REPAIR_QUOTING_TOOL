@@ -23,12 +23,21 @@ These rules exist so **`MODEL_DOSSIER.md`** stays the agent’s **living notes**
 
 If `.cursorrules` §6 mandates **§6C** escalation for HIGH/UNCERTAIN, output that block when required; the dossier does not override safety stops. **§6G** still requires the model gate before implementation.
 
-## After substantive work — update the dossier when it **teaches** something
+## After substantive work — three mandatory end-of-session writes
 
 6. **Append `PROJECT_STATUS/MODEL_DOSSIER.md` → § Task outcome log** when work is **substantive** and **adds signal** for future model picks (dossier § *When to log* / *Skip logging*). **Same session** as the work when possible. **Do not** log noise (typos-only, duplicate patterns with nothing new).
 
-7. **Defaults when the user is silent:** **Outcome = `ok`**, **Tier fit = `ok`**, **Conf after %** ≥ **Conf start %** — unless there is **objective** failure or the user complained. **`Note` must include `Cursor:` + exact picker name** when you log.
+7. **Update `PROJECT_STATUS/CURRENT_STATE.md`** after every session that ships code or makes a meaningful change — **no exceptions**. Rules:
+   - Move **Last shipped** forward: one line, what changed, `VC_BUILD` stamp if applicable.
+   - Update **Immediate Next Step** to reflect what the user should do or test next.
+   - **Mechanical size check:** count total lines before writing. If total line count is ≥ 55 → collapse the oldest "Prior (date):" Snapshot entries (anything beyond the last 3 sessions) into a single line "Prior history: see `PROJECT_MAP_HISTORY.md`" before adding new content. Do not add new lines until the file is under 50 total lines.
+   - Do NOT maintain an "On Deck" section — that lives in `ROADMAP.md` only.
+   - If nothing shipped, still update the Snapshot date and note "no code change."
 
-8. **One row** (newest first): Date, Task (**type**-shaped summary), Class, Arch, **Tier used**, **Conf start %**, **Conf after %**, **Tier fit**, **Outcome**, **Note**. After logging, **use** the table on the **next** similar task — grep keywords + **Arch**.
+8. **Update `PROJECT_STATUS/ROADMAP.md`** when a Next Up item ships (mark `~~strikethrough~~ ✓`) or a new candidate emerges from the session. If neither applies, skip.
 
-9. **Improvement habit:** If the log contradicts your tier guess, **trust the log** (subject to Vertex safety rules in the dossier).
+9. **Defaults when the user is silent:** **Outcome = `ok`**, **Tier fit = `ok`**, **Conf after %** ≥ **Conf start %** — unless there is **objective** failure or the user complained. **`Note` must include `Cursor:` + exact picker name** when you log.
+
+10. **One row** (newest first): Date, Task (**type**-shaped summary), Class, Arch, **Tier used**, **Conf start %**, **Conf after %**, **Tier fit**, **Outcome**, **Note**. After logging, **use** the table on the **next** similar task — grep keywords + **Arch**.
+
+11. **Improvement habit:** If the log contradicts your tier guess, **trust the log** (subject to Vertex safety rules in the dossier).
