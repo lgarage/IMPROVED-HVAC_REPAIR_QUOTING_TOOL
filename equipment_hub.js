@@ -367,6 +367,12 @@
       }
     }
 
+    var actionBarHtml =
+      "<div class=\"ehub-action-bar\">" +
+      "<button type=\"button\" class=\"ehub-btn-reenter\" id=\"ehubReenterBtn\">✏ Delete &amp; Re-enter</button>" +
+      "<button type=\"button\" class=\"ehub-btn-delete\" id=\"ehubDeleteBtn\">🗑 Remove Unit</button>" +
+      "</div>";
+
     header.innerHTML =
       "<h3 class=\"equipment-hub-unit-title\">" +
       escapeHtml(String(title)) +
@@ -376,7 +382,8 @@
       "</p>" +
       healthLine +
       photosHtml +
-      buildProfileDetailsHtml(profile);
+      buildProfileDetailsHtml(profile) +
+      actionBarHtml;
 
     // Wire thumbnail tap → fullscreen lightbox
     header.querySelectorAll(".ehub-unit-photo-wrap[data-lightbox-src]").forEach(function (btn) {
@@ -384,6 +391,19 @@
         openPhotoLightbox(btn.getAttribute("data-lightbox-src"), btn.getAttribute("data-lightbox-alt") || "Photo");
       });
     });
+
+    var deleteBtn = document.getElementById("ehubDeleteBtn");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", function () {
+        deleteEquipmentUnit(equipmentId, false);
+      });
+    }
+    var reenterBtn = document.getElementById("ehubReenterBtn");
+    if (reenterBtn) {
+      reenterBtn.addEventListener("click", function () {
+        deleteEquipmentUnit(equipmentId, true);
+      });
+    }
 
     timeline.innerHTML =
       "<p class=\"equipment-hub-loading\">Loading history…</p>";
@@ -594,6 +614,85 @@
       .replace(/"/g, "&quot;");
   }
 
+  /** Best-effort delete a Firebase Storage file given its download URL. */
+  function tryDeleteStorageFile(url) {
+    try {
+      if (!url || typeof firebase === "undefined" || !firebase.storage) return;
+      var match = String(url).match(/\/o\/([^?#]+)/);
+      if (!match) return;
+      var storagePath = decodeURIComponent(match[1]);
+      firebase.storage().ref(storagePath).delete().catch(function () {});
+    } catch (e) {}
+  }
+
+  /**
+   * Delete an equipment unit from Firestore (and best-effort its Storage photos).
+   * @param {string} equipmentId  composite "customerId/locationId/unitDocId"
+   * @param {boolean} thenReenter  if true, open EquipmentManager afterwards with pre-filled data
+   */
+  async function deleteEquipmentUnit(equipmentId, thenReenter) {
+    var parsed = parseEquipmentId(equipmentId);
+    if (!parsed) return;
+
+    var profile = null;
+    hubState.equipmentList.forEach(function (row) {
+      if (row.id === parsed.unitDocId) profile = row.data;
+    });
+    var label = (profile && (profile.unitTag || profile.brand)) || parsed.unitDocId;
+
+    var msg = thenReenter
+      ? "Remove \"" + label + "\" and open the AI scanner to re-enter it?"
+      : "Remove \"" + label + "\" from the Equipment Hub? This cannot be undone.";
+    if (!window.confirm(msg)) return;
+
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      alert("Firebase not available.");
+      return;
+    }
+
+    var db = firebase.firestore();
+    try {
+      await db
+        .collection("Customers").doc(parsed.customerId)
+        .collection("Locations").doc(parsed.locationId)
+        .collection("Equipment").doc(parsed.unitDocId)
+        .delete();
+    } catch (e) {
+      alert("Could not delete unit: " + (e.message || String(e)));
+      return;
+    }
+
+    // Best-effort clean up Storage photos
+    if (profile) {
+      if (profile.overallPhotoUrl)   tryDeleteStorageFile(profile.overallPhotoUrl);
+      if (profile.dataPlatePhotoUrl) tryDeleteStorageFile(profile.dataPlatePhotoUrl);
+    }
+
+    // Remove from in-memory list and go back to list view
+    hubState.equipmentList = hubState.equipmentList.filter(function (row) {
+      return row.id !== parsed.unitDocId;
+    });
+    hubState.selectedEquipmentId = "";
+    hubState.selectedProfile = null;
+    renderEquipmentList(hubState.equipmentList);
+    showListView();
+
+    if (thenReenter) {
+      if (typeof EquipmentManager === "undefined" || !EquipmentManager.open) {
+        alert("Equipment scanner is not loaded.");
+        return;
+      }
+      closeEquipmentHub();
+      EquipmentManager.open({
+        parentCompany:   hubState.parentCompany,
+        customer:        hubState.customerName,
+        locationDisplay: hubState.locationDisplay,
+        locationId:      hubState.locationId,
+        prefill:         profile || {},
+      });
+    }
+  }
+
   function onAddEquipmentClick() {
     if (typeof EquipmentManager === "undefined" || !EquipmentManager.open) {
       alert("Equipment scanner is not loaded.");
@@ -767,4 +866,5 @@
   window.refreshJobLinkedEquipmentDropdown = refreshJobLinkedEquipmentDropdown;
   window.injectEquipmentUnit = injectEquipmentUnit;
   window.refreshEquipmentHubList = refreshEquipmentHubList;
+  window.deleteEquipmentUnit = deleteEquipmentUnit;
 })();

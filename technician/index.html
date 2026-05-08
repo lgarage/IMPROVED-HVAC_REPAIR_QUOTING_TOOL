@@ -2636,6 +2636,26 @@ textarea { min-height: 80px; resize: vertical; }
 .ehub-detail-value {
   font-size: 14px; font-weight: 600; color: #1e293b;
 }
+/* Unit action bar (Delete / Re-enter) */
+.ehub-action-bar {
+  display: flex; gap: 10px; margin: 14px 0 2px; flex-wrap: wrap;
+}
+.ehub-btn-delete,
+.ehub-btn-reenter {
+  flex: 1; min-width: 120px; padding: 12px 10px;
+  border: none; border-radius: 10px; font-size: 14px;
+  font-weight: 700; cursor: pointer; line-height: 1.2;
+}
+.ehub-btn-delete {
+  background: #fee2e2; color: #b91c1c;
+  box-shadow: 0 2px 8px rgba(185,28,28,0.12);
+}
+.ehub-btn-delete:active { background: #fca5a5; }
+.ehub-btn-reenter {
+  background: #eff6ff; color: #1d4ed8;
+  box-shadow: 0 2px 8px rgba(29,78,216,0.1);
+}
+.ehub-btn-reenter:active { background: #bfdbfe; }
 /* Lightbox overlay */
 #ehubLightboxOverlay {
   position: fixed; inset: 0; z-index: 99999;
@@ -9676,14 +9696,14 @@ window.onload = async function(){
       </div>
     </div>
 
-    <script src="../equipment_manager.js?v=13"></script>
+    <script src="../equipment_manager.js?v=14"></script>
     <script src="../equipment_smart_select.js?v=2"></script>
     <script src="js/ufx_adapter.js?v=1"></script>
     <script src="js/data_provider.js?v=1"></script>
     <script src="js/workspace_ui.js?v=13"></script>
     <script src="js/location_manager.js?v=1"></script>
     <script src="../dictation_hub.js?v=17"></script>
-    <script src="../equipment_hub.js?v=5"></script>
+    <script src="../equipment_hub.js?v=6"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>

@@ -1401,6 +1401,46 @@
       });
   }
 
+  var FORM_TEXT_IDS = [
+    "emUnitTag", "emBrand", "emModel", "emSerialJob",
+    "emVoltage", "emPhase", "emRefrigerant", "emTonnage",
+    "emAgeYears", "emCRV", "emPrevRepairs", "emProposedCost", "emMfgYear",
+  ];
+
+  function resetFormFields() {
+    FORM_TEXT_IDS.forEach(function (id) {
+      var el = $(id);
+      if (el) el.value = "";
+    });
+    var po = $("emPhotoOverall"), pp = $("emPhotoPlate");
+    if (po) po.value = "";
+    if (pp) pp.value = "";
+    state.overallFile = null;
+    state.plateFile   = null;
+    setSaveStatus("", "");
+  }
+
+  function prefillFormFromProfile(profile) {
+    if (!profile) return;
+    var set = function (id, val) {
+      var el = $(id);
+      if (el && val != null && String(val).trim() !== "") el.value = String(val);
+    };
+    set("emUnitTag",      profile.unitTag);
+    set("emBrand",        profile.brand);
+    set("emModel",        profile.model);
+    set("emSerialJob",    profile.serialJob);
+    set("emVoltage",      profile.voltage);
+    set("emPhase",        profile.phase);
+    set("emRefrigerant",  profile.refrigerant);
+    set("emTonnage",      profile.tonnage);
+    set("emAgeYears",     profile.ageYears);
+    set("emCRV",          profile.estimatedCRV);
+    set("emPrevRepairs",  profile.totalPreviousRepairs);
+    set("emProposedCost", profile.proposedRepairCost);
+    set("emMfgYear",      profile.manufactureYear);
+  }
+
   function open(opts) {
     if (
       opts &&
@@ -1423,6 +1463,10 @@
       };
     } else {
       state.context = readContextFromDom();
+    }
+    if (opts && opts.prefill && typeof opts.prefill === "object") {
+      resetFormFields();
+      prefillFormFromProfile(opts.prefill);
     }
     applyContextToHeader();
     setModalVisible(true);
