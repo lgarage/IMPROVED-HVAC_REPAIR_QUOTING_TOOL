@@ -326,8 +326,9 @@
     await plateRef.put(blob, { contentType: mime });
     var plateUrl = await plateRef.getDownloadURL();
     profile.dataPlatePhotoUrl = plateUrl;
-    if (typeof db === "undefined") {
-      throw new Error("Firestore (db) not available.");
+    var firestoreDb = getFirestoreDb();
+    if (!firestoreDb) {
+      throw new Error("Firestore not available.");
     }
     var custId = sanitizePathSegment(ctx.customer || "—");
     var locId =
@@ -335,7 +336,7 @@
         ? String(rec.locationId).trim()
         : sanitizePathSegment(ctx.location || "—");
     var unitId = sanitizePathSegment(profile.unitTag);
-    await db
+    await firestoreDb
       .collection("Customers")
       .doc(custId)
       .collection("Locations")
@@ -716,8 +717,9 @@
           });
       })
       .then(function (urls) {
-        if (typeof db === "undefined") {
-          throw new Error("Firestore (db) not available.");
+        var firestoreDb = getFirestoreDb();
+        if (!firestoreDb) {
+          throw new Error("Firestore not available.");
         }
         var healthSnap = refreshHealthUi();
         var profile = {
@@ -748,7 +750,7 @@
         var locId = sanitizePathSegment(state.context.location);
         var unitId = sanitizePathSegment(unitTag);
 
-        return db
+        return firestoreDb
           .collection("Customers")
           .doc(custId)
           .collection("Locations")
@@ -757,13 +759,19 @@
           .doc(unitId)
           .set(profile, { merge: true })
           .then(function () {
-            alert("Equipment profile saved.");
             dispatchEquipmentManagerSaved({
               customerId: custId,
               locationId: locId,
               unitId: unitId,
               equipmentId: custId + "/" + locId + "/" + unitId,
             });
+            state.overallFile = null;
+            state.plateFile = null;
+            var po = $("emPhotoOverall");
+            var pp = $("emPhotoPlate");
+            if (po) po.value = "";
+            if (pp) pp.value = "";
+            close();
             return profile;
           });
       })
