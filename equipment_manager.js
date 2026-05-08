@@ -680,6 +680,13 @@
     }
   }
 
+  function setSaveStatus(msg, color) {
+    var el = $("emSaveStatus");
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = color || "#475569";
+  }
+
   function saveEquipment() {
     var unitTag = ($("emUnitTag") && $("emUnitTag").value.trim()) || "unit";
     var parent = sanitizePathSegment(state.context.parentCompany);
@@ -688,9 +695,13 @@
     var ut = sanitizePathSegment(unitTag);
 
     if (!state.overallFile || !state.plateFile) {
-      alert("Please attach both Overall Photo and Data Plate Photo before saving.");
+      setSaveStatus("Please attach both the Overall Photo and Data Plate Photo before saving.", "#dc2626");
       return;
     }
+
+    var saveBtn = $("emSaveBtn");
+    if (saveBtn) saveBtn.disabled = true;
+    setSaveStatus("Saving…", "#0ea5e9");
 
     ensureFirebaseStorage()
       .then(function () {
@@ -771,13 +782,19 @@
             var pp = $("emPhotoPlate");
             if (po) po.value = "";
             if (pp) pp.value = "";
+            setSaveStatus("", "");
+            var saveBtn2 = $("emSaveBtn");
+            if (saveBtn2) saveBtn2.disabled = false;
             close();
             return profile;
           });
       })
       .catch(function (e) {
         console.error("[EquipmentManager] Save", e);
-        alert("Save failed: " + (e && e.message ? e.message : String(e)));
+        var msg = (e && e.message) ? e.message : String(e);
+        setSaveStatus("Save failed: " + msg, "#dc2626");
+        var saveBtn3 = $("emSaveBtn");
+        if (saveBtn3) saveBtn3.disabled = false;
       });
   }
 
