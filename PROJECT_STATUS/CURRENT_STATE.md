@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Shadow Mode consent gate shipped. Next: pick from build candidates below.
-- **Last shipped (2026-05-08):** Phase 37 — Shadow Mode consent gate. Tech consent toggle in Profile/Settings writes `shadowConsent` to `live_presence`; dispatcher iframe gated; real-time revoke/grant. `VC_BUILD = "ShadowConsent-2026-05-08"`.
+- **Last shipped (2026-05-08):** Phase 37 — Shadow Mode consent gate. Tech consent toggle writes `shadowConsent` to `live_presence`; dispatcher iframe gated; heartbeat strips `activeTicketId`/`screen` when consent is off (`FieldValue.delete`). `VC_BUILD = "ShadowConsent-2026-05-08"`.
 - **Prior (2026-05-08):** Hamburger "Site Notes" rename + "Add additional equipment"; AI memory system audit.
 - **Prior (2026-05-07):** Members pane, Manage Admins UI, Settings sidebar nav, auth badge, auth.js fix.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
