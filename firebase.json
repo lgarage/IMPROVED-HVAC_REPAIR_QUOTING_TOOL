@@ -11,11 +11,15 @@
       "firestore.indexes.json",
       "README.md",
       "INVOICE_PARSER.md",
-      "technician/README.md"
+      "technician/README.md",
+      "functions/**"
     ]
   },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
+  },
+  "functions": {
+    "source": "functions"
   }
 }

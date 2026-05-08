@@ -43,42 +43,13 @@ db.enablePersistence({ synchronizeTabs: true }).catch(function (err) {
   }
 });
 
-/** Cached Gemini key from Firestore app_config/api_keys field gemini (null = not loaded yet). */
-let _geminiKeyCache = null;
-let _geminiKeyLoadPromise = null;
-
 /**
- * Gemini API key from Firestore: collection app_config, document api_keys, field gemini.
- * @returns {Promise<string>}
+ * @deprecated — Gemini API key is now held server-side in Cloud Functions (Secret Manager).
+ * This stub remains so any stale code referencing getGeminiApiKey() won't throw at load time.
+ * Remove once all callers are confirmed migrated.
  */
 async function getGeminiApiKey() {
-  if (_geminiKeyCache !== null) {
-    return _geminiKeyCache;
-  }
-  if (_geminiKeyLoadPromise) {
-    return _geminiKeyLoadPromise;
-  }
-  _geminiKeyLoadPromise = (async function () {
-    try {
-      const snap = await db.collection("app_config").doc("api_keys").get();
-      const data = snap.exists ? snap.data() : {};
-      const g =
-        data && data.gemini != null ? String(data.gemini).trim() : "";
-      _geminiKeyCache = g;
-      return g;
-    } catch (e) {
-      console.error("getGeminiApiKey:", e);
-      _geminiKeyCache = "";
-      return "";
-    } finally {
-      _geminiKeyLoadPromise = null;
-    }
-  })();
-  return _geminiKeyLoadPromise;
+  console.warn("getGeminiApiKey() is deprecated — OCR now uses Cloud Function proxy.");
+  return "";
 }
-
-/** Call after updating api_keys in Firestore so the next getGeminiApiKey() refetches. */
-function invalidateGeminiApiKeyCache() {
-  _geminiKeyCache = null;
-  _geminiKeyLoadPromise = null;
-}
+function invalidateGeminiApiKeyCache() {}

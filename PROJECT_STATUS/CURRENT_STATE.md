@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Shadow Mode consent gate shipped. Next: pick from build candidates below.
-- **Last session (2026-05-08):** OCR diagnosis — no code change. Root cause: GCP API key HTTP referrer restriction blocks `twin-pillars-app.web.app`. Fix: add `https://twin-pillars-app.web.app/*` to the Gemini API key's allowed referrers in [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials).
-- **Last shipped (2026-05-08):** Phase 37 — Shadow Mode consent gate. Tech consent toggle writes `shadowConsent` to `live_presence`; dispatcher iframe gated; heartbeat strips `activeTicketId`/`screen` when consent is off (`FieldValue.delete`). `VC_BUILD = "ShadowConsent-2026-05-08"`.
+- **Last shipped (2026-05-08):** Gemini Vision Cloud Function proxy — OCR key moved server-side. `functions/index.js` (`callGeminiVision` onCall, Secret Manager via `defineSecret`); `equipment_manager.js` now calls `firebase.functions().httpsCallable("callGeminiVision")`; `firebase-config.js` `getGeminiApiKey()` deprecated stub; both HTML files load `firebase-functions-compat.js`; `firebase.json` gains `"functions"` section. Deploy required (see Immediate Next Step).
+- **Prior (2026-05-08):** Phase 37 — Shadow Mode consent gate. Tech consent toggle writes `shadowConsent` to `live_presence`; dispatcher iframe gated; heartbeat strips `activeTicketId`/`screen` when consent is off (`FieldValue.delete`). `VC_BUILD = "ShadowConsent-2026-05-08"`.
 - **Prior (2026-05-08):** Hamburger "Site Notes" rename + "Add additional equipment"; AI memory system audit.
 - **Prior (2026-05-07):** Members pane, Manage Admins UI, Settings sidebar nav, auth badge, auth.js fix.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
@@ -21,6 +21,17 @@ None. Two non-blocking carry-overs:
 - `KI-004` — Field-app photo uploads dropped offline (design `ADR-012`; now also covers Phase 34e access photos — same `firebase.storage().ref().put()` pattern).
 
 ## Immediate Next Step
+
+**Deploy the Cloud Function (must do before OCR works again):**
+
+```bash
+cd functions
+firebase functions:secrets:set GEMINI_API_KEY   # paste the same key currently in Firestore app_config/api_keys.gemini
+firebase deploy --only functions
+firebase deploy --only hosting                  # pushes the new firebase-functions-compat.js include
+```
+
+After deploy, test OCR on the Equipment Profile nameplate scan. Once confirmed working, optionally delete the `app_config/api_keys` Firestore document (the key is no longer read client-side).
 
 **Next build candidates (pick one):**
 - **Equipment Hub UX** — additional polish (on-device verification of hamburger menu items, photo thumbnails, lightbox). T2, **Sonnet 4.6**.
