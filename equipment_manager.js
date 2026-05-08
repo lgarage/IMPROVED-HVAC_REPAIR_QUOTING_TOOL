@@ -687,6 +687,95 @@
     el.style.color = color || "#475569";
   }
 
+  var EM_OFFLINE_KEY_PREFIX = "emOfflineSave_";
+
+  function buildProfileFromForm(unitTag, healthSnap, urls) {
+    urls = urls || {};
+    return {
+      brand:               ($("emBrand")         && $("emBrand").value)         || "",
+      model:               ($("emModel")         && $("emModel").value)         || "",
+      serialJob:           ($("emSerialJob")      && $("emSerialJob").value)     || "",
+      unitTag:             unitTag,
+      voltage:             ($("emVoltage")        && $("emVoltage").value)       || "",
+      phase:               ($("emPhase")          && $("emPhase").value)         || "",
+      refrigerant:         ($("emRefrigerant")    && $("emRefrigerant").value)   || "",
+      tonnage:             ($("emTonnage")        && $("emTonnage").value)       || "",
+      manufactureYear:     ($("emMfgYear")        && $("emMfgYear").value)       || "",
+      ageYears:            ($("emAgeYears")       && $("emAgeYears").value)      || "",
+      estimatedCRV:        ($("emCRV")            && $("emCRV").value)           || "",
+      totalPreviousRepairs:($("emPrevRepairs")    && $("emPrevRepairs").value)   || "",
+      proposedRepairCost:  ($("emProposedCost")   && $("emProposedCost").value)  || "",
+      overallPhotoUrl:     urls.overallUrl  || "",
+      dataPlatePhotoUrl:   urls.plateUrl    || "",
+      parentCompany:       state.context.parentCompany,
+      customer:            state.context.customer,
+      location:            state.context.location,
+      healthScore:         healthSnap ? healthSnap.score : 0,
+      healthGrade:         healthSnap ? healthSnap.grade : "?",
+      savedAt:             new Date().toISOString(),
+    };
+  }
+
+  function saveEquipmentOffline(unitTag) {
+    var healthSnap = refreshHealthUi();
+    var profile = buildProfileFromForm(unitTag, healthSnap, {});
+    profile._offlineQueued = true;
+    profile._offlineQueuedAt = profile.savedAt;
+    try {
+      var key = EM_OFFLINE_KEY_PREFIX + Date.now();
+      localStorage.setItem(key, JSON.stringify(profile));
+      setSaveStatus("✅ Saved offline — will sync when you have signal.", "#16a34a");
+      var saveBtn = $("emSaveBtn");
+      if (saveBtn) saveBtn.disabled = false;
+      dispatchEquipmentManagerSaved({
+        customerId: sanitizePathSegment(state.context.customer),
+        locationId: sanitizePathSegment(state.context.location),
+        unitId:     sanitizePathSegment(unitTag),
+        equipmentId: sanitizePathSegment(state.context.customer) + "/" + sanitizePathSegment(state.context.location) + "/" + sanitizePathSegment(unitTag),
+        offline: true,
+      });
+      setTimeout(function () { close(); }, 1800);
+    } catch (e) {
+      setSaveStatus("Could not save offline: " + (e.message || String(e)), "#dc2626");
+      var saveBtn2 = $("emSaveBtn");
+      if (saveBtn2) saveBtn2.disabled = false;
+    }
+  }
+
+  function processOfflineSaves() {
+    var firestoreDb = getFirestoreDb();
+    if (!firestoreDb || !navigator.onLine) return;
+    var keys = [];
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf(EM_OFFLINE_KEY_PREFIX) === 0) keys.push(k);
+      }
+    } catch (e) { return; }
+    keys.forEach(function (key) {
+      var raw;
+      try { raw = localStorage.getItem(key); } catch (e) { return; }
+      if (!raw) return;
+      var profile;
+      try { profile = JSON.parse(raw); } catch (e) { return; }
+      var custId  = sanitizePathSegment(profile.customer || "—");
+      var locId   = sanitizePathSegment(profile.location || "—");
+      var unitId  = sanitizePathSegment(profile.unitTag  || "unit");
+      firestoreDb
+        .collection("Customers").doc(custId)
+        .collection("Locations").doc(locId)
+        .collection("Equipment").doc(unitId)
+        .set(profile, { merge: true })
+        .then(function () {
+          try { localStorage.removeItem(key); } catch (e) {}
+          console.info("[EquipmentManager] offline save synced:", unitId);
+        })
+        .catch(function (e) {
+          console.warn("[EquipmentManager] offline save replay failed:", e);
+        });
+    });
+  }
+
   function saveEquipment() {
     var unitTag = ($("emUnitTag") && $("emUnitTag").value.trim()) || "unit";
     var parent = sanitizePathSegment(state.context.parentCompany);
@@ -699,9 +788,21 @@
       return;
     }
 
+    if (!navigator.onLine) {
+      saveEquipmentOffline(unitTag);
+      return;
+    }
+
     var saveBtn = $("emSaveBtn");
     if (saveBtn) saveBtn.disabled = true;
     setSaveStatus("Saving…", "#0ea5e9");
+
+    var saveTimeoutId = setTimeout(function () {
+      setSaveStatus("Upload is taking too long — saving locally instead.", "#f59e0b");
+      saveEquipmentOffline(unitTag);
+      var sb = $("emSaveBtn");
+      if (sb) sb.disabled = false;
+    }, 25000);
 
     ensureFirebaseStorage()
       .then(function () {
@@ -728,34 +829,13 @@
           });
       })
       .then(function (urls) {
+        clearTimeout(saveTimeoutId);
         var firestoreDb = getFirestoreDb();
         if (!firestoreDb) {
           throw new Error("Firestore not available.");
         }
         var healthSnap = refreshHealthUi();
-        var profile = {
-          brand: $("emBrand") && $("emBrand").value,
-          model: $("emModel") && $("emModel").value,
-          serialJob: $("emSerialJob") && $("emSerialJob").value,
-          unitTag: $("emUnitTag") && $("emUnitTag").value,
-          voltage: $("emVoltage") && $("emVoltage").value,
-          phase: $("emPhase") && $("emPhase").value,
-          refrigerant: $("emRefrigerant") && $("emRefrigerant").value,
-          tonnage: $("emTonnage") && $("emTonnage").value,
-          manufactureYear: $("emMfgYear") && $("emMfgYear").value,
-          ageYears: $("emAgeYears") && $("emAgeYears").value,
-          estimatedCRV: $("emCRV") && $("emCRV").value,
-          totalPreviousRepairs: $("emPrevRepairs") && $("emPrevRepairs").value,
-          proposedRepairCost: $("emProposedCost") && $("emProposedCost").value,
-          overallPhotoUrl: urls.overallUrl,
-          dataPlatePhotoUrl: urls.plateUrl,
-          parentCompany: state.context.parentCompany,
-          customer: state.context.customer,
-          location: state.context.location,
-          healthScore: healthSnap.score,
-          healthGrade: healthSnap.grade,
-          savedAt: new Date().toISOString(),
-        };
+        var profile = buildProfileFromForm(unitTag, healthSnap, urls);
 
         var custId = sanitizePathSegment(state.context.customer);
         var locId = sanitizePathSegment(state.context.location);
@@ -770,6 +850,7 @@
           .doc(unitId)
           .set(profile, { merge: true })
           .then(function () {
+            clearTimeout(saveTimeoutId);
             dispatchEquipmentManagerSaved({
               customerId: custId,
               locationId: locId,
@@ -790,6 +871,7 @@
           });
       })
       .catch(function (e) {
+        clearTimeout(saveTimeoutId);
         console.error("[EquipmentManager] Save", e);
         var msg = (e && e.message) ? e.message : String(e);
         setSaveStatus("Save failed: " + msg, "#dc2626");
@@ -1380,8 +1462,10 @@
     });
 
     window.addEventListener("online", processOcrQueue);
+    window.addEventListener("online", processOfflineSaves);
     setTimeout(function () {
       void processOcrQueue();
+      void processOfflineSaves();
     }, 0);
   }
 
