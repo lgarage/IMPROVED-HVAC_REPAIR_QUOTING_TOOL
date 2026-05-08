@@ -42,6 +42,16 @@
     selectedProfile: null,
   };
 
+  /** Currently swiped-open card row, if any. */
+  var activeSwipeRow = null;
+
+  function closeActiveSwipe() {
+    if (activeSwipeRow && activeSwipeRow._snapBack) {
+      activeSwipeRow._snapBack();
+    }
+    activeSwipeRow = null;
+  }
+
   function $(id) {
     return document.getElementById(id);
   }
@@ -71,6 +81,7 @@
   }
 
   function closeEquipmentHub() {
+    closeActiveSwipe();
     var modal = $("equipmentHubModal");
     if (!modal) return;
     modal.classList.add("hidden");
@@ -150,7 +161,10 @@
       return;
     }
 
-    var html = "";
+    // Reset any open swipe before re-rendering
+    activeSwipeRow = null;
+    container.innerHTML = "";
+
     docs.forEach(function (row) {
       var d = row.data;
       var id = row.id;
@@ -165,35 +179,28 @@
           ? "Score " + escapeHtml(String(d.healthScore)) + " (" + escapeHtml(String(d.healthGrade || "—")) + ")"
           : "—";
       var verified = isProfileVerified(d);
-      var badge =
-        verified
-          ? "<span class=\"equipment-verified-strip\" title=\"Identity Verified: Photos & Specs on file.\" aria-label=\"Identity Verified: Photos & Specs on file.\"><span class=\"equipment-verified-shield\" aria-hidden=\"true\">🛡️</span><span class=\"equipment-verified-pill\">Verified</span></span>"
-          : "";
-      html +=
+      var badgeHtml = verified
+        ? "<span class=\"equipment-verified-strip\" title=\"Identity Verified: Photos &amp; Specs on file.\" aria-label=\"Identity Verified: Photos &amp; Specs on file.\"><span class=\"equipment-verified-shield\" aria-hidden=\"true\">🛡️</span><span class=\"equipment-verified-pill\">Verified</span></span>"
+        : "";
+
+      var swipeRow = document.createElement("div");
+      swipeRow.className = "ehub-swipe-row";
+      swipeRow.innerHTML =
         "<button type=\"button\" class=\"equipment-hub-card\" data-eid=\"" +
         escapeHtml(composite) +
         "\">" +
         "<span class=\"equipment-hub-card-title-row\">" +
-        "<span class=\"equipment-hub-card-title\">" +
-        escapeHtml(title) +
+        "<span class=\"equipment-hub-card-title\">" + escapeHtml(title) + "</span>" +
+        badgeHtml +
         "</span>" +
-        badge +
-        "</span>" +
-        "<span class=\"equipment-hub-card-sub\">" +
-        escapeHtml(sub) +
-        "</span>" +
-        "<span class=\"equipment-hub-card-health\">" +
-        health +
-        "</span>" +
-        "</button>";
-    });
-    container.innerHTML = html;
+        "<span class=\"equipment-hub-card-sub\">" + escapeHtml(sub) + "</span>" +
+        "<span class=\"equipment-hub-card-health\">" + health + "</span>" +
+        "</button>" +
+        "<button type=\"button\" class=\"ehub-swipe-delete-btn\" aria-label=\"Delete " + escapeHtml(title) + "\">" +
+        "<span aria-hidden=\"true\">🗑</span><span>Delete</span></button>";
 
-    container.querySelectorAll(".equipment-hub-card").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var eid = btn.getAttribute("data-eid");
-        if (eid) viewEquipmentHistory(eid);
-      });
+      wireSwipeDelete(swipeRow, composite);
+      container.appendChild(swipeRow);
     });
   }
 
@@ -369,8 +376,9 @@
 
     var actionBarHtml =
       "<div class=\"ehub-action-bar\">" +
-      "<button type=\"button\" class=\"ehub-btn-reenter\" id=\"ehubReenterBtn\">✏ Delete &amp; Re-enter</button>" +
-      "<button type=\"button\" class=\"ehub-btn-delete\" id=\"ehubDeleteBtn\">🗑 Remove Unit</button>" +
+      "<button type=\"button\" class=\"ehub-btn-edit\" id=\"ehubEditBtn\">✏ Edit Info</button>" +
+      "<button type=\"button\" class=\"ehub-btn-reenter\" id=\"ehubReenterBtn\">🔄 Remove &amp; Re-scan</button>" +
+      "<button type=\"button\" class=\"ehub-btn-delete\" id=\"ehubDeleteBtn\">🗑 Remove</button>" +
       "</div>";
 
     header.innerHTML =
@@ -392,6 +400,12 @@
       });
     });
 
+    var editBtn = document.getElementById("ehubEditBtn");
+    if (editBtn) {
+      editBtn.addEventListener("click", function () {
+        editEquipmentUnit(equipmentId);
+      });
+    }
     var deleteBtn = document.getElementById("ehubDeleteBtn");
     if (deleteBtn) {
       deleteBtn.addEventListener("click", function () {
@@ -606,6 +620,120 @@
         escapeHtml(e.message || String(e)) +
         "</p>";
     }
+  }
+
+  /**
+   * Wire iOS-style swipe-left-to-reveal-delete on a .ehub-swipe-row element.
+   * Tapping the card face (no swipe) opens the unit detail view as normal.
+   */
+  function wireSwipeDelete(swipeRow, eid) {
+    var card = swipeRow.querySelector(".equipment-hub-card");
+    var delBtn = swipeRow.querySelector(".ehub-swipe-delete-btn");
+    if (!card) return;
+
+    var REVEAL = 80;
+    var THRESHOLD = 50;
+    var startX, startY, baseOffset, isSwiping, didSwipe, isRevealed;
+    isRevealed = false;
+
+    function snapTo(offset, animated) {
+      isRevealed = offset < -1;
+      card.style.transition = animated ? "transform 0.2s ease" : "none";
+      card.style.transform = "translateX(" + offset + "px)";
+      if (isRevealed) {
+        if (activeSwipeRow && activeSwipeRow !== swipeRow) {
+          var prev = activeSwipeRow;
+          activeSwipeRow = null;
+          if (prev._snapBack) prev._snapBack();
+        }
+        activeSwipeRow = swipeRow;
+      } else {
+        if (activeSwipeRow === swipeRow) activeSwipeRow = null;
+      }
+    }
+
+    swipeRow._snapBack = function () { snapTo(0, true); };
+
+    card.addEventListener("touchstart", function (e) {
+      var t = e.touches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+      baseOffset = isRevealed ? -REVEAL : 0;
+      isSwiping = false;
+      didSwipe = false;
+      card.style.transition = "none";
+    }, { passive: true });
+
+    card.addEventListener("touchmove", function (e) {
+      var t = e.touches[0];
+      var dx = t.clientX - startX;
+      var dy = t.clientY - startY;
+      if (!isSwiping) {
+        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+        if (Math.abs(dy) > Math.abs(dx)) return;
+        isSwiping = true;
+      }
+      e.preventDefault();
+      var off = Math.max(-REVEAL, Math.min(0, baseOffset + dx));
+      card.style.transform = "translateX(" + off + "px)";
+    }, { passive: false });
+
+    card.addEventListener("touchend", function (e) {
+      if (!isSwiping) return;
+      isSwiping = false;
+      var t = e.changedTouches[0];
+      var dx = t.clientX - startX;
+      var finalOff = baseOffset + dx;
+      if (finalOff < -THRESHOLD) {
+        snapTo(-REVEAL, true);
+        didSwipe = true;
+      } else if (isRevealed && finalOff > -(REVEAL / 2)) {
+        snapTo(0, true);
+        didSwipe = true;
+      } else if (isRevealed) {
+        snapTo(-REVEAL, true);
+        if (Math.abs(dx) > 5) didSwipe = true;
+      } else {
+        snapTo(0, true);
+        if (Math.abs(dx) > 5) didSwipe = true;
+      }
+    });
+
+    card.addEventListener("click", function () {
+      if (didSwipe) { didSwipe = false; return; }
+      if (isRevealed) { snapTo(0, true); return; }
+      closeActiveSwipe();
+      viewEquipmentHistory(eid);
+    });
+
+    if (delBtn) {
+      delBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        deleteEquipmentUnit(eid, false);
+      });
+    }
+  }
+
+  /** Open EquipmentManager pre-filled with the saved profile — no delete. */
+  function editEquipmentUnit(equipmentId) {
+    var parsed = parseEquipmentId(equipmentId);
+    if (!parsed) return;
+    var profile = null;
+    hubState.equipmentList.forEach(function (row) {
+      if (row.id === parsed.unitDocId) profile = row.data;
+    });
+    if (typeof EquipmentManager === "undefined" || !EquipmentManager.open) {
+      alert("Equipment scanner is not loaded.");
+      return;
+    }
+    closeEquipmentHub();
+    EquipmentManager.open({
+      parentCompany:   hubState.parentCompany,
+      customer:        hubState.customerName,
+      locationDisplay: hubState.locationDisplay,
+      locationId:      hubState.locationId,
+      prefill:         profile || {},
+    });
   }
 
   function escapeAttr(s) {
@@ -867,4 +995,5 @@
   window.injectEquipmentUnit = injectEquipmentUnit;
   window.refreshEquipmentHubList = refreshEquipmentHubList;
   window.deleteEquipmentUnit = deleteEquipmentUnit;
+  window.editEquipmentUnit = editEquipmentUnit;
 })();

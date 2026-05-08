@@ -2636,16 +2636,53 @@ textarea { min-height: 80px; resize: vertical; }
 .ehub-detail-value {
   font-size: 14px; font-weight: 600; color: #1e293b;
 }
-/* Unit action bar (Delete / Re-enter) */
+/* Swipe-to-delete row wrapper */
+.ehub-swipe-row {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+}
+.ehub-swipe-row .equipment-hub-card {
+  border-radius: 10px;
+  position: relative;
+  z-index: 1;
+}
+/* Red delete button revealed by swiping the card left */
+.ehub-swipe-delete-btn {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 80px;
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px;
+  font-size: 20px;
+  font-weight: 800;
+  border-radius: 0 10px 10px 0;
+  z-index: 0;
+}
+.ehub-swipe-delete-btn span:last-child {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+}
+/* Unit action bar (Edit / Remove & Re-scan / Remove) */
 .ehub-action-bar {
-  display: flex; gap: 10px; margin: 14px 0 2px; flex-wrap: wrap;
+  display: flex; gap: 8px; margin: 14px 0 2px; flex-wrap: wrap;
 }
 .ehub-btn-delete,
-.ehub-btn-reenter {
-  flex: 1; min-width: 120px; padding: 12px 10px;
-  border: none; border-radius: 10px; font-size: 14px;
+.ehub-btn-reenter,
+.ehub-btn-edit {
+  flex: 1; min-width: 90px; padding: 12px 8px;
+  border: none; border-radius: 10px; font-size: 13px;
   font-weight: 700; cursor: pointer; line-height: 1.2;
 }
+.ehub-btn-edit {
+  background: #ecfdf5; color: #065f46;
+  box-shadow: 0 2px 8px rgba(6,95,70,0.1);
+}
+.ehub-btn-edit:active { background: #a7f3d0; }
 .ehub-btn-delete {
   background: #fee2e2; color: #b91c1c;
   box-shadow: 0 2px 8px rgba(185,28,28,0.12);
@@ -9703,7 +9740,7 @@ window.onload = async function(){
     <script src="js/workspace_ui.js?v=13"></script>
     <script src="js/location_manager.js?v=1"></script>
     <script src="../dictation_hub.js?v=17"></script>
-    <script src="../equipment_hub.js?v=6"></script>
+    <script src="../equipment_hub.js?v=7"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
