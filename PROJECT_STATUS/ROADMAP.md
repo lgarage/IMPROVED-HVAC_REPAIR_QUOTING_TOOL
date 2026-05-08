@@ -43,15 +43,9 @@ A place to park ideas, feature requests, and future phases so they do not get lo
 
 ---
 
-### Consent-Gated Shadow Mode (read-only viewing also requires tech tap)
+### ~~Consent-Gated Shadow Mode~~ ?
 
-**Concept.** Flip Shadow Mode (Phases 19?20) default: read-only viewing also requires explicit tech consent tap. If tech doesn't tap, dispatcher's Shadow modal shows nothing. Needs ADR before code ? supervisory-default change; coaching/training carve-out required; offline-tech fallback needed.
-
-**Reuse existing infrastructure.** Extend `#vcOfficeOverrideConsentBtn` with a second mode (`shadow` vs. `override`). Mirror `officeOverride*` pattern as `shadowViewActive` / `shadowViewBy` / `shadowViewAcknowledged` / `shadowViewAcknowledgedAt` on `live_presence` (not on ticket). Clone `setRemoteOverrideState` three-state machine keyed on `live_presence`.
-
-**Key edge cases for ADR.** Office Override take-over tap should also satisfy shadow consent; Lite-seat training carve-out; Force app refresh stays outside consent gate; coach prompt toasts ? debatable (1-way, screen-blind).
-
-**Touch list.** `dispatcher/js/shadow_mode.js` (gate iframe on `shadowViewAcknowledged`), `technician/js/workspace_ui.js` (extend three-state machine), `technician/index.html` (consent button second mode), new ADR.
+Shipped 2026-05-08. Tech toggle in Profile panel writes `shadowConsent` to `live_presence`; dispatcher iframe gated on that field. See `PROJECT_MAP.md` ? Phase 37.
 
 ---
 

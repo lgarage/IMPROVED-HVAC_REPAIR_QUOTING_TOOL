@@ -37,6 +37,7 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 | Field Forms + Repair Branching | 34a–34c | `field_forms.js` | §3.7 |
 | Customer Entitlements Platform | 35 | `shared/entitlements.js` | §2.12 |
 | Per-User Feature Toggles (Slices 1–4e) | 36 | `shared/user_entitlements.js`, `shared/auth.js` | §2.12 |
+| Shadow Mode Consent Gate | 37 | `dispatcher/js/shadow_mode.js`, `technician/index.html` | §2.5 |
 | Labor / Time Tracking / Payroll | 13 | `dispatcher/js/payroll_manager.js` | §2.x |
 | Proof of Service portal | 14 | `proof_of_service.html`, `client_portal_logic.js` | §2.x |
 | Build History (full changelog) | all | — | **See `PROJECT_MAP_HISTORY.md`** |
@@ -743,9 +744,10 @@ _Detailed per-phase shipping inventory with commit-level detail: see `PROJECT_MA
 - [v] Phase 33: Field-Add Equipment — single canonical store, bridge helpers, per-field provenance — see `DECISIONS.md → ADR-011`
 - [v] Phase 35–35a: Customer Entitlements Platform + Inter-Office Feed re-gated — `shared/entitlements.js`, `vcHasFeature`
 - [ ] Phase 36 Slices 1–4e: Per-User Feature Toggles — auth foundation, resolver, toggle UI, auth badge — see `DECISIONS.md → ADR-015` + `PROJECT_STATUS/PER_USER_FEATURE_TOGGLES_PLAN.md`
+- [v] Phase 37: Shadow Mode consent gate — tech consent toggle writes `shadowConsent` to `live_presence`; dispatcher iframe gated; real-time revoke/grant
 
 ### Current Focus
 
-- **Active phase:** Phase 36 — Per-User Feature Toggles (Slice 1 shipped; Slices 2–4 are MVP scope). See `CURRENT_STATE.md` + `PROJECT_STATUS/PER_USER_FEATURE_TOGGLES_PLAN.md`.
+- **Active phase:** Phase 37 shipped. See `CURRENT_STATE.md` for next build candidates.
 - **Active blocker:** None. Open KIs in `CURRENT_STATE.md`.
 - **Ongoing maintenance threads** are tracked in `CURRENT_STATE.md`, not here, so this catalog stays focused on shipped functionality.

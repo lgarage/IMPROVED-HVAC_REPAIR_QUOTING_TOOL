@@ -6,11 +6,11 @@
 
 ## Snapshot
 
-- **Active Phase:** Equipment Hub UX polish + AI memory system optimization complete. Next: pick from build candidates below.
-- **Last shipped (2026-05-08):** Field app workspace hamburger — renamed "Site Intel" → "Site Notes"; new "Add additional equipment" menu item wired to `openAddEquipmentDirect()` exported from `equipment_hub.js?v=10`. `VC_BUILD = "Phase34t-2026-05-08"`. Also completed: AI memory system audit — Feature Index added to `PROJECT_MAP.md`, Build History split to `PROJECT_MAP_HISTORY.md`, KI-002 archived to `KNOWN_ISSUES_ARCHIVE.md`, tier quick card added to `MODEL_DOSSIER.md`, ADR index added to `DECISIONS.md`, ROADMAP compressed.
-- **Prior (2026-05-07):** Members pane in Settings (search/list/editor, `tenants/{tid}/users` CRUD); Manage Admins UI (grant/revoke isAdmin); Settings inner sidebar nav + pane switching; Auth status badge in `.tool-header`; `shared/auth.js` `emailVerified` bootstrap fix. `VC_BUILD = "Slice4e-AuthStatusBadge-2026-05-07"`.
-- **Prior (2026-05-06):** Slices 1–4 Per-User Feature Toggles shipped; bootstrap admin `dan.day@blackduckpartners.com` configured + rules deployed.
-- **Prior (2026-05-02):** Phase 34e — Site Intel Access Photos + Field Access Notes rename. Phase 33 on-device verification still pending (non-blocking).
+- **Active Phase:** Shadow Mode consent gate shipped. Next: pick from build candidates below.
+- **Last shipped (2026-05-08):** Phase 37 — Shadow Mode consent gate. Tech consent toggle in Profile/Settings writes `shadowConsent` to `live_presence`; dispatcher iframe gated; real-time revoke/grant. `VC_BUILD = "ShadowConsent-2026-05-08"`.
+- **Prior (2026-05-08):** Hamburger "Site Notes" rename + "Add additional equipment"; AI memory system audit.
+- **Prior (2026-05-07):** Members pane, Manage Admins UI, Settings sidebar nav, auth badge, auth.js fix.
+- Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding dead; bridge in `shared/firebase_logic.js` left quiet.
 
 ## Active Blocker
