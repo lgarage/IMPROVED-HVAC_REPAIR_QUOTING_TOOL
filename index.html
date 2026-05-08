@@ -9545,7 +9545,6 @@
         }
         function guardAdmin(label) {
           try { VCAuth.requireAdmin(label); } catch(e) { setStatus(e.message || "Admin sign-in required.", "err"); return false; }
-          if (!VCAuth.isPinUnlocked()) { setStatus("PIN required to save.", "err"); return false; }
           return true;
         }
         function saveMember() {
