@@ -512,9 +512,9 @@
       "Analyze the image and extract ONLY what is visible. Return a single JSON object (no markdown) with these keys:",
       "brand (string), model (string), serial (string), voltage (string), phase (string), refrigerant (string), unitTag (string, e.g. RTU-2 or PRV-3 if shown),",
       "tonnageNumeric (number or null) — cooling/heating tonnage decoded from the model number if present,",
-      "manufactureYear (number or null) — decode from serial number using the manufacturer's date code rules when possible; otherwise null,",
-      "ageYears (number or null) — years since manufacture year to the current calendar year if manufactureYear is known, else null,",
-      "serialDateNotes (string, brief explanation of how manufacture year was derived or why unknown).",
+      "manufactureYear (number or null) — Priority order: (1) If the nameplate prints an explicit manufacture/build date (e.g. DATE OF MFG., MFG DATE, BUILT, DOM), read that and output the 4-digit year. For values like \"3.24\" or \"2-26\" interpret as month-year in Western order (March 2024 → 2024); never substitute digits from the serial for this. (2) Only if no printed date exists on the plate: try the manufacturer's serial/letter date-code rules. (3) If uncertain, null. Do not derive year from unrelated lines (QR text, unrelated numbers).",
+      "ageYears (number or null) — years from manufactureYear to the current calendar year only if manufactureYear is known, else null,",
+      "serialDateNotes (string) — quote the exact label text used for the date (e.g. \"DATE OF MFG.: 3.24 → 2024\") or explain that serial-only decoding was used and why.",
       "If a field is not on the plate, use empty string or null. Be conservative; do not invent model numbers from address text.",
     ].join(" ");
   }
