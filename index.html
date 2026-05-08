@@ -2566,6 +2566,14 @@
         width: 100%; box-sizing: border-box; padding: 8px 10px;
         border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;
       }
+      /* Global app CSS uppercases most text inputs; Members uses natural casing for names. */
+      #vcPane-members input[type="text"],
+      #vcPane-members input[type="email"],
+      #vcPane-members input[type="password"],
+      #vcPane-members input[type="search"],
+      #vcPane-members textarea {
+        text-transform: none;
+      }
       .vc-mbr-pass-row { display: flex; gap: 6px; align-items: center; }
       .vc-mbr-pass-row input { flex: 1; }
       .vc-mbr-pass-toggle {
