@@ -2566,14 +2566,6 @@
         width: 100%; box-sizing: border-box; padding: 8px 10px;
         border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;
       }
-      /* Global app CSS uppercases most text inputs; Members uses natural casing for names. */
-      #vcPane-members input[type="text"],
-      #vcPane-members input[type="email"],
-      #vcPane-members input[type="password"],
-      #vcPane-members input[type="search"],
-      #vcPane-members textarea {
-        text-transform: none;
-      }
       .vc-mbr-pass-row { display: flex; gap: 6px; align-items: center; }
       .vc-mbr-pass-row input { flex: 1; }
       .vc-mbr-pass-toggle {
@@ -6404,11 +6396,11 @@
                     <div class="vc-members-card">
                       <div class="vc-mbr-field">
                         <label for="vcMbrFirstName">First name</label>
-                        <input type="text" id="vcMbrFirstName" placeholder="First name" autocomplete="off" />
+                        <input type="text" id="vcMbrFirstName" class="lowercase-input" placeholder="First name" autocomplete="off" />
                       </div>
                       <div class="vc-mbr-field">
                         <label for="vcMbrLastName">Last name</label>
-                        <input type="text" id="vcMbrLastName" placeholder="Last name" autocomplete="off" />
+                        <input type="text" id="vcMbrLastName" class="lowercase-input" placeholder="Last name" autocomplete="off" />
                       </div>
                       <div class="vc-mbr-field">
                         <label for="vcMbrEmail">Email address</label>
@@ -6416,7 +6408,7 @@
                       </div>
                       <div class="vc-mbr-field">
                         <label for="vcMbrRole">Role / Title</label>
-                        <input type="text" id="vcMbrRole" placeholder="e.g. Technician, Sales Rep…" />
+                        <input type="text" id="vcMbrRole" class="lowercase-input" placeholder="e.g. Technician, Sales Rep…" />
                       </div>
                       <div class="vc-mbr-field">
                         <label for="vcMbrInvitePass">Temporary / invite password</label>
