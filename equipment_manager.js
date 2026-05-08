@@ -782,30 +782,58 @@
 
   function saveEquipment() {
     var unitTag = ($("emUnitTag") && $("emUnitTag").value.trim()) || "unit";
-    var parent = sanitizePathSegment(state.context.parentCompany);
-    var cust = sanitizePathSegment(state.context.customer);
-    var loc = sanitizePathSegment(state.context.location);
-    var ut = sanitizePathSegment(unitTag);
 
     if (!state.overallFile || !state.plateFile) {
       setSaveStatus("Please attach both the Overall Photo and Data Plate Photo before saving.", "#dc2626");
       return;
     }
 
-    if (!navigator.onLine) {
-      saveEquipmentOffline(unitTag, true);
-      return;
-    }
+    // Capture files + context before clearing state
+    var overallFile = state.overallFile;
+    var plateFile   = state.plateFile;
+    var ctxSnap = {
+      parentCompany: state.context.parentCompany,
+      customer:      state.context.customer,
+      location:      state.context.location,
+    };
 
+    var healthSnap = refreshHealthUi();
+    var profile = buildProfileFromForm(unitTag, healthSnap, {});
+
+    // Optimistic local save so data is never lost
+    var localKey = EM_OFFLINE_KEY_PREFIX + Date.now();
+    try { localStorage.setItem(localKey, JSON.stringify(profile)); } catch (e) {}
+
+    // Fire the saved event and close immediately — tech is done
+    var custId = sanitizePathSegment(ctxSnap.customer);
+    var locId  = sanitizePathSegment(ctxSnap.location);
+    var unitId = sanitizePathSegment(unitTag);
+    dispatchEquipmentManagerSaved({
+      customerId: custId, locationId: locId, unitId: unitId,
+      equipmentId: custId + "/" + locId + "/" + unitId,
+    });
+    state.overallFile = null;
+    state.plateFile   = null;
+    var po = $("emPhotoOverall"), pp = $("emPhotoPlate");
+    if (po) po.value = "";
+    if (pp) pp.value = "";
+    setSaveStatus("", "");
     var saveBtn = $("emSaveBtn");
-    if (saveBtn) saveBtn.disabled = true;
-    setSaveStatus("Saving…", "#0ea5e9");
+    if (saveBtn) saveBtn.disabled = false;
+    close();
 
-    var saveTimeoutId = setTimeout(function () {
-      saveEquipmentOffline(unitTag, true);
-      var sb = $("emSaveBtn");
-      if (sb) sb.disabled = false;
-    }, 25000);
+    // Background: upload photos then write to Firestore
+    if (navigator.onLine) {
+      uploadAndSaveInBackground(unitTag, profile, localKey, overallFile, plateFile, ctxSnap);
+    }
+    // If offline, processOfflineSaves() handles it when signal returns
+  }
+
+  function uploadAndSaveInBackground(unitTag, baseProfile, localKey, overallFile, plateFile, ctx) {
+    var parent = sanitizePathSegment(ctx.parentCompany);
+    var cust   = sanitizePathSegment(ctx.customer);
+    var loc    = sanitizePathSegment(ctx.location);
+    var ut     = sanitizePathSegment(unitTag);
 
     ensureFirebaseStorage()
       .then(function () {
@@ -813,73 +841,38 @@
         var base = ["equipment_photos", parent, cust, loc, ut].join("/");
         var ts = Date.now();
         var overallRef = storage.ref().child(base + "/overall_" + ts + ".jpg");
-        var plateRef = storage.ref().child(base + "/dataplate_" + ts + ".jpg");
-
-        var mOverall = state.overallFile.type || "image/jpeg";
-        var mPlate = state.plateFile.type || "image/jpeg";
-
-        return overallRef
-          .put(state.overallFile, { contentType: mOverall })
-          .then(function () {
-            return overallRef.getDownloadURL();
-          })
+        var plateRef   = storage.ref().child(base + "/dataplate_" + ts + ".jpg");
+        return overallRef.put(overallFile, { contentType: overallFile.type || "image/jpeg" })
+          .then(function () { return overallRef.getDownloadURL(); })
           .then(function (overallUrl) {
-            return plateRef.put(state.plateFile, { contentType: mPlate }).then(function () {
-              return plateRef.getDownloadURL().then(function (plateUrl) {
-                return { overallUrl: overallUrl, plateUrl: plateUrl };
-              });
-            });
+            return plateRef.put(plateFile, { contentType: plateFile.type || "image/jpeg" })
+              .then(function () { return plateRef.getDownloadURL(); })
+              .then(function (plateUrl) { return { overallUrl: overallUrl, plateUrl: plateUrl }; });
           });
       })
       .then(function (urls) {
-        clearTimeout(saveTimeoutId);
         var firestoreDb = getFirestoreDb();
-        if (!firestoreDb) {
-          throw new Error("Firestore not available.");
-        }
-        var healthSnap = refreshHealthUi();
-        var profile = buildProfileFromForm(unitTag, healthSnap, urls);
-
-        var custId = sanitizePathSegment(state.context.customer);
-        var locId = sanitizePathSegment(state.context.location);
+        if (!firestoreDb) throw new Error("Firestore not available.");
+        var profile = Object.assign({}, baseProfile, {
+          overallPhotoUrl:   urls.overallUrl,
+          dataPlatePhotoUrl: urls.plateUrl,
+        });
+        var custId = sanitizePathSegment(ctx.customer);
+        var locId  = sanitizePathSegment(ctx.location);
         var unitId = sanitizePathSegment(unitTag);
-
         return firestoreDb
-          .collection("Customers")
-          .doc(custId)
-          .collection("Locations")
-          .doc(locId)
-          .collection("Equipment")
-          .doc(unitId)
+          .collection("Customers").doc(custId)
+          .collection("Locations").doc(locId)
+          .collection("Equipment").doc(unitId)
           .set(profile, { merge: true })
           .then(function () {
-            clearTimeout(saveTimeoutId);
-            dispatchEquipmentManagerSaved({
-              customerId: custId,
-              locationId: locId,
-              unitId: unitId,
-              equipmentId: custId + "/" + locId + "/" + unitId,
-            });
-            state.overallFile = null;
-            state.plateFile = null;
-            var po = $("emPhotoOverall");
-            var pp = $("emPhotoPlate");
-            if (po) po.value = "";
-            if (pp) pp.value = "";
-            setSaveStatus("", "");
-            var saveBtn2 = $("emSaveBtn");
-            if (saveBtn2) saveBtn2.disabled = false;
-            close();
-            return profile;
+            try { localStorage.removeItem(localKey); } catch (e) {}
+            console.info("[EquipmentManager] background save complete:", unitId);
           });
       })
       .catch(function (e) {
-        clearTimeout(saveTimeoutId);
-        console.error("[EquipmentManager] Save", e);
-        var msg = (e && e.message) ? e.message : String(e);
-        setSaveStatus("Save failed: " + msg, "#dc2626");
-        var saveBtn3 = $("emSaveBtn");
-        if (saveBtn3) saveBtn3.disabled = false;
+        console.warn("[EquipmentManager] background upload failed, queued for retry:", e.message || e);
+        // localStorage entry persists — processOfflineSaves() will retry on next online event
       });
   }
 

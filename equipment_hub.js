@@ -347,6 +347,28 @@
           "</p>"
         : "";
 
+    var photosHtml = "";
+    if (profile) {
+      var overallSrc = profile.overallPhotoUrl && String(profile.overallPhotoUrl).trim();
+      var plateSrc   = profile.dataPlatePhotoUrl && String(profile.dataPlatePhotoUrl).trim();
+      if (overallSrc || plateSrc) {
+        photosHtml += "<div class=\"ehub-unit-photos\">";
+        if (overallSrc) {
+          photosHtml += "<div class=\"ehub-unit-photo-wrap\">" +
+            "<a href=\"" + escapeAttr(overallSrc) + "\" target=\"_blank\" rel=\"noopener\">" +
+            "<img class=\"ehub-unit-photo\" src=\"" + escapeAttr(overallSrc) + "\" alt=\"Overall photo\" /></a>" +
+            "<span class=\"ehub-unit-photo-label\">Overall</span></div>";
+        }
+        if (plateSrc) {
+          photosHtml += "<div class=\"ehub-unit-photo-wrap\">" +
+            "<a href=\"" + escapeAttr(plateSrc) + "\" target=\"_blank\" rel=\"noopener\">" +
+            "<img class=\"ehub-unit-photo\" src=\"" + escapeAttr(plateSrc) + "\" alt=\"Data plate\" /></a>" +
+            "<span class=\"ehub-unit-photo-label\">Data plate</span></div>";
+        }
+        photosHtml += "</div>";
+      }
+    }
+
     header.innerHTML =
       "<h3 class=\"equipment-hub-unit-title\">" +
       escapeHtml(String(title)) +
@@ -354,7 +376,8 @@
       "<p class=\"equipment-hub-unit-specs\">" +
       escapeHtml(specs) +
       "</p>" +
-      healthLine;
+      healthLine +
+      photosHtml;
 
     timeline.innerHTML =
       "<p class=\"equipment-hub-loading\">Loading history…</p>";

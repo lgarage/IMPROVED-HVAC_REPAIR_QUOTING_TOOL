@@ -2597,6 +2597,20 @@ textarea { min-height: 80px; resize: vertical; }
   color: #555;
   line-height: 1.45;
 }
+.ehub-unit-photos {
+  display: flex; gap: 12px; flex-wrap: wrap; margin: 10px 0 4px;
+}
+.ehub-unit-photo-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.ehub-unit-photo {
+  width: 110px; height: 80px; object-fit: cover;
+  border-radius: 8px; border: 1px solid #e2e8f0;
+  display: block; cursor: pointer;
+}
+.ehub-unit-photo-label {
+  font-size: 11px; color: #94a3b8;
+}
 .equipment-hub-timeline {
   list-style: none;
   margin: 0;
@@ -9617,14 +9631,14 @@ window.onload = async function(){
       </div>
     </div>
 
-    <script src="../equipment_manager.js?v=10"></script>
+    <script src="../equipment_manager.js?v=11"></script>
     <script src="../equipment_smart_select.js?v=2"></script>
     <script src="js/ufx_adapter.js?v=1"></script>
     <script src="js/data_provider.js?v=1"></script>
     <script src="js/workspace_ui.js?v=13"></script>
     <script src="js/location_manager.js?v=1"></script>
     <script src="../dictation_hub.js?v=17"></script>
-    <script src="../equipment_hub.js?v=1"></script>
+    <script src="../equipment_hub.js?v=2"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
