@@ -716,7 +716,7 @@
     };
   }
 
-  function saveEquipmentOffline(unitTag) {
+  function saveEquipmentOffline(unitTag, silent) {
     var healthSnap = refreshHealthUi();
     var profile = buildProfileFromForm(unitTag, healthSnap, {});
     profile._offlineQueued = true;
@@ -724,7 +724,6 @@
     try {
       var key = EM_OFFLINE_KEY_PREFIX + Date.now();
       localStorage.setItem(key, JSON.stringify(profile));
-      setSaveStatus("✅ Saved offline — will sync when you have signal.", "#16a34a");
       var saveBtn = $("emSaveBtn");
       if (saveBtn) saveBtn.disabled = false;
       dispatchEquipmentManagerSaved({
@@ -734,9 +733,14 @@
         equipmentId: sanitizePathSegment(state.context.customer) + "/" + sanitizePathSegment(state.context.location) + "/" + sanitizePathSegment(unitTag),
         offline: true,
       });
-      setTimeout(function () { close(); }, 1800);
+      if (!silent) {
+        setSaveStatus("Saved.", "#16a34a");
+      } else {
+        setSaveStatus("", "");
+      }
+      close();
     } catch (e) {
-      setSaveStatus("Could not save offline: " + (e.message || String(e)), "#dc2626");
+      setSaveStatus("Could not save: " + (e.message || String(e)), "#dc2626");
       var saveBtn2 = $("emSaveBtn");
       if (saveBtn2) saveBtn2.disabled = false;
     }
@@ -789,7 +793,7 @@
     }
 
     if (!navigator.onLine) {
-      saveEquipmentOffline(unitTag);
+      saveEquipmentOffline(unitTag, true);
       return;
     }
 
@@ -798,8 +802,7 @@
     setSaveStatus("Saving…", "#0ea5e9");
 
     var saveTimeoutId = setTimeout(function () {
-      setSaveStatus("Upload is taking too long — saving locally instead.", "#f59e0b");
-      saveEquipmentOffline(unitTag);
+      saveEquipmentOffline(unitTag, true);
       var sb = $("emSaveBtn");
       if (sb) sb.disabled = false;
     }, 25000);
