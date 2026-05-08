@@ -633,7 +633,7 @@
 
     var REVEAL = 80;
     var THRESHOLD = 50;
-    var startX, startY, baseOffset, isSwiping, didSwipe, isRevealed;
+    var startX, startY, baseOffset, isSwiping, isScrolling, didSwipe, isRevealed;
     isRevealed = false;
 
     function snapTo(offset, animated) {
@@ -660,6 +660,7 @@
       startY = t.clientY;
       baseOffset = isRevealed ? -REVEAL : 0;
       isSwiping = false;
+      isScrolling = false;
       didSwipe = false;
       card.style.transition = "none";
     }, { passive: true });
@@ -668,9 +669,11 @@
       var t = e.touches[0];
       var dx = t.clientX - startX;
       var dy = t.clientY - startY;
+      // Direction lock: once decided, never re-evaluate for this gesture
+      if (isScrolling) return;
       if (!isSwiping) {
         if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
-        if (Math.abs(dy) > Math.abs(dx)) return;
+        if (Math.abs(dy) > Math.abs(dx)) { isScrolling = true; return; }
         isSwiping = true;
       }
       e.preventDefault();

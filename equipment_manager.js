@@ -554,6 +554,8 @@
     context: { parentCompany: "—", customer: "—", location: "—" },
     overallFile: null,
     plateFile: null,
+    existingOverallUrl: "",
+    existingPlateUrl: "",
   };
 
   function $(id) {
@@ -783,14 +785,18 @@
   function saveEquipment() {
     var unitTag = ($("emUnitTag") && $("emUnitTag").value.trim()) || "unit";
 
-    if (!state.overallFile || !state.plateFile) {
+    var hasOverall = !!(state.overallFile || state.existingOverallUrl);
+    var hasPlate   = !!(state.plateFile   || state.existingPlateUrl);
+    if (!hasOverall || !hasPlate) {
       setSaveStatus("Please attach both the Overall Photo and Data Plate Photo before saving.", "#dc2626");
       return;
     }
 
-    // Capture files + context before clearing state
-    var overallFile = state.overallFile;
-    var plateFile   = state.plateFile;
+    // Capture files + existing URLs + context before clearing state
+    var overallFile        = state.overallFile;
+    var plateFile          = state.plateFile;
+    var existingOverallUrl = state.existingOverallUrl;
+    var existingPlateUrl   = state.existingPlateUrl;
     var ctxSnap = {
       parentCompany: state.context.parentCompany,
       customer:      state.context.customer,
@@ -814,6 +820,8 @@
     });
     state.overallFile = null;
     state.plateFile   = null;
+    state.existingOverallUrl = "";
+    state.existingPlateUrl   = "";
     var po = $("emPhotoOverall"), pp = $("emPhotoPlate");
     if (po) po.value = "";
     if (pp) pp.value = "";
@@ -837,16 +845,29 @@
     // Background: upload photos then write to Firestore.
     // On completion, refresh the hub list so photo URLs + Verified badge appear.
     if (navigator.onLine) {
-      uploadAndSaveInBackground(unitTag, profile, localKey, overallFile, plateFile, ctxSnap);
+      uploadAndSaveInBackground(unitTag, profile, localKey, overallFile, plateFile, ctxSnap, {
+        existingOverallUrl: existingOverallUrl,
+        existingPlateUrl:   existingPlateUrl,
+      });
     }
     // If offline, processOfflineSaves() handles it when signal returns
   }
 
-  function uploadAndSaveInBackground(unitTag, baseProfile, localKey, overallFile, plateFile, ctx) {
+  function uploadAndSaveInBackground(unitTag, baseProfile, localKey, overallFile, plateFile, ctx, opts) {
+    opts = opts || {};
     var parent = sanitizePathSegment(ctx.parentCompany);
     var cust   = sanitizePathSegment(ctx.customer);
     var loc    = sanitizePathSegment(ctx.location);
     var ut     = sanitizePathSegment(unitTag);
+
+    // Upload file if provided; otherwise resolve to the existing URL (edit mode).
+    function maybeUpload(storageRef, file, existingUrl) {
+      if (file) {
+        return storageRef.put(file, { contentType: file.type || "image/jpeg" })
+          .then(function () { return storageRef.getDownloadURL(); });
+      }
+      return Promise.resolve(String(existingUrl || ""));
+    }
 
     ensureFirebaseStorage()
       .then(function () {
@@ -855,20 +876,17 @@
         var ts = Date.now();
         var overallRef = storage.ref().child(base + "/overall_" + ts + ".jpg");
         var plateRef   = storage.ref().child(base + "/dataplate_" + ts + ".jpg");
-        return overallRef.put(overallFile, { contentType: overallFile.type || "image/jpeg" })
-          .then(function () { return overallRef.getDownloadURL(); })
-          .then(function (overallUrl) {
-            return plateRef.put(plateFile, { contentType: plateFile.type || "image/jpeg" })
-              .then(function () { return plateRef.getDownloadURL(); })
-              .then(function (plateUrl) { return { overallUrl: overallUrl, plateUrl: plateUrl }; });
-          });
+        return Promise.all([
+          maybeUpload(overallRef, overallFile, opts.existingOverallUrl),
+          maybeUpload(plateRef,   plateFile,   opts.existingPlateUrl),
+        ]);
       })
       .then(function (urls) {
         var firestoreDb = getFirestoreDb();
         if (!firestoreDb) throw new Error("Firestore not available.");
         var profile = Object.assign({}, baseProfile, {
-          overallPhotoUrl:   urls.overallUrl,
-          dataPlatePhotoUrl: urls.plateUrl,
+          overallPhotoUrl:   urls[0],
+          dataPlatePhotoUrl: urls[1],
         });
         var custId = sanitizePathSegment(ctx.customer);
         var locId  = sanitizePathSegment(ctx.location);
@@ -1417,6 +1435,8 @@
     if (pp) pp.value = "";
     state.overallFile = null;
     state.plateFile   = null;
+    state.existingOverallUrl = "";
+    state.existingPlateUrl   = "";
     setSaveStatus("", "");
   }
 
@@ -1439,6 +1459,9 @@
     set("emPrevRepairs",  profile.totalPreviousRepairs);
     set("emProposedCost", profile.proposedRepairCost);
     set("emMfgYear",      profile.manufactureYear);
+    // Preserve existing photo URLs so Save works without re-attaching photos
+    state.existingOverallUrl = String(profile.overallPhotoUrl  || "").trim();
+    state.existingPlateUrl   = String(profile.dataPlatePhotoUrl || "").trim();
   }
 
   function open(opts) {
