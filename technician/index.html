@@ -8807,10 +8807,16 @@ function vcWriteShadowConsent(granted) {
   var key = getShadowPresenceKey();
   if (!key) return;
   var db = firebase.firestore();
-  VCFirestore.livePresence(db).doc(key).set(
-    { shadowConsent: vcShadowConsentGranted, shadowConsentAt: firebase.firestore.FieldValue.serverTimestamp() },
-    { merge: true }
-  ).catch(function (e) { console.warn('[ShadowConsent] write failed:', e); });
+  var consentPayload = {
+    shadowConsent: vcShadowConsentGranted,
+    shadowConsentAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  if (!vcShadowConsentGranted) {
+    consentPayload.activeTicketId = firebase.firestore.FieldValue.delete();
+    consentPayload.screen = firebase.firestore.FieldValue.delete();
+  }
+  VCFirestore.livePresence(db).doc(key).set(consentPayload, { merge: true })
+    .catch(function (e) { console.warn('[ShadowConsent] write failed:', e); });
 }
 
 function vcInitShadowConsent() {
@@ -8838,12 +8844,17 @@ function writeLivePresence() {
   }
   const ref = VCFirestore.livePresence(db).doc(key);
   const payload = {
-    activeTicketId: ticketId || null,
-    screen: screen,
     techDisplayName: currentTechProfile,
     shadowConsent: vcShadowConsentGranted,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
+  if (vcShadowConsentGranted) {
+    payload.activeTicketId = ticketId || null;
+    payload.screen = screen;
+  } else {
+    payload.activeTicketId = firebase.firestore.FieldValue.delete();
+    payload.screen = firebase.firestore.FieldValue.delete();
+  }
   /* KI-002 Plan A2 — log + one retry; surface persistent failure to debug overlay + visible chip. */
   ref.set(payload, { merge: true })
     .then(function () { setVcPresenceOffline(false); })
