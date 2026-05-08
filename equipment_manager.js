@@ -822,6 +822,13 @@
     if (saveBtn) saveBtn.disabled = false;
     close();
 
+    // Auto-open Equipment Hub so tech sees the saved unit immediately
+    setTimeout(function () {
+      if (typeof openEquipmentHub === "function") {
+        openEquipmentHub(locId);
+      }
+    }, 150);
+
     // Background: upload photos then write to Firestore
     if (navigator.onLine) {
       uploadAndSaveInBackground(unitTag, profile, localKey, overallFile, plateFile, ctxSnap);

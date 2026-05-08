@@ -165,6 +165,9 @@ service cloud.firestore {
     }
 
     // ----- Root legacy paths still accessed today -----------
+    match /Customers/{document=**} {
+      allow read, write: if true;
+    }
     match /customers/{cid}/sites/{sid}/assets/{document=**} {
       allow read, write: if true;
     }
