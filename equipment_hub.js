@@ -382,14 +382,14 @@
       "</div>";
 
     header.innerHTML =
-      "<h3 class=\"equipment-hub-unit-title\">" +
-      escapeHtml(String(title)) +
-      "</h3>" +
+      "<div class=\"ehub-title-row\">" +
+      "<h3 class=\"equipment-hub-unit-title\">" + escapeHtml(String(title)) + "</h3>" +
+      photosHtml +
+      "</div>" +
       "<p class=\"equipment-hub-unit-specs\">" +
       escapeHtml(specs) +
       "</p>" +
       healthLine +
-      photosHtml +
       buildProfileDetailsHtml(profile) +
       actionBarHtml;
 

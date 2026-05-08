@@ -2597,6 +2597,29 @@ textarea { min-height: 80px; resize: vertical; }
   color: #555;
   line-height: 1.45;
 }
+/* Inline title + photo thumbnails row */
+.ehub-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.ehub-title-row .equipment-hub-unit-title {
+  margin: 0;
+  flex-shrink: 0;
+}
+.ehub-title-row .ehub-unit-photos {
+  margin: 0;
+  gap: 8px;
+}
+.ehub-title-row .ehub-unit-photo {
+  width: 54px; height: 42px;
+  border-radius: 6px;
+}
+.ehub-title-row .ehub-unit-photo-label {
+  display: none;
+}
 .ehub-unit-photos {
   display: flex; gap: 12px; flex-wrap: wrap; margin: 10px 0 4px;
 }
@@ -9740,7 +9763,7 @@ window.onload = async function(){
     <script src="js/workspace_ui.js?v=13"></script>
     <script src="js/location_manager.js?v=1"></script>
     <script src="../dictation_hub.js?v=17"></script>
-    <script src="../equipment_hub.js?v=7"></script>
+    <script src="../equipment_hub.js?v=8"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
