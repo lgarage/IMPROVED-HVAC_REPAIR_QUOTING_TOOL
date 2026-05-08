@@ -3845,6 +3845,37 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   font-size: 11px; font-weight: 800; text-transform: uppercase;
   letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 10px;
 }
+/* Shadow consent toggle (inside Profile panel) */
+.vc-consent-toggle-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 0 4px;
+}
+.vc-consent-toggle-row label { font-size: 13px; color: #e2e8f0; flex: 1; }
+.vc-consent-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.vc-consent-switch input { opacity: 0; width: 0; height: 0; }
+.vc-consent-switch .vc-consent-slider {
+  position: absolute; inset: 0; background: #334155; border-radius: 12px;
+  transition: background .2s; cursor: pointer;
+}
+.vc-consent-switch .vc-consent-slider::before {
+  content: ''; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px;
+  background: #fff; border-radius: 50%; transition: transform .2s;
+}
+.vc-consent-switch input:checked + .vc-consent-slider { background: #22c55e; }
+.vc-consent-switch input:checked + .vc-consent-slider::before { transform: translateX(20px); }
+.vc-consent-hint { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.4; }
+/* Persistent consent banner at top of field app */
+.vc-shadow-consent-banner {
+  display: none; align-items: center; justify-content: center; gap: 8px;
+  padding: 6px 12px; background: #065f46; color: #d1fae5; font-size: 12px;
+  font-weight: 600; letter-spacing: 0.02em; text-align: center;
+}
+.vc-shadow-consent-banner.active { display: flex; }
+.vc-shadow-consent-banner .vc-consent-banner-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #34d399;
+  animation: vc-consent-pulse 2s ease-in-out infinite;
+}
+@keyframes vc-consent-pulse { 0%,100% { opacity: .6; } 50% { opacity: 1; } }
 .vc-panel-name { font-size: 16px; font-weight: 700; color: #0ea5e9; margin-bottom: 12px; }
 .vc-panel-logout-btn {
   background: #e74c3c; color: #fff; border: none; padding: 10px 18px;
@@ -3964,6 +3995,11 @@ button#techDisplayLabel:active { opacity: 0.75; }
     <button type="button" class="nav-item hidden" id="nav-clock" onclick="switchScreen('lite')">⏱ Time</button>
   </nav>
 </header>
+
+<div id="vcShadowConsentBanner" class="vc-shadow-consent-banner" role="status" aria-live="polite">
+  <span class="vc-consent-banner-dot"></span>
+  <span>Shadow Mode — dispatcher can see your screen</span>
+</div>
 
 <div id="screen-schedule" class="screen active">
   <div style="margin-bottom: 15px;">
@@ -4479,6 +4515,17 @@ button#techDisplayLabel:active { opacity: 0.75; }
           </label>
         </div>
       </div>
+      <div class="vc-panel-section" id="vcConsentSection">
+        <div class="vc-panel-section-label">Shadow Mode Privacy</div>
+        <div class="vc-consent-toggle-row">
+          <label for="vcShadowConsentToggle">Allow dispatcher to shadow my screen</label>
+          <span class="vc-consent-switch">
+            <input type="checkbox" id="vcShadowConsentToggle">
+            <span class="vc-consent-slider"></span>
+          </span>
+        </div>
+        <div class="vc-consent-hint">When enabled, the dispatcher can see a live read-only mirror of your field app. You can turn this off at any time.</div>
+      </div>
     </div>
   </div>
 </div>
@@ -4762,7 +4809,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase34t-hamburger-site-notes-add-equip-2026-05-08";
+window.VC_BUILD = "ShadowConsent-2026-05-08";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -8737,6 +8784,45 @@ function setVcPresenceOffline(isOffline) {
   } catch (e) {}
 }
 
+/* ---------- Shadow Consent ---------- */
+var vcShadowConsentGranted = false;
+
+function vcReadShadowConsent() {
+  try { return localStorage.getItem('vc_shadow_consent') === '1'; } catch (e) { return false; }
+}
+
+function vcSyncConsentBanner() {
+  var banner = document.getElementById('vcShadowConsentBanner');
+  if (banner) banner.classList.toggle('active', vcShadowConsentGranted && !window.VC_SHADOW_VIEWER);
+}
+
+function vcWriteShadowConsent(granted) {
+  vcShadowConsentGranted = !!granted;
+  try { localStorage.setItem('vc_shadow_consent', granted ? '1' : '0'); } catch (e) {}
+  vcSyncConsentBanner();
+  var toggle = document.getElementById('vcShadowConsentToggle');
+  if (toggle && toggle.checked !== vcShadowConsentGranted) toggle.checked = vcShadowConsentGranted;
+  if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) return;
+  if (typeof VCFirestore === 'undefined' || !VCFirestore.livePresence) return;
+  var key = getShadowPresenceKey();
+  if (!key) return;
+  var db = firebase.firestore();
+  VCFirestore.livePresence(db).doc(key).set(
+    { shadowConsent: vcShadowConsentGranted, shadowConsentAt: firebase.firestore.FieldValue.serverTimestamp() },
+    { merge: true }
+  ).catch(function (e) { console.warn('[ShadowConsent] write failed:', e); });
+}
+
+function vcInitShadowConsent() {
+  vcShadowConsentGranted = vcReadShadowConsent();
+  vcSyncConsentBanner();
+  var toggle = document.getElementById('vcShadowConsentToggle');
+  if (toggle) {
+    toggle.checked = vcShadowConsentGranted;
+    toggle.addEventListener('change', function () { vcWriteShadowConsent(toggle.checked); });
+  }
+}
+
 function writeLivePresence() {
   if (window.VC_SHADOW_VIEWER) return;
   if (!currentTechProfile || typeof firebase === 'undefined' || !firebase.apps.length) return;
@@ -8755,6 +8841,7 @@ function writeLivePresence() {
     activeTicketId: ticketId || null,
     screen: screen,
     techDisplayName: currentTechProfile,
+    shadowConsent: vcShadowConsentGranted,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
   /* KI-002 Plan A2 — log + one retry; surface persistent failure to debug overlay + visible chip. */
@@ -9263,6 +9350,10 @@ function shadowMirrorOpenViaBridgedFetch(tid) {
 
 function applyShadowReadonlyUi() {
   document.body.classList.add('vc-shadow-viewer');
+  var consentSection = document.getElementById('vcConsentSection');
+  if (consentSection) consentSection.classList.add('hidden');
+  var consentBanner = document.getElementById('vcShadowConsentBanner');
+  if (consentBanner) consentBanner.classList.remove('active');
 }
 
 function initShadowViewerFromUrl() {
@@ -9488,6 +9579,7 @@ window.onload = async function(){
 
   document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
   wireProfilePanel();
+  if (typeof vcInitShadowConsent === 'function') vcInitShadowConsent();
   wireSiteHistoryPanel();
   wireFormsPanel();
   wireJobStatusInlineSync();

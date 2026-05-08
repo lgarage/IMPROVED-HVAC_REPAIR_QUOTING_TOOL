@@ -64,6 +64,46 @@
     }
   }
 
+  function updateConsentGate() {
+    var block = document.getElementById("vcShadowConsentBlock");
+    var iframe = document.getElementById("vcShadowIframe");
+    if (!block || !iframe) return;
+    if (!currentShadowPresenceKey) {
+      block.classList.add("hidden");
+      iframe.style.display = "";
+      return;
+    }
+    var d = presenceStateByKey[currentShadowPresenceKey] || {};
+    var hasConsent = d.shadowConsent === true;
+    if (hasConsent) {
+      block.classList.add("hidden");
+      iframe.style.display = "";
+      if (!iframe.src || iframe.src === "about:blank") {
+        var sel = document.getElementById("vcShadowUserSelect");
+        var label = "";
+        try {
+          var opt = sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+          label = opt ? String(opt.textContent || "").trim() : "";
+        } catch (e) {}
+        loadShadowIframe(currentShadowPresenceKey, label);
+      }
+    } else {
+      block.classList.remove("hidden");
+      iframe.style.display = "none";
+      iframe.src = "about:blank";
+    }
+  }
+
+  function loadShadowIframe(presenceKey, displayLabel) {
+    var iframe = document.getElementById("vcShadowIframe");
+    if (!iframe) return;
+    var base = new URL("technician/index.html", global.location.href);
+    base.searchParams.set("vc_shadow_viewer", "1");
+    base.searchParams.set("vc_presence_key", presenceKey);
+    if (displayLabel) base.searchParams.set("vc_display_name", displayLabel);
+    iframe.src = base.toString();
+  }
+
   function updateOfflineBadgeForCurrentSelection() {
     var sel = document.getElementById("vcShadowUserSelect");
     var badge = document.getElementById("vcShadowOfflineBadge");
@@ -159,6 +199,7 @@
         updateSelectIdleClasses();
         updateOfflineBadgeForCurrentSelection();
         updateTakeOverButtonState();
+        updateConsentGate();
         syncDispatcherTicketIdToActiveTech();
       },
       function (e) {
@@ -218,13 +259,15 @@
     if (title) {
       title.textContent = displayLabel ? "Shadowing: " + displayLabel : "Shadow viewer";
     }
-    var base = new URL("technician/index.html", global.location.href);
-    base.searchParams.set("vc_shadow_viewer", "1");
-    base.searchParams.set("vc_presence_key", currentShadowPresenceKey);
-    if (displayLabel) base.searchParams.set("vc_display_name", displayLabel);
-    iframe.src = base.toString();
+    var d = presenceStateByKey[currentShadowPresenceKey] || {};
+    if (d.shadowConsent === true) {
+      loadShadowIframe(currentShadowPresenceKey, displayLabel);
+    } else {
+      iframe.src = "about:blank";
+    }
     modal.classList.remove("hidden");
     modal.setAttribute("aria-hidden", "false");
+    updateConsentGate();
     updateOfflineBadgeForCurrentSelection();
     syncDispatcherTicketIdToActiveTech();
   }

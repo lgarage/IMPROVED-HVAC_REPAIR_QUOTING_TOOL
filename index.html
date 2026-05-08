@@ -39,7 +39,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "MembersPane-2026-05-07";
+      window.VC_BUILD = "ShadowConsent-2026-05-08";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -331,6 +331,22 @@
         border-radius: 28px;
         background: #fff;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      }
+      .vc-shadow-consent-block {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        width: 100%; max-width: 390px; min-height: 480px;
+        height: min(720px, calc(100vh - 220px));
+        border-radius: 28px; background: #1e293b;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+        padding: 32px; text-align: center; color: #94a3b8;
+      }
+      .vc-shadow-consent-block.hidden { display: none; }
+      .vc-shadow-consent-block-icon { font-size: 48px; margin-bottom: 16px; }
+      .vc-shadow-consent-block-title {
+        font-size: 18px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px;
+      }
+      .vc-shadow-consent-block-msg {
+        font-size: 13px; line-height: 1.6; color: #94a3b8; max-width: 300px;
       }
       .app-view {
         display: none;
@@ -3005,6 +3021,11 @@
             <button type="button" id="vcShadowCoachSend">Send prompt</button>
           </div>
           <div class="vc-shadow-phone-wrap">
+            <div id="vcShadowConsentBlock" class="vc-shadow-consent-block hidden">
+              <div class="vc-shadow-consent-block-icon">🔒</div>
+              <div class="vc-shadow-consent-block-title">Consent Required</div>
+              <div class="vc-shadow-consent-block-msg">This technician has not granted consent to be shadowed. They must enable "Allow dispatcher to shadow my screen" in their field app settings before you can view their live screen.</div>
+            </div>
             <iframe
               id="vcShadowIframe"
               title="Field app shadow preview"
@@ -9303,7 +9324,7 @@
     <script src="shared/repair_form_seeds.js?v=1"></script>
     <script src="settings.js?v=17"></script>
     <script src="dispatcher/js/user_import.js?v=2"></script>
-    <script src="dispatcher/js/shadow_mode.js?v=5"></script>
+    <script src="dispatcher/js/shadow_mode.js?v=6"></script>
     <script src="customer_directory.js?v=27"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js?v=2"></script>
