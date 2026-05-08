@@ -822,14 +822,20 @@
     if (saveBtn) saveBtn.disabled = false;
     close();
 
-    // Auto-open Equipment Hub so tech sees the saved unit immediately
+    // Open the hub, then immediately inject the locally-saved profile so
+    // the card is visible before the background Firestore write resolves.
     setTimeout(function () {
       if (typeof openEquipmentHub === "function") {
         openEquipmentHub(locId);
       }
+      // Optimistic inject — profile has all form data but no photo URLs yet
+      if (typeof injectEquipmentUnit === "function") {
+        injectEquipmentUnit(unitId, profile);
+      }
     }, 150);
 
-    // Background: upload photos then write to Firestore
+    // Background: upload photos then write to Firestore.
+    // On completion, refresh the hub list so photo URLs + Verified badge appear.
     if (navigator.onLine) {
       uploadAndSaveInBackground(unitTag, profile, localKey, overallFile, plateFile, ctxSnap);
     }
@@ -875,6 +881,10 @@
           .then(function () {
             try { localStorage.removeItem(localKey); } catch (e) {}
             console.info("[EquipmentManager] background save complete:", unitId);
+            // Refresh the hub list now that Firestore has photo URLs + full profile
+            if (typeof refreshEquipmentHubList === "function") {
+              refreshEquipmentHubList();
+            }
           });
       })
       .catch(function (e) {

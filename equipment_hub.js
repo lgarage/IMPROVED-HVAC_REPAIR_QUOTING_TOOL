@@ -689,8 +689,40 @@
     initEquipmentHubUi();
   }
 
+  /**
+   * Optimistically upsert a unit into the in-memory list and re-render.
+   * Called by EquipmentManager right after the modal closes so the card
+   * is visible before the background Firestore write completes.
+   */
+  function injectEquipmentUnit(unitDocId, data) {
+    var idx = -1;
+    hubState.equipmentList.forEach(function (row, i) {
+      if (row.id === unitDocId) idx = i;
+    });
+    if (idx >= 0) {
+      hubState.equipmentList[idx] = { id: unitDocId, data: data };
+    } else {
+      hubState.equipmentList.push({ id: unitDocId, data: data });
+    }
+    renderEquipmentList(hubState.equipmentList);
+  }
+
+  /**
+   * Re-fetch the equipment list for the current site from Firestore.
+   * Called by EquipmentManager after the background upload + Firestore
+   * write completes so the list reflects real photo URLs and the
+   * Verified badge.
+   */
+  function refreshEquipmentHubList() {
+    if (hubState.customerId && hubState.locationId) {
+      fetchEquipmentForSite(hubState.customerId, hubState.locationId);
+    }
+  }
+
   window.openEquipmentHub = openEquipmentHub;
   window.closeEquipmentHub = closeEquipmentHub;
   window.viewEquipmentHistory = viewEquipmentHistory;
   window.refreshJobLinkedEquipmentDropdown = refreshJobLinkedEquipmentDropdown;
+  window.injectEquipmentUnit = injectEquipmentUnit;
+  window.refreshEquipmentHubList = refreshEquipmentHubList;
 })();
