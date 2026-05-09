@@ -399,6 +399,17 @@
     document.body.appendChild(lb);
   }
 
+  // --- Deduplication: track parsed content per ticket to avoid double-writes ---
+  var _lastParsedHash = "";
+
+  function hashText(s) {
+    var h = 0;
+    for (var i = 0; i < s.length; i++) {
+      h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    }
+    return String(h);
+  }
+
   // --- Main entry point: triggered by the Parse & Link button ---
 
   async function runParseAndLink() {
@@ -409,6 +420,19 @@
 
     if (!diagText && !recsText) {
       throw new Error("Enter your findings or recommendations before parsing.");
+    }
+
+    // Offline guard
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      throw new Error("No internet connection. Connect to Wi-Fi or cellular and try again.");
+    }
+
+    // Deduplication: same notes + same ticket = warn
+    var ticketId = getActiveTicketId();
+    var contentHash = hashText(ticketId + "|" + diagText + "|" + recsText);
+    if (contentHash === _lastParsedHash) {
+      var proceed = confirm("You already parsed these exact notes for this ticket. Parse again?");
+      if (!proceed) return;
     }
 
     var statusEl = document.getElementById("uwpParseStatus");
@@ -436,8 +460,9 @@
       }
 
       showConfirmationOverlay(enriched, function (confirmed) {
+        _lastParsedHash = contentHash;
         window.dispatchEvent(
-          new CustomEvent("uwp:confirmed", { detail: { units: confirmed, ticketId: getActiveTicketId() } })
+          new CustomEvent("uwp:confirmed", { detail: { units: confirmed, ticketId: ticketId } })
         );
       });
     } catch (err) {
@@ -461,9 +486,20 @@
     btn.dataset.wired = "1";
     btn.addEventListener("click", function () {
       btn.disabled = true;
-      runParseAndLink().finally(function () {
-        btn.disabled = false;
-      });
+      var originalText = btn.textContent;
+      btn.textContent = "⏳ Parsing…";
+      runParseAndLink()
+        .catch(function (err) {
+          var statusEl = document.getElementById("uwpParseStatus");
+          if (statusEl) {
+            statusEl.textContent = err.message || "Parse failed";
+            statusEl.className = "uwp-parse-status uwp-parse-status--error";
+          }
+        })
+        .finally(function () {
+          btn.disabled = false;
+          btn.textContent = originalText;
+        });
     });
   }
 
