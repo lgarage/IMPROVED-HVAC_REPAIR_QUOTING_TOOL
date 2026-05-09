@@ -709,7 +709,11 @@
       if (urls.overallPhotoUrl) patch.overallPhotoUrl = urls.overallPhotoUrl;
       if (urls.dataPlatePhotoUrl) patch.dataPlatePhotoUrl = urls.dataPlatePhotoUrl;
       if (Object.keys(patch).length) {
-        return equipRef.set(patch, { merge: true });
+        return equipRef.set(patch, { merge: true }).then(function () {
+          if (typeof refreshEquipmentHubList === "function") {
+            refreshEquipmentHubList();
+          }
+        });
       }
     }).catch(function (err) {
       console.warn("[UnitWorkParser] uploadInlinePhotos", err);

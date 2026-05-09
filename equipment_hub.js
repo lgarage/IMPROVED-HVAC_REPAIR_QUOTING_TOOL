@@ -183,18 +183,27 @@
         ? "<span class=\"equipment-verified-strip\" title=\"Identity Verified: Photos &amp; Specs on file.\" aria-label=\"Identity Verified: Photos &amp; Specs on file.\"><span class=\"equipment-verified-shield\" aria-hidden=\"true\">🛡️</span><span class=\"equipment-verified-pill\">Verified</span></span>"
         : "";
 
+      var cardThumbSrc = (d.overallPhotoUrl && String(d.overallPhotoUrl).trim()) ||
+                         (d.dataPlatePhotoUrl && String(d.dataPlatePhotoUrl).trim()) || "";
+      var cardThumbHtml = cardThumbSrc
+        ? "<img class=\"ehub-card-thumb\" src=\"" + escapeAttr(cardThumbSrc) + "\" alt=\"\" aria-hidden=\"true\">"
+        : "<span class=\"ehub-card-thumb ehub-card-thumb--empty\" aria-hidden=\"true\"></span>";
+
       var swipeRow = document.createElement("div");
       swipeRow.className = "ehub-swipe-row";
       swipeRow.innerHTML =
         "<button type=\"button\" class=\"equipment-hub-card\" data-eid=\"" +
         escapeHtml(composite) +
         "\">" +
+        cardThumbHtml +
+        "<span class=\"ehub-card-body\">" +
         "<span class=\"equipment-hub-card-title-row\">" +
         "<span class=\"equipment-hub-card-title\">" + escapeHtml(title) + "</span>" +
         badgeHtml +
         "</span>" +
         "<span class=\"equipment-hub-card-sub\">" + escapeHtml(sub) + "</span>" +
         "<span class=\"equipment-hub-card-health\">" + health + "</span>" +
+        "</span>" +
         "</button>" +
         "<button type=\"button\" class=\"ehub-swipe-delete-btn\" aria-label=\"Delete " + escapeHtml(title) + "\">" +
         "<span aria-hidden=\"true\">🗑</span><span>Delete</span></button>";
@@ -394,6 +403,8 @@
             "<span class=\"ehub-unit-photo-label\">Data plate</span></button>";
         }
         photosHtml += "</div>";
+      } else {
+        photosHtml = "<p class=\"ehub-no-photos\">No photos on file — tap Edit Info to add.</p>";
       }
     }
 
