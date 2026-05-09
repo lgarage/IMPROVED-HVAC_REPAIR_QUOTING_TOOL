@@ -256,6 +256,8 @@
   var currentResults = [];
   var currentSiteEquipment = [];
   var _onConfirmCallback = null;
+  var _equipSavedHandler = null;
+  var _pendingAddIdx = null;
 
   function buildOverlayHtml(enrichedResults) {
     var cards = enrichedResults
@@ -275,7 +277,9 @@
               : '<span class="uwp-confidence uwp-confidence--low">Low match</span>';
 
         var unmatchedBanner = !r._matched
-          ? '<div class="uwp-card-unmatched">Unit not found on file — please verify or pick a different unit</div>'
+          ? '<div class="uwp-card-unmatched">Unit not found on file — please verify or pick a different unit' +
+            '<button type="button" class="uwp-btn-add-equipment" data-uwp-add-equip="' + idx + '">+ Add Equipment</button>' +
+            '</div>'
           : "";
 
         var summaryLines = [];
@@ -345,6 +349,13 @@
         return;
       }
 
+      var addEquipBtn = e.target.closest("[data-uwp-add-equip]");
+      if (addEquipBtn) {
+        var addIdx = parseInt(addEquipBtn.getAttribute("data-uwp-add-equip"), 10);
+        openEquipmentManagerForUnmatched(addIdx);
+        return;
+      }
+
       if (e.target.id === "uwpConfirmAllBtn") {
         var confirmed = currentResults.slice();
         removeOverlay();
@@ -363,6 +374,11 @@
         if (src) showLightbox(src);
       }
     });
+
+    _equipSavedHandler = function (evt) {
+      handleEquipmentSaved(evt, wrapper);
+    };
+    document.addEventListener("equipmentManagerSaved", _equipSavedHandler);
   }
 
   function buildCardsOnly(results) {
@@ -373,12 +389,17 @@
   }
 
   function removeOverlay() {
+    if (_equipSavedHandler) {
+      document.removeEventListener("equipmentManagerSaved", _equipSavedHandler);
+      _equipSavedHandler = null;
+    }
     if (overlayEl) {
       overlayEl.remove();
       overlayEl = null;
     }
     currentResults = [];
     _onConfirmCallback = null;
+    _pendingAddIdx = null;
   }
 
   function showLightbox(src) {
@@ -397,6 +418,74 @@
       }
     });
     document.body.appendChild(lb);
+  }
+
+  /**
+   * Open Equipment Manager pre-filled with the raw reference from an unmatched card.
+   */
+  function openEquipmentManagerForUnmatched(idx) {
+    var result = currentResults[idx];
+    if (!result) return;
+    _pendingAddIdx = idx;
+
+    if (typeof EquipmentManager === "undefined" || !EquipmentManager.open) {
+      alert("Equipment Manager is not available.");
+      return;
+    }
+    if (typeof activeTicket === "undefined" || !activeTicket) {
+      alert("Select a job from your schedule first.");
+      return;
+    }
+    var locEl = document.getElementById("location");
+    var locLine = locEl && locEl.value ? String(locEl.value).trim() : "";
+    if (!locLine) {
+      alert("Set a location on this ticket before adding equipment.");
+      return;
+    }
+    var locationId = sanitizePathSegment(locLine);
+
+    EquipmentManager.open({
+      parentCompany: "—",
+      customer: activeTicket.customerName || "—",
+      locationDisplay: locLine,
+      locationId: locationId,
+      prefill: { unitTag: result.rawReference || "" },
+    });
+  }
+
+  /**
+   * After tech saves new equipment, re-fetch site list, match it to the pending card, update in place.
+   */
+  function handleEquipmentSaved(evt, wrapper) {
+    var detail = evt.detail || {};
+    var newEquipId = detail.equipmentId || "";
+    if (_pendingAddIdx === null || !newEquipId) return;
+    var idx = _pendingAddIdx;
+    _pendingAddIdx = null;
+
+    loadSiteEquipment().then(function (freshEquip) {
+      currentSiteEquipment = freshEquip;
+      var match = freshEquip.find(function (u) {
+        return u.equipmentId === newEquipId;
+      });
+      if (!match) return;
+
+      var card = currentResults[idx];
+      if (!card) return;
+      card.equipmentId = match.equipmentId;
+      card.unitTag = match.unitTag;
+      card.brand = match.brand;
+      card.model = match.model;
+      card.overallPhotoUrl = match.overallPhotoUrl || "";
+      card._matched = true;
+
+      if (wrapper) {
+        var scroll = wrapper.querySelector(".uwp-cards-scroll");
+        if (scroll) scroll.innerHTML = buildCardsOnly(currentResults);
+      }
+    }).catch(function (err) {
+      console.error("[UnitWorkParser] handleEquipmentSaved", err);
+    });
   }
 
   // --- Deduplication: track parsed content per ticket to avoid double-writes ---

@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 39 — Unit Work Parser (Smart Unit Link). All 4 slices shipped.
-- **Last shipped (2026-05-09):** Phase 39 — "Parse & Link to Equipment" button in field workspace; Gemini-powered per-unit notes extraction; confirmation card overlay with thumbnails; Firestore `work_history` subcollection writes; Equipment Hub timeline shows parsed field notes (indigo badge); Equipment Hub search/filter by unit tag/brand/model; offline guard + dedup. `unit_work_parser.js?v=1`, `equipment_hub.js?v=12`, `VC_BUILD = "UnitWorkParser-Slice1-2026-05-09"`.
-- **Prior (2026-05-09):** Equipment Hub full unit history (5 collections); OCR revert to client-side Gemini.
+- **Active Phase:** Phase 39 — Unit Work Parser (Smart Unit Link). All 4 slices + Add Equipment from unmatched card shipped.
+- **Last shipped (2026-05-09):** Phase 39 "Add Equipment" from unmatched confirmation card — "+ Add Equipment" button on yellow unmatched cards opens Equipment Manager pre-filled with raw unit tag; after save, card auto-updates to matched (thumbnail + tag). `unit_work_parser.js?v=2`, `VC_BUILD = "UWP-AddEquipFromCard-2026-05-09"`.
+- **Prior (2026-05-09):** Phase 39 core — Parse & Link button, Gemini extraction, confirmation overlay, work_history writes, Equipment Hub timeline + search. `unit_work_parser.js?v=1`, `equipment_hub.js?v=12`.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding dead; bridge in `shared/firebase_logic.js` left quiet.
 
@@ -20,7 +20,7 @@ None. Two non-blocking carry-overs:
 
 ## Immediate Next Step
 
-**Deploy and test on phone:** hard-reload the field app → open any SERVICE job → type findings mentioning a unit (e.g. "RTU-1 compressor short-cycling") → tap "Parse & Link to Equipment" button below the recommendations field → verify the confirmation card shows the correct unit thumbnail + tag + extracted work summary → tap "Confirm All" → open Equipment Hub → tap that unit card → timeline should show an indigo "Parsed field notes" entry with the extracted text. Also test the search bar at the top of the equipment list.
+**Test "+ Add Equipment" flow:** hard-reload the field app → open a SERVICE job → type findings mentioning an unknown unit (e.g. "rtu1 low on charge") → tap "Parse & Link to Equipment" → confirmation card should show yellow unmatched banner with a blue "+ Add Equipment" button → tap it → Equipment Manager opens with "rtu1" pre-filled in unit tag → attach photos + save → card should auto-refresh to matched (thumbnail appears, yellow banner gone) → tap "Confirm All" to finish.
 
 **Next build candidates (pick one):**
 - **KI-004** — offline photo outbox (`shared/offline_storage_outbox.js`, ADR-012). Re-gate → **Sonnet 4.6**.
