@@ -31,7 +31,7 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 | Field app workspace + openWorkspace | 27+ | `technician/index.html` | §3.1 |
 | Dictation Hub (Rosetta, notes, Action Tray) | 27 | `dictation_hub.js` | §3.2 |
 | Vision Hub / Equipment Manager | 27/33 | `equipment_manager.js` | §3.3 |
-| Equipment Hub (legacy bridge read) | 22 | `equipment_hub.js` | §3.4 |
+| Equipment Hub (unit history + bridge read) | 22/38 | `equipment_hub.js` | §3.4 |
 | Field-Add Equipment (Phase 33) | 33 | `equipment_manager.js`, `shared/firebase_logic.js` | §3.5 |
 | Site Intel + Field Access Notes | 34e | `technician/js/workspace_ui.js` | §3.6 |
 | Field Forms + Repair Branching | 34a–34c | `field_forms.js` | §3.7 |
@@ -558,16 +558,18 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 - Listener: `VCFirestore.subscribeSiteIntelDocMerged` for **TWIN_PILLARS** (tenant vs root merged notes).
 - Document fields include `notes`, `locationDisplay`, `normalizedKey`, `updatedAt`, `updatedByTech`, plus Phase 34e **`accessPhotoUrls`** / **`accessPhotoUpdatedAt`** (see **Site Intel — Field Access Notes & Access Photos** below).
 
-#### Equipment Hub
+#### Equipment Hub (Phase 38 — full unit history)
 
 **User Guide**
 
 - **View Site Equipment** opens the **Equipment Hub** modal for the current site: list of equipment, history, verification/retired state, and paths into **EquipmentManager** (e.g. AI plate scan flows where configured).
+- **Tap a unit card** → full **work history timeline**: service calls, PM checklists, repair quotes, completed field reports, custom form submissions — newest-first; badge colors distinguish types.
 - Data is scoped to the active ticket’s **customer / location** and legacy Firestore paths used by the hub (`equipment_hub.js`).
 
 **Technical Specs**
 
 - `equipment_hub.js`: resolves `customers/{customerId}/sites/{locationId}/…` style paths; `makeEquipmentId`, modal `#equipmentHubModal`.
+- `viewEquipmentHistory(equipmentId)` runs five Firestore queries in `Promise.all`: `service_calls` (`Linked_Equipment_ID`), `pm_records` / `field_quotes` / `field_form_submissions` (`equipmentId`), `completed_reports` (`Linked_Equipment_ID`); merge + sort for timeline.
 - Works with `equipment_manager.js` for promotions and shared equipment UI.
 - Disabled when **time-tracking-only** (`vc_entitlements.js` — `#btnOpenEquipmentHub`).
 
@@ -729,6 +731,7 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 | 35–35a | Customer Entitlements Platform + Inter-Office Feed re-gated | ✅ |
 | 36 Slices 1–4e | Per-User Feature Toggles — auth foundation, resolver, toggle UI, auth badge (ADR-015) | ✅ |
 | 36 Slice 5 | Standalone admin page + audit log | 🔲 Post-MVP |
+| 37–38 | Shadow consent gate (37) + Equipment Hub full unit history — 5-collection timeline (38) | ✅ |
 
 ### Build History
 
@@ -745,9 +748,10 @@ _Detailed per-phase shipping inventory with commit-level detail: see `PROJECT_MA
 - [v] Phase 35–35a: Customer Entitlements Platform + Inter-Office Feed re-gated — `shared/entitlements.js`, `vcHasFeature`
 - [ ] Phase 36 Slices 1–4e: Per-User Feature Toggles — auth foundation, resolver, toggle UI, auth badge — see `DECISIONS.md → ADR-015` + `PROJECT_STATUS/PER_USER_FEATURE_TOGGLES_PLAN.md`
 - [v] Phase 37: Shadow Mode consent gate — tech consent toggle writes `shadowConsent` to `live_presence`; dispatcher iframe gated; real-time revoke/grant
+- [v] Phase 38: Equipment Hub full unit history — five-collection timeline (`completed_reports`, `field_form_submissions` + existing merges); `equipment_hub.js?v=11`; `VC_BUILD EquipHubFullHistory-2026-05-09`
 
 ### Current Focus
 
-- **Active phase:** Phase 37 shipped. See `CURRENT_STATE.md` for next build candidates.
+- **Active phase:** Phase 38 shipped (Equipment Hub history). See `CURRENT_STATE.md` for deploy/test + next candidates.
 - **Active blocker:** None. Open KIs in `CURRENT_STATE.md`.
 - **Ongoing maintenance threads** are tracked in `CURRENT_STATE.md`, not here, so this catalog stays focused on shipped functionality.
