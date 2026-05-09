@@ -943,44 +943,65 @@
   }
 
   /**
+   * Lazily loads firebase-storage-compat.js if the Storage SDK was not loaded yet
+   * (e.g. tech opens Parse & Link without first opening Equipment Manager).
+   */
+  function _ensureFirebaseStorage() {
+    if (typeof firebase !== "undefined" && firebase.storage) {
+      return Promise.resolve();
+    }
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js";
+      s.onload = resolve;
+      s.onerror = function () { reject(new Error("Failed to load firebase-storage-compat.js")); };
+      document.head.appendChild(s);
+    });
+  }
+
+  /**
    * Background upload of photos after inline save completes.
+   * Calls _ensureFirebaseStorage() first so this works whether or not
+   * Equipment Manager was opened before Parse & Link.
    */
   function uploadInlinePhotos(customerId, locationId, unitId, overallFile, plateFile, equipRef) {
-    if (typeof firebase === "undefined" || !firebase.storage) return;
-    var storage = firebase.storage();
-    var base = ["equipment_photos", customerId, locationId, unitId].join("/");
-    var ts = Date.now();
-    var promises = [];
-    var urls = { overallPhotoUrl: "", dataPlatePhotoUrl: "" };
+    if (!overallFile && !plateFile) return;
+    _ensureFirebaseStorage().then(function () {
+      var storage = firebase.storage();
+      var base = ["equipment_photos", customerId, locationId, unitId].join("/");
+      var ts = Date.now();
+      var promises = [];
+      var urls = { overallPhotoUrl: "", dataPlatePhotoUrl: "" };
 
-    if (overallFile) {
-      var oRef = storage.ref().child(base + "/overall_" + ts + ".jpg");
-      promises.push(
-        oRef.put(overallFile, { contentType: overallFile.type || "image/jpeg" })
-          .then(function () { return oRef.getDownloadURL(); })
-          .then(function (url) { urls.overallPhotoUrl = url; })
-      );
-    }
-    if (plateFile) {
-      var pRef = storage.ref().child(base + "/dataplate_" + ts + ".jpg");
-      promises.push(
-        pRef.put(plateFile, { contentType: plateFile.type || "image/jpeg" })
-          .then(function () { return pRef.getDownloadURL(); })
-          .then(function (url) { urls.dataPlatePhotoUrl = url; })
-      );
-    }
-
-    Promise.all(promises).then(function () {
-      var patch = {};
-      if (urls.overallPhotoUrl) patch.overallPhotoUrl = urls.overallPhotoUrl;
-      if (urls.dataPlatePhotoUrl) patch.dataPlatePhotoUrl = urls.dataPlatePhotoUrl;
-      if (Object.keys(patch).length) {
-        return equipRef.set(patch, { merge: true }).then(function () {
-          if (typeof refreshEquipmentHubList === "function") {
-            refreshEquipmentHubList();
-          }
-        });
+      if (overallFile) {
+        var oRef = storage.ref().child(base + "/overall_" + ts + ".jpg");
+        promises.push(
+          oRef.put(overallFile, { contentType: overallFile.type || "image/jpeg" })
+            .then(function () { return oRef.getDownloadURL(); })
+            .then(function (url) { urls.overallPhotoUrl = url; })
+        );
       }
+      if (plateFile) {
+        var pRef = storage.ref().child(base + "/dataplate_" + ts + ".jpg");
+        promises.push(
+          pRef.put(plateFile, { contentType: plateFile.type || "image/jpeg" })
+            .then(function () { return pRef.getDownloadURL(); })
+            .then(function (url) { urls.dataPlatePhotoUrl = url; })
+        );
+      }
+
+      return Promise.all(promises).then(function () {
+        var patch = {};
+        if (urls.overallPhotoUrl) patch.overallPhotoUrl = urls.overallPhotoUrl;
+        if (urls.dataPlatePhotoUrl) patch.dataPlatePhotoUrl = urls.dataPlatePhotoUrl;
+        if (Object.keys(patch).length) {
+          return equipRef.set(patch, { merge: true }).then(function () {
+            if (typeof refreshEquipmentHubList === "function") {
+              refreshEquipmentHubList();
+            }
+          });
+        }
+      });
     }).catch(function (err) {
       console.warn("[UnitWorkParser] uploadInlinePhotos", err);
     });
