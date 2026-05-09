@@ -2,16 +2,70 @@ rules_version = '2';
 
 // ============================================================
 // Vertex Core — Firebase Storage Security Rules
-// 2026-05-09: Open read/write, mirroring Firestore open-access
-// strategy (app runs without Firebase Auth on field + dispatcher
-// flows). Uploads go to equipment_photos/** and
-// dictation_hub_assets/**. Restrict once Auth is rolled out.
+// 2026-05-09 v2: Explicit-path allowlist, default deny.
+//
+// Design mirrors firestore.rules: each known upload prefix is
+// listed individually; everything else is denied by default
+// (no catch-all /{allPaths=**} on the bucket root).
+//
+// App runs without Firebase Auth on field + dispatcher flows,
+// so allowed paths use `if true`.  Restrict to
+// `request.auth != null` once Auth is rolled out (ADR-012).
+//
+// Known upload prefixes (grep: firebase.storage().ref().child):
+//   equipment_manager.js   → equipment_photos/, dictation_hub_assets/
+//   unit_work_parser.js    → equipment_photos/
+//   service_call.js        → customer_evidence/
+//   field_forms.js         → field_quote_evidence/, field_form_evidence/, quote_evidence/
+//   workspace_ui.js        → site_access_photos/
+//   dictation_hub.js       → tenants/{tid}/imported_equipment_photos/
 // ============================================================
 
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
+
+    // Equipment profile photos (Equipment Manager + UWP inline quick-add)
+    match /equipment_photos/{allPaths=**} {
       allow read, write: if true;
     }
+
+    // Dictation Hub asset photos (nameplate promotion, watermarked assets)
+    match /dictation_hub_assets/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // Customer evidence attachments (service call — dispatcher + field app)
+    match /customer_evidence/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // Field quote mandatory evidence photos
+    match /field_quote_evidence/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // Field form dynamic question photo uploads
+    match /field_form_evidence/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // Repair quote photos
+    match /quote_evidence/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // Site Intel access photos (workspace panel — workspace_ui.js)
+    match /site_access_photos/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // Vision Hub imported equipment nameplate photos (tenant-scoped)
+    match /tenants/{tenantId}/imported_equipment_photos/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // All other paths: default deny (no match = no access).
+    // Add a new explicit block above when a new upload prefix is introduced.
+
   }
 }
