@@ -618,6 +618,7 @@
   function onDataPlateSelected(file) {
     if (!file || !file.type || !file.type.startsWith("image/")) return;
     state.plateFile = file;
+    showEmPhotoPreview("emPhotoPlatePreview", file);
     var spin = $("emOcrSpinner");
     if (spin) spin.classList.add("em-active");
     hideOfflinePlateQueuedMessage();
@@ -680,6 +681,58 @@
     } else if (file) {
       state.overallFile = file;
     }
+    showEmPhotoPreview("emPhotoOverallPreview", file);
+  }
+
+  /**
+   * Show a local preview <img> below the file input.  Reuses a URL.createObjectURL
+   * object URL so no FileReader round-trip is needed.  The preview is cleared
+   * (replaced with a placeholder) when file is null/undefined.
+   */
+  function showEmPhotoPreview(previewId, file) {
+    var el = $(previewId);
+    if (!el) return;
+    var prev = el.querySelector(".em-photo-preview-img");
+    if (prev) {
+      if (prev._objectUrl) {
+        try { URL.revokeObjectURL(prev._objectUrl); } catch (e) {}
+      }
+      prev.remove();
+    }
+    if (!file) {
+      el.style.display = "none";
+      return;
+    }
+    var url;
+    try { url = URL.createObjectURL(file); } catch (e) { return; }
+    var img = document.createElement("img");
+    img.className = "em-photo-preview-img";
+    img._objectUrl = url;
+    img.src = url;
+    img.alt = "Preview";
+    img.addEventListener("click", function () {
+      openEmPhotoLightbox(url);
+    });
+    el.appendChild(img);
+    el.style.display = "block";
+  }
+
+  function openEmPhotoLightbox(src) {
+    var existing = document.getElementById("emPhotoLightbox");
+    if (existing) existing.remove();
+    var lb = document.createElement("div");
+    lb.id = "emPhotoLightbox";
+    lb.className = "em-photo-lightbox";
+    lb.innerHTML =
+      '<img src="' + src + '" alt="Preview" class="em-photo-lightbox-img">' +
+      '<button type="button" class="em-photo-lightbox-close" aria-label="Close">✕</button>';
+    lb.addEventListener("click", function (e) {
+      if (e.target === lb || e.target.classList.contains("em-photo-lightbox-close")) lb.remove();
+    });
+    lb.querySelector(".em-photo-lightbox-img").addEventListener("click", function (e) {
+      e.stopPropagation();
+    });
+    document.body.appendChild(lb);
   }
 
   function setSaveStatus(msg, color) {
@@ -825,6 +878,8 @@
     var po = $("emPhotoOverall"), pp = $("emPhotoPlate");
     if (po) po.value = "";
     if (pp) pp.value = "";
+    showEmPhotoPreview("emPhotoOverallPreview", null);
+    showEmPhotoPreview("emPhotoPlatePreview", null);
     setSaveStatus("", "");
     var saveBtn = $("emSaveBtn");
     if (saveBtn) saveBtn.disabled = false;
@@ -1437,6 +1492,8 @@
     state.plateFile   = null;
     state.existingOverallUrl = "";
     state.existingPlateUrl   = "";
+    showEmPhotoPreview("emPhotoOverallPreview", null);
+    showEmPhotoPreview("emPhotoPlatePreview", null);
     setSaveStatus("", "");
   }
 

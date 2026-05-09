@@ -2659,28 +2659,17 @@ textarea { min-height: 80px; resize: vertical; }
   color: #555;
   line-height: 1.45;
 }
-/* Inline title + photo thumbnails row */
+/* Unit detail title row — photos now live below the specs block */
 .ehub-title-row {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .ehub-title-row .equipment-hub-unit-title {
   margin: 0;
   flex-shrink: 0;
-}
-.ehub-title-row .ehub-unit-photos {
-  margin: 0;
-  gap: 8px;
-}
-.ehub-title-row .ehub-unit-photo {
-  width: 54px; height: 42px;
-  border-radius: 6px;
-}
-.ehub-title-row .ehub-unit-photo-label {
-  display: none;
 }
 .ehub-unit-photos {
   display: flex; gap: 12px; flex-wrap: wrap; margin: 10px 0 4px;
@@ -3624,6 +3613,56 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   background: #e8f8ef;
   box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.25);
 }
+/* Equipment Manager — local photo previews */
+.em-photo-preview {
+  margin-top: 6px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  max-width: 200px;
+}
+.em-photo-preview-img {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  max-height: 140px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.em-photo-preview-img:active { opacity: 0.8; }
+.em-photo-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.em-photo-lightbox-img {
+  max-width: 95vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.em-photo-lightbox-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .em-reco-label {
   font-size: 12px;
   font-weight: 800;
@@ -4261,6 +4300,43 @@ button#techDisplayLabel:active { opacity: 0.75; }
   color: #dc2626;
   font-weight: 600;
 }
+/* UWP inline quick-add: local photo previews */
+.uwp-photo-preview {
+  margin-top: 6px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  max-width: 180px;
+}
+.uwp-photo-preview-img {
+  display: block;
+  width: 100%;
+  max-width: 180px;
+  max-height: 130px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.uwp-photo-preview-img:active { opacity: 0.8; }
+/* Health score display row */
+.uwp-inline-health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 2px;
+  padding: 7px 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.uwp-health-label { color: #64748b; }
+.uwp-health-value { color: #15803d; }
+.uwp-health-value.uwp-health-b { color: #2563eb; }
+.uwp-health-value.uwp-health-c { color: #d97706; }
+.uwp-health-value.uwp-health-d, .uwp-health-value.uwp-health-f { color: #dc2626; }
 .uwp-inline-actions {
   display: flex;
   gap: 8px;
@@ -5302,7 +5378,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "EHub-CardThumbs-2026-05-09";
+window.VC_BUILD = "EHub-FullPhotoForms-2026-05-09";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -10179,6 +10255,7 @@ window.onload = async function(){
             name="emPhotoOverall"
             accept="image/*"
           />
+          <div id="emPhotoOverallPreview" class="em-photo-preview" style="display:none"></div>
 
           <label for="emPhotoPlate">Upload Data Plate Photo</label>
           <input
@@ -10187,6 +10264,7 @@ window.onload = async function(){
             name="emPhotoPlate"
             accept="image/*"
           />
+          <div id="emPhotoPlatePreview" class="em-photo-preview" style="display:none"></div>
 
           <div id="emOcrSpinner" class="em-spinner-wrap" aria-live="polite">
             <div class="em-spinner" role="status"></div>
@@ -10378,8 +10456,8 @@ window.onload = async function(){
     <script src="js/workspace_ui.js?v=13"></script>
     <script src="js/location_manager.js?v=1"></script>
     <script src="../dictation_hub.js?v=17"></script>
-    <script src="../equipment_hub.js?v=13"></script>
-    <script src="../unit_work_parser.js?v=5"></script>
+    <script src="../equipment_hub.js?v=14"></script>
+    <script src="../unit_work_parser.js?v=6"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>

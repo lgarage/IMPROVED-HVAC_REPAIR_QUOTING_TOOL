@@ -481,9 +481,56 @@
     });
   }
 
+  /** Piecewise-linear CRV estimate (mirrors equipment_manager.js estimateCRV). */
+  function uwpEstimateCRV(tonnage) {
+    var t = Number(tonnage);
+    if (!isFinite(t) || t <= 0) return 0;
+    if (t <= 5)  return Math.round((t / 5) * 10000);
+    if (t <= 10) return Math.round(10000 + ((t - 5) / 5) * 5000);
+    if (t <= 20) return Math.round(15000 + ((t - 10) / 10) * 10000);
+    return Math.round(25000 + (t - 20) * 1000);
+  }
+
+  /** Health score: 100 − 2.5×age − (repairs+proposed)/CRV×50, clamped 0–100. */
+  function uwpCalcHealth(age, prev, prop, crv) {
+    age  = Math.max(0, Number(age)  || 0);
+    prev = Math.max(0, Number(prev) || 0);
+    prop = Math.max(0, Number(prop) || 0);
+    crv  = Math.max(0, Number(crv)  || 0);
+    var score = 100 - 2.5 * age - (crv > 0 ? (prev + prop) / crv * 50 : 0);
+    score = Math.floor(Math.max(0, Math.min(100, score)));
+    var grade = score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : score >= 60 ? "D" : "F";
+    return { score: score, grade: grade };
+  }
+
+  /** Wire a file input to show a local URL.createObjectURL preview below it. */
+  function wireUwpPhotoPreview(fileInput, previewContainer, onClickLightbox) {
+    if (!fileInput || !previewContainer) return;
+    fileInput.addEventListener("change", function () {
+      var f = fileInput.files && fileInput.files[0];
+      var prev = previewContainer.querySelector(".uwp-photo-preview-img");
+      if (prev && prev._objectUrl) {
+        try { URL.revokeObjectURL(prev._objectUrl); } catch (e) {}
+        prev.remove();
+      }
+      if (!f) { previewContainer.style.display = "none"; return; }
+      var url;
+      try { url = URL.createObjectURL(f); } catch (e) { return; }
+      var img = document.createElement("img");
+      img.className = "uwp-photo-preview-img";
+      img._objectUrl = url;
+      img.src = url;
+      img.alt = "Preview";
+      img.addEventListener("click", function () { onClickLightbox(url); });
+      previewContainer.innerHTML = "";
+      previewContainer.appendChild(img);
+      previewContainer.style.display = "block";
+    });
+  }
+
   /**
    * Show inline quick-add form directly on the unmatched card.
-   * Data plate photo at top (OCR auto-fill), overall photo, then text fields.
+   * Full parity with EquipmentManager modal: photos, OCR, all fields, health score.
    */
   function openEquipmentManagerForUnmatched(idx) {
     var result = currentResults[idx];
@@ -510,19 +557,23 @@
       '<div class="uwp-inline-form" data-uwp-form-idx="' + idx + '">' +
       '<div class="uwp-inline-form-title">Quick Add Unit</div>' +
 
+      // --- Photo inputs ---
       '<div class="uwp-inline-field">' +
       '<label>📷 Data Plate Photo <span class="uwp-inline-hint">(AI reads this automatically)</span></label>' +
       '<input type="file" accept="image/*" class="uwp-inline-file uwp-inline-plate" data-field="platePhoto">' +
+      '<div class="uwp-photo-preview uwp-plate-preview" style="display:none"></div>' +
       '<div class="uwp-ocr-status"></div>' +
       '</div>' +
 
       '<div class="uwp-inline-field">' +
       '<label>📷 Overall Equipment Photo</label>' +
-      '<input type="file" accept="image/*" class="uwp-inline-file" data-field="overallPhoto">' +
+      '<input type="file" accept="image/*" class="uwp-inline-file uwp-inline-overall" data-field="overallPhoto">' +
+      '<div class="uwp-photo-preview uwp-overall-preview" style="display:none"></div>' +
       '</div>' +
 
       '<div class="uwp-inline-divider"></div>' +
 
+      // --- Core ID fields ---
       '<div class="uwp-inline-field"><label>Unit Tag</label><input type="text" class="uwp-inline-input" data-field="unitTag" value="' + prefillTag + '"></div>' +
       '<div class="uwp-inline-row">' +
       '<div class="uwp-inline-field uwp-inline-half"><label>Brand</label><input type="text" class="uwp-inline-input" data-field="brand" placeholder="e.g. Carrier"></div>' +
@@ -535,7 +586,26 @@
       '</div>' +
       '<div class="uwp-inline-row">' +
       '<div class="uwp-inline-field uwp-inline-half"><label>Refrigerant</label><input type="text" class="uwp-inline-input" data-field="refrigerant" placeholder="e.g. R-410A"></div>' +
-      '<div class="uwp-inline-field uwp-inline-half"><label>Tonnage</label><input type="text" class="uwp-inline-input" data-field="tonnage" placeholder="e.g. 5"></div>' +
+      '<div class="uwp-inline-field uwp-inline-half"><label>Tonnage</label><input type="text" class="uwp-inline-input uwp-tonnage-input" data-field="tonnage" placeholder="e.g. 5"></div>' +
+      '</div>' +
+
+      '<div class="uwp-inline-divider"></div>' +
+
+      // --- Age / financial fields ---
+      '<div class="uwp-inline-row">' +
+      '<div class="uwp-inline-field uwp-inline-half"><label>Manufacture Year</label><input type="text" class="uwp-inline-input" data-field="manufactureYear" placeholder="e.g. 2015"></div>' +
+      '<div class="uwp-inline-field uwp-inline-half"><label>Age (years)</label><input type="text" class="uwp-inline-input uwp-age-input" data-field="ageYears" placeholder="e.g. 9"></div>' +
+      '</div>' +
+      '<div class="uwp-inline-field"><label>Est. CRV ($) <span class="uwp-inline-hint">auto-filled from tonnage</span></label><input type="text" class="uwp-inline-input uwp-crv-input" data-field="estimatedCRV" placeholder="e.g. 10000"></div>' +
+      '<div class="uwp-inline-row">' +
+      '<div class="uwp-inline-field uwp-inline-half"><label>Prior Repairs ($)</label><input type="text" class="uwp-inline-input uwp-health-input" data-field="totalPreviousRepairs" placeholder="0"></div>' +
+      '<div class="uwp-inline-field uwp-inline-half"><label>Proposed Repair ($)</label><input type="text" class="uwp-inline-input uwp-health-input" data-field="proposedRepairCost" placeholder="0"></div>' +
+      '</div>' +
+
+      // --- Live health score ---
+      '<div class="uwp-inline-health" style="display:none">' +
+      '<span class="uwp-health-label">Health Score:</span> ' +
+      '<span class="uwp-health-value">—</span>' +
       '</div>' +
 
       '<div class="uwp-inline-actions">' +
@@ -550,13 +620,23 @@
     var addBtn = cardEl.querySelector(".uwp-btn-add-equipment");
     if (addBtn) addBtn.style.display = "none";
 
-    // Wire up plate photo OCR
-    var plateInput = cardEl.querySelector('.uwp-inline-plate');
+    var form = cardEl.querySelector(".uwp-inline-form");
+
+    // --- Photo previews ---
+    var plateInput   = form.querySelector('.uwp-inline-plate');
+    var overallInput = form.querySelector('.uwp-inline-overall');
+    var platePreview  = form.querySelector('.uwp-plate-preview');
+    var overallPreview = form.querySelector('.uwp-overall-preview');
+
+    wireUwpPhotoPreview(platePreview ? plateInput : null, platePreview, showLightbox);
+    wireUwpPhotoPreview(overallPreview ? overallInput : null, overallPreview, showLightbox);
+
+    // --- Plate OCR ---
     if (plateInput) {
       plateInput.addEventListener("change", function () {
         var f = plateInput.files && plateInput.files[0];
         if (!f) return;
-        var ocrStatus = cardEl.querySelector(".uwp-ocr-status");
+        var ocrStatus = form.querySelector(".uwp-ocr-status");
         if (ocrStatus) { ocrStatus.textContent = "⏳ Reading data plate…"; ocrStatus.className = "uwp-ocr-status uwp-ocr-status--working"; }
 
         runPlateOcr(f).then(function (data) {
@@ -565,10 +645,8 @@
             return;
           }
           if (ocrStatus) { ocrStatus.textContent = "✓ Data plate read successfully"; ocrStatus.className = "uwp-ocr-status uwp-ocr-status--done"; }
-          var form = cardEl.querySelector(".uwp-inline-form");
-          if (!form) return;
           var setVal = function (field, val) {
-            if (!val) return;
+            if (val == null || val === "") return;
             var el = form.querySelector('[data-field="' + field + '"]');
             if (el && !el.value) el.value = String(val);
           };
@@ -578,20 +656,76 @@
           setVal("voltage", data.voltage);
           setVal("phase", data.phase);
           setVal("refrigerant", data.refrigerant);
-          setVal("tonnage", data.tonnageNumeric);
-          if (data.unitTag && !form.querySelector('[data-field="unitTag"]').value) {
-            form.querySelector('[data-field="unitTag"]').value = String(data.unitTag);
+          if (data.tonnageNumeric) setVal("tonnage", data.tonnageNumeric);
+          if (data.unitTag) {
+            var utEl = form.querySelector('[data-field="unitTag"]');
+            if (utEl && !utEl.value) utEl.value = String(data.unitTag);
           }
+          if (data.manufactureYear) {
+            setVal("manufactureYear", data.manufactureYear);
+            var yrEl = form.querySelector('[data-field="ageYears"]');
+            if (yrEl && !yrEl.value) {
+              var age = Math.max(0, new Date().getFullYear() - Number(data.manufactureYear));
+              if (isFinite(age)) yrEl.value = String(age);
+            }
+          }
+          // Auto-fill CRV from OCR tonnage
+          if (data.tonnageNumeric) {
+            var crvEl = form.querySelector('[data-field="estimatedCRV"]');
+            if (crvEl && !crvEl.value) {
+              var crv = uwpEstimateCRV(data.tonnageNumeric);
+              if (crv > 0) crvEl.value = String(crv);
+            }
+          }
+          refreshUwpHealth(form);
         }).catch(function (err) {
           console.error("[UnitWorkParser] plateOCR", err);
           if (ocrStatus) { ocrStatus.textContent = "OCR failed — fill in manually"; ocrStatus.className = "uwp-ocr-status uwp-ocr-status--error"; }
         });
       });
     }
+
+    // --- Tonnage → CRV auto-fill ---
+    var tonnageEl = form.querySelector('.uwp-tonnage-input');
+    if (tonnageEl) {
+      tonnageEl.addEventListener("input", function () {
+        var crvEl = form.querySelector('[data-field="estimatedCRV"]');
+        if (!crvEl) return;
+        var crv = uwpEstimateCRV(tonnageEl.value);
+        if (crv > 0) crvEl.value = String(crv);
+        refreshUwpHealth(form);
+      });
+    }
+
+    // --- Health score live recalc ---
+    form.querySelectorAll('.uwp-age-input, .uwp-health-input, .uwp-crv-input').forEach(function (el) {
+      el.addEventListener("input", function () { refreshUwpHealth(form); });
+    });
+  }
+
+  /** Recalculate and display live health score inside an inline form. */
+  function refreshUwpHealth(form) {
+    if (!form) return;
+    var getV = function (field) {
+      var el = form.querySelector('[data-field="' + field + '"]');
+      return el ? el.value : "";
+    };
+    var h = uwpCalcHealth(getV("ageYears"), getV("totalPreviousRepairs"), getV("proposedRepairCost"), getV("estimatedCRV"));
+    var healthEl = form.querySelector(".uwp-inline-health");
+    var valEl    = form.querySelector(".uwp-health-value");
+    if (valEl) {
+      valEl.textContent = h.score + " — Grade " + h.grade;
+      valEl.className = "uwp-health-value uwp-health-" + h.grade.toLowerCase();
+    }
+    if (healthEl) {
+      var show = getV("ageYears") || getV("totalPreviousRepairs") || getV("proposedRepairCost") || getV("estimatedCRV");
+      healthEl.style.display = show ? "flex" : "none";
+    }
   }
 
   /**
    * Save inline form data to Firestore Equipment collection, update card to matched.
+   * Writes full field set matching EquipmentManager field names.
    */
   function saveInlineEquipment(idx, wrapper) {
     var cardEl = wrapper && wrapper.querySelector('.uwp-card[data-uwp-idx="' + idx + '"]');
@@ -600,20 +734,37 @@
     if (!form) return;
     var statusEl = form.querySelector(".uwp-inline-status");
 
-    var getField = function (name) { var el = form.querySelector('[data-field="' + name + '"]'); return el ? (el.value || "").trim() : ""; };
-    var unitTag = getField("unitTag");
-    var brand = getField("brand");
-    var model = getField("model");
-    var serial = getField("serial");
-    var voltage = getField("voltage");
-    var phase = getField("phase");
-    var refrigerant = getField("refrigerant");
-    var tonnage = getField("tonnage");
+    var getField = function (name) {
+      var el = form.querySelector('[data-field="' + name + '"]');
+      return el ? (el.value || "").trim() : "";
+    };
+
+    var unitTag          = getField("unitTag");
+    var brand            = getField("brand");
+    var model            = getField("model");
+    var serial           = getField("serial");
+    var voltage          = getField("voltage");
+    var phase            = getField("phase");
+    var refrigerant      = getField("refrigerant");
+    var tonnage          = getField("tonnage");
+    var manufactureYear  = getField("manufactureYear");
+    var ageYears         = getField("ageYears");
+    var estimatedCRV     = getField("estimatedCRV");
+    var prevRepairs      = getField("totalPreviousRepairs");
+    var proposedCost     = getField("proposedRepairCost");
+
+    // If CRV not filled but tonnage present, compute it now
+    if (!estimatedCRV && tonnage) {
+      var crv = uwpEstimateCRV(tonnage);
+      if (crv > 0) estimatedCRV = String(crv);
+    }
+
+    var health = uwpCalcHealth(ageYears, prevRepairs, proposedCost, estimatedCRV);
 
     var overallInput = form.querySelector('[data-field="overallPhoto"]');
-    var plateInput = form.querySelector('[data-field="platePhoto"]');
-    var overallFile = overallInput && overallInput.files && overallInput.files[0];
-    var plateFile = plateInput && plateInput.files && plateInput.files[0];
+    var plateInput   = form.querySelector('[data-field="platePhoto"]');
+    var overallFile  = overallInput && overallInput.files && overallInput.files[0];
+    var plateFile    = plateInput   && plateInput.files   && plateInput.files[0];
 
     if (!unitTag) {
       if (statusEl) { statusEl.textContent = "Unit tag is required."; statusEl.className = "uwp-inline-status uwp-inline-status--error"; }
@@ -631,17 +782,24 @@
     var unitId = sanitizePathSegment(unitTag);
 
     var profile = {
-      unitTag: unitTag,
-      brand: brand,
-      model: model,
-      serialJob: serial,
-      voltage: voltage,
-      phase: phase,
-      refrigerant: refrigerant,
-      tonnage: tonnage,
-      overallPhotoUrl: "",
-      dataPlatePhotoUrl: "",
-      savedAt: new Date().toISOString(),
+      unitTag:              unitTag,
+      brand:                brand,
+      model:                model,
+      serialJob:            serial,
+      voltage:              voltage,
+      phase:                phase,
+      refrigerant:          refrigerant,
+      tonnage:              tonnage,
+      manufactureYear:      manufactureYear,
+      ageYears:             ageYears,
+      estimatedCRV:         estimatedCRV,
+      totalPreviousRepairs: prevRepairs,
+      proposedRepairCost:   proposedCost,
+      healthScore:          health.score,
+      healthGrade:          health.grade,
+      overallPhotoUrl:      "",
+      dataPlatePhotoUrl:    "",
+      savedAt:              new Date().toISOString(),
     };
 
     var db = firebase.firestore();

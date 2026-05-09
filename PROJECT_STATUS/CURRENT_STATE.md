@@ -7,7 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 39 — Unit Work Parser (Smart Unit Link). All 4 slices + Add Equipment from unmatched card shipped.
-- **Last shipped (2026-05-09):** Equipment Hub card thumbnails — list cards now show a 62×54 photo thumb (overall first, data plate fallback, camera placeholder if none); detail view shows "No photos on file" when empty; `uploadInlinePhotos` now calls `refreshEquipmentHubList` after upload. `equipment_hub.js?v=13`, `unit_work_parser.js?v=5`, `VC_BUILD = "EHub-CardThumbs-2026-05-09"`.
+- **Last shipped (2026-05-09):** Equipment photo previews + full-parity inline quick-add form — live FileReader/createObjectURL thumbnail previews in EquipmentManager modal (`#emPhotoOverall`, `#emPhotoPlate`) and UWP inline form; UWP inline form expanded to full parity (Mfg Year, Age, CRV auto-fill, Prior/Proposed Repairs, live Health Score display); Equipment Hub detail view photos moved to dedicated row between specs and profile grid; `saveInlineEquipment` writes all fields with canonical names; `.em-photo-preview`, `.uwp-photo-preview` CSS. `equipment_hub.js?v=14`, `unit_work_parser.js?v=6`, `VC_BUILD = "EHub-FullPhotoForms-2026-05-09"`.
+- **Prior (2026-05-09):** Equipment Hub card thumbnails — list cards show 62×54 thumb; detail view "No photos on file" fallback; `uploadInlinePhotos` refreshes hub list. `equipment_hub.js?v=13`, `unit_work_parser.js?v=5`.
 - **Prior (2026-05-09):** UWP inline OCR quick-add on unmatched card; native photo picker (removed `capture`). `unit_work_parser.js?v=3–4`.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding dead; bridge in `shared/firebase_logic.js` left quiet.
@@ -20,7 +21,7 @@ None. Two non-blocking carry-overs:
 
 ## Immediate Next Step
 
-**Test card thumbnails:** hard-reload field app → open Equipment Hub → list cards should show photo thumbnail on left (or camera-placeholder if no photos saved) → tap a card → detail view shows Overall / Data Plate thumbnails → tap a thumbnail → fullscreen lightbox with ✕ top-right to close.
+**Test photo previews + inline form parity:** hard-reload field app → open Equipment Hub → tap a unit → photos now appear below specs (not beside title) → tap to lightbox → go back → tap "Parse & Link" with unmatched card → tap "+ Add Equipment" → inline form should have all fields including CRV auto-fill, health score, and photo previews before save. Also open EquipmentManager directly and verify photo preview appears beneath each file input.
 
 **Next build candidates (pick one):**
 - **KI-004** — offline photo outbox (`shared/offline_storage_outbox.js`, ADR-012). Re-gate → **Sonnet 4.6**.
