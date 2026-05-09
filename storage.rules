@@ -12,13 +12,14 @@ rules_version = '2';
 // so allowed paths use `if true`.  Restrict to
 // `request.auth != null` once Auth is rolled out (ADR-012).
 //
-// Known upload prefixes (grep: firebase.storage().ref().child):
-//   equipment_manager.js   → equipment_photos/, dictation_hub_assets/
-//   unit_work_parser.js    → equipment_photos/
-//   service_call.js        → customer_evidence/
-//   field_forms.js         → field_quote_evidence/, field_form_evidence/, quote_evidence/
-//   workspace_ui.js        → site_access_photos/
-//   dictation_hub.js       → tenants/{tid}/imported_equipment_photos/
+// Known upload prefixes (grep *.js AND *.html for firebase.storage().ref):
+//   equipment_manager.js      → equipment_photos/, dictation_hub_assets/
+//   unit_work_parser.js       → equipment_photos/
+//   service_call.js           → customer_evidence/
+//   field_forms.js            → field_quote_evidence/, field_form_evidence/, quote_evidence/
+//   workspace_ui.js           → site_access_photos/
+//   dictation_hub.js          → tenants/{tid}/imported_equipment_photos/
+//   technician/index.html     → field_evidence/, service_call_addendums/
 // ============================================================
 
 service firebase.storage {
@@ -64,8 +65,19 @@ service firebase.storage {
       allow read, write: if true;
     }
 
+    // Field-app pasted photo evidence (uploadFieldEvidencePastedBlob — technician/index.html:7185)
+    match /field_evidence/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // Service call addendum file attachments (addendums flow — technician/index.html:7013)
+    match /service_call_addendums/{allPaths=**} {
+      allow read, write: if true;
+    }
+
     // All other paths: default deny (no match = no access).
     // Add a new explicit block above when a new upload prefix is introduced.
+    // Grep *.js AND *.html for `firebase.storage().ref` when adding new upload features.
 
   }
 }
