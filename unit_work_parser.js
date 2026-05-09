@@ -429,8 +429,61 @@
     document.body.appendChild(lb);
   }
 
+  var PLATE_OCR_PROMPT =
+    "You are an expert HVAC equipment data-plate OCR assistant. " +
+    "Analyze the image and extract ONLY what is visible. Return a single JSON object (no markdown) with these keys: " +
+    "brand (string), model (string), serial (string), voltage (string), phase (string), refrigerant (string), " +
+    "unitTag (string, e.g. RTU-2 or PRV-3 if shown), " +
+    "tonnageNumeric (number or null) — cooling/heating tonnage decoded from the model number if present, " +
+    "manufactureYear (number or null). " +
+    "If a field is not on the plate, use empty string or null. Be conservative; do not invent model numbers.";
+
+  function fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () {
+        var dataUrl = String(r.result || "");
+        var i = dataUrl.indexOf("base64,");
+        resolve(i >= 0 ? dataUrl.slice(i + 7) : dataUrl);
+      };
+      r.onerror = function () { reject(r.error); };
+      r.readAsDataURL(file);
+    });
+  }
+
+  function runPlateOcr(file) {
+    if (!file || !file.type || !file.type.startsWith("image/")) {
+      return Promise.reject(new Error("Choose a photo."));
+    }
+    return fileToBase64(file).then(function (b64) {
+      return getGeminiApiKey().then(function (key) {
+        if (!key) throw new Error("No Gemini API key.");
+        var url =
+          "https://generativelanguage.googleapis.com/v1beta/models/" +
+          geminiModelId() + ":generateContent?key=" + encodeURIComponent(key);
+        var body = {
+          contents: [{
+            role: "user",
+            parts: [
+              { text: PLATE_OCR_PROMPT },
+              { inlineData: { mimeType: file.type || "image/jpeg", data: b64 } }
+            ]
+          }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 2048, responseMimeType: "application/json" }
+        };
+        return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      }).then(function (res) { return res.json(); }).then(function (data) {
+        var parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+        if (!parts || !parts.length) return null;
+        var raw = parts.map(function (p) { return p.text || ""; }).join("\n");
+        return parseGeminiJson(raw);
+      });
+    });
+  }
+
   /**
    * Show inline quick-add form directly on the unmatched card.
+   * Data plate photo at top (OCR auto-fill), overall photo, then text fields.
    */
   function openEquipmentManagerForUnmatched(idx) {
     var result = currentResults[idx];
@@ -456,11 +509,35 @@
     var formHtml =
       '<div class="uwp-inline-form" data-uwp-form-idx="' + idx + '">' +
       '<div class="uwp-inline-form-title">Quick Add Unit</div>' +
+
+      '<div class="uwp-inline-field">' +
+      '<label>📷 Data Plate Photo <span class="uwp-inline-hint">(AI reads this automatically)</span></label>' +
+      '<input type="file" accept="image/*" capture="environment" class="uwp-inline-file uwp-inline-plate" data-field="platePhoto">' +
+      '<div class="uwp-ocr-status"></div>' +
+      '</div>' +
+
+      '<div class="uwp-inline-field">' +
+      '<label>📷 Overall Equipment Photo</label>' +
+      '<input type="file" accept="image/*" capture="environment" class="uwp-inline-file" data-field="overallPhoto">' +
+      '</div>' +
+
+      '<div class="uwp-inline-divider"></div>' +
+
       '<div class="uwp-inline-field"><label>Unit Tag</label><input type="text" class="uwp-inline-input" data-field="unitTag" value="' + prefillTag + '"></div>' +
-      '<div class="uwp-inline-field"><label>Brand</label><input type="text" class="uwp-inline-input" data-field="brand" placeholder="e.g. Carrier, Trane"></div>' +
-      '<div class="uwp-inline-field"><label>Model</label><input type="text" class="uwp-inline-input" data-field="model" placeholder="e.g. 48TCDD08"></div>' +
-      '<div class="uwp-inline-field"><label>Overall Photo</label><input type="file" accept="image/*" capture="environment" class="uwp-inline-file" data-field="overallPhoto"></div>' +
-      '<div class="uwp-inline-field"><label>Data Plate Photo</label><input type="file" accept="image/*" capture="environment" class="uwp-inline-file" data-field="platePhoto"></div>' +
+      '<div class="uwp-inline-row">' +
+      '<div class="uwp-inline-field uwp-inline-half"><label>Brand</label><input type="text" class="uwp-inline-input" data-field="brand" placeholder="e.g. Carrier"></div>' +
+      '<div class="uwp-inline-field uwp-inline-half"><label>Model</label><input type="text" class="uwp-inline-input" data-field="model" placeholder="e.g. 48TCDD08"></div>' +
+      '</div>' +
+      '<div class="uwp-inline-field"><label>Serial</label><input type="text" class="uwp-inline-input" data-field="serial" placeholder="Auto-filled from data plate"></div>' +
+      '<div class="uwp-inline-row">' +
+      '<div class="uwp-inline-field uwp-inline-half"><label>Voltage</label><input type="text" class="uwp-inline-input" data-field="voltage" placeholder="e.g. 208/230"></div>' +
+      '<div class="uwp-inline-field uwp-inline-half"><label>Phase</label><input type="text" class="uwp-inline-input" data-field="phase" placeholder="e.g. 3"></div>' +
+      '</div>' +
+      '<div class="uwp-inline-row">' +
+      '<div class="uwp-inline-field uwp-inline-half"><label>Refrigerant</label><input type="text" class="uwp-inline-input" data-field="refrigerant" placeholder="e.g. R-410A"></div>' +
+      '<div class="uwp-inline-field uwp-inline-half"><label>Tonnage</label><input type="text" class="uwp-inline-input" data-field="tonnage" placeholder="e.g. 5"></div>' +
+      '</div>' +
+
       '<div class="uwp-inline-actions">' +
       '<button type="button" class="uwp-inline-save" data-uwp-save-idx="' + idx + '">Save Unit</button>' +
       '<button type="button" class="uwp-inline-cancel" data-uwp-cancel-form="' + idx + '">Cancel</button>' +
@@ -472,6 +549,45 @@
 
     var addBtn = cardEl.querySelector(".uwp-btn-add-equipment");
     if (addBtn) addBtn.style.display = "none";
+
+    // Wire up plate photo OCR
+    var plateInput = cardEl.querySelector('.uwp-inline-plate');
+    if (plateInput) {
+      plateInput.addEventListener("change", function () {
+        var f = plateInput.files && plateInput.files[0];
+        if (!f) return;
+        var ocrStatus = cardEl.querySelector(".uwp-ocr-status");
+        if (ocrStatus) { ocrStatus.textContent = "⏳ Reading data plate…"; ocrStatus.className = "uwp-ocr-status uwp-ocr-status--working"; }
+
+        runPlateOcr(f).then(function (data) {
+          if (!data) {
+            if (ocrStatus) { ocrStatus.textContent = "Could not read plate — fill in manually"; ocrStatus.className = "uwp-ocr-status uwp-ocr-status--error"; }
+            return;
+          }
+          if (ocrStatus) { ocrStatus.textContent = "✓ Data plate read successfully"; ocrStatus.className = "uwp-ocr-status uwp-ocr-status--done"; }
+          var form = cardEl.querySelector(".uwp-inline-form");
+          if (!form) return;
+          var setVal = function (field, val) {
+            if (!val) return;
+            var el = form.querySelector('[data-field="' + field + '"]');
+            if (el && !el.value) el.value = String(val);
+          };
+          setVal("brand", data.brand);
+          setVal("model", data.model);
+          setVal("serial", data.serial);
+          setVal("voltage", data.voltage);
+          setVal("phase", data.phase);
+          setVal("refrigerant", data.refrigerant);
+          setVal("tonnage", data.tonnageNumeric);
+          if (data.unitTag && !form.querySelector('[data-field="unitTag"]').value) {
+            form.querySelector('[data-field="unitTag"]').value = String(data.unitTag);
+          }
+        }).catch(function (err) {
+          console.error("[UnitWorkParser] plateOCR", err);
+          if (ocrStatus) { ocrStatus.textContent = "OCR failed — fill in manually"; ocrStatus.className = "uwp-ocr-status uwp-ocr-status--error"; }
+        });
+      });
+    }
   }
 
   /**
@@ -484,9 +600,16 @@
     if (!form) return;
     var statusEl = form.querySelector(".uwp-inline-status");
 
-    var unitTag = (form.querySelector('[data-field="unitTag"]').value || "").trim();
-    var brand = (form.querySelector('[data-field="brand"]').value || "").trim();
-    var model = (form.querySelector('[data-field="model"]').value || "").trim();
+    var getField = function (name) { var el = form.querySelector('[data-field="' + name + '"]'); return el ? (el.value || "").trim() : ""; };
+    var unitTag = getField("unitTag");
+    var brand = getField("brand");
+    var model = getField("model");
+    var serial = getField("serial");
+    var voltage = getField("voltage");
+    var phase = getField("phase");
+    var refrigerant = getField("refrigerant");
+    var tonnage = getField("tonnage");
+
     var overallInput = form.querySelector('[data-field="overallPhoto"]');
     var plateInput = form.querySelector('[data-field="platePhoto"]');
     var overallFile = overallInput && overallInput.files && overallInput.files[0];
@@ -511,6 +634,11 @@
       unitTag: unitTag,
       brand: brand,
       model: model,
+      serialJob: serial,
+      voltage: voltage,
+      phase: phase,
+      refrigerant: refrigerant,
+      tonnage: tonnage,
       overallPhotoUrl: "",
       dataPlatePhotoUrl: "",
       savedAt: new Date().toISOString(),
@@ -538,7 +666,6 @@
       var scroll = wrapper.querySelector(".uwp-cards-scroll");
       if (scroll) scroll.innerHTML = buildCardsOnly(currentResults);
 
-      // Background: upload photos if provided
       if (overallFile || plateFile) {
         uploadInlinePhotos(customerId, locationId, unitId, overallFile, plateFile, equipRef);
       }

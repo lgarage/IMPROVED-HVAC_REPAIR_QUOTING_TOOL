@@ -4146,19 +4146,19 @@ button#techDisplayLabel:active { opacity: 0.75; }
 }
 .uwp-inline-form {
   margin-top: 10px;
-  padding: 12px;
+  padding: 14px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
 }
 .uwp-inline-form-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   color: #1e293b;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .uwp-inline-field {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .uwp-inline-field label {
   display: block;
@@ -4167,9 +4167,14 @@ button#techDisplayLabel:active { opacity: 0.75; }
   color: #64748b;
   margin-bottom: 3px;
 }
+.uwp-inline-hint {
+  font-weight: 500;
+  color: #2563eb;
+  font-style: italic;
+}
 .uwp-inline-input {
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 10px;
   font-size: 14px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
@@ -4186,15 +4191,45 @@ button#techDisplayLabel:active { opacity: 0.75; }
   font-size: 12px;
   color: #475569;
 }
+.uwp-inline-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 12px 0;
+}
+.uwp-inline-row {
+  display: flex;
+  gap: 8px;
+}
+.uwp-inline-half {
+  flex: 1;
+  min-width: 0;
+}
+.uwp-ocr-status {
+  font-size: 11px;
+  margin-top: 4px;
+  min-height: 14px;
+}
+.uwp-ocr-status--working {
+  color: #d97706;
+  font-weight: 600;
+}
+.uwp-ocr-status--done {
+  color: #16a34a;
+  font-weight: 600;
+}
+.uwp-ocr-status--error {
+  color: #dc2626;
+  font-weight: 600;
+}
 .uwp-inline-actions {
   display: flex;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 .uwp-inline-save {
   flex: 1;
-  padding: 10px 16px;
-  font-size: 13px;
+  padding: 12px 16px;
+  font-size: 14px;
   font-weight: 700;
   color: #fff;
   background: #16a34a;
@@ -4206,8 +4241,8 @@ button#techDisplayLabel:active { opacity: 0.75; }
 .uwp-inline-save:active { transform: scale(0.97); opacity: 0.9; }
 .uwp-inline-save:disabled { opacity: 0.6; }
 .uwp-inline-cancel {
-  padding: 10px 14px;
-  font-size: 13px;
+  padding: 12px 14px;
+  font-size: 14px;
   font-weight: 600;
   color: #64748b;
   background: #e2e8f0;
@@ -10304,7 +10339,7 @@ window.onload = async function(){
     <script src="js/location_manager.js?v=1"></script>
     <script src="../dictation_hub.js?v=17"></script>
     <script src="../equipment_hub.js?v=12"></script>
-    <script src="../unit_work_parser.js?v=2"></script>
+    <script src="../unit_work_parser.js?v=3"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
