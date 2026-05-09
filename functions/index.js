@@ -15,7 +15,7 @@ async function getGeminiKeyFromFirestore() {
 }
 
 exports.callGeminiVision = onCall(
-  { maxInstances: 20 },
+  { maxInstances: 20, invoker: "public" },
   async (request) => {
     const { base64Data, mimeType, promptText, model } = request.data;
 

@@ -6,10 +6,10 @@
 
 ## Snapshot
 
-- **Active Phase:** Field app boot speed fix shipped. Next: pick from build candidates below.
-- **Last shipped (2026-05-08):** Schedule fast-boot b — `applyVcFieldEntitlements()` now runs in `Promise.all` alongside `loadUserProfile()` instead of serially before it; eliminates 1–2 blocking tenantUsers GETs before schedule subscription starts. `VC_BUILD = "ScheduleFastBoot-b-2026-05-08"`. (Prior: roster fetch also moved to background when saved tech exists.)
+- **Active Phase:** OCR Cloud Function now live end-to-end. Next: pick from build candidates below.
+- **Last shipped (2026-05-08):** `callGeminiVision` Cloud Run auth fix — added `invoker: "public"` to v2 `onCall` options; Cloud Run was rejecting all calls with "not authenticated" before function code ran (field app has no Firebase Auth). `VC_BUILD = "ScheduleFastBoot-b-2026-05-08"` (function deploy, no HTML bump needed).
+- **Prior (2026-05-08):** Schedule fast-boot b — `applyVcFieldEntitlements()` moved to `Promise.all` alongside `loadUserProfile()`.
 - **Prior (2026-05-08):** Phase 37b — Shadow consent gate iframe-sync race fix (`shadow_mode.js?v=7`).
-- **Prior (2026-05-08):** Gemini Vision Cloud Function proxy — OCR key server-side. Deploy required (see Immediate Next Step).
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding dead; bridge in `shared/firebase_logic.js` left quiet.
 
@@ -21,14 +21,7 @@ None. Two non-blocking carry-overs:
 
 ## Immediate Next Step
 
-**Deploy the Cloud Function (must do before OCR works again):**
-
-```bash
-firebase deploy --only functions
-firebase deploy --only hosting
-```
-
-The function reads the Gemini API key from Firestore `app_config/api_keys.gemini` at call time (same doc the Dispatcher Settings → Integrations UI writes). No Secret Manager setup needed. Make sure the key is saved in the Integrations pane before testing OCR.
+**Test OCR on the phone** — the function is live. Open the field app → Add Equipment → scan a data plate. If you see parsed JSON back, OCR is working end-to-end.
 
 **Next build candidates (pick one):**
 - **Equipment Hub UX** — additional polish (on-device verification of hamburger menu items, photo thumbnails, lightbox). T2, **Sonnet 4.6**.
