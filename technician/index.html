@@ -4810,7 +4810,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "ShadowConsent-2026-05-08";
+window.VC_BUILD = "ScheduleFastBoot-2026-05-08";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -9563,20 +9563,29 @@ window.onload = async function(){
   saveDraft();
   populateHistoryCustomers();
 
-  cachedTechnicianRoster = await fetchTechnicianRosterFromCloud();
   const savedRaw = localStorage.getItem('tp_saved_tech');
-  let canonical = resolveCanonicalTechName(savedRaw, cachedTechnicianRoster);
-  if (canonical && canonical !== savedRaw) {
-    localStorage.setItem('tp_saved_tech', canonical);
-  }
-  if (!canonical) {
+  if (!savedRaw) {
+    // No saved tech — must fetch roster to populate the login shell picker.
+    cachedTechnicianRoster = await fetchTechnicianRosterFromCloud();
     showLoginShell(cachedTechnicianRoster);
-  document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
-  return;
+    document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
+    return;
   }
 
+  // Saved tech exists — start schedule immediately without blocking on the roster fetch.
+  // Fetch the roster in the background only for canonicalization; update localStorage/currentTechProfile
+  // if the stored name drifts from what the roster now says (e.g. after a name change in Settings).
+  fetchTechnicianRosterFromCloud().then(function (roster) {
+    cachedTechnicianRoster = roster;
+    var canonical = resolveCanonicalTechName(savedRaw, roster);
+    if (canonical && canonical !== savedRaw) {
+      localStorage.setItem('tp_saved_tech', canonical);
+      currentTechProfile = canonical;
+    }
+  });
+
   if (typeof applyVcFieldEntitlements === 'function') {
-    await applyVcFieldEntitlements(canonical);
+    await applyVcFieldEntitlements(savedRaw);
   }
 
   const openedFromDispatchLink = await loadUserProfile();

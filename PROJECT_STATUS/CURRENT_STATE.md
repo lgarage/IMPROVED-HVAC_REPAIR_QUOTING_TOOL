@@ -6,10 +6,10 @@
 
 ## Snapshot
 
-- **Active Phase:** Shadow Mode consent gate shipped + hardened. Next: pick from build candidates below.
-- **Last shipped (2026-05-08):** Phase 37b — Shadow consent gate iframe-sync race fix. `wireShadowIframeTechSync` now calls `updateConsentGate()` immediately after `vc_shadow_tech_changed` mutates `currentShadowPresenceKey` — prevents non-consenting tech's screen from briefly showing before next Firestore snapshot. `shadow_mode.js?v=6→v=7`. `VC_BUILD = "ShadowConsentGate-iframeSync-2026-05-08"`.
-- **Prior (2026-05-08):** Gemini Vision Cloud Function proxy — OCR key server-side (`functions/index.js`, Secret Manager, `equipment_manager.js` → `httpsCallable`). Deploy required (see Immediate Next Step).
-- **Prior (2026-05-08):** Phase 37 — Shadow Mode consent gate (`shadowConsent` in `live_presence`, iframe gate, heartbeat `FieldValue.delete`).
+- **Active Phase:** Field app boot speed fix shipped. Next: pick from build candidates below.
+- **Last shipped (2026-05-08):** Schedule fast-boot — `fetchTechnicianRosterFromCloud()` no longer blocks the `window.onload` schedule subscription when a saved tech exists; roster now fetched in background for canonicalization only; login shell path unchanged. `VC_BUILD = "ScheduleFastBoot-2026-05-08"`.
+- **Prior (2026-05-08):** Phase 37b — Shadow consent gate iframe-sync race fix (`shadow_mode.js?v=7`).
+- **Prior (2026-05-08):** Gemini Vision Cloud Function proxy — OCR key server-side. Deploy required (see Immediate Next Step).
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding dead; bridge in `shared/firebase_logic.js` left quiet.
 
