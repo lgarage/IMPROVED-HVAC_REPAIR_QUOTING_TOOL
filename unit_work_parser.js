@@ -512,13 +512,13 @@
 
       '<div class="uwp-inline-field">' +
       '<label>📷 Data Plate Photo <span class="uwp-inline-hint">(AI reads this automatically)</span></label>' +
-      '<input type="file" accept="image/*" capture="environment" class="uwp-inline-file uwp-inline-plate" data-field="platePhoto">' +
+      '<input type="file" accept="image/*" class="uwp-inline-file uwp-inline-plate" data-field="platePhoto">' +
       '<div class="uwp-ocr-status"></div>' +
       '</div>' +
 
       '<div class="uwp-inline-field">' +
       '<label>📷 Overall Equipment Photo</label>' +
-      '<input type="file" accept="image/*" capture="environment" class="uwp-inline-file" data-field="overallPhoto">' +
+      '<input type="file" accept="image/*" class="uwp-inline-file" data-field="overallPhoto">' +
       '</div>' +
 
       '<div class="uwp-inline-divider"></div>' +

@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 39 — Unit Work Parser (Smart Unit Link). All 4 slices + Add Equipment from unmatched card shipped.
-- **Last shipped (2026-05-09):** Phase 39 "Add Equipment" from unmatched confirmation card — "+ Add Equipment" button on yellow unmatched cards opens Equipment Manager pre-filled with raw unit tag; after save, card auto-updates to matched (thumbnail + tag). `unit_work_parser.js?v=2`, `VC_BUILD = "UWP-AddEquipFromCard-2026-05-09"`.
-- **Prior (2026-05-09):** Phase 39 core — Parse & Link button, Gemini extraction, confirmation overlay, work_history writes, Equipment Hub timeline + search. `unit_work_parser.js?v=1`, `equipment_hub.js?v=12`.
+- **Last shipped (2026-05-09):** UWP inline quick-add — removed `capture="environment"` from data plate / overall file inputs so iOS/Android show the native picker (camera, photo library, files). `unit_work_parser.js?v=4`, `VC_BUILD = "UWP-PhotoPicker-2026-05-09"`.
+- **Prior (2026-05-09):** Inline OCR quick-add on unmatched card (expanded form in overlay, not Equipment Manager modal). `unit_work_parser.js?v=3`; prior Add Equipment slice used modal + `?v=2`.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding dead; bridge in `shared/firebase_logic.js` left quiet.
 
@@ -20,7 +20,7 @@ None. Two non-blocking carry-overs:
 
 ## Immediate Next Step
 
-**Test "+ Add Equipment" flow:** hard-reload the field app → open a SERVICE job → type findings mentioning an unknown unit (e.g. "rtu1 low on charge") → tap "Parse & Link to Equipment" → confirmation card should show yellow unmatched banner with a blue "+ Add Equipment" button → tap it → Equipment Manager opens with "rtu1" pre-filled in unit tag → attach photos + save → card should auto-refresh to matched (thumbnail appears, yellow banner gone) → tap "Confirm All" to finish.
+**Test photo sources on phone:** hard-reload field app → Parse & Link → on unmatched card tap "+ Add Equipment" → tap Data Plate (or Overall) file control → confirm the OS sheet offers camera, photo library, and browse/files (not camera-only).
 
 **Next build candidates (pick one):**
 - **KI-004** — offline photo outbox (`shared/offline_storage_outbox.js`, ADR-012). Re-gate → **Sonnet 4.6**.
