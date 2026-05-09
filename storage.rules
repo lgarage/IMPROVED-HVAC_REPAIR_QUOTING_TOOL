@@ -1,0 +1,17 @@
+rules_version = '2';
+
+// ============================================================
+// Vertex Core — Firebase Storage Security Rules
+// 2026-05-09: Open read/write, mirroring Firestore open-access
+// strategy (app runs without Firebase Auth on field + dispatcher
+// flows). Uploads go to equipment_photos/** and
+// dictation_hub_assets/**. Restrict once Auth is rolled out.
+// ============================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
