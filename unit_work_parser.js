@@ -1030,10 +1030,13 @@
 
     try {
       var siteEquipment = await loadSiteEquipment();
-      if (!siteEquipment.length) {
-        throw new Error("No equipment on file for this site. Add units via the Equipment Hub first.");
-      }
       currentSiteEquipment = siteEquipment;
+      // If no equipment is on file, Gemini still extracts unit references as unmatched cards
+      // so the tech can Quick-Add them directly from the overlay.
+      if (!siteEquipment.length && statusEl) {
+        statusEl.textContent = "No equipment on file — parsing notes for new units…";
+        statusEl.className = "uwp-parse-status uwp-parse-status--working";
+      }
 
       var parsedUnits = await parseNotesForUnits(diagText, recsText, siteEquipment);
       if (!parsedUnits || !parsedUnits.length) {
