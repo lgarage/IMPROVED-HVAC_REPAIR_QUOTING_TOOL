@@ -6,10 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Equipment Hub full unit history. Next: on-device test.
-- **Last shipped (2026-05-09):** Equipment Hub unit history now queries **all 5 collections** — `service_calls`, `pm_records`, `field_quotes`, `completed_reports`, `field_form_submissions`. Queries run in parallel via `Promise.all`. Timeline renders completed reports (green badge, status, full report text) and custom form submissions (purple badge, field values). `equipment_hub.js?v=11`, `VC_BUILD = "EquipHubFullHistory-2026-05-09"`.
-- **Prior (2026-05-09):** OCR reverted to direct client-side Gemini API call (Cloud Functions blocked by GCP org policy).
-- **Prior (2026-05-08):** Schedule fast-boot b, Shadow consent gate race fix.
+- **Active Phase:** Phase 39 — Unit Work Parser (Smart Unit Link). All 4 slices shipped.
+- **Last shipped (2026-05-09):** Phase 39 — "Parse & Link to Equipment" button in field workspace; Gemini-powered per-unit notes extraction; confirmation card overlay with thumbnails; Firestore `work_history` subcollection writes; Equipment Hub timeline shows parsed field notes (indigo badge); Equipment Hub search/filter by unit tag/brand/model; offline guard + dedup. `unit_work_parser.js?v=1`, `equipment_hub.js?v=12`, `VC_BUILD = "UnitWorkParser-Slice1-2026-05-09"`.
+- **Prior (2026-05-09):** Equipment Hub full unit history (5 collections); OCR revert to client-side Gemini.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding dead; bridge in `shared/firebase_logic.js` left quiet.
 
@@ -21,12 +20,12 @@ None. Two non-blocking carry-overs:
 
 ## Immediate Next Step
 
-**Deploy and test on phone:** hard-reload the field app, open any job → Equipment Hub → tap a unit card. The timeline should now show completed reports (green "Completed report" badge) and custom form submissions (purple badge) alongside the existing service calls, PM checklists, and repair quotes.
+**Deploy and test on phone:** hard-reload the field app → open any SERVICE job → type findings mentioning a unit (e.g. "RTU-1 compressor short-cycling") → tap "Parse & Link to Equipment" button below the recommendations field → verify the confirmation card shows the correct unit thumbnail + tag + extracted work summary → tap "Confirm All" → open Equipment Hub → tap that unit card → timeline should show an indigo "Parsed field notes" entry with the extracted text. Also test the search bar at the top of the equipment list.
 
 **Next build candidates (pick one):**
-- **Slice 5** — standalone `admin/index.html` + audit log. Re-gate → **Opus 4.6**.
 - **KI-004** — offline photo outbox (`shared/offline_storage_outbox.js`, ADR-012). Re-gate → **Sonnet 4.6**.
 - **KI-003** — Live Workspace Mirror / Office Override iframe parity (ADR-013). Re-gate → **Codex 5.3**.
+- **Phase 39 follow-up** — cross-unit search (query `work_history` across all units for keyword). Re-gate → **Sonnet 4.6**.
 
 Smoke-tests carried over (non-blocking): Phase 34e Field Access Notes on iPhone; Phase 33 Field-Add Equipment OCR on Vision Hub.
 
