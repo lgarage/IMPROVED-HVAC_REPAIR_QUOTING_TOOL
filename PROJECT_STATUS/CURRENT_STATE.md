@@ -6,11 +6,10 @@
 
 ## Snapshot
 
-- **Active Phase:** OCR Cloud Function now live end-to-end. Next: pick from build candidates below.
-- **Last shipped (2026-05-09):** OCR reverted to direct client-side Gemini API call — Cloud Functions approach blocked by GCP org policy (allUsers IAM denied on Cloud Run). Restored `getGeminiApiKey()` in `firebase-config.js`, direct `fetch()` in `equipment_manager.js`, removed `firebase-functions-compat.js` SDK from both HTML files. `firebase-config.js?v=6`. Cloud Function (`callGeminiVision`) remains deployed but is unused.
-- **Prior (2026-05-08):** `callGeminiVision` Cloud Run auth fix attempt — added `invoker: "public"` (blocked by org policy).
-- **Prior (2026-05-08):** Schedule fast-boot b — `applyVcFieldEntitlements()` moved to `Promise.all` alongside `loadUserProfile()`.
-- **Prior (2026-05-08):** Phase 37b — Shadow consent gate iframe-sync race fix (`shadow_mode.js?v=7`).
+- **Active Phase:** Equipment Hub full unit history. Next: on-device test.
+- **Last shipped (2026-05-09):** Equipment Hub unit history now queries **all 5 collections** — `service_calls`, `pm_records`, `field_quotes`, `completed_reports`, `field_form_submissions`. Queries run in parallel via `Promise.all`. Timeline renders completed reports (green badge, status, full report text) and custom form submissions (purple badge, field values). `equipment_hub.js?v=11`, `VC_BUILD = "EquipHubFullHistory-2026-05-09"`.
+- **Prior (2026-05-09):** OCR reverted to direct client-side Gemini API call (Cloud Functions blocked by GCP org policy).
+- **Prior (2026-05-08):** Schedule fast-boot b, Shadow consent gate race fix.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding dead; bridge in `shared/firebase_logic.js` left quiet.
 
@@ -22,12 +21,9 @@ None. Two non-blocking carry-overs:
 
 ## Immediate Next Step
 
-**Test OCR on the phone** — hard-reload the field app (hold-reload or clear cache), then Add Equipment → scan a data plate. The app is back to calling Gemini directly.
-
-**If you still get "Requests from referer blocked":** that's a GCP Console API key restriction. Go to [GCP Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials?project=twin-pillars-app), find the Gemini key, and either remove the HTTP referrer restriction or add `twin-pillars-app.web.app/*` to the allowed list.
+**Deploy and test on phone:** hard-reload the field app, open any job → Equipment Hub → tap a unit card. The timeline should now show completed reports (green "Completed report" badge) and custom form submissions (purple badge) alongside the existing service calls, PM checklists, and repair quotes.
 
 **Next build candidates (pick one):**
-- **Equipment Hub UX** — additional polish (on-device verification of hamburger menu items, photo thumbnails, lightbox). T2, **Sonnet 4.6**.
 - **Slice 5** — standalone `admin/index.html` + audit log. Re-gate → **Opus 4.6**.
 - **KI-004** — offline photo outbox (`shared/offline_storage_outbox.js`, ADR-012). Re-gate → **Sonnet 4.6**.
 - **KI-003** — Live Workspace Mirror / Office Override iframe parity (ADR-013). Re-gate → **Codex 5.3**.

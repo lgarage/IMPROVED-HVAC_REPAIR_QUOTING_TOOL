@@ -442,18 +442,27 @@
       typeof VCFirestore !== "undefined"
         ? VCFirestore.fieldQuotes(db)
         : db.collection("field_quotes");
+    var crCol =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.completedReports(db)
+        : db.collection("completed_reports");
+    var ffCol =
+      typeof VCFirestore !== "undefined"
+        ? VCFirestore.fieldFormSubmissions(db)
+        : db.collection("field_form_submissions");
     try {
-      var snapCalls = await sc
-        .where("Linked_Equipment_ID", "==", equipmentId)
-        .get();
-
-      var snapPm = await pmCol
-        .where("equipmentId", "==", equipmentId)
-        .get();
-
-      var snapQuotes = await fqCol
-        .where("equipmentId", "==", equipmentId)
-        .get();
+      var results = await Promise.all([
+        sc.where("Linked_Equipment_ID", "==", equipmentId).get(),
+        pmCol.where("equipmentId", "==", equipmentId).get(),
+        fqCol.where("equipmentId", "==", equipmentId).get(),
+        crCol.where("Linked_Equipment_ID", "==", equipmentId).get(),
+        ffCol.where("equipmentId", "==", equipmentId).get()
+      ]);
+      var snapCalls = results[0];
+      var snapPm = results[1];
+      var snapQuotes = results[2];
+      var snapReports = results[3];
+      var snapForms = results[4];
 
       var merged = [];
 
@@ -486,6 +495,30 @@
           id: doc.id,
           data: data,
           sortKey: dk + "_q_" + doc.id,
+        });
+      });
+
+      snapReports.forEach(function (doc) {
+        var data = doc.data() || {};
+        var dk = data.deviceSavedAt
+          ? String(data.deviceSavedAt).slice(0, 10)
+          : (data.savedAt && String(data.savedAt).slice(0, 10)) || "1970-01-01";
+        merged.push({
+          kind: "completed_report",
+          id: doc.id,
+          data: data,
+          sortKey: dk + "_cr_" + doc.id,
+        });
+      });
+
+      snapForms.forEach(function (doc) {
+        var data = doc.data() || {};
+        var dk = data.date || (data.savedAt && String(data.savedAt).slice(0, 10)) || "1970-01-01";
+        merged.push({
+          kind: "field_form",
+          id: doc.id,
+          data: data,
+          sortKey: dk + "_ff_" + doc.id,
         });
       });
 
@@ -607,6 +640,74 @@
             "<div class=\"equipment-hub-tl-body\">" +
             qBody +
             thumbs +
+            "</div>" +
+            "</li>";
+        } else if (row.kind === "completed_report") {
+          var cr = row.data;
+          var whenCr = cr.deviceSavedAt
+            ? String(cr.deviceSavedAt).slice(0, 10)
+            : (cr.savedAt && String(cr.savedAt).slice(0, 10)) || "—";
+          var techCr = cr.techName || "—";
+          var statusCr = cr.status || "—";
+          var crBody = "";
+          if (cr.fullReportText) {
+            crBody = escapeHtml(String(cr.fullReportText).slice(0, 600)).replace(/\n/g, "<br>");
+            if (cr.fullReportText.length > 600) crBody += "<br><em>… (truncated)</em>";
+          } else {
+            var crParts = [];
+            if (cr.diagnosis) crParts.push("Diagnosis: " + cr.diagnosis);
+            if (cr.repairsMade) crParts.push("Repairs: " + cr.repairsMade);
+            if (cr.recommendations) crParts.push("Recs: " + cr.recommendations);
+            if (cr.techNotes) crParts.push("Notes: " + String(cr.techNotes).slice(0, 400));
+            crBody = crParts.length
+              ? escapeHtml(crParts.join("\n\n")).replace(/\n/g, "<br>")
+              : "—";
+          }
+          html +=
+            "<li class=\"equipment-hub-tl-item equipment-hub-tl-report\">" +
+            "<div class=\"equipment-hub-tl-badge\">Completed report</div>" +
+            "<div class=\"equipment-hub-tl-date\">" +
+            escapeHtml(String(whenCr)) +
+            "</div>" +
+            "<div class=\"equipment-hub-tl-tech\">" +
+            escapeHtml(String(techCr)) +
+            "</div>" +
+            "<div class=\"equipment-hub-tl-status\">Status: " +
+            escapeHtml(String(statusCr)) +
+            "</div>" +
+            "<div class=\"equipment-hub-tl-body\">" +
+            crBody +
+            "</div>" +
+            "</li>";
+        } else if (row.kind === "field_form") {
+          var ff = row.data;
+          var whenFf = ff.date || (ff.savedAt && String(ff.savedAt).slice(0, 10)) || "—";
+          var techFf = ff.techName || "—";
+          var formLabel = ff.templateName || ff.templateId || ff.formType || "Form";
+          var ffBody = "";
+          if (ff.fieldValues && typeof ff.fieldValues === "object") {
+            var ffLines = [];
+            Object.keys(ff.fieldValues).forEach(function (k) {
+              var v = ff.fieldValues[k];
+              if (v != null && String(v).trim() !== "") {
+                ffLines.push(escapeHtml(k) + ": " + escapeHtml(String(v)));
+              }
+            });
+            ffBody = ffLines.length ? ffLines.join("<br>") : "—";
+          } else {
+            ffBody = "—";
+          }
+          html +=
+            "<li class=\"equipment-hub-tl-item equipment-hub-tl-form\">" +
+            "<div class=\"equipment-hub-tl-badge\">" + escapeHtml(String(formLabel)) + "</div>" +
+            "<div class=\"equipment-hub-tl-date\">" +
+            escapeHtml(String(whenFf)) +
+            "</div>" +
+            "<div class=\"equipment-hub-tl-tech\">" +
+            escapeHtml(String(techFf)) +
+            "</div>" +
+            "<div class=\"equipment-hub-tl-body\">" +
+            ffBody +
             "</div>" +
             "</li>";
         }
