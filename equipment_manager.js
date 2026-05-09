@@ -1,7 +1,6 @@
 /**
  * Equipment Profile & Grading — shared module (Dispatcher index.html + Field App technician/).
- * Requires firebase (initialized + functions SDK), GEMINI_GENERATE_MODEL from firebase-config.js.
- * OCR calls proxied through Cloud Function `callGeminiVision` (key held server-side).
+ * Requires firebase (initialized), getGeminiApiKey (async), GEMINI_GENERATE_MODEL from firebase-config.js.
  */
 (function () {
   "use strict";
@@ -435,14 +434,76 @@
   }
 
   function callGeminiVision(base64Data, mimeType, promptText) {
-    var fn = firebase.functions().httpsCallable("callGeminiVision");
-    return fn({
-      base64Data: base64Data,
-      mimeType: mimeType || "image/jpeg",
-      promptText: promptText,
-      model: geminiModelId(),
-    }).then(function (result) {
-      return (result && result.data && result.data.text) || "";
+    if (typeof getGeminiApiKey !== "function") {
+      return Promise.reject(
+        new Error("No Gemini API key (configure app_config/api_keys in Firestore or Settings).")
+      );
+    }
+    return getGeminiApiKey().then(function (key) {
+      if (!key) {
+        return Promise.reject(
+          new Error("No Gemini API key (configure app_config/api_keys in Firestore or Settings).")
+        );
+      }
+      var url =
+        "https://generativelanguage.googleapis.com/v1beta/models/" +
+        geminiModelId() +
+        ":generateContent?key=" +
+        encodeURIComponent(key);
+
+      var body = {
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: promptText },
+              {
+                inlineData: {
+                  mimeType: mimeType || "image/jpeg",
+                  data: base64Data,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 2048,
+          responseMimeType: "application/json",
+        },
+      };
+
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then(function (res) {
+          return res.json().then(function (data) {
+            if (!res.ok) {
+              var msg =
+                (data && data.error && data.error.message) ||
+                res.statusText ||
+                "Gemini request failed";
+              throw new Error(msg);
+            }
+            return data;
+          });
+        })
+        .then(function (data) {
+          var parts =
+            data &&
+            data.candidates &&
+            data.candidates[0] &&
+            data.candidates[0].content &&
+            data.candidates[0].content.parts;
+          if (!parts || !parts.length) return "";
+          return parts
+            .map(function (p) {
+              return p.text || "";
+            })
+            .join("\n");
+        });
     });
   }
 

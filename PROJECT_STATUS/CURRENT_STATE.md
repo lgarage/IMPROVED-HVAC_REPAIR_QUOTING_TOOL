@@ -7,7 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** OCR Cloud Function now live end-to-end. Next: pick from build candidates below.
-- **Last shipped (2026-05-08):** `callGeminiVision` Cloud Run auth fix — added `invoker: "public"` to v2 `onCall` options; Cloud Run was rejecting all calls with "not authenticated" before function code ran (field app has no Firebase Auth). `VC_BUILD = "ScheduleFastBoot-b-2026-05-08"` (function deploy, no HTML bump needed).
+- **Last shipped (2026-05-09):** OCR reverted to direct client-side Gemini API call — Cloud Functions approach blocked by GCP org policy (allUsers IAM denied on Cloud Run). Restored `getGeminiApiKey()` in `firebase-config.js`, direct `fetch()` in `equipment_manager.js`, removed `firebase-functions-compat.js` SDK from both HTML files. `firebase-config.js?v=6`. Cloud Function (`callGeminiVision`) remains deployed but is unused.
+- **Prior (2026-05-08):** `callGeminiVision` Cloud Run auth fix attempt — added `invoker: "public"` (blocked by org policy).
 - **Prior (2026-05-08):** Schedule fast-boot b — `applyVcFieldEntitlements()` moved to `Promise.all` alongside `loadUserProfile()`.
 - **Prior (2026-05-08):** Phase 37b — Shadow consent gate iframe-sync race fix (`shadow_mode.js?v=7`).
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
@@ -21,7 +22,9 @@ None. Two non-blocking carry-overs:
 
 ## Immediate Next Step
 
-**Test OCR on the phone** — the function is live. Open the field app → Add Equipment → scan a data plate. If you see parsed JSON back, OCR is working end-to-end.
+**Test OCR on the phone** — hard-reload the field app (hold-reload or clear cache), then Add Equipment → scan a data plate. The app is back to calling Gemini directly.
+
+**If you still get "Requests from referer blocked":** that's a GCP Console API key restriction. Go to [GCP Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials?project=twin-pillars-app), find the Gemini key, and either remove the HTTP referrer restriction or add `twin-pillars-app.web.app/*` to the allowed list.
 
 **Next build candidates (pick one):**
 - **Equipment Hub UX** — additional polish (on-device verification of hamburger menu items, photo thumbnails, lightbox). T2, **Sonnet 4.6**.
