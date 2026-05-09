@@ -40,7 +40,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "ShadowConsent-2026-05-08";
+      window.VC_BUILD = "ShadowConsentGate-iframeSync-2026-05-08";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -9325,7 +9325,7 @@
     <script src="shared/repair_form_seeds.js?v=1"></script>
     <script src="settings.js?v=17"></script>
     <script src="dispatcher/js/user_import.js?v=2"></script>
-    <script src="dispatcher/js/shadow_mode.js?v=6"></script>
+    <script src="dispatcher/js/shadow_mode.js?v=7"></script>
     <script src="customer_directory.js?v=27"></script>
     <script src="dispatcher/utils.js?v=1"></script>
     <script src="dispatcher/js/ticket_manager.js?v=2"></script>

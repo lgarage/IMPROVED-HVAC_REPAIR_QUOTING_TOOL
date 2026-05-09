@@ -420,6 +420,7 @@
       } catch (e) {}
       delete sel.dataset.vcSuppressChange;
       currentShadowPresenceKey = String(d.presenceKey);
+      updateConsentGate();
       updateOfflineBadgeForCurrentSelection();
       syncDispatcherTicketIdToActiveTech();
     });

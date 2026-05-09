@@ -6,11 +6,10 @@
 
 ## Snapshot
 
-- **Active Phase:** Shadow Mode consent gate shipped. Next: pick from build candidates below.
-- **Last shipped (2026-05-08):** Gemini Vision Cloud Function proxy — OCR key moved server-side. `functions/index.js` (`callGeminiVision` onCall, Secret Manager via `defineSecret`); `equipment_manager.js` now calls `firebase.functions().httpsCallable("callGeminiVision")`; `firebase-config.js` `getGeminiApiKey()` deprecated stub; both HTML files load `firebase-functions-compat.js`; `firebase.json` gains `"functions"` section. Deploy required (see Immediate Next Step).
-- **Prior (2026-05-08):** Phase 37 — Shadow Mode consent gate. Tech consent toggle writes `shadowConsent` to `live_presence`; dispatcher iframe gated; heartbeat strips `activeTicketId`/`screen` when consent is off (`FieldValue.delete`). `VC_BUILD = "ShadowConsent-2026-05-08"`.
-- **Prior (2026-05-08):** Hamburger "Site Notes" rename + "Add additional equipment"; AI memory system audit.
-- **Prior (2026-05-07):** Members pane, Manage Admins UI, Settings sidebar nav, auth badge, auth.js fix.
+- **Active Phase:** Shadow Mode consent gate shipped + hardened. Next: pick from build candidates below.
+- **Last shipped (2026-05-08):** Phase 37b — Shadow consent gate iframe-sync race fix. `wireShadowIframeTechSync` now calls `updateConsentGate()` immediately after `vc_shadow_tech_changed` mutates `currentShadowPresenceKey` — prevents non-consenting tech's screen from briefly showing before next Firestore snapshot. `shadow_mode.js?v=6→v=7`. `VC_BUILD = "ShadowConsentGate-iframeSync-2026-05-08"`.
+- **Prior (2026-05-08):** Gemini Vision Cloud Function proxy — OCR key server-side (`functions/index.js`, Secret Manager, `equipment_manager.js` → `httpsCallable`). Deploy required (see Immediate Next Step).
+- **Prior (2026-05-08):** Phase 37 — Shadow Mode consent gate (`shadowConsent` in `live_presence`, iframe gate, heartbeat `FieldValue.delete`).
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding dead; bridge in `shared/firebase_logic.js` left quiet.
 
