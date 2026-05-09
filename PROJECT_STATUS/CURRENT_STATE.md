@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Field app boot speed fix shipped. Next: pick from build candidates below.
-- **Last shipped (2026-05-08):** Schedule fast-boot — `fetchTechnicianRosterFromCloud()` no longer blocks the `window.onload` schedule subscription when a saved tech exists; roster now fetched in background for canonicalization only; login shell path unchanged. `VC_BUILD = "ScheduleFastBoot-2026-05-08"`.
+- **Last shipped (2026-05-08):** Schedule fast-boot b — `applyVcFieldEntitlements()` now runs in `Promise.all` alongside `loadUserProfile()` instead of serially before it; eliminates 1–2 blocking tenantUsers GETs before schedule subscription starts. `VC_BUILD = "ScheduleFastBoot-b-2026-05-08"`. (Prior: roster fetch also moved to background when saved tech exists.)
 - **Prior (2026-05-08):** Phase 37b — Shadow consent gate iframe-sync race fix (`shadow_mode.js?v=7`).
 - **Prior (2026-05-08):** Gemini Vision Cloud Function proxy — OCR key server-side. Deploy required (see Immediate Next Step).
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
