@@ -2507,6 +2507,28 @@ textarea { min-height: 80px; resize: vertical; }
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+.ehub-search-wrap {
+  padding: 0 16px 10px;
+}
+.ehub-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  outline: none;
+}
+.ehub-search-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+.ehub-search-input::placeholder {
+  color: #94a3b8;
+}
 .equipment-hub-list {
   display: flex;
   flex-direction: column;
@@ -10099,6 +10121,9 @@ window.onload = async function(){
       <div class="equipment-hub-body">
         <div id="equipmentHubViewList" class="equipment-hub-view">
           <div id="equipmentHubListMeta" class="equipment-hub-meta"></div>
+          <div class="ehub-search-wrap">
+            <input type="text" id="ehubSearchInput" class="ehub-search-input" placeholder="Search units (tag, brand, model)…" autocomplete="off" />
+          </div>
           <div id="equipmentHubList" class="equipment-hub-list"></div>
         </div>
         <div id="equipmentHubViewHistory" class="equipment-hub-view hidden">

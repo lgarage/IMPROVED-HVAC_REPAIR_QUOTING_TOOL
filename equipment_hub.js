@@ -199,8 +199,29 @@
         "<button type=\"button\" class=\"ehub-swipe-delete-btn\" aria-label=\"Delete " + escapeHtml(title) + "\">" +
         "<span aria-hidden=\"true\">🗑</span><span>Delete</span></button>";
 
+      swipeRow.dataset.searchText = [title, d.brand, d.model, d.serialJob]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
       wireSwipeDelete(swipeRow, composite);
       container.appendChild(swipeRow);
+    });
+    wireSearchFilter();
+  }
+
+  function wireSearchFilter() {
+    var input = $("ehubSearchInput");
+    if (!input || input.dataset.wired === "1") return;
+    input.dataset.wired = "1";
+    input.addEventListener("input", function () {
+      var q = String(input.value || "").trim().toLowerCase();
+      var container = $("equipmentHubList");
+      if (!container) return;
+      var rows = container.querySelectorAll(".ehub-swipe-row");
+      rows.forEach(function (row) {
+        var text = row.dataset.searchText || "";
+        row.style.display = !q || text.indexOf(q) !== -1 ? "" : "none";
+      });
     });
   }
 
@@ -283,6 +304,8 @@
       hubState.parentCompany = pc || "—";
       showHubModal();
       showListView();
+      var searchInput = $("ehubSearchInput");
+      if (searchInput) searchInput.value = "";
       return fetchEquipmentForSite(customerId, locationId);
     });
   }
