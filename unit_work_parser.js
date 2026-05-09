@@ -280,11 +280,37 @@
             '</div>'
           : "";
 
+        // Photo prompt — matched unit with no photos saved
+        var photoPromptHtml = "";
+        if (r._matched && !r.overallPhotoUrl && !r.dataPlatePhotoUrl) {
+          photoPromptHtml =
+            '<div class="uwp-card-photo-prompt">' +
+            '<div class="uwp-card-photo-prompt-label">📷 No photos on file for this unit — add now? <em class="uwp-card-photo-optional">(optional)</em></div>' +
+            '<div class="uwp-card-photo-inputs">' +
+            '<label class="uwp-photo-input-label">Data Plate' +
+            '<input type="file" accept="image/*" class="uwp-card-photo-input" data-photo-type="plate" data-photo-idx="' + idx + '">' +
+            '<div class="uwp-card-photo-preview" style="display:none"></div>' +
+            '</label>' +
+            '<label class="uwp-photo-input-label">Overall' +
+            '<input type="file" accept="image/*" class="uwp-card-photo-input" data-photo-type="overall" data-photo-idx="' + idx + '">' +
+            '<div class="uwp-card-photo-preview" style="display:none"></div>' +
+            '</label>' +
+            '</div>' +
+            '<div class="uwp-card-photo-status"></div>' +
+            '</div>';
+        }
+
         var summaryLines = [];
         if (r.findings) summaryLines.push("<strong>Findings:</strong> " + escapeHtml(r.findings.slice(0, 120)) + (r.findings.length > 120 ? "…" : ""));
         if (r.repairs) summaryLines.push("<strong>Repairs:</strong> " + escapeHtml(r.repairs.slice(0, 120)) + (r.repairs.length > 120 ? "…" : ""));
         if (r.recommendations) summaryLines.push("<strong>Recs:</strong> " + escapeHtml(r.recommendations.slice(0, 80)) + (r.recommendations.length > 80 ? "…" : ""));
         if (r.partsUsed) summaryLines.push("<strong>Parts:</strong> " + escapeHtml(r.partsUsed));
+
+        // Per-card confirm button
+        var confirmOneHtml =
+          '<div class="uwp-card-footer">' +
+          '<button type="button" class="uwp-btn-confirm-one" data-uwp-confirm-one="' + idx + '">✓ OK — Save this unit</button>' +
+          '</div>';
 
         return (
           '<div class="uwp-card" data-uwp-idx="' + idx + '">' +
@@ -298,6 +324,8 @@
           "</div></div>" +
           unmatchedBanner +
           '<div class="uwp-card-summary">' + summaryLines.join("<br>") + "</div>" +
+          photoPromptHtml +
+          confirmOneHtml +
           "</div>"
         );
       })
@@ -347,6 +375,27 @@
         return;
       }
 
+      // Per-card OK — confirm this one unit and keep the overlay open for the rest
+      var confirmOneBtn = e.target.closest("[data-uwp-confirm-one]");
+      if (confirmOneBtn) {
+        var confirmIdx = parseInt(confirmOneBtn.getAttribute("data-uwp-confirm-one"), 10);
+        var unitToConfirm = currentResults[confirmIdx];
+        if (!unitToConfirm) return;
+        // Fire the write for this single unit
+        if (_onConfirmCallback) _onConfirmCallback([unitToConfirm]);
+        // Remove it from the remaining list
+        currentResults.splice(confirmIdx, 1);
+        if (currentResults.length === 0) {
+          removeOverlay();
+          return;
+        }
+        var sheetOne = wrapper.querySelector(".uwp-cards-scroll");
+        if (sheetOne) sheetOne.innerHTML = buildCardsOnly(currentResults);
+        var countElOne = wrapper.querySelector(".uwp-sheet-count");
+        if (countElOne) countElOne.textContent = currentResults.length + " unit" + (currentResults.length !== 1 ? "s" : "") + " remaining";
+        return;
+      }
+
       var addEquipBtn = e.target.closest("[data-uwp-add-equip]");
       if (addEquipBtn) {
         var addIdx = parseInt(addEquipBtn.getAttribute("data-uwp-add-equip"), 10);
@@ -390,6 +439,65 @@
       if (lightboxTarget) {
         var src = lightboxTarget.getAttribute("data-uwp-lightbox");
         if (src) showLightbox(src);
+      }
+    });
+
+    // Photo upload from matched-card photo prompt — fires immediately on file pick
+    wrapper.addEventListener("change", function (e) {
+      var photoInput = e.target.closest(".uwp-card-photo-input");
+      if (!photoInput) return;
+      var f = photoInput.files && photoInput.files[0];
+      if (!f) return;
+
+      var photoIdx = parseInt(photoInput.getAttribute("data-photo-idx"), 10);
+      var photoType = photoInput.getAttribute("data-photo-type"); // "plate" | "overall"
+      var result = currentResults[photoIdx];
+      if (!result || !result.equipmentId) return;
+
+      var parts = String(result.equipmentId).split("/");
+      if (parts.length < 3) return;
+      var cId = parts[0];
+      var lId = parts[1];
+      var uId = parts.slice(2).join("/");
+
+      // Local preview
+      var previewDiv = photoInput.nextElementSibling;
+      if (previewDiv && previewDiv.classList.contains("uwp-card-photo-preview")) {
+        var objUrl;
+        try { objUrl = URL.createObjectURL(f); } catch (ex) {}
+        if (objUrl) {
+          var prevImg = document.createElement("img");
+          prevImg.src = objUrl;
+          prevImg.alt = "Preview";
+          prevImg.className = "uwp-card-photo-preview-img";
+          prevImg.addEventListener("click", function () { showLightbox(objUrl); });
+          previewDiv.innerHTML = "";
+          previewDiv.appendChild(prevImg);
+          previewDiv.style.display = "block";
+        }
+      }
+
+      // Status
+      var prompt = photoInput.closest(".uwp-card-photo-prompt");
+      var statusDiv = prompt && prompt.querySelector(".uwp-card-photo-status");
+      if (statusDiv) { statusDiv.textContent = "⏳ Uploading…"; statusDiv.style.color = "#d97706"; }
+
+      // Background upload via existing helper
+      if (typeof firebase !== "undefined" && firebase.firestore) {
+        var db = firebase.firestore();
+        var equipRef = db
+          .collection("Customers").doc(cId)
+          .collection("Locations").doc(lId)
+          .collection("Equipment").doc(uId);
+        var overallFile = photoType === "overall" ? f : null;
+        var plateFile   = photoType === "plate"   ? f : null;
+        uploadInlinePhotos(cId, lId, uId, overallFile, plateFile, equipRef);
+        // Optimistic status — uploadInlinePhotos doesn't return a promise we can chain here
+        if (statusDiv) {
+          setTimeout(function () {
+            if (statusDiv) { statusDiv.textContent = "✓ Photo uploading in background"; statusDiv.style.color = "#16a34a"; }
+          }, 400);
+        }
       }
     });
 

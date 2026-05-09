@@ -7,7 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 39 — Unit Work Parser (Smart Unit Link). All 4 slices + Add Equipment from unmatched card shipped.
-- **Last shipped (2026-05-09):** Equipment photo previews + full-parity inline quick-add form — live FileReader/createObjectURL thumbnail previews in EquipmentManager modal (`#emPhotoOverall`, `#emPhotoPlate`) and UWP inline form; UWP inline form expanded to full parity (Mfg Year, Age, CRV auto-fill, Prior/Proposed Repairs, live Health Score display); Equipment Hub detail view photos moved to dedicated row between specs and profile grid; `saveInlineEquipment` writes all fields with canonical names; `.em-photo-preview`, `.uwp-photo-preview` CSS. `equipment_hub.js?v=14`, `unit_work_parser.js?v=6`, `VC_BUILD = "EHub-FullPhotoForms-2026-05-09"`.
+- **Last shipped (2026-05-09):** UWP overlay — per-card "✓ OK" button confirms one unit at a time; photo prompt on matched cards with no photos (optional plate + overall inputs, local preview, background upload); `unit_work_parser.js?v=7`, `VC_BUILD = "UWP-PerCardOK-PhotoPrompt-2026-05-09"`.
+- **Prior (2026-05-09):** Equipment photo previews + full-parity inline quick-add form — live FileReader/createObjectURL thumbnail previews in EquipmentManager modal (`#emPhotoOverall`, `#emPhotoPlate`) and UWP inline form; UWP inline form expanded to full parity (Mfg Year, Age, CRV auto-fill, Prior/Proposed Repairs, live Health Score display); Equipment Hub detail view photos moved to dedicated row between specs and profile grid; `saveInlineEquipment` writes all fields with canonical names; `.em-photo-preview`, `.uwp-photo-preview` CSS. `equipment_hub.js?v=14`, `unit_work_parser.js?v=6`, `VC_BUILD = "EHub-FullPhotoForms-2026-05-09"`.
 - **Prior (2026-05-09):** Equipment Hub card thumbnails — list cards show 62×54 thumb; detail view "No photos on file" fallback; `uploadInlinePhotos` refreshes hub list. `equipment_hub.js?v=13`, `unit_work_parser.js?v=5`.
 - **Prior (2026-05-09):** UWP inline OCR quick-add on unmatched card; native photo picker (removed `capture`). `unit_work_parser.js?v=3–4`.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
@@ -21,7 +22,7 @@ None. Two non-blocking carry-overs:
 
 ## Immediate Next Step
 
-**Test photo previews + inline form parity:** hard-reload field app → open Equipment Hub → tap a unit → photos now appear below specs (not beside title) → tap to lightbox → go back → tap "Parse & Link" with unmatched card → tap "+ Add Equipment" → inline form should have all fields including CRV auto-fill, health score, and photo previews before save. Also open EquipmentManager directly and verify photo preview appears beneath each file input.
+**Test per-card OK + photo prompt:** hard-reload field app → parse notes → overlay shows matched card → tap "✓ OK — Save this unit" → that card disappears, Confirm All still works on remaining → for matched unit with no photos, see blue dashed "📷 No photos on file" prompt → pick a file → thumbnail preview appears + upload fires in background.
 
 **Next build candidates (pick one):**
 - **KI-004** — offline photo outbox (`shared/offline_storage_outbox.js`, ADR-012). Re-gate → **Sonnet 4.6**.
