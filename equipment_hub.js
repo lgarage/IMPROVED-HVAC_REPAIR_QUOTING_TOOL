@@ -42,6 +42,10 @@
     selectedProfile: null,
   };
 
+  /** Units injected optimistically before the Firestore fetch completes.
+   *  Keyed by unitDocId → data object. Cleared on refreshEquipmentHubList. */
+  var _pendingInjects = {};
+
   /** Currently swiped-open card row, if any. */
   var activeSwipeRow = null;
 
@@ -186,7 +190,7 @@
       var cardThumbSrc = (d.overallPhotoUrl && String(d.overallPhotoUrl).trim()) ||
                          (d.dataPlatePhotoUrl && String(d.dataPlatePhotoUrl).trim()) || "";
       var cardThumbHtml = cardThumbSrc
-        ? "<img class=\"ehub-card-thumb\" src=\"" + escapeAttr(cardThumbSrc) + "\" alt=\"\" aria-hidden=\"true\">"
+        ? "<img class=\"ehub-card-thumb\" src=\"" + escapeAttr(cardThumbSrc) + "\" alt=\"Equipment photo\" data-lightbox-src=\"" + escapeAttr(cardThumbSrc) + "\">"
         : "<span class=\"ehub-card-thumb ehub-card-thumb--empty\" aria-hidden=\"true\"></span>";
 
       var swipeRow = document.createElement("div");
@@ -213,6 +217,16 @@
         .join(" ")
         .toLowerCase();
       wireSwipeDelete(swipeRow, composite);
+
+      // Thumbnail tap → lightbox (does not navigate to detail view)
+      var thumbImg = swipeRow.querySelector(".ehub-card-thumb[data-lightbox-src]");
+      if (thumbImg) {
+        thumbImg.addEventListener("click", function (e) {
+          e.stopPropagation();
+          openPhotoLightbox(thumbImg.getAttribute("data-lightbox-src"), "Equipment photo");
+        });
+      }
+
       container.appendChild(swipeRow);
     });
     wireSearchFilter();
@@ -271,6 +285,31 @@
       snap.forEach(function (doc) {
         rows.push({ id: doc.id, data: doc.data() || {} });
       });
+
+      // Merge pending injects — optimistic cards saved before Firestore write completed
+      var pendingKeys = Object.keys(_pendingInjects);
+      if (pendingKeys.length) {
+        pendingKeys.forEach(function (uid) {
+          var pending = _pendingInjects[uid];
+          var found = false;
+          rows.forEach(function (row) {
+            if (row.id === uid) {
+              found = true;
+              // Preserve local blob URLs if Firestore doesn't have real URLs yet
+              if (!row.data.overallPhotoUrl && pending.overallPhotoUrl) {
+                row.data.overallPhotoUrl = pending.overallPhotoUrl;
+              }
+              if (!row.data.dataPlatePhotoUrl && pending.dataPlatePhotoUrl) {
+                row.data.dataPlatePhotoUrl = pending.dataPlatePhotoUrl;
+              }
+            }
+          });
+          if (!found) {
+            rows.push({ id: uid, data: pending });
+          }
+        });
+      }
+
       hubState.equipmentList = rows;
       renderEquipmentList(rows);
       if (typeof refreshJobLinkedEquipmentDropdown === "function") {
@@ -1141,6 +1180,7 @@
    * is visible before the background Firestore write completes.
    */
   function injectEquipmentUnit(unitDocId, data) {
+    _pendingInjects[unitDocId] = data;
     var idx = -1;
     hubState.equipmentList.forEach(function (row, i) {
       if (row.id === unitDocId) idx = i;
@@ -1162,6 +1202,7 @@
    */
   function refreshEquipmentHubList() {
     if (!hubState.customerId || !hubState.locationId) return;
+    _pendingInjects = {};
     var selectedId = hubState.selectedEquipmentId;
     fetchEquipmentForSite(hubState.customerId, hubState.locationId).then(function () {
       // Re-render the open detail view so photos + full data show up

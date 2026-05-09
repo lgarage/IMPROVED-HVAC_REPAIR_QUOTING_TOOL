@@ -889,6 +889,16 @@
     var locationId = sanitizePathSegment(locLine);
     var unitId = sanitizePathSegment(unitTag);
 
+    // Create blob URLs so any optimistic hub inject shows photo previews
+    var localOverallUrl = "";
+    var localPlateUrl   = "";
+    if (overallFile) {
+      try { localOverallUrl = URL.createObjectURL(overallFile); } catch (e) {}
+    }
+    if (plateFile) {
+      try { localPlateUrl = URL.createObjectURL(plateFile); } catch (e) {}
+    }
+
     var profile = {
       unitTag:              unitTag,
       brand:                brand,
@@ -905,10 +915,16 @@
       proposedRepairCost:   proposedCost,
       healthScore:          health.score,
       healthGrade:          health.grade,
-      overallPhotoUrl:      "",
-      dataPlatePhotoUrl:    "",
+      overallPhotoUrl:      localOverallUrl,
+      dataPlatePhotoUrl:    localPlateUrl,
       savedAt:              new Date().toISOString(),
     };
+
+    // Firestore profile omits blob URLs — real URLs written by uploadInlinePhotos
+    var firestoreProfile = Object.assign({}, profile, {
+      overallPhotoUrl:   "",
+      dataPlatePhotoUrl: "",
+    });
 
     var db = firebase.firestore();
     var equipRef = db
@@ -916,7 +932,7 @@
       .collection("Locations").doc(locationId)
       .collection("Equipment").doc(unitId);
 
-    equipRef.set(profile, { merge: true }).then(function () {
+    equipRef.set(firestoreProfile, { merge: true }).then(function () {
       var equipmentId = customerId + "/" + locationId + "/" + unitId;
 
       var card = currentResults[idx];
@@ -925,8 +941,13 @@
         card.unitTag = unitTag;
         card.brand = brand;
         card.model = model;
-        card.overallPhotoUrl = "";
+        card.overallPhotoUrl = localOverallUrl;
         card._matched = true;
+      }
+
+      // Inject into Equipment Hub with blob URLs for immediate photo visibility
+      if (typeof injectEquipmentUnit === "function") {
+        injectEquipmentUnit(unitId, profile);
       }
 
       var scroll = wrapper.querySelector(".uwp-cards-scroll");

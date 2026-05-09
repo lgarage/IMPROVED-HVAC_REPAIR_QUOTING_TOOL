@@ -857,11 +857,30 @@
     };
 
     var healthSnap = refreshHealthUi();
-    var profile = buildProfileFromForm(unitTag, healthSnap, {});
 
-    // Optimistic local save so data is never lost
+    // Create blob URLs so the optimistic inject shows photo previews immediately
+    var localOverallUrl = "";
+    var localPlateUrl   = "";
+    if (overallFile) {
+      try { localOverallUrl = URL.createObjectURL(overallFile); } catch (e) {}
+    }
+    if (plateFile) {
+      try { localPlateUrl = URL.createObjectURL(plateFile); } catch (e) {}
+    }
+    // Profile for Firestore / localStorage: only real URLs, no blob: URIs
+    var firestoreProfile = buildProfileFromForm(unitTag, healthSnap, {
+      overallUrl: existingOverallUrl,
+      plateUrl:   existingPlateUrl,
+    });
+    // Profile for the optimistic hub inject: includes blob URLs for immediate preview
+    var profile = buildProfileFromForm(unitTag, healthSnap, {
+      overallUrl: localOverallUrl || existingOverallUrl,
+      plateUrl:   localPlateUrl   || existingPlateUrl,
+    });
+
+    // Optimistic local save so data is never lost (no blob URLs)
     var localKey = EM_OFFLINE_KEY_PREFIX + Date.now();
-    try { localStorage.setItem(localKey, JSON.stringify(profile)); } catch (e) {}
+    try { localStorage.setItem(localKey, JSON.stringify(firestoreProfile)); } catch (e) {}
 
     // Fire the saved event and close immediately — tech is done
     var custId = sanitizePathSegment(ctxSnap.customer);
@@ -885,13 +904,12 @@
     if (saveBtn) saveBtn.disabled = false;
     close();
 
-    // Open the hub, then immediately inject the locally-saved profile so
-    // the card is visible before the background Firestore write resolves.
+    // Open the hub, then inject the locally-saved profile (with blob photo URLs)
+    // so the card + photos are visible before the background Firestore write resolves.
     setTimeout(function () {
       if (typeof openEquipmentHub === "function") {
         openEquipmentHub(locId);
       }
-      // Optimistic inject — profile has all form data but no photo URLs yet
       if (typeof injectEquipmentUnit === "function") {
         injectEquipmentUnit(unitId, profile);
       }
@@ -900,7 +918,7 @@
     // Background: upload photos then write to Firestore.
     // On completion, refresh the hub list so photo URLs + Verified badge appear.
     if (navigator.onLine) {
-      uploadAndSaveInBackground(unitTag, profile, localKey, overallFile, plateFile, ctxSnap, {
+      uploadAndSaveInBackground(unitTag, firestoreProfile, localKey, overallFile, plateFile, ctxSnap, {
         existingOverallUrl: existingOverallUrl,
         existingPlateUrl:   existingPlateUrl,
       });
