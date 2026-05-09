@@ -473,17 +473,91 @@
     wireParseButton();
   }
 
-  // Slice 1: log confirmed results; Slice 2 will write to Firestore work_history
+  /**
+   * Write work_history docs to Firestore: one per confirmed unit.
+   * Path: Customers/{customerId}/Locations/{locationId}/Equipment/{unitDocId}/work_history/{autoId}
+   */
+  async function writeWorkHistory(confirmedUnits, ticketId) {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      throw new Error("Firebase not available.");
+    }
+    var db = firebase.firestore();
+    var techName = "";
+    try {
+      techName = localStorage.getItem("tp_saved_tech") || "";
+    } catch (e) {}
+    var today = new Date().toISOString().slice(0, 10);
+    var now = new Date().toISOString();
+
+    var writes = confirmedUnits.map(function (unit) {
+      if (!unit.equipmentId) return Promise.resolve(null);
+      var parts = String(unit.equipmentId).split("/");
+      if (parts.length < 3) return Promise.resolve(null);
+      var customerId = parts[0];
+      var locationId = parts[1];
+      var unitDocId = parts.slice(2).join("/");
+
+      var doc = {
+        ticketId: ticketId || "",
+        techName: techName,
+        date: today,
+        findings: unit.findings || "",
+        repairs: unit.repairs || "",
+        recommendations: unit.recommendations || "",
+        partsUsed: unit.partsUsed || "",
+        unitTag: unit.unitTag || "",
+        brand: unit.brand || "",
+        model: unit.model || "",
+        rawReference: unit.rawReference || "",
+        confidence: unit.confidence || "medium",
+        savedAt: now,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+
+      return db
+        .collection("Customers")
+        .doc(customerId)
+        .collection("Locations")
+        .doc(locationId)
+        .collection("Equipment")
+        .doc(unitDocId)
+        .collection("work_history")
+        .add(doc);
+    });
+
+    var results = await Promise.all(writes);
+    return results.filter(Boolean);
+  }
+
   window.addEventListener("uwp:confirmed", function (e) {
     var detail = e.detail || {};
     var units = detail.units || [];
     var ticketId = detail.ticketId || "";
-    console.log("[UnitWorkParser] Confirmed " + units.length + " unit(s) for ticket " + ticketId, units);
+
     var statusEl = document.getElementById("uwpParseStatus");
+    if (!units.length) return;
+
     if (statusEl) {
-      statusEl.textContent = "Linked " + units.length + " unit" + (units.length !== 1 ? "s" : "") + " ✓";
-      statusEl.className = "uwp-parse-status uwp-parse-status--done";
+      statusEl.textContent = "Saving…";
+      statusEl.className = "uwp-parse-status uwp-parse-status--working";
     }
+
+    writeWorkHistory(units, ticketId)
+      .then(function (docs) {
+        var count = docs.length;
+        console.log("[UnitWorkParser] Saved " + count + " work_history doc(s) for ticket " + ticketId);
+        if (statusEl) {
+          statusEl.textContent = "Linked " + count + " unit" + (count !== 1 ? "s" : "") + " ✓";
+          statusEl.className = "uwp-parse-status uwp-parse-status--done";
+        }
+      })
+      .catch(function (err) {
+        console.error("[UnitWorkParser] writeWorkHistory failed", err);
+        if (statusEl) {
+          statusEl.textContent = "Save failed — try again";
+          statusEl.className = "uwp-parse-status uwp-parse-status--error";
+        }
+      });
   });
 
   // Exports

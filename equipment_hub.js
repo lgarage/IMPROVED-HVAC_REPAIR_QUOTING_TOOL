@@ -450,19 +450,29 @@
       typeof VCFirestore !== "undefined"
         ? VCFirestore.fieldFormSubmissions(db)
         : db.collection("field_form_submissions");
+    var whCol = db
+      .collection("Customers")
+      .doc(parsed.customerId)
+      .collection("Locations")
+      .doc(parsed.locationId)
+      .collection("Equipment")
+      .doc(parsed.unitDocId)
+      .collection("work_history");
     try {
       var results = await Promise.all([
         sc.where("Linked_Equipment_ID", "==", equipmentId).get(),
         pmCol.where("equipmentId", "==", equipmentId).get(),
         fqCol.where("equipmentId", "==", equipmentId).get(),
         crCol.where("Linked_Equipment_ID", "==", equipmentId).get(),
-        ffCol.where("equipmentId", "==", equipmentId).get()
+        ffCol.where("equipmentId", "==", equipmentId).get(),
+        whCol.orderBy("createdAt", "desc").limit(50).get()
       ]);
       var snapCalls = results[0];
       var snapPm = results[1];
       var snapQuotes = results[2];
       var snapReports = results[3];
       var snapForms = results[4];
+      var snapWorkHistory = results[5];
 
       var merged = [];
 
@@ -519,6 +529,17 @@
           id: doc.id,
           data: data,
           sortKey: dk + "_ff_" + doc.id,
+        });
+      });
+
+      snapWorkHistory.forEach(function (doc) {
+        var data = doc.data() || {};
+        var dk = data.date || (data.savedAt && String(data.savedAt).slice(0, 10)) || "1970-01-01";
+        merged.push({
+          kind: "work_notes",
+          id: doc.id,
+          data: data,
+          sortKey: dk + "_wn_" + doc.id,
         });
       });
 
@@ -708,6 +729,31 @@
             "</div>" +
             "<div class=\"equipment-hub-tl-body\">" +
             ffBody +
+            "</div>" +
+            "</li>";
+        } else if (row.kind === "work_notes") {
+          var wn = row.data;
+          var whenWn = wn.date || (wn.savedAt && String(wn.savedAt).slice(0, 10)) || "—";
+          var techWn = wn.techName || "—";
+          var wnLines = [];
+          if (wn.findings) wnLines.push("<strong>Findings:</strong> " + escapeHtml(String(wn.findings)));
+          if (wn.repairs) wnLines.push("<strong>Repairs:</strong> " + escapeHtml(String(wn.repairs)));
+          if (wn.recommendations) wnLines.push("<strong>Recommendations:</strong> " + escapeHtml(String(wn.recommendations)));
+          if (wn.partsUsed) wnLines.push("<strong>Parts:</strong> " + escapeHtml(String(wn.partsUsed)));
+          var wnBody = wnLines.length ? wnLines.join("<br>") : "—";
+          var wnTicketRef = wn.ticketId ? "<div class=\"equipment-hub-tl-status\">Job: " + escapeHtml(String(wn.ticketId)) + "</div>" : "";
+          html +=
+            "<li class=\"equipment-hub-tl-item equipment-hub-tl-worknotes\">" +
+            "<div class=\"equipment-hub-tl-badge\">Parsed field notes</div>" +
+            "<div class=\"equipment-hub-tl-date\">" +
+            escapeHtml(String(whenWn)) +
+            "</div>" +
+            "<div class=\"equipment-hub-tl-tech\">" +
+            escapeHtml(String(techWn)) +
+            "</div>" +
+            wnTicketRef +
+            "<div class=\"equipment-hub-tl-body\">" +
+            wnBody +
             "</div>" +
             "</li>";
         }
