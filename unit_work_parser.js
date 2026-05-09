@@ -256,8 +256,6 @@
   var currentResults = [];
   var currentSiteEquipment = [];
   var _onConfirmCallback = null;
-  var _equipSavedHandler = null;
-  var _pendingAddIdx = null;
 
   function buildOverlayHtml(enrichedResults) {
     var cards = enrichedResults
@@ -356,6 +354,26 @@
         return;
       }
 
+      var saveFormBtn = e.target.closest("[data-uwp-save-idx]");
+      if (saveFormBtn) {
+        var saveIdx = parseInt(saveFormBtn.getAttribute("data-uwp-save-idx"), 10);
+        saveInlineEquipment(saveIdx, wrapper);
+        return;
+      }
+
+      var cancelFormBtn = e.target.closest("[data-uwp-cancel-form]");
+      if (cancelFormBtn) {
+        var cancelIdx = parseInt(cancelFormBtn.getAttribute("data-uwp-cancel-form"), 10);
+        var cancelCard = wrapper.querySelector('.uwp-card[data-uwp-idx="' + cancelIdx + '"]');
+        if (cancelCard) {
+          var inlineForm = cancelCard.querySelector(".uwp-inline-form");
+          if (inlineForm) inlineForm.remove();
+          var restoreBtn = cancelCard.querySelector(".uwp-btn-add-equipment");
+          if (restoreBtn) restoreBtn.style.display = "";
+        }
+        return;
+      }
+
       if (e.target.id === "uwpConfirmAllBtn") {
         var confirmed = currentResults.slice();
         removeOverlay();
@@ -375,10 +393,6 @@
       }
     });
 
-    _equipSavedHandler = function (evt) {
-      handleEquipmentSaved(evt, wrapper);
-    };
-    document.addEventListener("equipmentManagerSaved", _equipSavedHandler);
   }
 
   function buildCardsOnly(results) {
@@ -389,17 +403,12 @@
   }
 
   function removeOverlay() {
-    if (_equipSavedHandler) {
-      document.removeEventListener("equipmentManagerSaved", _equipSavedHandler);
-      _equipSavedHandler = null;
-    }
     if (overlayEl) {
       overlayEl.remove();
       overlayEl = null;
     }
     currentResults = [];
     _onConfirmCallback = null;
-    _pendingAddIdx = null;
   }
 
   function showLightbox(src) {
@@ -421,17 +430,12 @@
   }
 
   /**
-   * Open Equipment Manager pre-filled with the raw reference from an unmatched card.
+   * Show inline quick-add form directly on the unmatched card.
    */
   function openEquipmentManagerForUnmatched(idx) {
     var result = currentResults[idx];
     if (!result) return;
-    _pendingAddIdx = idx;
 
-    if (typeof EquipmentManager === "undefined" || !EquipmentManager.open) {
-      alert("Equipment Manager is not available.");
-      return;
-    }
     if (typeof activeTicket === "undefined" || !activeTicket) {
       alert("Select a job from your schedule first.");
       return;
@@ -442,49 +446,146 @@
       alert("Set a location on this ticket before adding equipment.");
       return;
     }
-    var locationId = sanitizePathSegment(locLine);
 
-    EquipmentManager.open({
-      parentCompany: "—",
-      customer: activeTicket.customerName || "—",
-      locationDisplay: locLine,
-      locationId: locationId,
-      prefill: { unitTag: result.rawReference || "" },
+    var cardEl = overlayEl && overlayEl.querySelector('.uwp-card[data-uwp-idx="' + idx + '"]');
+    if (!cardEl) return;
+
+    if (cardEl.querySelector(".uwp-inline-form")) return;
+
+    var prefillTag = escapeHtml(result.rawReference || "");
+    var formHtml =
+      '<div class="uwp-inline-form" data-uwp-form-idx="' + idx + '">' +
+      '<div class="uwp-inline-form-title">Quick Add Unit</div>' +
+      '<div class="uwp-inline-field"><label>Unit Tag</label><input type="text" class="uwp-inline-input" data-field="unitTag" value="' + prefillTag + '"></div>' +
+      '<div class="uwp-inline-field"><label>Brand</label><input type="text" class="uwp-inline-input" data-field="brand" placeholder="e.g. Carrier, Trane"></div>' +
+      '<div class="uwp-inline-field"><label>Model</label><input type="text" class="uwp-inline-input" data-field="model" placeholder="e.g. 48TCDD08"></div>' +
+      '<div class="uwp-inline-field"><label>Overall Photo</label><input type="file" accept="image/*" capture="environment" class="uwp-inline-file" data-field="overallPhoto"></div>' +
+      '<div class="uwp-inline-field"><label>Data Plate Photo</label><input type="file" accept="image/*" capture="environment" class="uwp-inline-file" data-field="platePhoto"></div>' +
+      '<div class="uwp-inline-actions">' +
+      '<button type="button" class="uwp-inline-save" data-uwp-save-idx="' + idx + '">Save Unit</button>' +
+      '<button type="button" class="uwp-inline-cancel" data-uwp-cancel-form="' + idx + '">Cancel</button>' +
+      '</div>' +
+      '<div class="uwp-inline-status"></div>' +
+      '</div>';
+
+    cardEl.insertAdjacentHTML("beforeend", formHtml);
+
+    var addBtn = cardEl.querySelector(".uwp-btn-add-equipment");
+    if (addBtn) addBtn.style.display = "none";
+  }
+
+  /**
+   * Save inline form data to Firestore Equipment collection, update card to matched.
+   */
+  function saveInlineEquipment(idx, wrapper) {
+    var cardEl = wrapper && wrapper.querySelector('.uwp-card[data-uwp-idx="' + idx + '"]');
+    if (!cardEl) return;
+    var form = cardEl.querySelector(".uwp-inline-form");
+    if (!form) return;
+    var statusEl = form.querySelector(".uwp-inline-status");
+
+    var unitTag = (form.querySelector('[data-field="unitTag"]').value || "").trim();
+    var brand = (form.querySelector('[data-field="brand"]').value || "").trim();
+    var model = (form.querySelector('[data-field="model"]').value || "").trim();
+    var overallInput = form.querySelector('[data-field="overallPhoto"]');
+    var plateInput = form.querySelector('[data-field="platePhoto"]');
+    var overallFile = overallInput && overallInput.files && overallInput.files[0];
+    var plateFile = plateInput && plateInput.files && plateInput.files[0];
+
+    if (!unitTag) {
+      if (statusEl) { statusEl.textContent = "Unit tag is required."; statusEl.className = "uwp-inline-status uwp-inline-status--error"; }
+      return;
+    }
+
+    var saveBtn = form.querySelector(".uwp-inline-save");
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving…"; }
+    if (statusEl) { statusEl.textContent = ""; statusEl.className = "uwp-inline-status"; }
+
+    var locEl = document.getElementById("location");
+    var locLine = locEl && locEl.value ? String(locEl.value).trim() : "";
+    var customerId = sanitizePathSegment(activeTicket.customerName || "");
+    var locationId = sanitizePathSegment(locLine);
+    var unitId = sanitizePathSegment(unitTag);
+
+    var profile = {
+      unitTag: unitTag,
+      brand: brand,
+      model: model,
+      overallPhotoUrl: "",
+      dataPlatePhotoUrl: "",
+      savedAt: new Date().toISOString(),
+    };
+
+    var db = firebase.firestore();
+    var equipRef = db
+      .collection("Customers").doc(customerId)
+      .collection("Locations").doc(locationId)
+      .collection("Equipment").doc(unitId);
+
+    equipRef.set(profile, { merge: true }).then(function () {
+      var equipmentId = customerId + "/" + locationId + "/" + unitId;
+
+      var card = currentResults[idx];
+      if (card) {
+        card.equipmentId = equipmentId;
+        card.unitTag = unitTag;
+        card.brand = brand;
+        card.model = model;
+        card.overallPhotoUrl = "";
+        card._matched = true;
+      }
+
+      var scroll = wrapper.querySelector(".uwp-cards-scroll");
+      if (scroll) scroll.innerHTML = buildCardsOnly(currentResults);
+
+      // Background: upload photos if provided
+      if (overallFile || plateFile) {
+        uploadInlinePhotos(customerId, locationId, unitId, overallFile, plateFile, equipRef);
+      }
+    }).catch(function (err) {
+      console.error("[UnitWorkParser] saveInlineEquipment", err);
+      if (statusEl) { statusEl.textContent = "Save failed — " + (err.message || "try again"); statusEl.className = "uwp-inline-status uwp-inline-status--error"; }
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save Unit"; }
     });
   }
 
   /**
-   * After tech saves new equipment, re-fetch site list, match it to the pending card, update in place.
+   * Background upload of photos after inline save completes.
    */
-  function handleEquipmentSaved(evt, wrapper) {
-    var detail = evt.detail || {};
-    var newEquipId = detail.equipmentId || "";
-    if (_pendingAddIdx === null || !newEquipId) return;
-    var idx = _pendingAddIdx;
-    _pendingAddIdx = null;
+  function uploadInlinePhotos(customerId, locationId, unitId, overallFile, plateFile, equipRef) {
+    if (typeof firebase === "undefined" || !firebase.storage) return;
+    var storage = firebase.storage();
+    var base = ["equipment_photos", customerId, locationId, unitId].join("/");
+    var ts = Date.now();
+    var promises = [];
+    var urls = { overallPhotoUrl: "", dataPlatePhotoUrl: "" };
 
-    loadSiteEquipment().then(function (freshEquip) {
-      currentSiteEquipment = freshEquip;
-      var match = freshEquip.find(function (u) {
-        return u.equipmentId === newEquipId;
-      });
-      if (!match) return;
+    if (overallFile) {
+      var oRef = storage.ref().child(base + "/overall_" + ts + ".jpg");
+      promises.push(
+        oRef.put(overallFile, { contentType: overallFile.type || "image/jpeg" })
+          .then(function () { return oRef.getDownloadURL(); })
+          .then(function (url) { urls.overallPhotoUrl = url; })
+      );
+    }
+    if (plateFile) {
+      var pRef = storage.ref().child(base + "/dataplate_" + ts + ".jpg");
+      promises.push(
+        pRef.put(plateFile, { contentType: plateFile.type || "image/jpeg" })
+          .then(function () { return pRef.getDownloadURL(); })
+          .then(function (url) { urls.dataPlatePhotoUrl = url; })
+      );
+    }
 
-      var card = currentResults[idx];
-      if (!card) return;
-      card.equipmentId = match.equipmentId;
-      card.unitTag = match.unitTag;
-      card.brand = match.brand;
-      card.model = match.model;
-      card.overallPhotoUrl = match.overallPhotoUrl || "";
-      card._matched = true;
-
-      if (wrapper) {
-        var scroll = wrapper.querySelector(".uwp-cards-scroll");
-        if (scroll) scroll.innerHTML = buildCardsOnly(currentResults);
+    Promise.all(promises).then(function () {
+      var patch = {};
+      if (urls.overallPhotoUrl) patch.overallPhotoUrl = urls.overallPhotoUrl;
+      if (urls.dataPlatePhotoUrl) patch.dataPlatePhotoUrl = urls.dataPlatePhotoUrl;
+      if (Object.keys(patch).length) {
+        return equipRef.set(patch, { merge: true });
       }
     }).catch(function (err) {
-      console.error("[UnitWorkParser] handleEquipmentSaved", err);
+      console.warn("[UnitWorkParser] uploadInlinePhotos", err);
     });
   }
 
