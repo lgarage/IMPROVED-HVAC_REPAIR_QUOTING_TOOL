@@ -1,12 +1,21 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
+const { initializeApp, getApps } = require("firebase-admin/app");
+const { getFirestore } = require("firebase-admin/firestore");
 
-const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
+if (!getApps().length) initializeApp();
 
 const DEFAULT_MODEL = "gemini-2.5-flash";
 
+/** Read the Gemini API key from Firestore app_config/api_keys.gemini (same doc the Integrations UI writes). */
+async function getGeminiKeyFromFirestore() {
+  const snap = await getFirestore().collection("app_config").doc("api_keys").get();
+  if (!snap.exists) return "";
+  const data = snap.data();
+  return data && data.gemini ? String(data.gemini).trim() : "";
+}
+
 exports.callGeminiVision = onCall(
-  { secrets: [GEMINI_API_KEY], maxInstances: 20 },
+  { maxInstances: 20 },
   async (request) => {
     const { base64Data, mimeType, promptText, model } = request.data;
 
@@ -17,11 +26,11 @@ exports.callGeminiVision = onCall(
       );
     }
 
-    const key = GEMINI_API_KEY.value();
+    const key = await getGeminiKeyFromFirestore();
     if (!key) {
       throw new HttpsError(
         "failed-precondition",
-        "Gemini API key not configured. Run: firebase functions:secrets:set GEMINI_API_KEY"
+        "Gemini API key not configured. Add it in Dispatcher Settings → Integrations."
       );
     }
 

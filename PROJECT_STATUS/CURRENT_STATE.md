@@ -24,13 +24,11 @@ None. Two non-blocking carry-overs:
 **Deploy the Cloud Function (must do before OCR works again):**
 
 ```bash
-cd functions
-firebase functions:secrets:set GEMINI_API_KEY   # paste the same key currently in Firestore app_config/api_keys.gemini
 firebase deploy --only functions
-firebase deploy --only hosting                  # pushes the new firebase-functions-compat.js include
+firebase deploy --only hosting
 ```
 
-After deploy, test OCR on the Equipment Profile nameplate scan. Once confirmed working, optionally delete the `app_config/api_keys` Firestore document (the key is no longer read client-side).
+The function reads the Gemini API key from Firestore `app_config/api_keys.gemini` at call time (same doc the Dispatcher Settings → Integrations UI writes). No Secret Manager setup needed. Make sure the key is saved in the Integrations pane before testing OCR.
 
 **Next build candidates (pick one):**
 - **Equipment Hub UX** — additional polish (on-device verification of hamburger menu items, photo thumbnails, lightbox). T2, **Sonnet 4.6**.
