@@ -3910,6 +3910,271 @@ button#techDisplayLabel {
 }
 button#techDisplayLabel:active { opacity: 0.75; }
 /* Hamburger site-menu — see .ws-site-menu-wrap above */
+
+/* ═══ Unit Work Parser — Parse & Link button + confirmation overlay ═══ */
+.uwp-parse-btn-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+.uwp-parse-btn {
+  flex-shrink: 0;
+  padding: 11px 16px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.35);
+}
+.uwp-parse-btn:active {
+  transform: scale(0.97);
+  opacity: 0.92;
+}
+.uwp-parse-status {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.uwp-parse-status--working { color: #f59e0b; }
+.uwp-parse-status--done { color: #4ade80; }
+.uwp-parse-status--error { color: #f87171; }
+
+/* Confirmation overlay */
+.uwp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(15, 23, 42, 0.7);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  animation: uwpFadeIn 0.2s ease;
+}
+@keyframes uwpFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.uwp-sheet {
+  width: 100%;
+  max-width: 500px;
+  max-height: 85vh;
+  background: #ffffff;
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -4px 40px rgba(0,0,0,0.25);
+  animation: uwpSlideUp 0.25s ease;
+}
+@keyframes uwpSlideUp { from { transform: translateY(30px); opacity: 0.5; } to { transform: translateY(0); opacity: 1; } }
+.uwp-sheet-header {
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.uwp-sheet-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.uwp-sheet-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+.uwp-cards-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+.uwp-card {
+  position: relative;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 2px 8px rgba(15,23,42,0.05);
+}
+.uwp-card-remove {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.uwp-card-remove:active { background: #fca5a5; }
+.uwp-card-top {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.uwp-card-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  background: #f1f5f9;
+}
+.uwp-card-thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+.uwp-card-info {
+  flex: 1;
+  min-width: 0;
+}
+.uwp-card-tag {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.uwp-card-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+.uwp-confidence {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.uwp-confidence--high { background: #dcfce7; color: #166534; }
+.uwp-confidence--medium { background: #fef9c3; color: #854d0e; }
+.uwp-confidence--low { background: #fee2e2; color: #991b1b; }
+.uwp-card-unmatched {
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.uwp-card-summary {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #334155;
+}
+.uwp-card-summary strong {
+  color: #0f172a;
+}
+.uwp-sheet-footer {
+  padding: 14px 20px 20px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.uwp-btn-confirm {
+  flex: 1;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(34, 197, 94, 0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+.uwp-btn-confirm:active { transform: scale(0.97); opacity: 0.9; }
+.uwp-btn-cancel {
+  padding: 14px 16px;
+  border: none;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.uwp-btn-cancel:active { opacity: 0.8; }
+
+/* Lightbox */
+.uwp-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.uwp-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+}
+.uwp-lightbox-img {
+  position: relative;
+  max-width: 92vw;
+  max-height: 85vh;
+  border-radius: 12px;
+  object-fit: contain;
+  z-index: 1;
+}
+.uwp-lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 </style>
 </head>
 <body>
@@ -4153,6 +4418,10 @@ button#techDisplayLabel:active { opacity: 0.75; }
       <textarea id="repairsMade" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true"></textarea>
       <label for="recommendations">Recommendations / Next steps</label>
       <textarea id="recommendations" placeholder="Example: Replace RTU1 due to cracked heat exchanger." rows="3" autocomplete="off"></textarea>
+      <div class="uwp-parse-btn-wrap">
+        <button type="button" id="uwpParseBtn" class="uwp-parse-btn">🔗 Parse &amp; Link to Equipment</button>
+        <span id="uwpParseStatus" class="uwp-parse-status" aria-live="polite"></span>
+      </div>
     </div>
     <div class="dictation-hub-notes-sync-wrap">
       <label for="dictationHubNotes" id="dictationHubNotesSubLabel" class="dictation-hub-notes-sync-label visually-hidden">Technician notes</label>
@@ -4823,7 +5092,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "EquipHubFullHistory-2026-05-09";
+window.VC_BUILD = "UnitWorkParser-Slice1-2026-05-09";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -9897,6 +10166,7 @@ window.onload = async function(){
     <script src="js/location_manager.js?v=1"></script>
     <script src="../dictation_hub.js?v=17"></script>
     <script src="../equipment_hub.js?v=11"></script>
+    <script src="../unit_work_parser.js?v=1"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
