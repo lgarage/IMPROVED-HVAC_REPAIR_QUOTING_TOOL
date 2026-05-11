@@ -6,7 +6,7 @@
 #    Name:  FIREBASE_SERVICE_ACCOUNT_JSON
 #    Value: paste the entire JSON file contents (single line is fine).
 #
-# Field app URL after deploy: https://twin-pillars-app.web.app/technician/index.html
+# Field app URL after deploy: https://vertex-core-db.web.app/technician/index.html
 # (Authorized domains for Auth / OAuth are managed in Firebase Console → Authentication → Settings.)
 
 name: Deploy to Firebase Hosting
@@ -28,5 +28,5 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          projectId: twin-pillars-app
+          projectId: vertex-core-db
           channelId: live

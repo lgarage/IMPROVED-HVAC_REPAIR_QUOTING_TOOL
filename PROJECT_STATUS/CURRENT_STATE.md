@@ -7,12 +7,10 @@
 ## Snapshot
 
 - **Active Phase:** Phase 39 — Unit Work Parser (Smart Unit Link). All 4 slices + Add Equipment from unmatched card shipped.
-- **Last shipped (2026-05-09):** Equipment Hub photo consistency — blob URL optimistic inject so photos from "Add Additional Equipment" and UWP inline form appear immediately on hub cards/detail before Firebase Storage upload completes; `_pendingInjects` map preserves optimistic cards across async Firestore fetch; card-level thumbnails tap-to-expand lightbox; `equipment_manager.js?v=16`, `equipment_hub.js?v=15`, `unit_work_parser.js?v=10`; `VC_BUILD = "EHub-PhotoConsistency-2026-05-09"`.
-- **Prior (2026-05-09):** Storage rules completed — 10 explicit prefix blocks, default deny; added missing `field_evidence/` + `service_call_addendums/` prefixes.
-- **Prior (2026-05-09):** Storage rules scoped + Firebase Storage stub — `storage.rules` + `firebase.json`; **still requires Firebase Console → Storage → Get Started + `firebase deploy --only storage`.**
-- **Prior (2026-05-09):** UWP photo upload fix, per-card OK button, Equipment photo previews + full-parity inline form, Equipment Hub card thumbnails — multiple slices shipped (see `PROJECT_MAP_HISTORY.md` for detail).
+- **Last shipped (2026-05-11):** Firebase/GCP project migration — `twin-pillars-app` → `vertex-core-db` (personal account). Updated `firebase-config.js`, `.firebaserc`, CI workflow, `service_call.js` fallback. Manual steps remain (see Immediate Next Step).
+- **Prior (2026-05-09):** Equipment Hub photo consistency, Storage rules (10 prefix blocks), UWP photo upload fix, per-card OK, inline form parity, card thumbnails — multiple slices (see `PROJECT_MAP_HISTORY.md`).
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
-- **Default tenant:** `USA_HEATING_COOLING`. TWIN_PILLARS branding dead; bridge in `shared/firebase_logic.js` left quiet.
+- **Default tenant:** `USA_HEATING_COOLING`. Firebase project migrated from `twin-pillars-app` → `vertex-core-db` (personal account).
 
 ## Active Blocker
 
@@ -22,10 +20,13 @@ None. Two non-blocking carry-overs:
 
 ## Immediate Next Step
 
-**⚠ Blocker — manual Firebase Console step required before photos work:**
-1. Go to [console.firebase.google.com/project/twin-pillars-app/storage](https://console.firebase.google.com/project/twin-pillars-app/storage) → click **Get Started** → choose region (us-central1) → Done.
-2. Then run: `firebase deploy --only storage` (from project root) to push the scoped `storage.rules`.
-3. Hard-reload the field app → add equipment with photos → Equipment Hub should now show thumbnails.
+**⚠ Post-migration steps (vertex-core-db):**
+1. Enable Storage in [console.firebase.google.com/project/vertex-core-db/storage](https://console.firebase.google.com/project/vertex-core-db/storage) → **Get Started** → choose region → Done.
+2. Deploy rules: `firebase deploy --only firestore:rules,storage` (from project root).
+3. Seed Firestore `app_config/api_keys` doc with `{ gemini: "YOUR_NEW_GEMINI_KEY" }`.
+4. Enable **Generative Language API** + **Maps JavaScript API** in GCP Console for `vertex-core-db`.
+5. Update GitHub secret `FIREBASE_SERVICE_ACCOUNT_JSON` with new project's service account key.
+6. Run data migration (Firestore export/import, Storage rsync, Auth export/import) — see migration commands below.
 
 **Next build candidates (pick one):**
 - **KI-004** — offline photo outbox (`shared/offline_storage_outbox.js`, ADR-012). Re-gate → **Sonnet 4.6**.

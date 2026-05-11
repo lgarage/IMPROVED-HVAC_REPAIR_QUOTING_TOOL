@@ -2948,7 +2948,7 @@ function alertIfGeminiApiDisabled(errMsg) {
             : "";
     const enableUrl =
         "https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com?project=" +
-        encodeURIComponent(proj || "twin-pillars-app");
+        encodeURIComponent(proj || "vertex-core-db");
     alert(
         "You are already using your Firebase API key. Google also requires the Generative Language API to be turned ON for the same Google Cloud project as Firebase.\n\n" +
             "1) Open the link below\n" +

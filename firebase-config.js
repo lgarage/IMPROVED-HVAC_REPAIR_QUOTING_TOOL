@@ -2,13 +2,13 @@
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBSb5b6Or-7yoiRV_gPLx4ZrZjh5Srx5r0",
-  authDomain: "twin-pillars-app.firebaseapp.com",
-  projectId: "twin-pillars-app",
-  storageBucket: "twin-pillars-app.firebasestorage.app",
-  messagingSenderId: "845074873991",
-  appId: "1:845074873991:web:1e5e404570ca09f6690222",
-  measurementId: "G-8V6PXJJFW8",
+  apiKey: "AIzaSyBDacGxo0FB2Cvsm5kbEtDq2wyFqIS52OE",
+  authDomain: "vertex-core-db.firebaseapp.com",
+  projectId: "vertex-core-db",
+  storageBucket: "vertex-core-db.firebasestorage.app",
+  messagingSenderId: "260247088792",
+  appId: "1:260247088792:web:697b2b81a5e66e70292aed",
+  measurementId: "G-NW26FQW769",
 };
 
 /**
