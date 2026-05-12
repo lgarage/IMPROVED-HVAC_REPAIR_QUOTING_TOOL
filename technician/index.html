@@ -3974,6 +3974,157 @@ pre { background: #fff; padding: 15px; white-space: pre-wrap; border-radius: 8px
   font-size: 11px; font-weight: 800; text-transform: uppercase;
   letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 10px;
 }
+/* ── Field Chronicle (experimental) ────────────────────────────── */
+.vc-fc-section {
+  margin: 16px 0 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.vc-fc-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px 8px; gap: 8px;
+}
+.vc-fc-title {
+  font-size: 15px; font-weight: 800; color: #14532d; margin: 0;
+  display: flex; align-items: center; gap: 6px;
+}
+.vc-fc-title-badge {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; background: #dcfce7; color: #15803d;
+  padding: 2px 6px; border-radius: 6px;
+}
+.vc-fc-count { font-size: 12px; font-weight: 600; color: #15803d; }
+.vc-fc-toggle-btn {
+  font-size: 12px; color: #16a34a; background: none; border: none;
+  cursor: pointer; padding: 2px 6px; font-weight: 600;
+}
+.vc-fc-body { padding: 0 16px 14px; }
+.vc-fc-body.vc-fc-collapsed { display: none; }
+.vc-fc-input-row {
+  display: flex; gap: 8px; margin-bottom: 10px;
+}
+.vc-fc-input {
+  flex: 1; min-width: 0; font: inherit; font-size: 14px;
+  padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 10px;
+  background: #fff; color: #1e293b; resize: none;
+  line-height: 1.4;
+}
+.vc-fc-input::placeholder { color: #94a3b8; }
+.vc-fc-input:focus { outline: none; border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.15); }
+.vc-fc-add-btn {
+  flex-shrink: 0; font-size: 14px; font-weight: 700;
+  padding: 10px 16px; border: none; border-radius: 10px;
+  background: #16a34a; color: #fff; cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.vc-fc-add-btn:active { background: #15803d; }
+.vc-fc-notes-list {
+  max-height: 260px; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 10px;
+}
+.vc-fc-date-sep {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; color: #64748b;
+  padding: 8px 0 4px; border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 4px;
+}
+.vc-fc-note {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 6px 0; border-bottom: 1px solid #f1f5f9;
+  font-size: 14px; line-height: 1.45; color: #1e293b;
+}
+.vc-fc-note:last-child { border-bottom: none; }
+.vc-fc-note-time {
+  flex-shrink: 0; font-size: 11px; font-weight: 700;
+  color: #16a34a; min-width: 62px; padding-top: 2px;
+}
+.vc-fc-note-text { flex: 1; min-width: 0; word-break: break-word; }
+.vc-fc-note-del {
+  flex-shrink: 0; font-size: 11px; color: #94a3b8;
+  background: none; border: none; padding: 2px 4px; cursor: pointer;
+  opacity: 0.6; line-height: 1;
+}
+.vc-fc-note-del:hover { color: #dc2626; opacity: 1; }
+.vc-fc-empty {
+  font-size: 13px; color: #94a3b8; text-align: center;
+  padding: 16px 0; margin: 0;
+}
+.vc-fc-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.vc-fc-compile-btn {
+  font-size: 13px; font-weight: 700; padding: 8px 16px;
+  border: none; border-radius: 10px;
+  background: #0f766e; color: #fff; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vc-fc-compile-btn:active { background: #0d5e58; }
+.vc-fc-compile-btn:disabled { cursor: default; }
+.vc-fc-clear-btn {
+  font-size: 12px; font-weight: 600; padding: 8px 12px;
+  border: 1px solid #e2e8f0; border-radius: 10px;
+  background: #fff; color: #64748b; cursor: pointer;
+}
+.vc-fc-clear-btn:active { background: #f8fafc; }
+/* Compile modal */
+.vc-fc-compile-modal {
+  position: fixed; inset: 0; z-index: 25000;
+  background: rgba(15,23,42,0.6);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.vc-fc-compile-modal.hidden { display: none !important; }
+.vc-fc-compile-sheet {
+  background: #fff; width: 100%; max-width: 540px;
+  max-height: 92vh;
+  border-radius: 18px 18px 0 0;
+  display: flex; flex-direction: column;
+  box-shadow: 0 -6px 40px rgba(15,23,42,0.22);
+  overflow: hidden;
+}
+.vc-fc-compile-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 10px; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;
+}
+.vc-fc-compile-header h2 {
+  font-size: 17px; font-weight: 800; color: #0f172a; margin: 0;
+}
+.vc-fc-compile-close {
+  font-size: 20px; color: #64748b; background: none; border: none;
+  padding: 4px 8px; cursor: pointer; line-height: 1;
+}
+.vc-fc-compile-body {
+  flex: 1; overflow-y: auto; padding: 16px 20px 12px;
+  -webkit-overflow-scrolling: touch;
+}
+.vc-fc-compile-hint {
+  font-size: 12px; color: #64748b; margin: 0 0 10px; line-height: 1.4;
+}
+.vc-fc-compile-textarea {
+  width: 100%; box-sizing: border-box; min-height: 300px;
+  font: inherit; font-size: 14px; line-height: 1.55;
+  padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 10px;
+  color: #1e293b; background: #fafafa; resize: vertical;
+}
+.vc-fc-compile-textarea:focus { outline: none; border-color: #0f766e; box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
+.vc-fc-compile-actions {
+  display: flex; gap: 10px; align-items: center; padding: 12px 20px 20px;
+  border-top: 1px solid #e2e8f0; flex-shrink: 0;
+}
+.vc-fc-copy-btn {
+  font-size: 14px; font-weight: 700; padding: 10px 20px;
+  border: none; border-radius: 10px;
+  background: #0f766e; color: #fff; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.vc-fc-copy-btn:active { background: #0d5e58; }
+.vc-fc-copy-status {
+  font-size: 12px; font-weight: 600; min-height: 16px;
+}
+/* ── end Field Chronicle ───────────────────────────────────────── */
 /* Shadow consent toggle (inside Profile panel) */
 .vc-consent-toggle-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -4726,6 +4877,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
             <button type="button" class="ws-site-menu-item" id="wsSiteMenuEquipment" role="menuitem">🗄️ View Site Equipment</button>
             <button type="button" class="ws-site-menu-item" id="wsSiteMenuAddEquipment" role="menuitem">➕ Add additional equipment</button>
             <button type="button" class="ws-site-menu-item" id="wsSiteMenuForms" role="menuitem">📋 Add additional forms</button>
+            <button type="button" class="ws-site-menu-item" id="wsSiteMenuChronicle" role="menuitem">📝 Field Chronicle</button>
           </div>
         </div>
       </div>
@@ -4808,6 +4960,30 @@ button#techDisplayLabel:active { opacity: 0.75; }
       <div class="dictation-action-tray-head">Dynamic action tray — units on site</div>
       <div id="dictationActionTray" class="dictation-action-tray">
         <p class="dictation-action-tray-empty">Open a job to load site assets.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Field Chronicle (experimental) — chronological field note capture -->
+  <section id="vcFieldChronicle" class="vc-fc-section" aria-labelledby="vcFcSectionTitle">
+    <div class="vc-fc-head">
+      <h2 class="vc-fc-title" id="vcFcSectionTitle">
+        📝 Field Chronicle <span class="vc-fc-title-badge">Experimental</span>
+        <span id="vcFcNoteCount" class="vc-fc-count"></span>
+      </h2>
+      <button type="button" id="vcFcToggleBtn" class="vc-fc-toggle-btn" aria-expanded="true" aria-controls="vcFcBody">Hide</button>
+    </div>
+    <div id="vcFcBody" class="vc-fc-body">
+      <div class="vc-fc-input-row">
+        <textarea id="vcFcNoteInput" class="vc-fc-input" rows="2" placeholder="What are you seeing? What did you do?" autocomplete="off"></textarea>
+        <button type="button" id="vcFcAddNoteBtn" class="vc-fc-add-btn">+ Add</button>
+      </div>
+      <div id="vcFcNotesList" class="vc-fc-notes-list" aria-live="polite">
+        <p class="vc-fc-empty">No field notes yet. Add your first note above.</p>
+      </div>
+      <div class="vc-fc-actions">
+        <button type="button" id="vcFcCompileBtn" class="vc-fc-compile-btn" disabled style="opacity:0.45">📋 Compile Notes</button>
+        <button type="button" id="vcFcClearAllBtn" class="vc-fc-clear-btn">Clear All</button>
       </div>
     </div>
   </section>
@@ -5070,6 +5246,25 @@ button#techDisplayLabel:active { opacity: 0.75; }
     <div class="report-preview-actions">
       <button type="button" class="report-preview-back" onclick="closeReportPreview()">Back to edit</button>
       <button type="button" class="report-preview-sync" id="reportPreviewSyncBtn">Complete & Sync Ticket</button>
+    </div>
+  </div>
+</div>
+
+<!-- Field Chronicle: Compile Notes modal -->
+<div id="vcFcCompileModal" class="vc-fc-compile-modal hidden" role="dialog" aria-modal="true" aria-labelledby="vcFcCompileTitle">
+  <div id="vcFcCompileBackdrop" class="report-preview-backdrop" aria-hidden="true"></div>
+  <div class="vc-fc-compile-sheet" onclick="event.stopPropagation()">
+    <div class="vc-fc-compile-header">
+      <h2 id="vcFcCompileTitle">Compiled Summary</h2>
+      <button type="button" id="vcFcCompileCloseBtn" class="vc-fc-compile-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="vc-fc-compile-body">
+      <p class="vc-fc-compile-hint">Edit the compiled summary below, then copy it. Your raw field notes are preserved separately.</p>
+      <textarea id="vcFcCompileText" class="vc-fc-compile-textarea" rows="16"></textarea>
+    </div>
+    <div class="vc-fc-compile-actions">
+      <button type="button" id="vcFcCopyBtn" class="vc-fc-copy-btn">📋 Copy Summary</button>
+      <span id="vcFcCopyStatus" class="vc-fc-copy-status" aria-live="polite"></span>
     </div>
   </div>
 </div>
@@ -5469,7 +5664,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "EHub-PhotoConsistency-2026-05-09";
+window.VC_BUILD = "FieldChronicle-Phase1-2026-05-12";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -7490,6 +7685,7 @@ function openWorkspace(ticketId) {
   if (typeof syncJobStatusInline === "function") syncJobStatusInline();
   if (typeof refreshJobLinkedEquipmentDropdown === "function") refreshJobLinkedEquipmentDropdown();
   if (typeof startDictationHubFromWorkspace === "function") startDictationHubFromWorkspace();
+  if (typeof window.FieldChronicle !== "undefined" && window.FieldChronicle.onWorkspaceOpen) window.FieldChronicle.onWorkspaceOpen(ticketId);
   if (typeof window.workspaceUiOnOpen === "function") window.workspaceUiOnOpen();
   prefetchSiteResourcesForTicket(activeTicket);
   if (typeof writeLivePresence === 'function') writeLivePresence();
@@ -10550,6 +10746,7 @@ window.onload = async function(){
     <script src="../equipment_hub.js?v=15"></script>
     <script src="../unit_work_parser.js?v=10"></script>
     <script src="../field_forms.js?v=3"></script>
+    <script src="../field_chronicle.js?v=1"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
       if (typeof initGlobalSiteDirectory === "function") initGlobalSiteDirectory();

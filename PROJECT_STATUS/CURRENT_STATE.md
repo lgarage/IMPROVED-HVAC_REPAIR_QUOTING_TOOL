@@ -6,29 +6,22 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 39 — Unit Work Parser (Smart Unit Link). All 4 slices + Add Equipment from unmatched card shipped.
-- **Last shipped (2026-05-11):** Firebase/GCP migration complete — `twin-pillars-app` → `vertex-core-db` (personal account). All services live (Firestore, Storage/Blaze, Auth, Hosting, Gemini API, Maps). App loads at `https://vertex-core-db.web.app`. Tenant doc `tenants/USA_HEATING_COOLING` seeded. Residual permissions errors = empty DB reads, not a rules issue.
-- **Prior (2026-05-09):** Equipment Hub photo consistency, Storage rules (10 prefix blocks), UWP photo upload fix, per-card OK, inline form parity, card thumbnails — multiple slices (see `PROJECT_MAP_HISTORY.md`).
+- **Active Phase:** Phase 40 — Field Chronicle (Experimental). Phase 1 shipped.
+- **Last shipped (2026-05-12):** Field Chronicle Phase 1 — chronological field note capture, localStorage persistence, deterministic Compile Notes, editable preview modal, Copy Summary button. New file `field_chronicle.js`; additive HTML/CSS/hook in `technician/index.html`. `VC_BUILD = "FieldChronicle-Phase1-2026-05-12"`.
+- **Prior (2026-05-11):** Firebase/GCP migration complete — `vertex-core-db`. All services live.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
-- **Default tenant:** `USA_HEATING_COOLING`. Firebase project migrated from `twin-pillars-app` → `vertex-core-db` (personal account).
+- **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
 
 ## Active Blocker
 
-**Migration 90% done — one console error remaining.** App is live at `https://vertex-core-db.web.app`, signed in, Maps working, Gemini key seeded, tenant doc created. Residual `FirebaseError: Missing or insufficient permissions` errors in console — likely from empty collections the app queries on boot (Customers, service_calls, etc.) that have no docs yet. Not a blocker for creating new data.
+None. Migration console errors (empty-collection reads) are non-blocking.
 
 ## Immediate Next Step
 
-**⚠ Migration carry-over (resume next session):**
-- App is live: `https://vertex-core-db.web.app` — sign in with the account created in Auth Console.
-- Console still shows `Missing or insufficient permissions` on some reads — these are empty-collection reads on a fresh DB, not a rules bug. Verify by creating a test service call and confirming it saves cleanly.
-- **Add technician roster:** Settings → Members → add at least one technician so field app can be assigned jobs.
-- **Remaining optional:** data migration from `twin-pillars-app` (Firestore export/import + Storage gsutil rsync + Auth export/import) if historical data is needed. CLI commands in session transcript.
-- Re-gate next build task before any code changes.
-
-**Next build candidates (pick one):**
-- **KI-004** — offline photo outbox (`shared/offline_storage_outbox.js`, ADR-012). Re-gate → **Sonnet 4.6**.
-- **KI-003** — Live Workspace Mirror / Office Override iframe parity (ADR-013). Re-gate → **Codex 5.3**.
-- **Phase 39 follow-up** — cross-unit search (query `work_history` across all units for keyword). Re-gate → **Sonnet 4.6**.
+- **Smoke-test Field Chronicle on device:** open a job → add 3–4 chronological notes → tap Compile Notes → verify editable summary → tap Copy Summary → paste elsewhere.
+- **Disable if needed:** set `window.VC_FIELD_CHRONICLE_ENABLED = false` before app boot, or remove `field_chronicle.js` script tag.
+- **Phase 40 future slices (not started):** Gemini-powered compile, category detection, Firestore persistence, dispatcher visibility. Re-gate each slice.
+- Migration carry-over still applies (roster, optional data import).
 
 Smoke-tests carried over (non-blocking): Phase 34e Field Access Notes on iPhone; Phase 33 Field-Add Equipment OCR on Vision Hub.
 

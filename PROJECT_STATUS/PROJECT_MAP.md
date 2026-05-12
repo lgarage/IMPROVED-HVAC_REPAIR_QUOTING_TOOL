@@ -35,6 +35,7 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 | Field-Add Equipment (Phase 33) | 33 | `equipment_manager.js`, `shared/firebase_logic.js` | §3.5 |
 | Site Intel + Field Access Notes | 34e | `technician/js/workspace_ui.js` | §3.6 |
 | Field Forms + Repair Branching | 34a–34c | `field_forms.js` | §3.7 |
+| Field Chronicle (Experimental) | 40 | `field_chronicle.js` | §3.8 |
 | Customer Entitlements Platform | 35 | `shared/entitlements.js` | §2.12 |
 | Per-User Feature Toggles (Slices 1–4e) | 36 | `shared/user_entitlements.js`, `shared/auth.js` | §2.12 |
 | Shadow Mode Consent Gate | 37 | `dispatcher/js/shadow_mode.js`, `technician/index.html` | §2.5 |
@@ -634,6 +635,30 @@ Definitions live in `shared/config.js` as **`VC_ROLE_DEFINITIONS`**: `admin`, `t
 
 ---
 
+### 3.8 Field Chronicle (Experimental — Phase 40)
+
+**User Guide**
+
+- While in the technician workspace, a green "📝 Field Chronicle" panel appears below the Dictation Hub.
+- Tap the text area → type a natural field note → tap **+ Add**. Notes are timestamped and stored chronologically.
+- Access via hamburger menu → "📝 Field Chronicle" to scroll to the panel.
+- Tap **📋 Compile Notes** to generate a structured service summary draft from your chronological notes.
+- Edit the compiled summary in the modal, then tap **📋 Copy Summary** to clipboard.
+- Notes persist locally per ticket in `localStorage`. Closing the browser preserves them.
+- To disable: set `window.VC_FIELD_CHRONICLE_ENABLED = false` or remove `field_chronicle.js`.
+
+**Technical Specs**
+
+- **Module:** `field_chronicle.js` (IIFE, `window.FieldChronicle`). Gate: `window.VC_FIELD_CHRONICLE_ENABLED` (default `true`).
+- **Persistence:** `localStorage` key `vc_field_chronicle_{ticketId}` — JSON array of `{ id, ts, text }` objects.
+- **UI:** `#vcFieldChronicle` section inside `#workspaceLockScope` (inherits historical lock). Compile modal `#vcFcCompileModal`.
+- **Hook:** `openWorkspace()` calls `FieldChronicle.onWorkspaceOpen(ticketId)`.
+- **Hamburger:** `#wsSiteMenuChronicle` entry in `#wsSiteMenuDropdown`.
+- **No Firestore writes.** No dispatcher visibility. No report payload changes. Fully reversible.
+- Phase 40 shipped: `VC_BUILD = "FieldChronicle-Phase1-2026-05-12"`.
+
+---
+
 ## 4. Client Experience & Invoicing
 
 ### Office billing & quoting (sidebar access)
@@ -749,9 +774,11 @@ _Detailed per-phase shipping inventory with commit-level detail: see `PROJECT_MA
 - [ ] Phase 36 Slices 1–4e: Per-User Feature Toggles — auth foundation, resolver, toggle UI, auth badge — see `DECISIONS.md → ADR-015` + `PROJECT_STATUS/PER_USER_FEATURE_TOGGLES_PLAN.md`
 - [v] Phase 37: Shadow Mode consent gate — tech consent toggle writes `shadowConsent` to `live_presence`; dispatcher iframe gated; real-time revoke/grant
 - [v] Phase 38: Equipment Hub full unit history — five-collection timeline (`completed_reports`, `field_form_submissions` + existing merges); `equipment_hub.js?v=11`; `VC_BUILD EquipHubFullHistory-2026-05-09`
+- [v] Phase 39: Unit Work Parser (Smart Unit Link) — Gemini parse + overlay + Firestore `work_history` + Equipment Hub timeline + search/filter + offline/dedup; `unit_work_parser.js`; `VC_BUILD UnitWorkParser-Slice1-2026-05-09`
+- [v] Phase 40: Field Chronicle Phase 1 (Experimental) — chronological field note capture, localStorage persistence, deterministic Compile Notes, editable preview modal, Copy Summary; `field_chronicle.js` (NEW); `VC_BUILD FieldChronicle-Phase1-2026-05-12`
 
 ### Current Focus
 
-- **Active phase:** Phase 38 shipped (Equipment Hub history). See `CURRENT_STATE.md` for deploy/test + next candidates.
+- **Active phase:** Phase 40 shipped (Field Chronicle Phase 1). See `CURRENT_STATE.md` for smoke-test + next slices.
 - **Active blocker:** None. Open KIs in `CURRENT_STATE.md`.
 - **Ongoing maintenance threads** are tracked in `CURRENT_STATE.md`, not here, so this catalog stays focused on shipped functionality.
