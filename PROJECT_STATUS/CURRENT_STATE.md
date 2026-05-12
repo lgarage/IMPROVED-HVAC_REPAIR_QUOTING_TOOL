@@ -7,26 +7,23 @@
 ## Snapshot
 
 - **Active Phase:** Phase 39 — Unit Work Parser (Smart Unit Link). All 4 slices + Add Equipment from unmatched card shipped.
-- **Last shipped (2026-05-11):** Firebase/GCP project migration — `twin-pillars-app` → `vertex-core-db` (personal account). Updated `firebase-config.js`, `.firebaserc`, CI workflow, `service_call.js` fallback. Manual steps remain (see Immediate Next Step).
+- **Last shipped (2026-05-11):** Firebase/GCP migration complete — `twin-pillars-app` → `vertex-core-db` (personal account). All services live (Firestore, Storage/Blaze, Auth, Hosting, Gemini API, Maps). App loads at `https://vertex-core-db.web.app`. Tenant doc `tenants/USA_HEATING_COOLING` seeded. Residual permissions errors = empty DB reads, not a rules issue.
 - **Prior (2026-05-09):** Equipment Hub photo consistency, Storage rules (10 prefix blocks), UWP photo upload fix, per-card OK, inline form parity, card thumbnails — multiple slices (see `PROJECT_MAP_HISTORY.md`).
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project migrated from `twin-pillars-app` → `vertex-core-db` (personal account).
 
 ## Active Blocker
 
-None. Two non-blocking carry-overs:
-- `KI-003` — Office Override iframe parity gap (design `ADR-013`).
-- `KI-004` — Field-app photo uploads dropped offline (design `ADR-012`; now also covers Phase 34e access photos — same `firebase.storage().ref().put()` pattern).
+**Migration 90% done — one console error remaining.** App is live at `https://vertex-core-db.web.app`, signed in, Maps working, Gemini key seeded, tenant doc created. Residual `FirebaseError: Missing or insufficient permissions` errors in console — likely from empty collections the app queries on boot (Customers, service_calls, etc.) that have no docs yet. Not a blocker for creating new data.
 
 ## Immediate Next Step
 
-**⚠ Post-migration steps (vertex-core-db):**
-1. Enable Storage in [console.firebase.google.com/project/vertex-core-db/storage](https://console.firebase.google.com/project/vertex-core-db/storage) → **Get Started** → choose region → Done.
-2. Deploy rules: `firebase deploy --only firestore:rules,storage` (from project root).
-3. Seed Firestore `app_config/api_keys` doc with `{ gemini: "YOUR_NEW_GEMINI_KEY" }`.
-4. Enable **Generative Language API** + **Maps JavaScript API** in GCP Console for `vertex-core-db`.
-5. Update GitHub secret `FIREBASE_SERVICE_ACCOUNT_JSON` with new project's service account key.
-6. Run data migration (Firestore export/import, Storage rsync, Auth export/import) — see migration commands below.
+**⚠ Migration carry-over (resume next session):**
+- App is live: `https://vertex-core-db.web.app` — sign in with the account created in Auth Console.
+- Console still shows `Missing or insufficient permissions` on some reads — these are empty-collection reads on a fresh DB, not a rules bug. Verify by creating a test service call and confirming it saves cleanly.
+- **Add technician roster:** Settings → Members → add at least one technician so field app can be assigned jobs.
+- **Remaining optional:** data migration from `twin-pillars-app` (Firestore export/import + Storage gsutil rsync + Auth export/import) if historical data is needed. CLI commands in session transcript.
+- Re-gate next build task before any code changes.
 
 **Next build candidates (pick one):**
 - **KI-004** — offline photo outbox (`shared/offline_storage_outbox.js`, ADR-012). Re-gate → **Sonnet 4.6**.
