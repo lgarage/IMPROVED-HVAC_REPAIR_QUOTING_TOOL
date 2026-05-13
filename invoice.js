@@ -843,14 +843,17 @@ async function smartProcessLocation(locationStr) {
     let googleAddressFound = false;
     
     // We only call Google if the API is loaded and ready
-    if (window.google && google.maps && google.maps.places) {
+    if (window.google && google.maps) {
         try {
             if (window.googleMapsPromise) await window.googleMapsPromise;
 
             const searchQuery = rawInput.replace(/-/g, ' ');
-            const { places } = await google.maps.places.Place.searchByText({
+            const { Place } = await google.maps.importLibrary("places");
+            const { places } = await Place.searchByText({
                 textQuery: searchQuery,
                 fields: ['formattedAddress'],
+                maxResultCount: 5,
+                region: 'us',
             });
 
             const googleResult = (places && places.length > 0)

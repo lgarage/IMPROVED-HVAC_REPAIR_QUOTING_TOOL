@@ -2713,9 +2713,13 @@ async function processDispatcherVoiceSearch(query) {
     }
 
     try {
-        const { places } = await google.maps.places.Place.searchByText({
+        if (window.googleMapsPromise) await window.googleMapsPromise;
+        const { Place } = await google.maps.importLibrary("places");
+        const { places } = await Place.searchByText({
             textQuery: query,
             fields: ['displayName', 'formattedAddress'],
+            maxResultCount: 10,
+            region: 'us',
         });
 
         if (places && places.length > 0) {
@@ -2751,8 +2755,8 @@ async function processDispatcherVoiceSearch(query) {
             resetDispatcherMicBtn();
         }
     } catch (err) {
-        console.error("Google Places search error:", err);
-        alert("No internal matches found, and Google Maps search failed. Please type the customer name manually.");
+        console.error("Google Places search error:", err, err?.message, err?.cause);
+        alert("Google Maps search failed: " + (err?.message || String(err)) + "\n\nPlease type the customer name manually.");
         resetDispatcherMicBtn();
     }
 }
