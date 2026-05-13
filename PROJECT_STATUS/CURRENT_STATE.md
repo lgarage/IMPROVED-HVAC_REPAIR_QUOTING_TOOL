@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 40 — Field Chronicle (Experimental). Phase 1 shipped.
-- **Last shipped (2026-05-13):** Hotfix — CRM load, voice search, and invoice parent reads. Added 5 missing Firestore allow-rules (`customers`, `ParentCompanies`, `MappedLocations`, `invoices`, `metadata`); migrated `service_call.js` + `invoice.js` from deprecated `PlacesService` to `google.maps.places.Place.searchByText()` (new Places API); added `v=weekly` to Maps loader. Deployed Firestore rules live. `VC_BUILD = "PlacesFix-FirestoreRules-2026-05-13"`.
+- **Last shipped (2026-05-13):** 3-part hotfix session: (1) 5 missing Firestore allow-rules + Places API migration; (2) `importLibrary` fix for Places search + GCP API key restriction guidance; (3) Save Parent Billing now creates new parent from typed name — no longer requires dropdown selection first (`invoice.js`). `VC_BUILD = "PlacesImportLib-2026-05-13"`.
 - **Prior (2026-05-12):** Field Chronicle Phase 1 shipped.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,7 +18,7 @@ None.
 
 ## Immediate Next Step
 
-- **Verify hotfix on device:** reload dispatcher → hold mic button → say "Planet Fitness Green Bay" → confirm CRM searches AND Google Places returns results without errors.
+- **Verify parent company flow:** type a new parent name → fill billing address → click "Save parent billing address" → confirm it creates the doc, populates the dropdown, and shows the success cue.
 - **Smoke-test Field Chronicle on device:** open a job → add 3–4 chronological notes → tap Compile Notes → verify editable summary → tap Copy Summary → paste elsewhere.
 - **Phase 40 future slices (not started):** Gemini-powered compile, category detection, Firestore persistence, dispatcher visibility. Re-gate each slice.
 - Migration carry-over still applies (roster, optional data import).
