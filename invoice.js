@@ -846,22 +846,16 @@ async function smartProcessLocation(locationStr) {
     if (window.google && google.maps && google.maps.places) {
         try {
             if (window.googleMapsPromise) await window.googleMapsPromise;
-            
-            // Clean up the query (e.g. "Take 5 Milwaukee Brown Deer Rd")
+
             const searchQuery = rawInput.replace(/-/g, ' ');
-            const dummyNode = document.createElement('div');
-            const service = new google.maps.places.PlacesService(dummyNode);
-            const request = { query: searchQuery, fields: ['formatted_address'] };
-            
-            const googleResult = await new Promise((resolve) => {
-                service.findPlaceFromQuery(request, (results, status) => {
-                    if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-                        resolve(results[0].formatted_address);
-                    } else { 
-                        resolve(null); 
-                    }
-                });
+            const { places } = await google.maps.places.Place.searchByText({
+                textQuery: searchQuery,
+                fields: ['formattedAddress'],
             });
+
+            const googleResult = (places && places.length > 0)
+                ? (places[0].formattedAddress || null)
+                : null;
 
             if (googleResult) {
                 // Google returns formats like: "7550 W Brown Deer Rd, Milwaukee, WI 53223, USA"

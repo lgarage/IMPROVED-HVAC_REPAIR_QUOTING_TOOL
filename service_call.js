@@ -2711,25 +2711,27 @@ async function processDispatcherVoiceSearch(query) {
         resetDispatcherMicBtn();
         return;
     }
-    
-    const dummyDiv = document.createElement('div');
-    const service = new google.maps.places.PlacesService(dummyDiv);
-    
-    service.textSearch({ query: query }, (results, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-            let formattedGoogleResults = results.map(place => {
-                const name = place.name.toUpperCase();
-                const addressStr = place.formatted_address.toUpperCase(); 
+
+    try {
+        const { places } = await google.maps.places.Place.searchByText({
+            textQuery: query,
+            fields: ['displayName', 'formattedAddress'],
+        });
+
+        if (places && places.length > 0) {
+            let formattedGoogleResults = places.map(place => {
+                const name = (place.displayName || '').toUpperCase();
+                const addressStr = (place.formattedAddress || '').toUpperCase();
                 let addrParts = addressStr.split(',').map(p => p.trim());
-                if (addrParts[addrParts.length - 1] === "USA") addrParts.pop(); 
-                
+                if (addrParts[addrParts.length - 1] === "USA") addrParts.pop();
+
                 let city = ""; let state = ""; let zip = ""; let street = "";
                 if (addrParts.length >= 3) {
                     const stateZip = addrParts[addrParts.length - 1].split(' ');
                     city = addrParts[addrParts.length - 2];
                     street = addrParts.slice(0, addrParts.length - 2).join(', ');
-                    if(stateZip.length >= 1) state = stateZip[0];
-                    if(stateZip.length >= 2) zip = stateZip[1];
+                    if (stateZip.length >= 1) state = stateZip[0];
+                    if (stateZip.length >= 2) zip = stateZip[1];
                 } else { street = addressStr; }
 
                 return {
@@ -2748,7 +2750,11 @@ async function processDispatcherVoiceSearch(query) {
             alert("No internal matches found, and Google Maps couldn't find a match for: " + query);
             resetDispatcherMicBtn();
         }
-    });
+    } catch (err) {
+        console.error("Google Places search error:", err);
+        alert("No internal matches found, and Google Maps search failed. Please type the customer name manually.");
+        resetDispatcherMicBtn();
+    }
 }
 
 function showSearchResultsModal(titleText, subtitleText) {

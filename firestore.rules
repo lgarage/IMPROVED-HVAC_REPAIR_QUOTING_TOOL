@@ -168,7 +168,22 @@ service cloud.firestore {
     match /Customers/{document=**} {
       allow read, write: if true;
     }
+    match /customers/{document=**} {
+      allow read, write: if true;
+    }
     match /customers/{cid}/sites/{sid}/assets/{document=**} {
+      allow read, write: if true;
+    }
+    match /ParentCompanies/{document=**} {
+      allow read, write: if true;
+    }
+    match /MappedLocations/{document=**} {
+      allow read, write: if true;
+    }
+    match /invoices/{document=**} {
+      allow read, write: if true;
+    }
+    match /metadata/{document=**} {
       allow read, write: if true;
     }
     match /form_templates/{document=**} {
