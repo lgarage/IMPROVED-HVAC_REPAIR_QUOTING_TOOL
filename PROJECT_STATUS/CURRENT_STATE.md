@@ -7,19 +7,19 @@
 ## Snapshot
 
 - **Active Phase:** Phase 40 — Field Chronicle (Experimental). Phase 1 shipped.
-- **Last shipped (2026-05-12):** Field Chronicle Phase 1 — chronological field note capture, localStorage persistence, deterministic Compile Notes, editable preview modal, Copy Summary button. New file `field_chronicle.js`; additive HTML/CSS/hook in `technician/index.html`. `VC_BUILD = "FieldChronicle-Phase1-2026-05-12"`.
-- **Prior (2026-05-11):** Firebase/GCP migration complete — `vertex-core-db`. All services live.
+- **Last shipped (2026-05-13):** Hotfix — CRM load, voice search, and invoice parent reads. Added 5 missing Firestore allow-rules (`customers`, `ParentCompanies`, `MappedLocations`, `invoices`, `metadata`); migrated `service_call.js` + `invoice.js` from deprecated `PlacesService` to `google.maps.places.Place.searchByText()` (new Places API); added `v=weekly` to Maps loader. Deployed Firestore rules live. `VC_BUILD = "PlacesFix-FirestoreRules-2026-05-13"`.
+- **Prior (2026-05-12):** Field Chronicle Phase 1 shipped.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
 
 ## Active Blocker
 
-None. Migration console errors (empty-collection reads) are non-blocking.
+None.
 
 ## Immediate Next Step
 
+- **Verify hotfix on device:** reload dispatcher → hold mic button → say "Planet Fitness Green Bay" → confirm CRM searches AND Google Places returns results without errors.
 - **Smoke-test Field Chronicle on device:** open a job → add 3–4 chronological notes → tap Compile Notes → verify editable summary → tap Copy Summary → paste elsewhere.
-- **Disable if needed:** set `window.VC_FIELD_CHRONICLE_ENABLED = false` before app boot, or remove `field_chronicle.js` script tag.
 - **Phase 40 future slices (not started):** Gemini-powered compile, category detection, Firestore persistence, dispatcher visibility. Re-gate each slice.
 - Migration carry-over still applies (roster, optional data import).
 
