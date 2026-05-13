@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 40 — Field Chronicle (Experimental). Phase 1 shipped.
-- **Last shipped (2026-05-13):** 3-part hotfix session: (1) 5 missing Firestore allow-rules + Places API migration; (2) `importLibrary` fix for Places search + GCP API key restriction guidance; (3) Save Parent Billing now creates new parent from typed name — no longer requires dropdown selection first (`invoice.js`). `VC_BUILD = "PlacesImportLib-2026-05-13"`.
+- **Last shipped (2026-05-13):** Console error cleanup: (1) `shared/firebase_config.js` catch now swallows all errors (silences duplicate `enablePersistence` FirebaseError); (2) Maps URL gains `&loading=async`; cache-busted `shared/firebase_config.js?v=1→v=2` in all 3 HTML files. `VC_BUILD = "ConsoleClean-2026-05-13"`. Prior session: 3-part hotfix (Firestore rules + Places API migration + Save Parent Billing for new parents).
 - **Prior (2026-05-12):** Field Chronicle Phase 1 shipped.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,7 +18,8 @@ None.
 
 ## Immediate Next Step
 
-- **Verify parent company flow:** type a new parent name → fill billing address → click "Save parent billing address" → confirm it creates the doc, populates the dropdown, and shows the success cue.
+- **Verify parent company flow:** type a new parent name → fill billing address → click "Save parent billing address" → confirm it creates the doc, populates the dropdown, and shows the success cue. Also test selecting an existing parent + updating its address.
+- **Smoke-test voice search:** reload dispatcher → hold mic → say "Planet Fitness Green Bay" → confirm CRM matches + Google Places results appear + multi-location modal works.
 - **Smoke-test Field Chronicle on device:** open a job → add 3–4 chronological notes → tap Compile Notes → verify editable summary → tap Copy Summary → paste elsewhere.
 - **Phase 40 future slices (not started):** Gemini-powered compile, category detection, Firestore persistence, dispatcher visibility. Re-gate each slice.
 - Migration carry-over still applies (roster, optional data import).

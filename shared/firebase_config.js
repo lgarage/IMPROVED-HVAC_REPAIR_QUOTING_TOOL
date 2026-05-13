@@ -1,8 +1,9 @@
 /**
  * Vertex-Core — Firestore offline persistence (IndexedDB).
  * Primary enable runs in firebase-config.js immediately after the first Firestore instance.
- * This module is safe to load in pages that share the same Firebase app: duplicate
- * enablePersistence calls are ignored (failed-precondition).
+ * This module is a safety-net for pages that share the same Firebase app; the primary
+ * enablePersistence already ran, so any error here (failed-precondition, already-started,
+ * unimplemented, etc.) is expected and silently swallowed.
  */
 (function () {
   "use strict";
@@ -11,11 +12,11 @@
     firebase
       .firestore()
       .enablePersistence({ synchronizeTabs: true })
-      .catch(function (err) {
-        if (err.code === "failed-precondition" || err.code === "unimplemented") return;
-        console.warn("[Vertex-Core] shared/firebase_config persistence:", err.code || err);
+      .catch(function () {
+        // Silently swallow — primary persistence runs in firebase-config.js;
+        // any error here is expected (already-started, failed-precondition, unimplemented).
       });
   } catch (e) {
-    console.warn("[Vertex-Core] shared/firebase_config:", e);
+    // Synchronous guard — same rationale.
   }
 })();

@@ -26,7 +26,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
     <script src="firebase-config.js?v=6"></script>
-    <script src="shared/firebase_config.js?v=1"></script>
+    <script src="shared/firebase_config.js?v=2"></script>
     <script src="shared/config.js?v=8"></script>
     <script src="shared/firebase_logic.js?v=3"></script>
     <script src="shared/auth.js?v=1"></script>
@@ -39,7 +39,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "PlacesImportLib-2026-05-13";
+      window.VC_BUILD = "ConsoleClean-2026-05-13";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -48,7 +48,7 @@
       document.addEventListener("DOMContentLoaded", function () {
         if (typeof firebaseConfig !== "undefined") {
           const script = document.createElement("script");
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${firebaseConfig.apiKey}&libraries=places&v=weekly&callback=googleMapsCallback`;
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${firebaseConfig.apiKey}&libraries=places&v=weekly&loading=async&callback=googleMapsCallback`;
           script.async = true;
           script.defer = true;
           document.head.appendChild(script);
