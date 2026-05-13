@@ -582,15 +582,14 @@ function onInvParentNewTyped() {
 
 async function saveInvoiceParentCompanyAddress() {
     const sel = document.getElementById('invParentSelect');
-    const id = sel && sel.value;
-    if (!id) {
-        alert('Select an existing parent company from the dropdown before saving its billing address. (A new parent name is created first when you Save to Customer Directory or print.)');
-        return;
-    }
+    const newIn = document.getElementById('invParentNew');
+    let id = sel && sel.value;
+
     if (typeof firebase === 'undefined' || !firebase.apps.length) {
         alert('Firebase is not connected.');
         return;
     }
+
     const st = document.getElementById('invParentBillStreet');
     const ci = document.getElementById('invParentBillCity');
     const stt = document.getElementById('invParentBillState');
@@ -601,6 +600,34 @@ async function saveInvoiceParentCompanyAddress() {
         State: (stt && stt.value || '').trim().toUpperCase(),
         Zip: (zi && zi.value || '').trim().toUpperCase()
     };
+
+    if (!id && newIn && newIn.value.trim()) {
+        const newName = newIn.value.trim().toUpperCase();
+        try {
+            const parentRef = await firebase.firestore().collection('ParentCompanies').add({
+                Name: newName,
+                ...payload
+            });
+            id = parentRef.id;
+            if (typeof loadParentCompanies === 'function') await loadParentCompanies();
+            if (sel) sel.value = id;
+            if (newIn) newIn.value = '';
+            if (typeof updateInvoiceBillToParentRadioState === 'function') updateInvoiceBillToParentRadioState();
+            if (typeof applyInvoiceBillTo === 'function') applyInvoiceBillTo();
+            if (typeof showSaveCue === 'function') showSaveCue('✓ Created "' + newName + '" + billing address saved');
+            return;
+        } catch (e) {
+            console.error('Could not create parent company:', e);
+            alert('Could not create new parent company.');
+            return;
+        }
+    }
+
+    if (!id) {
+        alert('Enter a parent company name or select one from the dropdown before saving.');
+        return;
+    }
+
     try {
         await firebase.firestore().collection('ParentCompanies').doc(id).set(payload, { merge: true });
         if (typeof showSaveCue === 'function') showSaveCue('✓ Parent billing address saved');
@@ -671,15 +698,14 @@ function updateServiceBillToParentRadioState() {
 
 async function saveServiceParentCompanyAddress() {
     const sel = document.getElementById('scParentSelect');
-    const id = sel && sel.value;
-    if (!id) {
-        alert('Select an existing parent company from the dropdown before saving its billing address. (Type a new parent name in the box next to the dropdown, then save the service ticket to create it.)');
-        return;
-    }
+    const newIn = document.getElementById('scParentNew');
+    let id = sel && sel.value;
+
     if (typeof firebase === 'undefined' || !firebase.apps.length) {
         alert('Firebase is not connected.');
         return;
     }
+
     const st = document.getElementById('scParentBillStreet');
     const ci = document.getElementById('scParentBillCity');
     const stt = document.getElementById('scParentBillState');
@@ -690,6 +716,33 @@ async function saveServiceParentCompanyAddress() {
         State: (stt && stt.value || '').trim().toUpperCase(),
         Zip: (zi && zi.value || '').trim().toUpperCase()
     };
+
+    if (!id && newIn && newIn.value.trim()) {
+        const newName = newIn.value.trim().toUpperCase();
+        try {
+            const parentRef = await firebase.firestore().collection('ParentCompanies').add({
+                Name: newName,
+                ...payload
+            });
+            id = parentRef.id;
+            if (typeof loadParentCompanies === 'function') await loadParentCompanies();
+            if (sel) sel.value = id;
+            if (newIn) newIn.value = '';
+            if (typeof updateServiceBillToParentRadioState === 'function') updateServiceBillToParentRadioState();
+            if (typeof showSaveCue === 'function') showSaveCue('✓ Created "' + newName + '" + billing address saved');
+            return;
+        } catch (e) {
+            console.error('Could not create parent company:', e);
+            alert('Could not create new parent company.');
+            return;
+        }
+    }
+
+    if (!id) {
+        alert('Enter a parent company name or select one from the dropdown before saving.');
+        return;
+    }
+
     try {
         await firebase.firestore().collection('ParentCompanies').doc(id).set(payload, { merge: true });
         if (typeof showSaveCue === 'function') showSaveCue('✓ Parent billing address saved');
