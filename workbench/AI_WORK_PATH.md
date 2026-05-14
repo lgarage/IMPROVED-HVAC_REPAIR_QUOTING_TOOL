@@ -1,6 +1,6 @@
 # AI Work Path
 
-> Generated: 2026-05-14 15:07:29
+> Generated: 2026-05-14 15:13:50
 > Parser confidence: 70%
 
 ## Project Snapshot
@@ -15,25 +15,17 @@
 
 ## User Goal
 
-- when the ai task is running the log viewer is really small on mobile i can barely read it, needs to be taller maybe 60% of screen height
+- the review changes overlay looks good but when i launch the sandbox server and its waiting, the loading message is hard to read on mobile, needs to be bigger text
 
 ## Parsed Work Items
 
-### Bugs
-- [ ] the folder browser is slow when you tap a folder theres no loading indicator so it just feels broken
-
 ### UI / Layout Changes
-- [ ] when the ai task is running the log viewer is really small on mobile i can barely read it, needs to be taller maybe 60% of screen height
-- [ ] also would be nice to have a copy button on the logs so i can paste them somewhere
+- [ ] the review changes overlay looks good but when i launch the sandbox server and its waiting, the loading message is hard to read on mobile, needs to be bigger text
+- [ ] also after merge to main completes i have to scroll all the way down to see the result card with the backup branch info, it should scroll there automatically
+- [ ] one more - the Start Over link in the header is really small, hard to tap on phone, needs to be a bigger touch target
 
 ### Business Logic Changes
-- [ ] the folder browser is slow when you tap a folder theres no loading indicator so it just feels broken
-- [ ] when the ai task is running the log viewer is really small on mobile i can barely read it, needs to be taller maybe 60% of screen height
-
-### Config / Documentation / Other
-- [ ] also the breadcrumb segments are too close together on phone hard to tap the right one
-- [ ] one more thing - if i restart the server everything is wiped
-- [ ] it would be nice if it remembered the last repo i had open at least so i dont have to re-pick it every time
+- [ ] the review changes overlay looks good but when i launch the sandbox server and its waiting, the loading message is hard to read on mobile, needs to be bigger text
 
 ## Likely Files To Inspect
 
