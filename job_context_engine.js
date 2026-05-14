@@ -10,6 +10,7 @@
     techNotes: "",
     quotes: [],
     activeEquipment: null,
+    checklistState: {},
   };
   var currentTicketId = "";
   var currentContext = cloneContext(EMPTY_CONTEXT);
@@ -39,6 +40,7 @@
       techNotes: safeTrim(src.techNotes),
       quotes: Array.isArray(src.quotes) ? src.quotes.slice() : [],
       activeEquipment: null,
+      checklistState: {},
     };
   }
 
@@ -505,6 +507,46 @@
     return window.VCJobContext;
   }
 
+  /**
+   * getChecklistState — returns the current checklist mention state for a ticket.
+   * Delegates to ChecklistReminderEngine if available; falls back to VCJobContext.
+   */
+  function getChecklistState(ticketId) {
+    try {
+      if (
+        window.ChecklistReminderEngine &&
+        typeof window.ChecklistReminderEngine.getActiveWorkflow === "function"
+      ) {
+        var tid = safeTrim(ticketId || currentTicketId);
+        var lsKey = "vc_checklist_state_" + (tid || "draft");
+        var raw = localStorage.getItem(lsKey);
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          return (parsed && typeof parsed === "object") ? parsed : {};
+        }
+        return {};
+      }
+    } catch (e) { /* no-op */ }
+    return window.VCJobContext && window.VCJobContext.checklistState
+      ? window.VCJobContext.checklistState
+      : {};
+  }
+
+  /**
+   * markChecklistItem — thin wrapper delegating to ChecklistReminderEngine.markMentioned.
+   * Allows other modules to record a mention without importing ChecklistReminderEngine directly.
+   */
+  function markChecklistItem(ticketId, equipment, itemKey) {
+    try {
+      if (
+        window.ChecklistReminderEngine &&
+        typeof window.ChecklistReminderEngine.markMentioned === "function"
+      ) {
+        window.ChecklistReminderEngine.markMentioned(ticketId, equipment, itemKey);
+      }
+    } catch (e) { /* no-op */ }
+  }
+
   window.VCJobContext = cloneContext(EMPTY_CONTEXT);
   window.JobContextEngine = {
     preloadContext: preloadContext,
@@ -512,5 +554,7 @@
     clearContext: clearContext,
     setActiveEquipment: setActiveEquipment,
     getActiveEquipment: getActiveEquipment,
+    getChecklistState: getChecklistState,
+    markChecklistItem: markChecklistItem,
   };
 })();

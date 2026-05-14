@@ -47,6 +47,15 @@
  *   - #ct-settings-gear: small gear icon in timeline header.
  *   - #ct-settings-voice: element ID inside the settings bottom-sheet.
  *
+ * Slice 45a: Checklist reminder engine integration.
+ *   - onWorkspaceOpen calls ChecklistReminderEngine.onJobCheckin(ticket) to load
+ *     the matching workflow from form_templates for this ticket type.
+ *   - processEntry: before setActiveEquipment, captures the previous equipment
+ *     reference. When equipment changes, scheduleChecklistReminders() fires
+ *     gentle follow-up system bubbles for any missed items on the previous unit.
+ *   - processEntry: calls ChecklistReminderEngine.updateFromEntry() to track
+ *     which checklist items the tech has mentioned in timeline entries.
+ *
  * Exports: startListening, stopListening, capturePhoto, captureVideo,
  *          processEntry, generateResponse, handleFollowUpResponse.
  */
@@ -1291,6 +1300,34 @@
     }
   }
 
+  /* ── checklist reminder helpers (Slice 45a) ──────────────────── */
+
+  /**
+   * scheduleChecklistReminders — fires gentle system-bubble reminders for
+   * checklist items not yet mentioned on the given equipment unit.
+   * Delayed slightly so the primary "Got it. RTU7." response appears first.
+   * At most ChecklistReminderEngine.MAX_REMINDERS_PER_SWITCH reminders are
+   * surfaced — never blocks the tech or forces form completion.
+   */
+  function scheduleChecklistReminders(equipment, ticketId) {
+    if (
+      !window.ChecklistReminderEngine ||
+      typeof window.ChecklistReminderEngine.getReminders !== "function"
+    ) return;
+    /* 800 ms head start for the primary confirmation bubble */
+    setTimeout(function () {
+      var reminders = window.ChecklistReminderEngine.getReminders(equipment, ticketId);
+      if (!reminders || !reminders.length) return;
+      for (var i = 0; i < reminders.length; i++) {
+        (function (reminder, idx) {
+          setTimeout(function () {
+            addEntry(reminder, "system", ticketId);
+          }, idx * 700);
+        })(reminders[i], i);
+      }
+    }, 800);
+  }
+
   /**
    * processEntry — exported.
    * Called after a tech entry is saved; schedules the Vertex system response
@@ -1366,8 +1403,28 @@
       equipMatch = responseTextForIntent.match(EQUIPMENT_REGEX);
       if (equipMatch) eqRef = equipMatch[0].replace(/\s+/g, " ").trim();
     }
+
+    /* Capture previous equipment before context switch (Slice 45a) */
+    var previousEquipment = (window.VCJobContext && window.VCJobContext.activeEquipment)
+      ? String(window.VCJobContext.activeEquipment)
+      : null;
+
     if (eqRef && window.JobContextEngine && typeof JobContextEngine.setActiveEquipment === "function") {
       JobContextEngine.setActiveEquipment(eqRef);
+      /* Equipment switched — remind tech about any missed items on the previous unit */
+      if (previousEquipment && previousEquipment !== eqRef) {
+        scheduleChecklistReminders(previousEquipment, id);
+      }
+    }
+
+    /* Track entry mentions against active workflow checklist (Slice 45a) */
+    var effectiveEquipment = eqRef || previousEquipment;
+    if (
+      effectiveEquipment &&
+      window.ChecklistReminderEngine &&
+      typeof window.ChecklistReminderEngine.updateFromEntry === "function"
+    ) {
+      window.ChecklistReminderEngine.updateFromEntry(entry, id, effectiveEquipment);
     }
 
     var confidence = (parsed && typeof parsed.confidence === "number") ? parsed.confidence : 1;
@@ -1537,6 +1594,17 @@
     hideFollowUpPrompt();
     seedFromTicket(currentTicketId);
     renderTimeline(currentTicketId);
+    /* Load workflow checklist from form_templates for this ticket type (Slice 45a) */
+    try {
+      var ticket = getActiveTicket();
+      if (
+        ticket &&
+        window.ChecklistReminderEngine &&
+        typeof window.ChecklistReminderEngine.onJobCheckin === "function"
+      ) {
+        window.ChecklistReminderEngine.onJobCheckin(ticket);
+      }
+    } catch (e) { /* degrade silently */ }
   }
 
   /* ── init ─────────────────────────────────────────────────────── */
