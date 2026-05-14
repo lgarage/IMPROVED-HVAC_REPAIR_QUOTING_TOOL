@@ -1496,9 +1496,14 @@ function renderBreadcrumb(dirPath) {
 function getParentPath(p) {
   const normalized = p.replace(/[\\/]$/, '');
   const sep = p.includes('\\') ? '\\' : '/';
+  // Drive root for Windows (e.g. "C:\"), filesystem root for Unix
+  const root = sep === '\\' ? normalized.slice(0, 2) + '\\' : '/';
   const idx = normalized.lastIndexOf(sep);
-  if (idx <= 0) return sep === '\\' ? normalized.slice(0, 3) : '/';
-  return normalized.slice(0, idx) || (sep === '\\' ? normalized.slice(0, 3) : '/');
+  if (idx < 0) return root;
+  const parent = normalized.slice(0, idx);
+  // Bare drive letter ("C:") means we are one level below the drive root
+  if (!parent || (sep === '\\' && /^[A-Za-z]:$/.test(parent))) return root;
+  return parent;
 }
 
 async function selectBrowsedFolder() {
@@ -1510,7 +1515,9 @@ async function selectBrowsedFolder() {
 }
 
 function escAttr(s) {
-  return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  // Escape for use inside a double-quoted HTML attribute containing a JS single-quoted string.
+  // Order matters: backslashes first, then quotes.
+  return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
 
 // --- Init ---
