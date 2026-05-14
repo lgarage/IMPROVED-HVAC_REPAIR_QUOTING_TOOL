@@ -1,5 +1,5 @@
 /**
- * Conversational Timeline — Slice 44a.
+ * Conversational Timeline — Slice 46a.
  *
  * Slice 41a: localStorage-only timeline, bubble layout, workspace integration.
  * Slice 41b: Hold-to-Talk action bar + live Web Speech API STT.
@@ -56,8 +56,24 @@
  *   - processEntry: calls ChecklistReminderEngine.updateFromEntry() to track
  *     which checklist items the tech has mentioned in timeline entries.
  *
+ * Slice 46a: Editable timeline entries + voice corrections.
+ *   - Tap a tech timeline bubble → inline edit mode (contenteditable + Save/Cancel).
+ *   - editEntry(entryId): exported — activates inline edit on a given entry.
+ *   - handleCorrection(text): exported — parses voice corrections that start with
+ *     "correction" or "actually"; updates the most recent relevant entry
+ *     (equipment-ref match first, then recency fallback).
+ *   - Example: "correction, that was RTU6" → replaces last entry's RTU ref with RTU6.
+ *   - Entry object gains: originalText, correctedText, correctedAt.
+ *   - Corrected entries render a small "edited" badge.
+ *   - processEntry routes correction-prefix entries to handleCorrection (no
+ *     standard Vertex response generated for the correction command itself).
+ *   - Vocabulary feedback: word-level substitutions are stored in
+ *     localStorage (vc_ct_vocab_corrections) and forwarded to
+ *     EdgeIntentEngine.learnCorrection() for session-level STT remapping.
+ *
  * Exports: startListening, stopListening, capturePhoto, captureVideo,
- *          processEntry, generateResponse, handleFollowUpResponse.
+ *          processEntry, generateResponse, handleFollowUpResponse,
+ *          editEntry, handleCorrection.
  */
 (function () {
   "use strict";
@@ -66,6 +82,7 @@
 
   var LS_PREFIX = "vc_conversational_timeline_";
   var LS_SETTINGS_KEY = "vc_ct_settings";
+  var LS_VOCAB_KEY = "vc_ct_vocab_corrections";
   var currentTicketId = "draft";
   var initialized = false;
 
@@ -101,6 +118,84 @@
     updateSettingsSheetUI(mode);
   }
 
+  /* ── vocabulary correction store (Slice 46a) ─────────────────── */
+
+  function loadVocabCorrections() {
+    try {
+      var raw = localStorage.getItem(LS_VOCAB_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw) || {};
+    } catch (e) { return {}; }
+  }
+
+  function saveVocabCorrections(map) {
+    try {
+      localStorage.setItem(LS_VOCAB_KEY, JSON.stringify(map));
+    } catch (e) { /* quota exceeded */ }
+  }
+
+  /**
+   * Persist a single word/phrase substitution and notify EdgeIntentEngine.
+   */
+  function learnVocabCorrection(original, corrected) {
+    if (!original || !corrected) return;
+    var normOrig = String(original).toLowerCase().trim();
+    var normCorr = String(corrected).trim();
+    if (!normOrig || !normCorr || normOrig === normCorr.toLowerCase()) return;
+    var map = loadVocabCorrections();
+    map[normOrig] = normCorr;
+    saveVocabCorrections(map);
+    if (
+      typeof window.EdgeIntentEngine !== "undefined" &&
+      window.EdgeIntentEngine &&
+      typeof window.EdgeIntentEngine.learnCorrection === "function"
+    ) {
+      try { window.EdgeIntentEngine.learnCorrection(normOrig, normCorr); } catch (e) { /* no-op */ }
+    }
+  }
+
+  /**
+   * Compare originalText and newText to extract word-level substitutions
+   * and store them in the vocab correction map for future STT remapping.
+   */
+  function learnVocabFromCorrection(originalText, newText) {
+    if (!originalText || !newText || originalText === newText) return;
+    var origWords = String(originalText).trim().split(/\s+/);
+    var newWords = String(newText).trim().split(/\s+/);
+    if (origWords.length === newWords.length) {
+      for (var i = 0; i < origWords.length; i++) {
+        var ow = origWords[i].replace(/[^a-zA-Z0-9]/g, "");
+        var nw = newWords[i].replace(/[^a-zA-Z0-9]/g, "");
+        if (ow && nw && ow.toLowerCase() !== nw.toLowerCase()) {
+          learnVocabCorrection(ow, nw);
+        }
+      }
+    } else {
+      /* Differing word counts — store full phrase substitution */
+      learnVocabCorrection(originalText, newText);
+    }
+  }
+
+  /**
+   * Persist a corrected version of an entry in localStorage.
+   * Stores originalText (first ever original), correctedText, correctedAt.
+   */
+  function saveEntryCorrection(ticketId, entryId, originalText, newText) {
+    var entries = loadEntries(ticketId);
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i] && entries[i].id === entryId) {
+        /* Preserve the first-ever original if already corrected once */
+        entries[i].originalText = entries[i].originalText || originalText;
+        entries[i].text = newText;
+        entries[i].correctedText = newText;
+        entries[i].correctedAt = new Date().toISOString();
+        break;
+      }
+    }
+    saveEntries(ticketId, entries);
+    if (ticketId === currentTicketId) renderTimeline(ticketId);
+  }
+
   /* ── ding notification (Slice 44a) ───────────────────────────── */
 
   function playFollowUpDing() {
@@ -134,6 +229,7 @@
   /* ── equipment reference pattern (Slice 42b — supersedes 41d) ── */
 
   var EQUIPMENT_REGEX = /\b(RTU|AHU|FCU|MAU|CU|HP|Unit|Chiller|Boiler)\s*#?\d+/i;
+  var CORRECTION_PREFIX_RE = /^(correction[,\s]+|actually[,\s]+|correct that[,\s]+|i meant[,\s]+)/i;
 
   function storageKey(ticketId) {
     return LS_PREFIX + (ticketId || "draft");
@@ -357,11 +453,15 @@
         if (!item.text) continue;
         var isTech = item.role === "tech";
         if (isTech) {
+          var editedBadge = item.correctedText
+            ? '<span class="ct-edited-badge" aria-label="edited">edited</span>'
+            : "";
           html +=
-            '<div class="ct-message ct-message--tech">' +
+            '<div class="ct-message ct-message--tech" data-entry-id="' + escapeHtml(item.id) + '" data-tappable-entry="true">' +
               '<span class="ct-message__body">' + escapeHtml(item.text) + "</span>" +
               '<span class="ct-message__meta">Technician \u00b7 ' +
                 escapeHtml(formatTime(item.ts)) +
+                editedBadge +
               "</span>" +
             "</div>";
         } else {
@@ -1340,6 +1440,13 @@
     var id = normalizeTicketId(ticketId);
 
     var rawText = safeText(entry.text);
+
+    /* Voice correction intercept (Slice 46a) — route to handleCorrection,
+       skip the standard Vertex confirmation response for the command itself. */
+    if (CORRECTION_PREFIX_RE.test(rawText)) {
+      handleCorrection(rawText);
+      return;
+    }
     var parsed = null;
     var parsedText = rawText;
     var parsedEntities = [];
@@ -1473,6 +1580,205 @@
       addEntry(responseText, "system", id);
       checkFollowUpPrompt(id);
     }, 300);
+  }
+
+  /* ── edit mode styles (Slice 46a) ────────────────────────────── */
+
+  var _editStylesInjected = false;
+
+  function injectEditStyles() {
+    if (_editStylesInjected) return;
+    _editStylesInjected = true;
+    var style = document.createElement("style");
+    style.id = "ct-edit-styles";
+    style.textContent = [
+      /* Tappable tech bubbles */
+      ".ct-message--tech[data-tappable-entry]{cursor:pointer;}",
+      ".ct-message--tech[data-tappable-entry]:active{opacity:.75;}",
+      /* Edit mode */
+      ".ct-message--tech.ct-editing{border:1.5px solid #00d4ff;border-radius:10px;}",
+      ".ct-message--tech.ct-editing .ct-message__body{outline:none;min-width:60px;white-space:pre-wrap;word-break:break-word;}",
+      /* Save / Cancel action row */
+      ".ct-edit-actions{display:flex;gap:8px;margin-top:6px;}",
+      ".ct-edit-actions button{min-height:36px;padding:0 14px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;}",
+      ".ct-edit-save{background:#00d4ff;color:#0d0d1a;}",
+      ".ct-edit-cancel{background:rgba(255,255,255,.12);color:#fff;}",
+      /* Edited badge */
+      ".ct-edited-badge{font-size:10px;font-weight:500;color:#00d4ff;opacity:.8;",
+      "  background:rgba(0,212,255,.1);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle;}"
+    ].join("");
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  /* ── editable timeline entries (Slice 46a) ───────────────────── */
+
+  /**
+   * editEntry — exported.
+   * Activates contenteditable inline edit mode on a tech timeline bubble.
+   * Save commits the change to localStorage; Cancel restores original display.
+   */
+  function editEntry(entryId) {
+    if (!entryId) return;
+    var list = getListElement();
+    if (!list) return;
+
+    var bubble = list.querySelector('[data-entry-id="' + entryId + '"]');
+    if (!bubble) return;
+    if (bubble.classList.contains("ct-editing")) return;
+
+    /* Locate the stored entry */
+    var entries = loadEntries(currentTicketId);
+    var entry = null;
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i] && entries[i].id === entryId) {
+        entry = entries[i];
+        break;
+      }
+    }
+    if (!entry) return;
+
+    var currentText = entry.text;
+    bubble.classList.add("ct-editing");
+
+    var bodyEl = bubble.querySelector(".ct-message__body");
+    if (!bodyEl) { bubble.classList.remove("ct-editing"); return; }
+
+    bodyEl.setAttribute("contenteditable", "true");
+    bodyEl.focus();
+
+    /* Move cursor to end of text */
+    try {
+      var range = document.createRange();
+      range.selectNodeContents(bodyEl);
+      range.collapse(false);
+      var sel = window.getSelection();
+      if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+    } catch (e) { /* no-op — older browsers */ }
+
+    var actionsEl = document.createElement("div");
+    actionsEl.className = "ct-edit-actions";
+    actionsEl.innerHTML =
+      '<button class="ct-edit-save" type="button">Save</button>' +
+      '<button class="ct-edit-cancel" type="button">Cancel</button>';
+    bubble.appendChild(actionsEl);
+
+    function exitEditMode() {
+      bodyEl.removeAttribute("contenteditable");
+      bubble.classList.remove("ct-editing");
+      if (actionsEl && actionsEl.parentNode) {
+        actionsEl.parentNode.removeChild(actionsEl);
+      }
+    }
+
+    actionsEl.querySelector(".ct-edit-save").addEventListener("click", function () {
+      var newText = (bodyEl.textContent || "").trim();
+      exitEditMode();
+      if (newText && newText !== currentText) {
+        learnVocabFromCorrection(currentText, newText);
+        saveEntryCorrection(currentTicketId, entryId, currentText, newText);
+      } else {
+        renderTimeline(currentTicketId);
+      }
+    });
+
+    actionsEl.querySelector(".ct-edit-cancel").addEventListener("click", function () {
+      exitEditMode();
+      renderTimeline(currentTicketId);
+    });
+  }
+
+  /**
+   * wireTimelineEditing — attaches event-delegated tap listener to #ct-message-list
+   * so tapping any tech bubble enters inline edit mode.
+   * Called once from init(); survives innerHTML re-renders because the listener
+   * is on the container, not on individual bubbles.
+   */
+  function wireTimelineEditing() {
+    var list = getListElement();
+    if (!list) return;
+    list.addEventListener("click", function (e) {
+      /* Ignore clicks inside an active edit (contenteditable / action buttons) */
+      if (e.target.closest && e.target.closest(".ct-editing")) return;
+      var bubble = e.target.closest && e.target.closest("[data-tappable-entry]");
+      if (!bubble) return;
+      var entryId = bubble.getAttribute("data-entry-id");
+      if (entryId) editEntry(entryId);
+    });
+  }
+
+  /* ── voice correction handler (Slice 46a) ────────────────────── */
+
+  /**
+   * handleCorrection — exported.
+   * Parses a voice (or typed) correction that starts with "correction" / "actually".
+   * Strips the prefix, then:
+   *   1. If the correction contains an equipment ref, finds the most recent tech
+   *      entry that also has an equipment ref and replaces the ref in that entry.
+   *   2. Otherwise replaces the full text of the most recent non-correction entry.
+   * Stores originalText + correctedText + correctedAt on the entry.
+   * Learns word-level vocabulary substitutions for the session.
+   * Returns the updated entry object, or null if nothing to correct.
+   */
+  function handleCorrection(rawCorrectionText) {
+    var raw = String(rawCorrectionText || "").trim();
+    if (!raw) return null;
+
+    /* Strip correction prefix */
+    var prefixMatch = raw.match(CORRECTION_PREFIX_RE);
+    var correctionText = prefixMatch ? raw.slice(prefixMatch[0].length).trim() : raw;
+    if (!correctionText) return null;
+
+    var entries = loadEntries(currentTicketId);
+    var techEntries = entries.filter(function (e) {
+      return (
+        e &&
+        e.role === "tech" &&
+        !(e.meta && (e.meta.seed || e.meta.mediaType)) &&
+        !CORRECTION_PREFIX_RE.test(safeText(e.text))
+      );
+    });
+
+    if (!techEntries.length) return null;
+
+    var corrEqMatch = correctionText.match(EQUIPMENT_REGEX);
+    var targetEntry = null;
+
+    if (corrEqMatch) {
+      /* Prefer the most recent entry that itself has an equipment ref */
+      for (var i = techEntries.length - 1; i >= 0; i--) {
+        if (EQUIPMENT_REGEX.test(techEntries[i].text)) {
+          targetEntry = techEntries[i];
+          break;
+        }
+      }
+    }
+
+    /* Recency fallback */
+    if (!targetEntry) {
+      targetEntry = techEntries[techEntries.length - 1];
+    }
+
+    if (!targetEntry) return null;
+
+    var originalText = targetEntry.originalText || targetEntry.text;
+    var newText;
+
+    if (corrEqMatch) {
+      /* Replace the equipment ref in the original entry text */
+      var replaced = originalText.replace(EQUIPMENT_REGEX, corrEqMatch[0]);
+      newText = (replaced !== originalText) ? replaced : correctionText;
+    } else {
+      newText = correctionText;
+    }
+
+    learnVocabFromCorrection(originalText, newText);
+    saveEntryCorrection(currentTicketId, targetEntry.id, originalText, newText);
+
+    setTimeout(function () {
+      addEntry("Correction noted. Updated.", "system", currentTicketId);
+    }, 300);
+
+    return targetEntry;
   }
 
   /* ── action bar wiring ────────────────────────────────────────── */
@@ -1613,9 +1919,11 @@
     if (initialized) return;
     initialized = true;
 
+    injectEditStyles();
     wireActionBar();
     wireEquipmentChip();
     wireSettingsGear();
+    wireTimelineEditing();
 
     try {
       window.addEventListener("vc:workspaceOpened", function () {
@@ -1658,6 +1966,8 @@
     captureVideo: captureVideo,
     processEntry: processEntry,
     generateResponse: generateResponse,
-    handleFollowUpResponse: handleFollowUpResponse
+    handleFollowUpResponse: handleFollowUpResponse,
+    editEntry: editEntry,
+    handleCorrection: handleCorrection
   };
 })();
