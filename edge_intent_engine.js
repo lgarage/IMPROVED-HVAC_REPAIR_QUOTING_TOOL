@@ -277,9 +277,86 @@
     };
   }
 
+  /* ── Cloud escalation (Slice 43b) ──────────────────────────────── */
+
+  var GEMINI_ESCALATION_PROMPT =
+    "Extract structured HVAC field data from this technician note. Return JSON with: " +
+    "equipment, temperatures, ampDraws, parts, deficiencies, actions. Note: ";
+
+  function getGeminiModel() {
+    if (typeof GEMINI_GENERATE_MODEL !== "undefined" && GEMINI_GENERATE_MODEL) {
+      return GEMINI_GENERATE_MODEL;
+    }
+    return "gemini-2.5-flash";
+  }
+
+  function parseGeminiResponse(raw) {
+    var t = String(raw || "").trim();
+    t = t.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+    try { return JSON.parse(t); } catch (e) { return null; }
+  }
+
+  function escalateToCloud(text) {
+    var source = safeText(text);
+    if (!source) {
+      return Promise.resolve(null);
+    }
+
+    if (typeof getGeminiApiKey !== "function") {
+      return Promise.resolve(null);
+    }
+
+    return getGeminiApiKey().then(function (key) {
+      if (!key) return null;
+
+      var url =
+        "https://generativelanguage.googleapis.com/v1beta/models/" +
+        getGeminiModel() +
+        ":generateContent?key=" +
+        encodeURIComponent(key);
+
+      var body = {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: GEMINI_ESCALATION_PROMPT + source }]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 512,
+          responseMimeType: "application/json"
+        }
+      };
+
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).then(function (res) {
+        return res.json();
+      }).then(function (data) {
+        if (data.error) return null;
+        var part =
+          data.candidates &&
+          data.candidates[0] &&
+          data.candidates[0].content &&
+          data.candidates[0].content.parts &&
+          data.candidates[0].content.parts[0];
+        var rawOut = part && part.text ? String(part.text) : "";
+        return parseGeminiResponse(rawOut);
+      }).catch(function () {
+        return null;
+      });
+    }).catch(function () {
+      return null;
+    });
+  }
+
   window.EdgeIntentEngine = {
     parse: parse,
     correctVocab: correctVocab,
-    extractEntities: extractEntities
+    extractEntities: extractEntities,
+    escalateToCloud: escalateToCloud
   };
 })();

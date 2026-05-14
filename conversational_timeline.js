@@ -1,5 +1,5 @@
 /**
- * Conversational Timeline — Slice 42b.
+ * Conversational Timeline — Slice 43b.
  *
  * Slice 41a: localStorage-only timeline, bubble layout, workspace integration.
  * Slice 41b: Hold-to-Talk action bar + live Web Speech API STT.
@@ -30,6 +30,11 @@
  *   - Chip is tappable — tap to clear active equipment.
  *   - Media captures auto-tagged with activeEquipment in meta.
  *   - Listens for vc:activeEquipmentChanged to sync chip UI.
+ * Slice 43b: Confidence-based cloud escalation.
+ *   - High confidence (≥0.8) → "Got it." (no follow-up).
+ *   - Medium confidence (0.6–0.8) → short clarification bubble.
+ *   - Low confidence (<0.6) → silent Gemini escalation → structured parse.
+ *   - Uses EdgeIntentEngine.escalateToCloud() for Gemini structured extraction.
  *
  * Exports: startListening, stopListening, capturePhoto, captureVideo,
  *          processEntry, generateResponse.
@@ -822,15 +827,19 @@
     });
   }
 
-  /* ── Vertex system responses (Slice 41d) ─────────────────────── */
+  /* ── Vertex system responses (Slice 41d + 43b) ────────────────── */
 
   /**
    * generateResponse — exported.
    * Pure function: given a tech entry, returns the Vertex confirmation text.
-   * v1 is rule-based (no AI).
+   * Slice 43b confidence tiers:
+   *   High (≥0.8) → "Got it."
+   *   Medium (0.6–0.8) → short clarification bubble
+   *   Low (<0.6) → handled async by processEntry (cloud escalation)
    */
-  function generateResponse(entry) {
+  function generateResponse(entry, opts) {
     if (!entry) return null;
+    var options = opts || {};
 
     /* Media entries ------------------------------------------------ */
     if (entry.meta && entry.meta.mediaType) {
@@ -840,13 +849,37 @@
     var text = safeText(entry.text);
     if (!text) return null;
 
-    /* Equipment reference ------------------------------------------ */
-    var match = text.match(EQUIPMENT_REGEX);
-    if (match) {
-      return "Got it. " + match[0] + ".";
+    var confidence = (entry.meta && typeof entry.meta.intentConfidence === "number")
+      ? entry.meta.intentConfidence
+      : 1;
+
+    /* Low confidence — skip sync response (async escalation handles it) */
+    if (confidence < 0.6 && !options.fromEscalation) {
+      return null;
     }
 
-    /* Default (short or plain text) -------------------------------- */
+    /* Equipment reference ------------------------------------------ */
+    var match = text.match(EQUIPMENT_REGEX);
+
+    /* High confidence (≥0.8) ─────────────────────────────────────── */
+    if (confidence >= 0.8) {
+      if (match) return "Got it. " + match[0] + ".";
+      return "Got it.";
+    }
+
+    /* Medium confidence (0.6–0.8) — short clarification ─────────── */
+    var entities = (entry.meta && Array.isArray(entry.meta.entities)) ? entry.meta.entities : [];
+    var hasEquipment = entities.some(function (e) { return e.type === "equipment"; });
+    var hasTemp = entities.some(function (e) { return e.type === "temperature"; });
+    var hasAmps = entities.some(function (e) { return e.type === "amp_draw"; });
+    var hasPart = entities.some(function (e) { return e.type === "part"; });
+
+    if (!hasEquipment && match) {
+      return "Got it. " + match[0] + ".";
+    }
+    if (!hasEquipment) return "Which unit?";
+    if (hasPart && !hasAmps && !hasTemp) return "Reading?";
+    if (match) return "Got it. " + match[0] + ".";
     return "Got it.";
   }
 
@@ -1020,6 +1053,42 @@
       JobContextEngine.setActiveEquipment(eqRef);
     }
 
+    var confidence = (parsed && typeof parsed.confidence === "number") ? parsed.confidence : 1;
+
+    /* Low confidence (<0.6) → cloud escalation (Slice 43b) */
+    if (
+      confidence < 0.6 &&
+      typeof window.EdgeIntentEngine !== "undefined" &&
+      window.EdgeIntentEngine &&
+      typeof window.EdgeIntentEngine.escalateToCloud === "function"
+    ) {
+      var escalationText = rawText;
+      window.EdgeIntentEngine.escalateToCloud(escalationText).then(function (geminiResult) {
+        var escalationResponse;
+        if (geminiResult && typeof geminiResult === "object") {
+          var hasData = (
+            (geminiResult.equipment && geminiResult.equipment.length) ||
+            (geminiResult.temperatures && geminiResult.temperatures.length) ||
+            (geminiResult.ampDraws && geminiResult.ampDraws.length) ||
+            (geminiResult.parts && geminiResult.parts.length) ||
+            (geminiResult.actions && geminiResult.actions.length)
+          );
+          if (hasData) {
+            escalationResponse = "Got it.";
+          } else {
+            escalationResponse = "What were you working on?";
+          }
+        } else {
+          escalationResponse = "What were you working on?";
+        }
+        setTimeout(function () {
+          addEntry(escalationResponse, "system", id);
+          checkFollowUpPrompt(id);
+        }, 300);
+      });
+      return;
+    }
+
     var responseText = generateResponse({
       role: entry.role,
       text: responseTextForIntent,
@@ -1027,7 +1096,6 @@
     });
     if (!responseText) return;
     setTimeout(function () {
-      /* addEntry with role "system" → will NOT re-trigger processEntry */
       addEntry(responseText, "system", id);
       checkFollowUpPrompt(id);
     }, 300);
