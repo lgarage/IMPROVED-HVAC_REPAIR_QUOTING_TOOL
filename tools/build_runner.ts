@@ -300,6 +300,21 @@ const commands: SlashCommand[] = [
     description: "Run ALL pending slices sequentially (fire and forget)",
     handler: async (_args, state) => {
       if (!requireApiKey()) return;
+      console.log(`
+  ┌──────────────────────────────────────────────────────────┐
+  │  AUTO-STOP RULES (from NEW_FIELDTECH_UX_PLAN.md)        │
+  │                                                          │
+  │  • Stops if a slice fails all models in its escalation   │
+  │    ladder (3 attempts max per slice).                    │
+  │  • "review" slices (Firestore/Gemini) are committed      │
+  │    but NOT pushed — you must review & push manually.     │
+  │  • "safe" slices (UI-only) auto-push to main.            │
+  │  • Each slice is validated before moving on (HTML IDs,   │
+  │    exports, VC_BUILD bump, syntax).                      │
+  │  • Dependency order is enforced — a slice won't run      │
+  │    until its dependencies have completed.                │
+  └──────────────────────────────────────────────────────────┘
+`);
       let next = getNextSlice(state);
       let count = 0;
       while (next) {
