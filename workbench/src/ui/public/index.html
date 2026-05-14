@@ -46,35 +46,54 @@
       margin-right: 8px;
     }
     .header .status-dot.active { background: var(--success); }
+    .start-over {
+      font-size: 12px; color: var(--accent-dim);
+      cursor: pointer; text-decoration: none;
+    }
+    .start-over:hover { color: var(--accent); text-decoration: underline; }
 
-    .tabs {
-      display: flex;
+    #conversation {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 16px 16px 80px;
+    }
+
+    /* Step cards */
+    .step { margin-bottom: 16px; }
+    .step.hidden { display: none; }
+
+    .step-summary {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
       background: var(--surface);
-      border-bottom: 2px solid var(--surface2);
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .tab {
-      flex: 1;
-      min-width: 80px;
-      padding: 14px 8px;
-      text-align: center;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text-dim);
-      border: none;
-      background: none;
+      border-radius: var(--radius);
+      border: 1px solid var(--surface2);
       cursor: pointer;
-      border-bottom: 2px solid transparent;
-      white-space: nowrap;
+      font-size: 13px;
+      color: var(--text-dim);
+      min-height: 48px;
     }
-    .tab.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
+    .step-summary:hover { border-color: var(--accent-dim); }
+    .step-summary .step-label { color: var(--accent); font-weight: 600; margin-right: 4px; }
+    .step-summary .step-chevron {
+      margin-left: auto; font-size: 16px; transition: transform .2s;
     }
+    .step.collapsed .step-summary { display: flex; }
+    .step.collapsed .step-body { display: none; }
 
-    .panel { display: none; padding: 16px; max-width: 720px; margin: 0 auto; }
-    .panel.active { display: block; }
+    .step-body {}
+
+    /* Inline status messages */
+    .step-msg {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 0;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .step-msg.done { color: var(--success); }
+    .step-msg.error { color: var(--danger); }
 
     .card {
       background: var(--surface);
@@ -116,6 +135,8 @@
     }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-sm { padding: 10px 16px; font-size: 13px; min-height: 38px; width: auto; }
+    .btn-row { display: flex; gap: 8px; }
+    .btn-row .btn { flex: 1; }
 
     input[type="text"], textarea {
       width: 100%;
@@ -164,7 +185,6 @@
       right: 0;
       z-index: 100;
     }
-    .main-content { padding-bottom: 50px; }
 
     .kv-table { width: 100%; font-size: 13px; }
     .kv-table td { padding: 6px 0; vertical-align: top; }
@@ -249,7 +269,6 @@
     }
     .diff-body.open { display: block; }
 
-    /* Screenshot viewer */
     .screenshot-grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
       gap: 8px; margin-top: 8px;
@@ -260,7 +279,7 @@
     }
     .screenshot-thumb:hover { transform: scale(1.05); }
 
-    /* Confirmation dialog */
+    /* Overlays */
     .overlay {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,0.7); z-index: 200;
@@ -276,7 +295,6 @@
     .dialog-actions { display: flex; gap: 8px; margin-top: 16px; }
     .dialog-actions .btn { flex: 1; }
 
-    /* Log viewer */
     .log-viewer {
       background: var(--bg); border: 1px solid var(--surface2); border-radius: var(--radius);
       padding: 10px; font-family: "SF Mono", monospace; font-size: 12px;
@@ -377,103 +395,103 @@
     <span class="status-dot" id="statusDot"></span>
     <h1>Repo Workbench</h1>
   </div>
-  <span id="headerRepo" style="font-size:12px;color:var(--text-dim)"></span>
+  <div style="display:flex;align-items:center;gap:16px">
+    <a class="start-over" id="startOverLink" onclick="startOver()">Start Over</a>
+    <span id="headerRepo" style="font-size:12px;color:var(--text-dim)"></span>
+  </div>
 </div>
 
-<div class="tabs" id="tabBar">
-  <button class="tab active" data-tab="repo">Repo</button>
-  <button class="tab" data-tab="notes">Notes</button>
-  <button class="tab" data-tab="workpath">Work Path</button>
-  <button class="tab" data-tab="sandbox">Sandbox</button>
-  <button class="tab" data-tab="results">Results</button>
-</div>
+<div id="conversation">
 
-<div class="main-content">
-
-  <!-- REPO TAB -->
-  <div class="panel active" id="panel-repo">
-    <div class="card">
-      <h3>Target Repository</h3>
-      <div id="repoPathDisplay" class="repo-path-display">No repo selected</div>
-      <div class="browse-btn-row">
-        <button class="btn btn-ghost btn-sm" id="browseNativeBtn" onclick="browseNative()">Open Explorer</button>
-        <button class="btn btn-ghost btn-sm" onclick="openFolderBrowser()">Browse Folders</button>
-      </div>
-      <details class="manual-path-details">
-        <summary>Enter path manually</summary>
-        <div style="margin-top:8px">
-          <input type="text" id="repoPathInput" placeholder="C:\Projects\my-repo" />
-          <button class="btn btn-ghost btn-sm" onclick="setRepo()">Set Path</button>
-        </div>
-      </details>
+  <!-- STEP 1: Repo selection + analyze -->
+  <div class="step" id="step-repo">
+    <div class="step-summary" onclick="toggleStep('step-repo')">
+      <span class="step-label">Repo</span>
+      <span id="step-repo-summary-text"></span>
+      <span class="step-chevron">&#9662;</span>
     </div>
-    <button class="btn btn-primary" onclick="analyzeRepo()">Analyze Repo</button>
-    <div id="analysisResult" class="hidden">
+    <div class="step-body">
+      <div class="card">
+        <h3>Target Repository</h3>
+        <div id="repoPathDisplay" class="repo-path-display">No repo selected</div>
+        <div class="browse-btn-row">
+          <button class="btn btn-ghost btn-sm" id="browseNativeBtn" onclick="browseNative()">Open Explorer</button>
+          <button class="btn btn-ghost btn-sm" onclick="openFolderBrowser()">Browse Folders</button>
+        </div>
+        <details class="manual-path-details">
+          <summary>Enter path manually</summary>
+          <div style="margin-top:8px">
+            <input type="text" id="repoPathInput" placeholder="C:\Projects\my-repo" />
+            <button class="btn btn-ghost btn-sm" onclick="setRepo()">Set Path</button>
+          </div>
+        </details>
+      </div>
+      <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeRepo()">Analyze Repo</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Analysis results -->
+  <div class="step hidden" id="step-analysis">
+    <div class="step-summary" onclick="toggleStep('step-analysis')">
+      <span class="step-label">Analysis</span>
+      <span id="step-analysis-summary-text"></span>
+      <span class="step-chevron">&#9662;</span>
+    </div>
+    <div class="step-body">
       <div class="card" id="analysisCard"></div>
     </div>
   </div>
 
-  <!-- NOTES TAB -->
-  <div class="panel" id="panel-notes">
-    <div class="card">
-      <h3>Paste Messy Notes</h3>
-      <label>Paste your raw notes, bug reports, feature requests — however messy</label>
-      <textarea id="notesInput" placeholder="I'm trying the quoting tool again but I still cannot remove the TRUCK/DISPATCH CHARGE when set to 0. Also the multiline descriptions are cutting off after the first line..."></textarea>
-      <button class="btn btn-primary" onclick="parseNotes()">Parse Notes</button>
+  <!-- STEP 3: Paste notes -->
+  <div class="step hidden" id="step-notes">
+    <div class="step-summary" onclick="toggleStep('step-notes')">
+      <span class="step-label">Notes</span>
+      <span id="step-notes-summary-text">Notes parsed</span>
+      <span class="step-chevron">&#9662;</span>
     </div>
-    <div id="parsedResult" class="hidden">
+    <div class="step-body">
       <div class="card">
-        <h3>Parsed Output</h3>
+        <h3>Paste Messy Notes</h3>
+        <label>Paste your raw notes, bug reports, feature requests &mdash; however messy</label>
+        <textarea id="notesInput" placeholder="I'm trying the quoting tool again but I still cannot remove the TRUCK/DISPATCH CHARGE when set to 0. Also the multiline descriptions are cutting off after the first line..."></textarea>
+        <button class="btn btn-primary" onclick="parseNotes()">Parse Notes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4: Parsed output + confirmation -->
+  <div class="step hidden" id="step-parsed">
+    <div class="step-body">
+      <div class="card">
+        <h3>Parsed Notes</h3>
         <div id="parsedOutput" class="output"></div>
-      </div>
-      <button class="btn btn-ghost" onclick="clearNotes()">Clear All Notes</button>
-    </div>
-  </div>
-
-  <!-- WORK PATH TAB -->
-  <div class="panel" id="panel-workpath">
-    <div class="card">
-      <h3>AI Work Path</h3>
-      <p style="color:var(--text-dim);font-size:13px;margin-bottom:12px">
-        Combines repo analysis + parsed notes into a structured AI_WORK_PATH.md
-      </p>
-      <button class="btn btn-primary" onclick="generateWorkPath()">Generate AI_WORK_PATH.md</button>
-    </div>
-    <div id="workPathResult" class="hidden">
-      <div class="card">
-        <h3>Preview</h3>
-        <div id="workPathOutput" class="output" style="max-height:600px"></div>
+        <div style="margin-top:4px;font-size:13px;color:var(--text-dim);margin-bottom:12px">
+          <span id="parsedConfidence"></span>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost btn-sm" onclick="editNotes()">Edit Notes</button>
+          <button class="btn btn-primary btn-sm" onclick="proceedFromNotes()">Looks Good &mdash; Proceed</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- SANDBOX TAB -->
-  <div class="panel" id="panel-sandbox">
-    <div class="card">
-      <h3>Sandbox Manager</h3>
-      <p style="color:var(--text-dim);font-size:13px;margin-bottom:12px">
-        Create an isolated copy of the repo for safe AI editing.
-      </p>
-      <button class="btn btn-warn" onclick="createSandbox()">Create Sandbox Copy</button>
-    </div>
-    <div id="sandboxList"></div>
-  </div>
-
-  <!-- RESULTS TAB -->
-  <div class="panel" id="panel-results">
-    <div id="resultsEmpty" class="card">
-      <h3>Confidence Report</h3>
-      <p style="color:var(--text-dim)">No results yet. Select a sandbox and run an AI task first.</p>
-    </div>
-
-    <div id="resultsRunning" class="hidden">
-      <div class="card">
-        <h3><span class="spinner"></span>AI Task Running</h3>
-        <div id="runningLogs" class="log-viewer"></div>
+  <!-- STEP 5-7: Auto-cascade (work path, sandbox, AI task) -->
+  <div class="step hidden" id="step-cascade">
+    <div class="step-body">
+      <div id="cascadeStatus"></div>
+      <div id="cascadeLogs" class="hidden">
+        <div class="card">
+          <h3><span class="spinner"></span>AI Task Running</h3>
+          <div id="runningLogs" class="log-viewer">Starting...</div>
+        </div>
       </div>
     </div>
+  </div>
 
-    <div id="resultsComplete" class="hidden">
+  <!-- STEP 8: Results -->
+  <div class="step hidden" id="step-results">
+    <div class="step-body">
       <div class="card">
         <h3>Confidence Report</h3>
         <div id="scoreGauge"></div>
@@ -514,13 +532,19 @@
         <h3>Remaining Concerns</h3>
         <div id="concernsList"></div>
       </div>
+
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn btn-warn btn-sm" onclick="reviewChanges(currentSandboxId)">Review Changes</button>
+        <button class="btn btn-danger btn-sm" onclick="openMergeDialog(currentSandboxId)">Merge to Main</button>
+      </div>
     </div>
   </div>
+
 </div>
 
 <!-- Review Changes overlay -->
 <div class="overlay" id="reviewOverlay">
-  <div class="dialog">
+  <div class="dialog" style="max-width:540px;max-height:80vh;overflow-y:auto">
     <h3>Review Changes</h3>
     <p style="color:var(--text-dim);font-size:13px;margin-bottom:8px">
       These are the changes the AI made inside the sandbox. Your original repo is untouched.
@@ -562,7 +586,7 @@
     <div id="folderList" class="folder-list"></div>
     <div class="dialog-actions">
       <button class="btn btn-ghost btn-sm" onclick="closeFolderBrowser()">Cancel</button>
-      <button class="btn btn-primary btn-sm" id="folderSelectBtn" onclick="selectBrowsedFolder()">Select This Folder</button>
+      <button class="btn btn-primary btn-sm" onclick="selectBrowsedFolder()">Select This Folder</button>
     </div>
   </div>
 </div>
@@ -576,17 +600,9 @@ const $$ = (sel) => document.querySelectorAll(sel);
 let currentSandboxId = null;
 let pollTimer = null;
 
-$$('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    $$('.tab').forEach(t => t.classList.remove('active'));
-    $$('.panel').forEach(p => p.classList.remove('active'));
-    tab.classList.add('active');
-    $(`#panel-${tab.dataset.tab}`).classList.add('active');
-  });
-});
-
 function setStatus(msg) { $('#statusBar').textContent = msg; }
 function showLoading(msg) { setStatus('\u23F3 ' + msg + '...'); }
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
 async function api(method, url, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -600,22 +616,64 @@ async function api(method, url, body) {
   }
 }
 
+// --- Step management ---
+
+function revealStep(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('hidden', 'collapsed');
+  setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+}
+
+function collapseStep(id, summaryText) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('collapsed');
+  const txt = document.getElementById(id + '-summary-text');
+  if (txt && summaryText) txt.textContent = summaryText;
+}
+
+function toggleStep(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('collapsed');
+}
+
+function addCascadeMsg(text, cls) {
+  const div = document.createElement('div');
+  div.className = 'step-msg' + (cls ? ' ' + cls : '');
+  div.innerHTML = (cls === 'done' ? '\u2705 ' : cls === 'error' ? '\u274C ' : '<span class="spinner"></span>') + esc(text);
+  $('#cascadeStatus').appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  return div;
+}
+
+function replaceCascadeMsg(el, text, cls) {
+  el.className = 'step-msg ' + cls;
+  el.innerHTML = (cls === 'done' ? '\u2705 ' : '\u274C ') + esc(text);
+}
+
 // --- Load initial state ---
+
 async function loadStatus() {
   const data = await api('GET', '/api/status');
   $('#repoPathInput').value = data.repoPath || '';
   updateRepoPathDisplay(data.repoPath);
   $('#headerRepo').textContent = data.repoPath ? data.repoPath.split(/[\\/]/).pop() : '';
-  if (data.analyzed) {
-    $('#statusDot').classList.add('active');
-    renderAnalysis(data.analysis);
-  }
   if (data.platform !== 'win32') {
     $('#browseNativeBtn').classList.add('hidden');
+  }
+  if (data.analyzed && data.analysis) {
+    $('#statusDot').classList.add('active');
+    renderAnalysis(data.analysis);
+    collapseStep('step-repo', data.repoPath.split(/[\\/]/).pop());
+    revealStep('step-analysis');
+    revealStep('step-notes');
   }
 }
 
 // --- Repo ---
+
 async function setRepo() {
   const p = $('#repoPathInput').value.trim();
   if (!p) return;
@@ -626,17 +684,42 @@ async function setRepo() {
     updateRepoPathDisplay(p);
     $('#headerRepo').textContent = p.split(/[\\/]/).pop();
     $('#statusDot').classList.remove('active');
-    $('#analysisResult').classList.add('hidden');
+    hideStepsFrom('step-analysis');
   }
+}
+
+function hideStepsFrom(startId) {
+  const steps = ['step-analysis', 'step-notes', 'step-parsed', 'step-cascade', 'step-results'];
+  let found = false;
+  steps.forEach(id => {
+    if (id === startId) found = true;
+    if (found) {
+      const el = document.getElementById(id);
+      if (el) { el.classList.add('hidden'); el.classList.remove('collapsed'); }
+    }
+  });
+  const repo = document.getElementById('step-repo');
+  if (repo) repo.classList.remove('collapsed');
 }
 
 async function analyzeRepo() {
   showLoading('Analyzing repo');
+  $('#analyzeBtn').disabled = true;
   const data = await api('POST', '/api/analyze');
+  $('#analyzeBtn').disabled = false;
   if (data.ok) {
     renderAnalysis(data.analysis);
     $('#statusDot').classList.add('active');
     setStatus('Repo analyzed \u2014 ' + data.analysis.totalFiles + ' files found');
+    const name = data.analysis.projectName || '';
+    const summary = name + ' \u2014 ' + data.analysis.totalFiles + ' files, ' + (data.analysis.framework || 'unknown');
+    collapseStep('step-repo', $('#repoPathInput').value.trim().split(/[\\/]/).pop());
+    revealStep('step-analysis');
+    document.getElementById('step-analysis-summary-text').textContent = summary;
+    setTimeout(() => {
+      collapseStep('step-analysis', summary);
+      revealStep('step-notes');
+    }, 800);
   } else {
     setStatus('Error: ' + (data.error || 'unknown'));
   }
@@ -662,10 +745,10 @@ function renderAnalysis(a) {
     </table>
   `;
   $('#analysisCard').innerHTML = html;
-  $('#analysisResult').classList.remove('hidden');
 }
 
 // --- Notes ---
+
 async function parseNotes() {
   const text = $('#notesInput').value.trim();
   if (!text) return;
@@ -673,122 +756,87 @@ async function parseNotes() {
   const data = await api('POST', '/api/parse-notes', { notes: text });
   if (data.ok) {
     $('#parsedOutput').textContent = data.formatted;
-    $('#parsedResult').classList.remove('hidden');
+    $('#parsedConfidence').textContent = 'Confidence: ' + data.parsed.confidence + '%';
     setStatus('Parsed \u2014 confidence: ' + data.parsed.confidence + '%');
+    collapseStep('step-notes', 'Notes parsed');
+    revealStep('step-parsed');
   } else {
     setStatus('Error: ' + (data.error || 'unknown'));
   }
 }
 
-async function clearNotes() {
-  await api('DELETE', '/api/parsed-notes');
-  $('#parsedResult').classList.add('hidden');
-  $('#notesInput').value = '';
-  setStatus('Notes cleared');
+function editNotes() {
+  $('#step-parsed').classList.add('hidden');
+  const notes = document.getElementById('step-notes');
+  notes.classList.remove('hidden', 'collapsed');
+  notes.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#notesInput').focus();
 }
 
-// --- Work Path ---
-async function generateWorkPath() {
-  showLoading('Generating AI_WORK_PATH.md');
-  const data = await api('POST', '/api/generate-work-path');
-  if (data.ok) {
-    $('#workPathOutput').textContent = data.content;
-    $('#workPathResult').classList.remove('hidden');
-    setStatus('AI_WORK_PATH.md written to repo');
-  } else {
-    setStatus('Error: ' + (data.error || 'unknown'));
-  }
-}
+// --- Proceed cascade: work path -> sandbox -> AI task ---
 
-// --- Sandbox ---
-async function createSandbox() {
-  showLoading('Creating sandbox copy');
-  const data = await api('POST', '/api/sandbox/create');
-  if (data.ok) {
-    setStatus('Sandbox created: ' + data.sandbox.id);
-    loadSandboxes();
-  } else {
-    setStatus('Error: ' + (data.error || 'unknown'));
-  }
-}
+async function proceedFromNotes() {
+  hideStepsFrom('step-cascade');
+  $('#cascadeStatus').innerHTML = '';
+  $('#cascadeLogs').classList.add('hidden');
+  revealStep('step-cascade');
 
-async function loadSandboxes() {
-  const data = await api('GET', '/api/sandboxes');
-  const list = $('#sandboxList');
-  if (!data.sandboxes || data.sandboxes.length === 0) {
-    list.innerHTML = '';
+  // 1. Generate work path
+  let msg = addCascadeMsg('Generating AI work path...');
+  const wp = await api('POST', '/api/generate-work-path');
+  if (!wp.ok) {
+    replaceCascadeMsg(msg, 'Failed to generate work path: ' + (wp.error || 'unknown'), 'error');
+    setStatus('Cascade failed at work path');
     return;
   }
-  list.innerHTML = data.sandboxes.map(s => `
-    <div class="card">
-      <h3>${esc(s.id)}</h3>
-      <table class="kv-table">
-        <tr><td>Status</td><td><span class="badge badge-${statusBadge(s.status)}">${s.status}</span></td></tr>
-        <tr><td>Branch</td><td>${esc(s.branch)}</td></tr>
-        <tr><td>Created</td><td>${new Date(s.createdAt).toLocaleString()}</td></tr>
-        <tr><td>Path</td><td style="font-size:11px">${esc(s.path)}</td></tr>
-      </table>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn btn-primary btn-sm" onclick="runAiTask('${esc(s.id)}')"
-          ${s.status === 'running' ? 'disabled' : ''}>Run AI Task</button>
-        <button class="btn btn-ghost btn-sm" onclick="rerunTests('${esc(s.id)}')">Re-run Tests</button>
-        <button class="btn btn-ghost btn-sm" onclick="viewResults('${esc(s.id)}')">View Results</button>
-        <button class="btn btn-warn btn-sm" onclick="reviewChanges('${esc(s.id)}')">Review Changes</button>
-        <button class="btn btn-success btn-sm" onclick="openMergeDialog('${esc(s.id)}')"
-          ${canMerge(s) ? '' : 'disabled'}>Merge to Main</button>
-      </div>
-    </div>
-  `).join('');
-}
+  replaceCascadeMsg(msg, 'AI work path generated', 'done');
 
-function statusBadge(s) {
-  if (s === 'ready' || s === 'tested') return 'success';
-  if (s === 'running') return 'info';
-  if (s === 'merged') return 'warn';
-  if (s === 'failed') return 'danger';
-  return 'warn';
-}
-
-function canMerge(s) {
-  if (s.status === 'merged') return false;
-  if (!s.testResults) return false;
-  return s.testResults.buildPassed && s.testResults.confidenceScore >= 70;
-}
-
-// --- Run AI Task ---
-async function runAiTask(id) {
-  currentSandboxId = id;
-  showLoading('Starting AI task in sandbox ' + id);
-  const data = await api('POST', `/api/sandbox/${id}/run`);
-  if (data.ok) {
-    switchToTab('results');
-    showRunningState();
-    startPolling(id);
-  } else {
-    setStatus('Error: ' + (data.error || 'unknown'));
+  // 2. Create sandbox
+  msg = addCascadeMsg('Creating sandbox copy...');
+  const sb = await api('POST', '/api/sandbox/create');
+  if (!sb.ok) {
+    replaceCascadeMsg(msg, 'Failed to create sandbox: ' + (sb.error || 'unknown'), 'error');
+    setStatus('Cascade failed at sandbox creation');
+    return;
   }
+  currentSandboxId = sb.sandbox.id;
+  replaceCascadeMsg(msg, 'Sandbox created: ' + sb.sandbox.id, 'done');
+
+  // 3. Run AI task
+  msg = addCascadeMsg('Starting AI task...');
+  const run = await api('POST', `/api/sandbox/${currentSandboxId}/run`);
+  if (!run.ok) {
+    replaceCascadeMsg(msg, 'Failed to start AI task: ' + (run.error || 'unknown'), 'error');
+    setStatus('Cascade failed at AI task');
+    return;
+  }
+  replaceCascadeMsg(msg, 'AI task running...', 'done');
+
+  // Show live logs
+  $('#cascadeLogs').classList.remove('hidden');
+  $('#runningLogs').textContent = 'Starting...\n';
+  setStatus('AI task running in sandbox ' + currentSandboxId);
+
+  startPolling(currentSandboxId);
 }
 
-function showRunningState() {
-  $('#resultsEmpty').classList.add('hidden');
-  $('#resultsRunning').classList.remove('hidden');
-  $('#resultsComplete').classList.add('hidden');
-  $('#runningLogs').textContent = 'Starting...\n';
-}
+// --- Polling ---
 
 function startPolling(id) {
   stopPolling();
   pollTimer = setInterval(async () => {
     const data = await api('GET', `/api/sandbox/${id}/status`);
     const logEl = $('#runningLogs');
-    logEl.textContent = data.logs.join('\n');
-    logEl.scrollTop = logEl.scrollHeight;
-
+    if (data.logs) {
+      logEl.textContent = data.logs.join('\n');
+      logEl.scrollTop = logEl.scrollHeight;
+    }
     if (!data.running && data.hasResult) {
       stopPolling();
       setStatus('AI task complete');
+      addCascadeMsg('AI task complete', 'done');
+      $('#cascadeLogs').classList.add('hidden');
       await showResults(id);
-      loadSandboxes();
     }
   }, 2000);
 }
@@ -797,26 +845,7 @@ function stopPolling() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
 }
 
-// --- View Results ---
-async function viewResults(id) {
-  currentSandboxId = id;
-  switchToTab('results');
-
-  const statusData = await api('GET', `/api/sandbox/${id}/status`);
-  if (statusData.running) {
-    showRunningState();
-    $('#runningLogs').textContent = statusData.logs.join('\n');
-    startPolling(id);
-    return;
-  }
-  if (statusData.hasResult) {
-    await showResults(id);
-  } else {
-    $('#resultsEmpty').classList.remove('hidden');
-    $('#resultsRunning').classList.add('hidden');
-    $('#resultsComplete').classList.add('hidden');
-  }
-}
+// --- Results ---
 
 async function showResults(id) {
   const data = await api('GET', `/api/sandbox/${id}/results`);
@@ -826,11 +855,8 @@ async function showResults(id) {
   }
 
   const r = data.confidenceReport;
-  $('#resultsEmpty').classList.add('hidden');
-  $('#resultsRunning').classList.add('hidden');
-  $('#resultsComplete').classList.remove('hidden');
+  revealStep('step-results');
 
-  // Score gauge
   const gradeClass = 'grade-' + r.grade.toLowerCase();
   $('#scoreGauge').innerHTML = `
     <div class="score-gauge">
@@ -844,7 +870,6 @@ async function showResults(id) {
   `;
   $('#reportSummary').textContent = r.summary;
 
-  // Files changed
   if (r.filesChanged.length > 0) {
     $('#filesChangedList').innerHTML = r.filesChanged.map(f =>
       `<div style="padding:4px 0;font-size:13px;font-family:monospace">${esc(f)}</div>`
@@ -853,7 +878,6 @@ async function showResults(id) {
     $('#filesChangedList').innerHTML = '<p style="color:var(--text-dim)">No files changed</p>';
   }
 
-  // Bugs
   const allBugs = r.bugsAddressed.length + r.bugsRemaining.length;
   let bugsHtml = '';
   if (allBugs === 0) {
@@ -864,8 +888,7 @@ async function showResults(id) {
   }
   $('#bugsReport').innerHTML = bugsHtml;
 
-  // Errors
-  const errs = data.testResults.consoleErrors || [];
+  const errs = data.testResults ? (data.testResults.consoleErrors || []) : [];
   if (errs.length > 0) {
     $('#errorsCard').classList.remove('hidden');
     $('#errorsList').textContent = errs.join('\n');
@@ -873,7 +896,6 @@ async function showResults(id) {
     $('#errorsCard').classList.add('hidden');
   }
 
-  // Screenshots
   if (r.screenshotPaths.length > 0) {
     $('#screenshotsCard').classList.remove('hidden');
     $('#screenshotGrid').innerHTML = r.screenshotPaths.map(p =>
@@ -883,10 +905,8 @@ async function showResults(id) {
     $('#screenshotsCard').classList.add('hidden');
   }
 
-  // Escalation
   $('#escalationInfo').innerHTML = `<p style="font-size:13px;color:var(--text-dim)">${esc(r.escalationReasoning)}</p>`;
 
-  // Verification checklist
   if (r.verificationChecklist.length > 0) {
     $('#verificationChecklist').innerHTML = r.verificationChecklist.map((item, i) => `
       <div class="checklist-item">
@@ -899,7 +919,6 @@ async function showResults(id) {
     $('#verificationChecklist').innerHTML = '<p style="color:var(--text-dim)">No checklist items</p>';
   }
 
-  // Concerns
   if (r.remainingConcerns.length > 0) {
     $('#concernsCard').classList.remove('hidden');
     $('#concernsList').innerHTML = r.remainingConcerns.map(c =>
@@ -910,20 +929,10 @@ async function showResults(id) {
   }
 }
 
-// --- Re-run Tests ---
-async function rerunTests(id) {
-  showLoading('Re-running tests in sandbox ' + id);
-  const data = await api('POST', `/api/sandbox/${id}/test`);
-  if (data.ok) {
-    setStatus('Tests complete');
-    loadSandboxes();
-  } else {
-    setStatus('Error: ' + (data.error || 'unknown'));
-  }
-}
-
 // --- Review Changes ---
+
 async function reviewChanges(id) {
+  if (!id) return;
   showLoading('Loading changes');
   const preview = await api('GET', `/api/sandbox/${id}/merge-preview`);
 
@@ -948,7 +957,7 @@ async function reviewChanges(id) {
   }
 
   const sandboxes = await api('GET', '/api/sandboxes');
-  const sb = sandboxes.sandboxes.find(s => s.id === id);
+  const sb = sandboxes.sandboxes ? sandboxes.sandboxes.find(s => s.id === id) : null;
   const sbPath = sb ? sb.path : '';
 
   $('#reviewPreviewContent').innerHTML = html;
@@ -964,9 +973,11 @@ function closeReviewDialog() {
 }
 
 // --- Merge to Main ---
+
 let mergeSandboxId = null;
 
 async function openMergeDialog(id) {
+  if (!id) return;
   mergeSandboxId = id;
   showLoading('Loading merge preview');
   const preview = await api('GET', `/api/sandbox/${id}/merge-preview`);
@@ -1019,19 +1030,22 @@ async function executeMerge() {
   } else {
     setStatus('Merge failed: ' + (data.error || 'unknown'));
   }
-  loadSandboxes();
 }
 
-function switchToTab(name) {
-  $$('.tab').forEach(t => t.classList.remove('active'));
-  $$('.panel').forEach(p => p.classList.remove('active'));
-  const tab = document.querySelector(`.tab[data-tab="${name}"]`);
-  if (tab) tab.classList.add('active');
-  const panel = $(`#panel-${name}`);
-  if (panel) panel.classList.add('active');
-}
+// --- Start Over ---
 
-function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+async function startOver() {
+  stopPolling();
+  currentSandboxId = null;
+  await api('DELETE', '/api/parsed-notes');
+  hideStepsFrom('step-analysis');
+  $('#notesInput').value = '';
+  $('#statusDot').classList.remove('active');
+  const repo = document.getElementById('step-repo');
+  repo.classList.remove('hidden', 'collapsed');
+  repo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setStatus('Ready');
+}
 
 // --- Folder browsing ---
 
@@ -1174,7 +1188,6 @@ function escAttr(s) {
 
 // --- Init ---
 loadStatus();
-loadSandboxes();
 </script>
 </body>
 </html>
