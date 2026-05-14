@@ -283,6 +283,91 @@
       max-height: 200px; overflow-y: auto; color: var(--text-dim);
       margin-bottom: 10px;
     }
+
+    /* Repo path display */
+    .repo-path-display {
+      background: var(--bg);
+      border: 1px solid var(--surface2);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 13px;
+      color: var(--text);
+      margin-bottom: 10px;
+      word-break: break-all;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
+    .repo-path-display.empty { color: var(--text-dim); font-family: inherit; }
+
+    .browse-btn-row {
+      display: flex; gap: 8px; margin-bottom: 10px;
+    }
+    .browse-btn-row .btn { flex: 1; }
+
+    .manual-path-details {
+      font-size: 13px; color: var(--text-dim); cursor: pointer;
+    }
+    .manual-path-details summary { padding: 6px 0; }
+    .manual-path-details summary:hover { color: var(--accent); }
+
+    /* Folder browser modal */
+    .folder-browser-dialog {
+      max-width: 520px; width: 100%;
+      max-height: 80vh;
+      display: flex; flex-direction: column;
+    }
+    .folder-breadcrumb {
+      display: flex; flex-wrap: wrap; gap: 2px;
+      align-items: center;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--surface2);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      min-height: 40px;
+    }
+    .folder-crumb {
+      color: var(--accent);
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .folder-crumb:hover { background: var(--surface2); }
+    .folder-crumb:last-child { color: var(--text); cursor: default; }
+    .folder-crumb:last-child:hover { background: none; }
+    .folder-sep { color: var(--text-dim); margin: 0 1px; }
+
+    .folder-list {
+      flex: 1; overflow-y: auto;
+      border: 1px solid var(--surface2);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      max-height: 45vh;
+      min-height: 120px;
+    }
+    .folder-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 12px;
+      border-bottom: 1px solid var(--surface2);
+      cursor: pointer;
+      font-size: 14px;
+      min-height: 48px;
+    }
+    .folder-row:last-child { border-bottom: none; }
+    .folder-row:hover { background: var(--surface2); }
+    .folder-row:active { background: var(--accent-dim); }
+    .folder-row .folder-icon { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
+    .folder-row .folder-name { flex: 1; word-break: break-all; }
+
+    .folder-empty {
+      padding: 24px 12px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
@@ -309,9 +394,18 @@
   <div class="panel active" id="panel-repo">
     <div class="card">
       <h3>Target Repository</h3>
-      <label>Repo path (local folder)</label>
-      <input type="text" id="repoPathInput" placeholder="C:\Projects\my-repo" />
-      <button class="btn btn-ghost" onclick="setRepo()">Set Repo Path</button>
+      <div id="repoPathDisplay" class="repo-path-display">No repo selected</div>
+      <div class="browse-btn-row">
+        <button class="btn btn-ghost btn-sm" id="browseNativeBtn" onclick="browseNative()">Open Explorer</button>
+        <button class="btn btn-ghost btn-sm" onclick="openFolderBrowser()">Browse Folders</button>
+      </div>
+      <details class="manual-path-details">
+        <summary>Enter path manually</summary>
+        <div style="margin-top:8px">
+          <input type="text" id="repoPathInput" placeholder="C:\Projects\my-repo" />
+          <button class="btn btn-ghost btn-sm" onclick="setRepo()">Set Path</button>
+        </div>
+      </details>
     </div>
     <button class="btn btn-primary" onclick="analyzeRepo()">Analyze Repo</button>
     <div id="analysisResult" class="hidden">
@@ -457,6 +551,22 @@
   </div>
 </div>
 
+<!-- Folder browser overlay -->
+<div class="overlay" id="folderBrowserOverlay">
+  <div class="dialog folder-browser-dialog">
+    <h3>Browse Folders</h3>
+    <div id="folderBreadcrumb" class="folder-breadcrumb"></div>
+    <div id="folderGitBadge" class="hidden" style="margin-bottom:8px">
+      <span class="badge badge-success">git repo</span>
+    </div>
+    <div id="folderList" class="folder-list"></div>
+    <div class="dialog-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeFolderBrowser()">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="folderSelectBtn" onclick="selectBrowsedFolder()">Select This Folder</button>
+    </div>
+  </div>
+</div>
+
 <div class="status-bar" id="statusBar">Ready</div>
 
 <script>
@@ -489,6 +599,7 @@ async function api(method, url, body) {
 async function loadStatus() {
   const data = await api('GET', '/api/status');
   $('#repoPathInput').value = data.repoPath || '';
+  updateRepoPathDisplay(data.repoPath);
   $('#headerRepo').textContent = data.repoPath ? data.repoPath.split(/[\\/]/).pop() : '';
   if (data.analyzed) {
     $('#statusDot').classList.add('active');
@@ -504,6 +615,7 @@ async function setRepo() {
   const data = await api('POST', '/api/repo', { repoPath: p });
   if (data.ok) {
     setStatus('Repo set: ' + p);
+    updateRepoPathDisplay(p);
     $('#headerRepo').textContent = p.split(/[\\/]/).pop();
     $('#statusDot').classList.remove('active');
     $('#analysisResult').classList.add('hidden');
@@ -913,9 +1025,160 @@ function switchToTab(name) {
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
+// --- Folder browsing ---
+
+let nativeBrowseAvailable = true;
+let folderBrowserCurrentPath = '';
+
+function updateRepoPathDisplay(p) {
+  const el = $('#repoPathDisplay');
+  if (p) {
+    el.textContent = p;
+    el.classList.remove('empty');
+  } else {
+    el.textContent = 'No repo selected';
+    el.classList.add('empty');
+  }
+}
+
+async function checkNativeBrowse() {
+  try {
+    const res = await fetch('/api/browse-native', { method: 'POST' });
+    if (res.status === 501) {
+      nativeBrowseAvailable = false;
+      $('#browseNativeBtn').classList.add('hidden');
+    }
+  } catch { /* ignore — will just hide button if server unreachable */ }
+}
+
+async function browseNative() {
+  showLoading('Opening folder dialog');
+  try {
+    const data = await api('POST', '/api/browse-native');
+    if (data.ok && data.selectedPath) {
+      $('#repoPathInput').value = data.selectedPath;
+      await setRepo();
+      setStatus('Repo set via Explorer: ' + data.selectedPath);
+    } else {
+      setStatus('Folder selection cancelled');
+    }
+  } catch (e) {
+    setStatus('Browse failed: ' + e.message);
+  }
+}
+
+async function openFolderBrowser() {
+  const currentRepo = $('#repoPathInput').value.trim();
+  folderBrowserCurrentPath = currentRepo || (navigator.platform.startsWith('Win') ? 'C:\\' : '/');
+  $('#folderBrowserOverlay').classList.add('open');
+  await loadFolderList(folderBrowserCurrentPath);
+}
+
+function closeFolderBrowser() {
+  $('#folderBrowserOverlay').classList.remove('open');
+}
+
+async function loadFolderList(dirPath) {
+  folderBrowserCurrentPath = dirPath;
+  renderBreadcrumb(dirPath);
+
+  const listEl = $('#folderList');
+  listEl.innerHTML = '<div class="folder-empty">Loading...</div>';
+
+  try {
+    const data = await api('GET', '/api/browse-dirs?path=' + encodeURIComponent(dirPath));
+    if (!data.ok) {
+      listEl.innerHTML = `<div class="folder-empty">Error: ${esc(data.error)}</div>`;
+      return;
+    }
+
+    folderBrowserCurrentPath = data.currentPath;
+    renderBreadcrumb(data.currentPath);
+
+    if (data.hasGit) {
+      $('#folderGitBadge').classList.remove('hidden');
+    } else {
+      $('#folderGitBadge').classList.add('hidden');
+    }
+
+    let html = '';
+    const parentPath = getParentPath(data.currentPath);
+    if (parentPath !== data.currentPath) {
+      html += `<div class="folder-row" onclick="loadFolderList('${escAttr(parentPath)}')">
+        <span class="folder-icon">\u2B06</span>
+        <span class="folder-name" style="color:var(--text-dim)">..</span>
+      </div>`;
+    }
+
+    if (data.dirs.length === 0 && !html) {
+      html = '<div class="folder-empty">No subdirectories</div>';
+    } else {
+      data.dirs.forEach(name => {
+        const full = data.currentPath.replace(/[\\/]$/, '') + (data.currentPath.includes('/') && !data.currentPath.includes('\\') ? '/' : '\\') + name;
+        html += `<div class="folder-row" onclick="loadFolderList('${escAttr(full)}')">
+          <span class="folder-icon">\uD83D\uDCC1</span>
+          <span class="folder-name">${esc(name)}</span>
+        </div>`;
+      });
+    }
+
+    listEl.innerHTML = html;
+  } catch (e) {
+    listEl.innerHTML = `<div class="folder-empty">Error loading directory</div>`;
+  }
+}
+
+function renderBreadcrumb(dirPath) {
+  const sep = dirPath.includes('\\') ? '\\' : '/';
+  const parts = dirPath.split(/[\\/]/).filter(Boolean);
+  let html = '';
+  let cumulative = '';
+
+  if (sep === '\\' && parts.length > 0) {
+    cumulative = parts[0] + '\\';
+    html += `<span class="folder-crumb" onclick="loadFolderList('${escAttr(cumulative)}')">${esc(parts[0])}</span>`;
+    for (let i = 1; i < parts.length; i++) {
+      cumulative += parts[i] + '\\';
+      html += `<span class="folder-sep">${sep}</span>`;
+      html += `<span class="folder-crumb" onclick="loadFolderList('${escAttr(cumulative)}')">${esc(parts[i])}</span>`;
+    }
+  } else {
+    cumulative = '/';
+    html += `<span class="folder-crumb" onclick="loadFolderList('${escAttr('/')}')">/</span>`;
+    for (let i = 0; i < parts.length; i++) {
+      cumulative += parts[i] + '/';
+      html += `<span class="folder-sep">/</span>`;
+      html += `<span class="folder-crumb" onclick="loadFolderList('${escAttr(cumulative)}')">${esc(parts[i])}</span>`;
+    }
+  }
+
+  $('#folderBreadcrumb').innerHTML = html;
+}
+
+function getParentPath(p) {
+  const normalized = p.replace(/[\\/]$/, '');
+  const sep = p.includes('\\') ? '\\' : '/';
+  const idx = normalized.lastIndexOf(sep);
+  if (idx <= 0) return sep === '\\' ? normalized.slice(0, 3) : '/';
+  return normalized.slice(0, idx) || (sep === '\\' ? normalized.slice(0, 3) : '/');
+}
+
+async function selectBrowsedFolder() {
+  if (!folderBrowserCurrentPath) return;
+  closeFolderBrowser();
+  $('#repoPathInput').value = folderBrowserCurrentPath;
+  await setRepo();
+  setStatus('Repo set: ' + folderBrowserCurrentPath);
+}
+
+function escAttr(s) {
+  return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 // --- Init ---
 loadStatus();
 loadSandboxes();
+checkNativeBrowse();
 </script>
 </body>
 </html>

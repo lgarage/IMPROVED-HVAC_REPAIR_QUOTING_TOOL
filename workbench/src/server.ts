@@ -7,6 +7,8 @@
 import express from "express";
 import * as path from "path";
 import * as os from "os";
+import * as fs from "fs";
+import { execFile } from "child_process";
 import { analyzeRepo, formatAnalysisSummary, type RepoAnalysis } from "./engines/repo_analyzer";
 import { parseNotes, formatParsedNote, type ParsedNote } from "./engines/note_parser";
 import { generateWorkPath, writeWorkPath, readWorkPath } from "./engines/work_path_generator";
@@ -266,6 +268,49 @@ app.post("/api/sandbox/:id/merge", (req, res) => {
     res.json(result);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// --- Folder browsing ---
+
+app.post("/api/browse-native", (_req, res) => {
+  if (process.platform !== "win32") {
+    return res.status(501).json({ error: "Native folder dialog only supported on Windows" });
+  }
+
+  const ps = [
+    "Add-Type -AssemblyName System.Windows.Forms",
+    "$d = New-Object System.Windows.Forms.FolderBrowserDialog",
+    "$d.Description = 'Select repository folder'",
+    "if ($d.ShowDialog() -eq 'OK') { $d.SelectedPath } else { '' }",
+  ].join("; ");
+
+  execFile("powershell.exe", ["-NoProfile", "-Command", ps], { timeout: 120_000 }, (err, stdout) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ ok: true, selectedPath: (stdout || "").trim() });
+  });
+});
+
+app.get("/api/browse-dirs", (req, res) => {
+  const raw = (req.query.path as string) || "";
+  const dirPath = raw || (process.platform === "win32" ? "C:\\" : "/");
+
+  try {
+    const resolved = path.resolve(dirPath);
+    const entries = fs.readdirSync(resolved, { withFileTypes: true });
+    const dirs = entries
+      .filter((e) => {
+        if (!e.isDirectory()) return false;
+        if (e.name === "node_modules" || e.name === ".git") return false;
+        if (e.name.startsWith("$")) return false; // Windows system dirs
+        return true;
+      })
+      .map((e) => e.name)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+    const hasGit = fs.existsSync(path.join(resolved, ".git"));
+    res.json({ ok: true, currentPath: resolved, dirs, hasGit });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
   }
 });
 

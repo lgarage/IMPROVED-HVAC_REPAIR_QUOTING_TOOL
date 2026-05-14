@@ -155,6 +155,8 @@ These are NOT blockers — the tool is functional. Pick any of these if the user
 7. **AI-powered note parsing** — note_parser.ts is rule-based; could add optional Gemini/Cursor SDK refinement
 8. **Persistent state** — server state (analysis, parsed notes) is in-memory; lost on restart
 9. **Dark/light theme toggle** — currently dark-only
+10. **Mobile repo switching** — no way to change the target repo from the phone UI; need a repo selector in the web interface
+11. **GitHub repo picker** — integrate GitHub API (via `gh` CLI or octokit) to list user's repos and clone/pull one to work on; would pair with #10
 
 ### Suggested model for continuation
 
