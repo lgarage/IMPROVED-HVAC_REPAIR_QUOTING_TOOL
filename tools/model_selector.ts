@@ -10,13 +10,16 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const LOOKUP_PATH = path.join(PROJECT_ROOT, "PROJECT_STATUS", "MODEL_LOOKUP.md");
 
 const MODEL_COST_RANK: Record<string, number> = {
-  "composer-2": 1,
-  "claude-4.6-sonnet": 2,
-  "gpt-5.3-codex": 3,
-  "gpt-5.2": 4,
-  "gpt-5.4-medium": 5,
-  "gpt-5.5-medium": 6,
-  "claude-4.6-opus": 7,
+  "claude-4.5-haiku-thinking": 1,
+  "composer-2": 2,
+  "gpt-5.4-mini-medium": 3,
+  "gpt-5.3-codex-spark-preview": 4,
+  "claude-4.6-sonnet": 5,
+  "gpt-5.3-codex": 6,
+  "gpt-5.2": 7,
+  "gpt-5.4-medium": 8,
+  "gpt-5.5-medium": 9,
+  "claude-4.6-opus": 10,
 };
 
 export interface LookupRow {
