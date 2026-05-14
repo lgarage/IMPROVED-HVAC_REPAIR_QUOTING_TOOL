@@ -952,19 +952,79 @@
     if (!entry || entry.role !== "tech") return;
     var id = normalizeTicketId(ticketId);
 
-    /* Detect equipment reference → update active equipment context */
-    var text = safeText(entry.text);
-    if (text) {
-      var equipMatch = text.match(EQUIPMENT_REGEX);
-      if (equipMatch) {
-        var eqRef = equipMatch[0].replace(/\s+/g, " ").trim();
-        if (window.JobContextEngine && typeof JobContextEngine.setActiveEquipment === "function") {
-          JobContextEngine.setActiveEquipment(eqRef);
+    var rawText = safeText(entry.text);
+    var parsed = null;
+    var parsedText = rawText;
+    var parsedEntities = [];
+
+    if (
+      typeof window.EdgeIntentEngine !== "undefined" &&
+      window.EdgeIntentEngine &&
+      typeof window.EdgeIntentEngine.parse === "function"
+    ) {
+      try {
+        parsed = window.EdgeIntentEngine.parse(rawText);
+      } catch (e) {
+        parsed = null;
+      }
+    }
+
+    if (parsed && typeof parsed.text === "string" && parsed.text.trim()) {
+      parsedText = parsed.text.trim();
+    }
+    if (parsed && Array.isArray(parsed.entities)) {
+      parsedEntities = parsed.entities;
+    }
+
+    var responseTextForIntent = parsedText;
+    var metaForResponse = {};
+    var metaKey;
+    if (entry.meta) {
+      for (metaKey in entry.meta) {
+        if (Object.prototype.hasOwnProperty.call(entry.meta, metaKey)) {
+          metaForResponse[metaKey] = entry.meta[metaKey];
         }
       }
     }
 
-    var responseText = generateResponse(entry);
+    if (parsed && parsed.confidence != null) {
+      metaForResponse.intentConfidence = parsed.confidence;
+    }
+    if (parsed && parsed.corrections && parsed.corrections.length) {
+      metaForResponse.intentCorrections = parsed.corrections;
+    }
+    if (parsedEntities.length) {
+      metaForResponse.entities = parsedEntities;
+      metaForResponse.extractorVersion = "edge-intent-v1";
+    }
+    if (parsedText !== rawText) {
+      metaForResponse.correctedText = parsedText;
+    }
+    entry.meta = metaForResponse;
+
+    /* Detect equipment reference → update active equipment context */
+    var eqRef = "";
+    var i;
+    var equipMatch = null;
+    for (i = 0; i < parsedEntities.length; i++) {
+      if (parsedEntities[i] && parsedEntities[i].type === "equipment" && parsedEntities[i].value) {
+        eqRef = String(parsedEntities[i].value).replace(/\s+/g, " ").trim();
+        break;
+      }
+    }
+    if (!eqRef) {
+      equipMatch = responseTextForIntent.match(EQUIPMENT_REGEX);
+      if (equipMatch) eqRef = equipMatch[0].replace(/\s+/g, " ").trim();
+    }
+    if (eqRef && window.JobContextEngine && typeof JobContextEngine.setActiveEquipment === "function") {
+      JobContextEngine.setActiveEquipment(eqRef);
+    }
+
+    var responseText = generateResponse({
+      role: entry.role,
+      text: responseTextForIntent,
+      meta: metaForResponse
+    });
     if (!responseText) return;
     setTimeout(function () {
       /* addEntry with role "system" → will NOT re-trigger processEntry */
