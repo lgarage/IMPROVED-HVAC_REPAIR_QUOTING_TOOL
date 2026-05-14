@@ -662,6 +662,7 @@
         <div class="card">
           <h3><span class="spinner"></span>AI Task Running</h3>
           <div id="runningLogs" class="log-viewer">Starting...</div>
+          <button class="btn" id="disconnectLiveBtn" style="margin-top:12px;background:#444;color:#ccc;font-size:14px;padding:10px 20px;min-height:44px;width:100%" onclick="disconnectLive()">Disconnect from Live View</button>
         </div>
       </div>
     </div>
@@ -1138,10 +1139,10 @@ function disconnectLive() {
 }
 
 function disconnectLive() {
-  // Stops live updates on this device only — AI task keeps running on the server.
-  // Refresh the page to reconnect.
   stopPolling();
-  setStatus('Live updates paused \u2014 refresh to reconnect');
+  hideLiveBadge();
+  $('#cascadeLogs').classList.add('hidden');
+  setStatus('Disconnected from live view \u2014 AI task continues on server. Refresh to reconnect.');
 }
 
 // --- Results ---
