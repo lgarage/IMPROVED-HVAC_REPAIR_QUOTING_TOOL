@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 40 — Field Chronicle (Experimental). Phase 1 shipped.
-- **Last shipped (2026-05-13):** Governance token trim — `.cursorrules` §1B/§6H point session-end checklist at `model-selection.mdc` (no duplicated collapse/lines); CURRENT_STATE aligns with ROADMAP-only On Deck; §6C Strong-model examples use Opus 4.6 (4.7 disabled). Prior: Settings view isolation fix (`VC_BUILD = "SettingsViewFix-2026-05-13"`); console error cleanup.
-- **Prior (2026-05-12):** Field Chronicle Phase 1 shipped.
+- **Active Phase:** Phase 41 — Conversational Field Capture (New Field Tech UX). Planning shipped; Slice 41a next.
+- **Last shipped (2026-05-13):** New Field Tech UX phased build plan (`NEW_FIELDTECH_UX_PLAN.md`) — 13 spec phases mapped to Phases 41–53, existing overlap cataloged, first 4 slices detailed with files/models/confidence.
+- **Prior (2026-05-13):** Governance token trim; Settings view isolation fix; console error cleanup.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
 
@@ -18,10 +18,9 @@ None.
 
 ## Immediate Next Step
 
-- **Verify parent company flow:** type a new parent name → fill billing address → click "Save parent billing address" → confirm it creates the doc, populates the dropdown, and shows the success cue. Also test selecting an existing parent + updating its address.
-- **Smoke-test voice search:** reload dispatcher → hold mic → say "Planet Fitness Green Bay" → confirm CRM matches + Google Places results appear + multi-location modal works.
-- **Smoke-test Field Chronicle on device:** open a job → add 3–4 chronological notes → tap Compile Notes → verify editable summary → tap Copy Summary → paste elsewhere.
-- **Phase 40 future slices (not started):** Gemini-powered compile, category detection, Firestore persistence, dispatcher visibility. Re-gate each slice.
+- 📋 See `PROJECT_STATUS/NEW_FIELDTECH_UX_PLAN.md` for full slice detail.
+- **Next slice:** Phase 41a — Timeline container + message rendering (new `conversational_timeline.js`, `technician/index.html` container + CSS). Re-gate per §6B1.
+- Phase 40 (Field Chronicle) Phase 1 remains shipped; future slices (Gemini compile, Firestore persistence) deferred — may fold into Phase 48 (Compile Notes) per plan.
 - Migration carry-over still applies (roster, optional data import).
 
 Smoke-tests carried over (non-blocking): Phase 34e Field Access Notes on iPhone; Phase 33 Field-Add Equipment OCR on Vision Hub.

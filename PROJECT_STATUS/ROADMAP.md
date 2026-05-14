@@ -10,6 +10,7 @@ A place to park ideas, feature requests, and future phases so they do not get lo
 * ~~**Sync hardening backlog (KI-002).**~~ ? Closed 2026-04-25. See `KNOWN_ISSUES_ARCHIVE.md ? KI-002`. Hygiene leftovers migrated to **Minor Tweaks & Polish** below.
 * **Phase 33 follow-up ? Offline-resilient photo capture (KI-004).** 8 field-side `ref.put(...)` sites silently drop photos offline. Fix: `shared/offline_storage_outbox.js` (IDB-backed queue, `drain()` on `online` event, `#vcPendingSyncChip` UI signal). Design locked ? `DECISIONS.md ? ADR-012`. Prerequisite: Phase 33 on-device verification. Build stamp: `Phase33-followup-<date>`. Full call-site inventory + workaround: `KNOWN_ISSUES.md ? KI-004`. Re-gate ? **Sonnet 4.6**.
 * **Phase 34 candidate ? Live Workspace Mirror (Office Override v2, KI-003).** iframe (Phase 30) shows stale Firestore state, not live screen. Design locked ? extend `live_presence/{payrollKey}` with `uiState` + `liveDraft` maps; read-only v1; 250ms throttle (?$0.20/day/tech). New file: `technician/js/live_mirror.js`. `DECISIONS.md ? ADR-013`. Prerequisite: Phase 33 on-device verification + KI-004. Re-gate ? **Codex 5.3**.
+* **Phases 41–53 — Conversational Field Capture (New Field Tech UX).** 13-phase program from `new_fieldtech_ux.md`. Phase 41 (Timeline UI) is first. Full slice plan: `NEW_FIELDTECH_UX_PLAN.md`. Active build started 2026-05-13.
 * **Command Map (TV Mode):** Large-scale map and pulse feed for office monitors.
 * **Field Inventory (Truck Stock):** Parts and materials ledger for technicians.
 
