@@ -8,7 +8,8 @@ import express from "express";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
-import { execFile } from "child_process";
+import { execFile, spawn, ChildProcess } from "child_process";
+import * as net from "net";
 import { analyzeRepo, formatAnalysisSummary, type RepoAnalysis } from "./engines/repo_analyzer";
 import { parseNotes, formatParsedNote, type ParsedNote } from "./engines/note_parser";
 import { generateWorkPath, writeWorkPath, readWorkPath } from "./engines/work_path_generator";
@@ -34,6 +35,27 @@ let parsedNotes: ParsedNote[] = [];
 const sandboxResults: Map<string, RunTaskResult> = new Map();
 const sandboxStatusLogs: Map<string, string[]> = new Map();
 const activeSandboxRuns: Set<string> = new Set();
+
+// Sandbox dev-server processes (for live preview)
+interface SandboxServer { process: ChildProcess; port: number; }
+const sandboxServers: Map<string, SandboxServer> = new Map();
+
+function findFreePort(start = 4100): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.listen(start, () => {
+      const port = (srv.address() as net.AddressInfo).port;
+      srv.close(() => resolve(port));
+    });
+    srv.on("error", () => findFreePort(start + 1).then(resolve).catch(reject));
+  });
+}
+
+process.on("exit", () => {
+  for (const [, s] of sandboxServers) {
+    try { s.process.kill(); } catch { /* best effort cleanup */ }
+  }
+});
 
 function getWorkbenchDir(): string {
   return path.resolve(__dirname, "..");
@@ -338,6 +360,71 @@ app.get("/api/active-run", (_req, res) => {
   res.json({ running: false, sandboxId: null, logs: [], hasResult: false });
 });
 
+// --- Sandbox dev-server launcher (for non-static projects) ---
+
+app.post("/api/sandbox/:id/start-server", async (req, res) => {
+  const sandbox = findSandbox(req.params.id);
+  if (!sandbox) return res.status(404).json({ error: "Sandbox not found" });
+
+  if (sandboxServers.has(sandbox.id)) {
+    const s = sandboxServers.get(sandbox.id)!;
+    return res.json({ ok: true, port: s.port, alreadyRunning: true });
+  }
+
+  let analysis: RepoAnalysis;
+  try {
+    analysis = analyzeRepo(sandbox.path);
+  } catch (e: any) {
+    return res.status(500).json({ error: "Could not analyze sandbox: " + e.message });
+  }
+
+  if (!analysis.runCommand) {
+    return res.status(400).json({ error: "No run command detected for this project type" });
+  }
+
+  let port: number;
+  try {
+    port = await findFreePort(4100);
+  } catch (e: any) {
+    return res.status(500).json({ error: "Could not find free port: " + e.message });
+  }
+
+  const env = {
+    ...process.env,
+    PORT: String(port),
+    WORKBENCH_PORT: String(port),
+    SERVER_PORT: String(port),
+  };
+
+  // shell:true handles npx/.cmd wrappers on Windows and npm scripts on all platforms
+  const child = spawn(analysis.runCommand, [], {
+    cwd: sandbox.path,
+    env,
+    shell: true,
+    stdio: "pipe",
+  });
+
+  sandboxServers.set(sandbox.id, { process: child, port });
+  child.on("exit", () => { sandboxServers.delete(sandbox.id); });
+  child.on("error", () => { sandboxServers.delete(sandbox.id); });
+
+  res.json({ ok: true, port, runCommand: analysis.runCommand });
+});
+
+app.post("/api/sandbox/:id/stop-server", (req, res) => {
+  const s = sandboxServers.get(req.params.id);
+  if (!s) return res.json({ ok: true, message: "No server running" });
+  try { s.process.kill(); } catch { /* best effort */ }
+  sandboxServers.delete(req.params.id);
+  res.json({ ok: true });
+});
+
+app.get("/api/sandbox/:id/server-status", (req, res) => {
+  const s = sandboxServers.get(req.params.id);
+  if (!s) return res.json({ running: false });
+  res.json({ running: true, port: s.port });
+});
+
 // --- Sandbox static file preview ---
 
 app.get("/api/sandbox/:id/entry-point", (req, res) => {
@@ -350,6 +437,9 @@ app.get("/api/sandbox/:id/entry-point", (req, res) => {
     "dist/index.html",
     "src/index.html",
     "www/index.html",
+    "src/ui/public/index.html", // workbench itself
+    "build/index.html",         // Create React App
+    "out/index.html",           // Next.js static export
   ];
   for (const candidate of candidates) {
     if (fs.existsSync(path.join(sandbox.path, candidate))) {

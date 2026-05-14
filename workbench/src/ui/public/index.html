@@ -675,6 +675,8 @@
     <div class="review-panel-header">
       <h3>Review Changes</h3>
       <div class="review-header-actions">
+        <button class="btn btn-ghost btn-sm hidden" id="launchServerBtn" onclick="startSandboxServer(currentSandboxId)">&#x25B6; Launch Sandbox Server</button>
+        <button class="btn btn-ghost btn-sm hidden" id="stopServerBtn" style="color:var(--danger);border-color:rgba(231,76,60,0.5)" onclick="stopSandboxServer(currentSandboxId)">&#x25A0; Stop Server</button>
         <button class="btn btn-ghost btn-sm hidden" id="reviewOpenTabBtn">&#x2197; Open in New Tab</button>
         <button class="btn btn-ghost btn-sm" onclick="closeReviewDialog()">&#x2715; Close</button>
       </div>
@@ -694,7 +696,10 @@
         </div>
         <div class="review-frame-wrap">
           <div id="reviewFrameLoading" class="review-frame-placeholder">
-            <span class="spinner"></span>&nbsp;Loading preview&hellip;
+            <div style="text-align:center">
+              <span class="spinner"></span>
+              <div id="reviewFrameLoadingMsg" style="margin-top:8px;font-size:13px;color:var(--text-dim)">Loading preview&hellip;</div>
+            </div>
           </div>
           <iframe id="sandboxIframe" title="Sandbox preview"></iframe>
           <div id="reviewFrameNoPreview" class="review-frame-placeholder hidden">
@@ -1181,37 +1186,142 @@ async function reviewChanges(id) {
 
   $('#reviewPreviewContent').innerHTML = html;
 
-  // Load sandbox iframe preview
+  // Check if a sandbox dev-server is already running for this sandbox
+  const serverStatus = await api('GET', `/api/sandbox/${id}/server-status`);
+
   if (entryData.previewUrl) {
+    // Static file preview
     $('#reviewPreviewLabel').textContent = entryData.entryPoint;
     const btn = $('#reviewOpenTabBtn');
     btn.classList.remove('hidden');
     btn.onclick = () => window.open(entryData.previewUrl, '_blank');
+    loadStaticIframe(entryData.previewUrl);
 
-    iframeEl.onload = () => {
-      $('#reviewFrameLoading').style.display = 'none';
-      iframeEl.style.display = 'block';
-    };
-    iframeEl.onerror = () => {
-      $('#reviewFrameLoading').style.display = 'none';
-      $('#reviewFrameNoPreview').classList.remove('hidden');
-    };
-    iframeEl.src = entryData.previewUrl;
+  } else if (serverStatus.running) {
+    // Dev-server already running — load it
+    const serverUrl = `http://${window.location.hostname}:${serverStatus.port}`;
+    showSandboxServerRunning(id, serverUrl);
+    waitAndLoadIframe(serverUrl);
+
   } else {
+    // No static entry point, no running server — offer to launch
     $('#reviewFrameLoading').style.display = 'none';
     $('#reviewFrameNoPreview').classList.remove('hidden');
-    $('#reviewPreviewLabel').textContent = 'no HTML entry point found';
+    $('#launchServerBtn').classList.remove('hidden');
+    $('#reviewPreviewLabel').textContent = 'server app — launch to preview';
   }
 
   setStatus('Reviewing sandbox changes');
 }
 
-function closeReviewDialog() {
-  $('#reviewOverlay').classList.remove('open');
-  // Stop the iframe to avoid background network activity
+function loadStaticIframe(url) {
+  const iframeEl = $('#sandboxIframe');
+  iframeEl.onload = () => {
+    $('#reviewFrameLoading').style.display = 'none';
+    iframeEl.style.display = 'block';
+  };
+  iframeEl.onerror = () => {
+    $('#reviewFrameLoading').style.display = 'none';
+    $('#reviewFrameNoPreview').classList.remove('hidden');
+  };
+  iframeEl.src = url;
+}
+
+function showSandboxServerRunning(id, url) {
+  $('#launchServerBtn').classList.add('hidden');
+  $('#stopServerBtn').classList.remove('hidden');
+  const btn = $('#reviewOpenTabBtn');
+  btn.classList.remove('hidden');
+  btn.onclick = () => window.open(url, '_blank');
+  $('#reviewPreviewLabel').textContent = url;
+}
+
+async function waitAndLoadIframe(url, maxAttempts = 12, delayMs = 2000) {
+  const iframeEl = $('#sandboxIframe');
+  const msgEl = $('#reviewFrameLoadingMsg');
+  $('#reviewFrameNoPreview').classList.add('hidden');
+  $('#reviewFrameLoading').style.display = 'flex';
+  iframeEl.style.display = 'none';
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    msgEl.textContent = `Waiting for server\u2026 (${attempt}/${maxAttempts})`;
+    try {
+      await fetch(url, { mode: 'no-cors', signal: AbortSignal.timeout(1500) });
+      // Got a response — server is up
+      msgEl.textContent = 'Loading\u2026';
+      iframeEl.onload = () => {
+        $('#reviewFrameLoading').style.display = 'none';
+        iframeEl.style.display = 'block';
+      };
+      iframeEl.src = url;
+      return;
+    } catch {
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+
+  // Gave up
+  $('#reviewFrameLoading').style.display = 'none';
+  const noPreview = $('#reviewFrameNoPreview');
+  noPreview.classList.remove('hidden');
+  noPreview.querySelector('div').innerHTML = `
+    <div style="font-size:32px;margin-bottom:10px">&#x26A0;</div>
+    <div style="font-size:14px;color:var(--text);margin-bottom:6px">Server didn&rsquo;t respond in time</div>
+    <div style="font-size:12px;color:var(--text-dim)">It may still be starting. <a href="${url}" target="_blank" style="color:var(--accent)">${url}</a></div>
+  `;
+}
+
+async function startSandboxServer(id) {
+  if (!id) return;
+  $('#launchServerBtn').disabled = true;
+  $('#launchServerBtn').textContent = 'Starting\u2026';
+  $('#reviewFrameNoPreview').classList.add('hidden');
+  $('#reviewFrameLoading').style.display = 'flex';
+  $('#reviewFrameLoadingMsg').textContent = 'Launching sandbox server\u2026';
+
+  const data = await api('POST', `/api/sandbox/${id}/start-server`);
+  if (!data.ok) {
+    $('#launchServerBtn').disabled = false;
+    $('#launchServerBtn').textContent = '\u25B6 Launch Sandbox Server';
+    $('#reviewFrameLoading').style.display = 'none';
+    $('#reviewFrameNoPreview').classList.remove('hidden');
+    $('#reviewFrameNoPreview').querySelector('div').innerHTML = `
+      <div style="font-size:32px;margin-bottom:10px">&#x26A0;</div>
+      <div style="font-size:14px;color:var(--danger)">${esc(data.error || 'Failed to start server')}</div>
+    `;
+    return;
+  }
+
+  const serverUrl = `http://${window.location.hostname}:${data.port}`;
+  showSandboxServerRunning(id, serverUrl);
+  setStatus('Sandbox server starting on port ' + data.port);
+  waitAndLoadIframe(serverUrl);
+}
+
+async function stopSandboxServer(id) {
+  if (!id) return;
+  await api('POST', `/api/sandbox/${id}/stop-server`);
   const iframeEl = $('#sandboxIframe');
   iframeEl.src = '';
   iframeEl.style.display = 'none';
+  $('#stopServerBtn').classList.add('hidden');
+  $('#reviewOpenTabBtn').classList.add('hidden');
+  $('#reviewFrameNoPreview').classList.remove('hidden');
+  $('#launchServerBtn').disabled = false;
+  $('#launchServerBtn').textContent = '\u25B6 Launch Sandbox Server';
+  $('#launchServerBtn').classList.remove('hidden');
+  $('#reviewPreviewLabel').textContent = 'server stopped';
+  setStatus('Sandbox server stopped');
+}
+
+function closeReviewDialog() {
+  $('#reviewOverlay').classList.remove('open');
+  const iframeEl = $('#sandboxIframe');
+  iframeEl.src = '';
+  iframeEl.style.display = 'none';
+  $('#launchServerBtn').classList.add('hidden');
+  $('#launchServerBtn').disabled = false;
+  $('#launchServerBtn').textContent = '\u25B6 Launch Sandbox Server';
 }
 
 // --- Merge to Main ---
