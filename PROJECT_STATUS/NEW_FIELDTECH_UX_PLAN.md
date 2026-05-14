@@ -223,6 +223,72 @@ Phase 53 (Knowledge Lookup)   ← can start after Phase 51 + 52
 
 ---
 
+## Multitask Mode (Cursor background agents) — when and how to use
+
+### Rule: sequential first, parallel later
+
+Phases 41–42 (slices 41a through 42b) **must be built sequentially by a single agent**. These are foundation slices — every one writes to `conversational_timeline.js` and/or `technician/index.html`. Parallel agents editing the same files will create merge conflicts.
+
+**Do not offer or use multitask mode until Phase 42b is shipped and stable.**
+
+### When multitask becomes safe (after Phase 42b ships)
+
+Once the timeline UI + local context engine are stable, the dependency graph opens independent branches. The following phase groups can run as **parallel background agents** because they touch **different files** and have **no data-path overlap**:
+
+| Agent slot | Phase(s) | Key files (exclusive) | Model |
+|------------|----------|-----------------------|-------|
+| Agent A | **43** (Edge Intent) | `edge_intent_engine.js` (NEW) | Codex 5.3 |
+| Agent B | **45** (Checklist Reminders) | `checklist_reminder_engine.js` (NEW) | Opus 4.6 |
+| Agent C | **51** (Operational Memory) | Extends `workspace_ui.js`, `job_context_engine.js` reads | Sonnet 4.6 |
+| Agent D | **52** (Teaching Layer) | New `teaching_layer.js` + new Firestore collection | Opus 4.6 |
+
+**Later parallel window (after Phase 43 ships):**
+
+| Agent slot | Phase(s) | Key files (exclusive) | Model |
+|------------|----------|-----------------------|-------|
+| Agent E | **44** (Voice Follow-Ups) | `conversational_timeline.js` (speech handler section) | Sonnet 4.6 |
+| Agent F | **46** (Corrections + Editable Timeline) | `conversational_timeline.js` (edit handler section) | Sonnet 4.6 |
+
+> **Warning:** Agents E and F both touch `conversational_timeline.js`. Only run them in parallel if the file is large enough that their edit regions are clearly separated. If in doubt, run sequentially.
+
+**Dispatcher-side parallel window (after Phase 48 ships):**
+
+| Agent slot | Phase(s) | Key files (exclusive) | Model |
+|------------|----------|-----------------------|-------|
+| Agent G | **49** (Dispatcher Review) | `ai_report_reviewer.js`, `service_call.js`, `index.html` | Opus 4.6 |
+| Agent H | **50** (Learning Sync) | New `learning_sync.js` + Firestore collection | Opus 4.6 |
+
+### Hard rules for any multitask session
+
+1. **Never run two agents against `technician/index.html` at the same time.** This file is ~10,750 lines of combined HTML/CSS/JS — concurrent edits will conflict.
+2. **Each agent must follow `.cursorrules` §6B1** — model gate required per slice before implementation. The user must clear the gate for each agent's task.
+3. **Each agent must specify its model** in the Task tool `model` parameter when the recommended model differs from the parent chat's model.
+4. **Firestore-write slices stay on Opus 4.6.** Do not delegate Firestore schema or write-path work to a Fast or Balanced model agent, even in multitask.
+5. **After all parallel agents finish:** run a single sequential agent to integration-test, bump `VC_BUILD`, update `CURRENT_STATE.md`, and commit+push. Do not let individual agents push independently.
+
+### Prompt template for the user (copy/paste when ready)
+
+When the user is ready to use multitask mode after Phase 42b ships, suggest they use this pattern:
+
+```
+I want to build the following phases in parallel using multitask mode:
+- Phase [X]: [description]
+- Phase [Y]: [description]
+
+Pre-approved model: Opus 4.6 — proceed
+
+Use background agents. Each agent should follow .cursorrules §6B1 
+and the rules in NEW_FIELDTECH_UX_PLAN.md § Multitask Mode.
+```
+
+The agent receiving this prompt should:
+1. Verify the requested phases are in an independent branch per the dependency graph above.
+2. Verify no two agents will edit the same file.
+3. Launch background Task agents with explicit `model` parameters matching the table above.
+4. After all agents complete, run integration + commit as a single sequential step.
+
+---
+
 ## Invariants (every slice must not break)
 
 - Existing workspace flow (`openWorkspace`, `switchScreen`, schedule) must keep working throughout — new timeline is additive, not a rip-and-replace until stable.
