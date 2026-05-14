@@ -88,7 +88,7 @@
       display: none;
       align-items: center;
       gap: 5px;
-      padding: 3px 10px;
+      padding: 4px 10px;
       border-radius: 20px;
       background: rgba(231,76,60,0.15);
       border: 1px solid rgba(231,76,60,0.4);
@@ -97,8 +97,11 @@
       color: var(--danger);
       letter-spacing: 0.5px;
       text-transform: uppercase;
+      cursor: pointer;
+      user-select: none;
     }
     .live-badge.visible { display: flex; }
+    .live-badge:active { opacity: 0.7; }
     .live-dot {
       width: 7px; height: 7px; border-radius: 50%;
       background: var(--danger);
@@ -556,9 +559,9 @@
       <span id="serverBadgeLabel">:4100</span>
       <span class="server-badge-stop">&#x2715; hide</span>
     </button>
-    <div class="live-badge" id="liveBadge">
-      <span class="live-dot"></span>Live
-    </div>
+    <button class="live-badge" id="liveBadge" onclick="disconnectLive()" title="Tap to disconnect live updates on this device">
+      <span class="live-dot"></span>LIVE <span style="font-size:10px;opacity:0.7;margin-left:2px">&#x2715;</span>
+    </button>
     <a class="start-over" id="startOverLink" onclick="startOver()">Start Over</a>
     <span id="headerRepo" style="font-size:12px;color:var(--text-dim)"></span>
   </div>
@@ -1074,6 +1077,13 @@ function startPolling(id) {
 function stopPolling() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   $('#liveBadge').classList.remove('visible');
+}
+
+function disconnectLive() {
+  // Stops live updates on this device only — AI task keeps running on the server.
+  // Refresh the page to reconnect.
+  stopPolling();
+  setStatus('Live updates paused \u2014 refresh to reconnect');
 }
 
 // --- Results ---
