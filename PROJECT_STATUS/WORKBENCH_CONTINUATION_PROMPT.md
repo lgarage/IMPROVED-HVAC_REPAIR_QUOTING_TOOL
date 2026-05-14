@@ -1,4 +1,4 @@
-# AI Repo Workbench — Continuation Prompt (Post Phase D+E)
+# AI Repo Workbench — Continuation Prompt
 
 > **Copy-paste this entire file** as the first message in a new Cursor conversation to continue the workbench build.
 
@@ -10,7 +10,7 @@ You are continuing work on the **AI Repo Workbench** — a standalone portable t
 
 **DO NOT TOUCH** anything outside `workbench/`. The `tools/` directory is a separate working program. **DO NOT** update any files in `PROJECT_STATUS/` — those are Vertex-owned. The workbench's own docs live in `workbench/README.md`.
 
-### What is built and working (Phases A–E complete)
+### What is built and working
 
 The full end-to-end pipeline is functional and tested. `npx tsc --noEmit` passes clean.
 
@@ -19,58 +19,80 @@ workbench/
 ├── bin/repo-workbench.js          # CLI entry point (production)
 ├── src/
 │   ├── server.ts                  # Express web server (port 4040, env WORKBENCH_PORT)
-│   │                              # 12 API routes: status, repo, analyze, parse-notes,
+│   │                              # 14 API routes: status, repo, analyze, parse-notes,
 │   │                              # generate-work-path, work-path, sandbox CRUD,
-│   │                              # sandbox run/status/results/test, merge
+│   │                              # sandbox run/status/results/test, merge,
+│   │                              # browse-native, browse-dirs
+│   │                              # Status includes `platform` field for OS detection
 │   ├── cli.ts                     # CLI interface (analyze, parse, generate, sandbox, serve)
 │   └── engines/
 │       ├── model_selector.ts      # Cheapest-safe-model picker + escalation ladder
-│       │                          # Exports: selectModel(), buildEscalationLadder(), updateLookupRow()
 │       ├── repo_analyzer.ts       # Framework/structure/command detection for any repo
-│       │                          # Exports: analyzeRepo(), formatAnalysisSummary(), RepoAnalysis
 │       ├── note_parser.ts         # Messy natural-language → structured work items (rule-based)
-│       │                          # Exports: parseNotes(), formatParsedNote(), ParsedNote
 │       ├── work_path_generator.ts # AI_WORK_PATH.md builder (combines analysis + parsed notes)
-│       │                          # Exports: generateWorkPath(), writeWorkPath(), readWorkPath()
 │       ├── sandbox_manager.ts     # Sandbox copy/branch/list + interfaces
-│       │                          # Exports: createSandbox(), listSandboxes(), getMergePreview()
-│       │                          # Interfaces: Sandbox, TestResults, MergePreview, SandboxConfig
 │       ├── sandbox_runner.ts      # AI task execution via @cursor/sdk Agent.prompt()
-│       │                          # Uses escalation ladder: try cheapest model, escalate on failure
 │       │                          # Dry-run mode if no CURSOR_API_KEY
-│       │                          # Exports: runSandboxTask(), RunTaskOptions, RunTaskResult
 │       ├── test_runner.ts         # Post-edit verification: build, test, Playwright
-│       │                          # Exports: runTests(), TestRunOptions, TestRunResult
 │       ├── confidence_reporter.ts # Confidence scoring (0-100) + verification checklist
-│       │                          # Exports: generateConfidenceReport(), ConfidenceReport, ChecklistItem
 │       └── merge_manager.ts       # Safe merge: git checkpoint → file copy → require confirmation
-│                                  # NEVER auto-merge, NEVER auto-deploy
-│                                  # Exports: executeMerge(), getDetailedDiff(), getMergePreviewDetailed()
-├── src/ui/public/index.html       # Mobile-friendly SPA (dark theme, 5 tabs)
-│                                  # Tabs: Repo, Notes, Work Path, Sandbox, Results
-│                                  # Features: live AI task logs, score gauge, diff viewer,
-│                                  # screenshot grid, verification checklist, Review Changes dialog,
-│                                  # Merge to Main confirmation dialog (red warning + backup branch)
+├── src/ui/public/index.html       # Mobile-friendly SPA — CONVERSATIONAL FLOW (no tabs)
+│                                  # Single scrolling page: pick repo → analyze → paste notes →
+│                                  # parse → confirm → auto-cascade (work path, sandbox, AI task)
+│                                  # → results. Completed steps collapse to one-line summaries.
+│                                  # Folder picker: native Windows Explorer + in-browser navigator.
+│                                  # Review Changes + Merge to Main as overlay dialogs (not auto).
+│                                  # Start Over link in header resets conversation.
 ├── Dockerfile                     # Docker build (node:20-slim + git, mounts /workspace)
 ├── .dockerignore
 ├── .gitignore
 ├── package.json                   # deps: express, @cursor/sdk, typescript, ts-node, @types/*
 ├── package-lock.json
 ├── tsconfig.json
-└── README.md                      # Full docs: local/Docker/Tailscale/CLI, API reference,
-                                   # confidence scoring rubric, project structure
+└── README.md                      # Full docs: local/Docker/Tailscale/CLI, API reference
 ```
 
-### What was verified in live testing (2026-05-14)
+### UI architecture (conversational flow — NOT tabs)
 
-1. **Repo analysis** — pointed at `workbench/` itself, correctly detected Express, npm, build/test commands, 18 files
-2. **Note parsing** — pasted messy notes, extracted UI requests + primary goal, 70% confidence
-3. **Work path generation** — created AI_WORK_PATH.md with project snapshot, parsed items, verification plan
-4. **Sandbox creation** — isolated copy created with git init + branch, status "ready"
-5. **AI task execution** — `composer-2` (cheapest model) succeeded, no escalation, edited README.md + index.html
-6. **Confidence report** — 90% score, Grade A, 2 files changed, 90 insertions
-7. **Review Changes dialog** — shows diff with expandable file sections + sandbox path
-8. **Merge to Main** — separate button with red warning, requires explicit confirmation
+The UI was recently rewritten from a 5-tab layout to a **single scrolling conversation**. Do NOT reintroduce tabs.
+
+**Flow (each step appears below the previous, auto-scrolls):**
+
+1. **Pick repo** — path display, "Open Explorer" (native Windows dialog via PowerShell), "Browse Folders" (in-browser navigator modal), collapsible manual path entry. "Analyze Repo" button.
+2. **Analysis** — auto-collapses to summary line after analyzing, reveals notes step.
+3. **Paste Messy Notes** — textarea, "Parse Notes" button.
+4. **Parsed output** — shows parsed notes with "Edit Notes" and "Looks Good — Proceed" buttons.
+5. **Auto-cascade** — clicking Proceed fires automatically in sequence with inline status messages:
+   - Generate AI work path (checkmark when done)
+   - Create sandbox copy (checkmark when done)
+   - Run AI task (live log viewer, polls every 2s)
+6. **Results** — confidence report (score gauge, files changed, bugs, checklist, escalation, concerns). "Review Changes" and "Merge to Main" buttons at bottom (open overlay dialogs, NOT auto-triggered).
+
+**Completed steps collapse** to a one-line summary (click to expand). **"Start Over"** in the header resets everything.
+
+**Key JS functions:** `revealStep(id)`, `collapseStep(id, summaryText)`, `toggleStep(id)`, `addCascadeMsg(text, cls)`, `proceedFromNotes()` (the cascade), `hideStepsFrom(startId)`, `startOver()`.
+
+### Server routes (14 total)
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/status` | GET | Repo path, analysis, notes count, platform |
+| `/api/repo` | POST | Set repo path, clear analysis |
+| `/api/analyze` | POST | Run repo analysis |
+| `/api/parse-notes` | POST | Parse messy notes |
+| `/api/parsed-notes` | GET/DELETE | List/clear parsed notes |
+| `/api/generate-work-path` | POST | Generate AI_WORK_PATH.md |
+| `/api/work-path` | GET | Read existing work path |
+| `/api/sandbox/create` | POST | Create sandbox copy |
+| `/api/sandboxes` | GET | List all sandboxes |
+| `/api/sandbox/:id/run` | POST | Start AI task in sandbox |
+| `/api/sandbox/:id/status` | GET | Poll task status + logs |
+| `/api/sandbox/:id/results` | GET | Get confidence report |
+| `/api/sandbox/:id/test` | POST | Re-run tests |
+| `/api/sandbox/:id/merge-preview` | GET | Preview merge diff |
+| `/api/sandbox/:id/merge` | POST | Execute merge (requires `confirmed: true`) |
+| `/api/browse-native` | POST | Windows folder dialog (PowerShell, 501 on non-Windows) |
+| `/api/browse-dirs` | GET | List subdirectories at path (hasGit detection) |
 
 ### Server startup
 
@@ -81,73 +103,22 @@ $env:WORKBENCH_PORT="4141"    # optional, default 4040
 npx ts-node src/server.ts
 ```
 
-Can run simultaneously with the Vertex Build Runner (different ports).
-
-### Key interfaces (already defined and stable)
-
-```typescript
-// sandbox_manager.ts
-interface TestResults {
-  buildPassed: boolean;
-  testsPassed: boolean;
-  consoleErrors: string[];
-  screenshotPaths: string[];
-  filesChanged: string[];
-  confidenceScore: number;
-  escalationReason: string;
-}
-
-interface MergePreview {
-  sandboxId: string;
-  filesChanged: string[];
-  additions: number;
-  deletions: number;
-  canMerge: boolean;
-  blockReasons: string[];
-}
-
-// confidence_reporter.ts
-interface ConfidenceReport {
-  score: number;
-  grade: string;
-  summary: string;
-  filesChanged: string[];
-  bugsAddressed: string[];
-  bugsRemaining: string[];
-  testSummary: { buildPassed: boolean; testsPassed: boolean; totalErrors: number };
-  screenshotPaths: string[];
-  escalationReasoning: string;
-  remainingConcerns: string[];
-  verificationChecklist: ChecklistItem[];
-  generatedAt: string;
-}
-
-// sandbox_runner.ts
-interface RunTaskResult {
-  success: boolean;
-  modelUsed: string;
-  escalations: string[];
-  testResults: TestResults;
-  confidenceReport: ConfidenceReport;
-  error?: string;
-}
-```
-
 ### Key constraints
 
 - **Standalone:** This is NOT part of Vertex. Do not import from or reference `tools/`, `shared/`, `dispatcher/`, `technician/`, or root-level `.js` files.
-- **Vertex docs isolation:** Do NOT update `PROJECT_STATUS/CURRENT_STATE.md`, `ROADMAP.md`, `PROJECT_MAP.md`, or any other Vertex-owned files. The workbench docs are `workbench/README.md` only.
+- **Vertex docs isolation:** Do NOT update `PROJECT_STATUS/CURRENT_STATE.md`, `ROADMAP.md`, `PROJECT_MAP.md`, or any other Vertex-owned files.
 - **Lightweight:** Express + vanilla HTML. No React, no framework.
 - **Local-first:** Everything runs on the user's machine. No cloud dependencies except optional Cursor SDK.
 - **Safe:** Never auto-merge, never auto-deploy, never auto-commit to the original repo.
 - **Mobile-friendly:** Large touch targets, responsive layout, works over Tailscale from phone.
+- **PowerShell on Windows:** This workspace uses PowerShell. Do NOT use heredocs (`<<'EOF'`), `&&` chaining, or bash subshells. Use `;` or separate shell calls. Multi-line commits: multiple `-m` flags.
 
 ### Known gaps / future work ideas
 
 These are NOT blockers — the tool is functional. Pick any of these if the user asks to continue:
 
 1. **CLI commands for `run` and `merge`** — currently web-only; CLI only supports analyze/parse/generate/sandbox/serve
-2. **Screenshot serving** — screenshots are captured to disk but not served via a web route; need a `/screenshots/*` static route
+2. **Screenshot serving** — screenshots are captured to disk but not served via a web route
 3. **Playwright install in Docker** — container needs `npx playwright install` if target repo uses Playwright
 4. **Sandbox deletion** — no UI button or API route to delete old sandboxes
 5. **Multiple sandbox comparison** — can only view one result at a time; no side-by-side
@@ -155,8 +126,12 @@ These are NOT blockers — the tool is functional. Pick any of these if the user
 7. **AI-powered note parsing** — note_parser.ts is rule-based; could add optional Gemini/Cursor SDK refinement
 8. **Persistent state** — server state (analysis, parsed notes) is in-memory; lost on restart
 9. **Dark/light theme toggle** — currently dark-only
-10. **Mobile repo switching** — no way to change the target repo from the phone UI; need a repo selector in the web interface
-11. **GitHub repo picker** — integrate GitHub API (via `gh` CLI or octokit) to list user's repos and clone/pull one to work on; would pair with #10
+10. **GitHub repo picker** — integrate GitHub API to list user's repos and clone/pull
+11. **Recent repos** — save last 3-5 repos for quick-pick on the repo step
+12. **Folder browser loading indicator** — tapping a folder has no visual feedback during load
+13. **Breadcrumb tap targets** — segments too close together on phone, need more spacing
+14. **Log viewer mobile height** — live logs section too small on mobile; increase to ~60% screen
+15. **Copy logs to clipboard** — button to copy AI task logs
 
 ### Suggested model for continuation
 

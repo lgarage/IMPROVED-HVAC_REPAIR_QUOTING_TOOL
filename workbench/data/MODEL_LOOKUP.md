@@ -6,7 +6,7 @@
 | Pattern | Cheapest OK | Floor | Last verified | Notes |
 |---------|-------------|-------|---------------|-------|
 | UI container / HTML+CSS layout | composer-2 | — | 2026-05-14 | Default |
-| Single-file JS bugfix | composer-2 | — | — | Default |
+| Single-file JS bugfix | composer-2 | — | 2026-05-14 | Default |
 | Multi-file feature | claude-sonnet-4-6 | — | — | Default |
 | New module / file creation | claude-sonnet-4-6 | — | — | Default |
 | Cross-module wiring (3+ files) | claude-sonnet-4-6 | — | — | Default |
