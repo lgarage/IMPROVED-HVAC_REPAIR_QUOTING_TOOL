@@ -170,6 +170,24 @@ git push
 - This applies even to docs-only changes (`CURRENT_STATE.md`, `MODEL_DOSSIER.md`, etc.).
 - The user **never** needs to manually click Commit & Sync in the IDE — the AI handles it.
 
+### 5B. Shell environment: PowerShell on Windows (CRITICAL)
+
+**This workspace uses PowerShell, NOT bash/sh.** The following syntax is **broken** in PowerShell and **must never be used:**
+
+- **Heredocs (`<<'EOF'` / `<<EOF`)** — PowerShell does not support bash heredocs. `cat <<'EOF'` will error with `The '<' operator is reserved for future use`.
+- **`&&` chaining** — PowerShell does not support `&&` as a statement separator. Use `;` or run commands as separate sequential shell calls.
+- **Bash quoting (`$()` subshells)** — `$(cat <<'EOF' ... EOF)` is a bash pattern that does not work in PowerShell.
+
+**For multi-line commit messages,** use multiple `-m` flags:
+```powershell
+git commit -m "First line summary" -m "Extended description on second line"
+```
+
+**For sequential commands,** use `;` or separate shell calls:
+```powershell
+git add -A; git commit -m "message"; git push
+```
+
 ## 6. MODEL ESCALATION PROTOCOL
 
 ### 6§ Preamble — non‑negotiable (read first)

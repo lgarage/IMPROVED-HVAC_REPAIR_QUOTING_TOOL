@@ -3,6 +3,17 @@ description: Model gate before edits; dossier outcome log for task *types* / lea
 alwaysApply: true
 ---
 
+# Shell constraint (CRITICAL — read first)
+
+**This workspace runs PowerShell on Windows.** Never use bash-only syntax:
+- **No heredocs** (`<<'EOF'`): use multiple `-m` flags for git commits instead.
+- **No `&&`**: use `;` or separate sequential shell calls.
+- **No `$(cat ...)`**: PowerShell does not support bash subshells.
+
+See `.cursorrules` **§5B** for full rules and correct patterns.
+
+---
+
 # Model selection (cost-aware)
 
 ## Stop — before you touch the repo
