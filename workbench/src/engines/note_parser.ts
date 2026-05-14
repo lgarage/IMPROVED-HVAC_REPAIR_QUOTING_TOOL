@@ -7,7 +7,9 @@
  * The parser extracts: primary goal, bugs, UI requests, business logic requests,
  * business rules, verification expectations, risks, likely files.
  *
- * Rule-based first pass (no AI required). Optional AI refinement via Gemini/Cursor SDK.
+ * Two modes:
+ *   1. Rule-based (default, no AI) — keyword matching, always available
+ *   2. AI-powered (optional) — sends notes to Gemini Flash for smarter classification
  */
 
 export interface ParsedNote {
@@ -23,6 +25,7 @@ export interface ParsedNote {
   uncertainties: string[];
   followUpQuestion: string | null;
   confidence: number;
+  aiParsed?: boolean;
 }
 
 const BUG_SIGNALS = [
@@ -201,9 +204,90 @@ export function parseNotes(rawText: string): ParsedNote {
   return parsed;
 }
 
+export async function aiParseNotes(rawText: string, geminiApiKey: string): Promise<ParsedNote> {
+  const prompt = `You are a technical project manager. Analyze the following messy notes from a user/client and classify them into structured categories. The notes may contain bug reports, feature requests, UI/layout complaints, business logic changes, and contextual explanations.
+
+RULES:
+- Deduplicate: if the same issue appears in multiple phrasings, include it only once in the most appropriate category
+- Context paragraphs that explain WHY something should change (background info, legal details, industry rules) should be summarized into a single actionable item, not split line-by-line
+- A sentence about layout, spacing, sizing, or visual appearance is a UI request even if it mentions business terms
+- A sentence about calculations, pricing, toggling features on/off, or data behavior is business logic
+- "Return key" / "new line" / multiline input behavior = UI request
+- Only flag risks for genuinely dangerous operations (financial calculations, data deletion, security)
+
+Return ONLY valid JSON (no markdown, no code fences) matching this exact structure:
+{
+  "primaryGoal": "one sentence summary of what the user most wants",
+  "bugs": ["list of actual bugs — things that are broken or not working as expected"],
+  "uiRequests": ["list of visual/layout/input behavior changes"],
+  "logicRequests": ["list of business logic / feature / calculation changes"],
+  "businessRules": ["list of rules or constraints the implementation must follow"],
+  "verificationExpectations": ["list of things the user wants verified after changes"],
+  "risks": ["list of genuine risks — only financial, data loss, or security concerns"],
+  "likelyFiles": ["list of filenames mentioned or strongly implied"],
+  "uncertainties": ["anything genuinely unclear that needs clarification"],
+  "confidence": 85
+}
+
+Set confidence 70-95 based on how clear and actionable the notes are.
+
+--- USER NOTES ---
+${rawText}`;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 2048,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Gemini API error (${response.status}): ${errText.substring(0, 200)}`);
+  }
+
+  const data: any = await response.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    throw new Error("Gemini returned empty response");
+  }
+
+  const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+  let parsed: any;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    throw new Error(`Gemini returned invalid JSON: ${cleaned.substring(0, 200)}`);
+  }
+
+  return {
+    rawText,
+    primaryGoal: parsed.primaryGoal || "Could not determine primary goal",
+    bugs: Array.isArray(parsed.bugs) ? parsed.bugs : [],
+    uiRequests: Array.isArray(parsed.uiRequests) ? parsed.uiRequests : [],
+    logicRequests: Array.isArray(parsed.logicRequests) ? parsed.logicRequests : [],
+    businessRules: Array.isArray(parsed.businessRules) ? parsed.businessRules : [],
+    verificationExpectations: Array.isArray(parsed.verificationExpectations) ? parsed.verificationExpectations : [],
+    risks: Array.isArray(parsed.risks) ? parsed.risks : [],
+    likelyFiles: Array.isArray(parsed.likelyFiles) ? parsed.likelyFiles : [],
+    uncertainties: Array.isArray(parsed.uncertainties) ? parsed.uncertainties : [],
+    followUpQuestion: parsed.uncertainties?.length > 0 ? "Some items need clarification — see Uncertainties above" : null,
+    confidence: typeof parsed.confidence === "number" ? parsed.confidence : 75,
+    aiParsed: true,
+  };
+}
+
 export function formatParsedNote(p: ParsedNote): string {
+  const aiLabel = p.aiParsed ? " (AI-assisted)" : "";
   const sections: string[] = [
-    `## Parsed Notes`,
+    `## Parsed Notes${aiLabel}`,
     "",
     `**Primary Goal:** ${p.primaryGoal}`,
     `**Confidence:** ${p.confidence}%`,

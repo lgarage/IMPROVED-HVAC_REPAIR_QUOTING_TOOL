@@ -11,7 +11,7 @@ import * as fs from "fs";
 import { execFile, spawn, ChildProcess } from "child_process";
 import * as net from "net";
 import { analyzeRepo, formatAnalysisSummary, type RepoAnalysis } from "./engines/repo_analyzer";
-import { parseNotes, formatParsedNote, type ParsedNote } from "./engines/note_parser";
+import { parseNotes, aiParseNotes, formatParsedNote, type ParsedNote } from "./engines/note_parser";
 import { generateWorkPath, writeWorkPath, readWorkPath } from "./engines/work_path_generator";
 import { createSandbox, listSandboxes, getMergePreview, type Sandbox } from "./engines/sandbox_manager";
 import { runSandboxTask, type RunTaskResult } from "./engines/sandbox_runner";
@@ -98,6 +98,7 @@ app.get("/api/status", (_req, res) => {
     notesCount: parsedNotes.length,
     hasWorkPath: !!readWorkPath(currentRepoPath),
     platform: process.platform,
+    aiParsingAvailable: !!process.env.GEMINI_API_KEY,
   });
 });
 
@@ -119,13 +120,19 @@ app.post("/api/analyze", (_req, res) => {
   }
 });
 
-app.post("/api/parse-notes", (req, res) => {
-  const { notes } = req.body;
+app.post("/api/parse-notes", async (req, res) => {
+  const { notes, useAI } = req.body;
   if (!notes) return res.status(400).json({ error: "notes required" });
   try {
-    const parsed = parseNotes(notes);
+    let parsed: ParsedNote;
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (useAI && geminiKey) {
+      parsed = await aiParseNotes(notes, geminiKey);
+    } else {
+      parsed = parseNotes(notes);
+    }
     parsedNotes.push(parsed);
-    res.json({ ok: true, parsed, formatted: formatParsedNote(parsed) });
+    res.json({ ok: true, parsed, formatted: formatParsedNote(parsed), aiAvailable: !!geminiKey });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

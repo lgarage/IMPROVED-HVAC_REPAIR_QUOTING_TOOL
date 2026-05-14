@@ -632,7 +632,13 @@
         <h3>Paste Messy Notes</h3>
         <label>Paste your raw notes, bug reports, feature requests &mdash; however messy</label>
         <textarea id="notesInput" placeholder="I'm trying the quoting tool again but I still cannot remove the TRUCK/DISPATCH CHARGE when set to 0. Also the multiline descriptions are cutting off after the first line..."></textarea>
-        <button class="btn btn-primary" onclick="parseNotes()">Parse Notes</button>
+        <div style="display:flex;align-items:center;gap:12px;margin:8px 0">
+          <button class="btn btn-primary" style="flex:1" onclick="parseNotes()">Parse Notes</button>
+          <label id="aiParseToggle" style="display:none;font-size:13px;color:var(--accent);cursor:pointer;white-space:nowrap;user-select:none">
+            <input type="checkbox" id="useAIParsing" checked style="margin-right:4px;accent-color:var(--accent)">
+            AI parsing
+          </label>
+        </div>
       </div>
     </div>
   </div>
@@ -888,6 +894,11 @@ async function loadStatus() {
     revealStep('step-notes');
   }
 
+  if (data.aiParsingAvailable) {
+    const toggle = document.getElementById('aiParseToggle');
+    if (toggle) toggle.style.display = '';
+  }
+
   // Auto-resume if a task is already running or has results (e.g. opened from phone mid-run)
   if (activeRun.sandboxId) {
     currentSandboxId = activeRun.sandboxId;
@@ -997,11 +1008,12 @@ function renderAnalysis(a) {
 async function parseNotes() {
   const text = $('#notesInput').value.trim();
   if (!text) return;
-  showLoading('Parsing notes');
-  const data = await api('POST', '/api/parse-notes', { notes: text });
+  const useAI = document.getElementById('useAIParsing')?.checked || false;
+  showLoading(useAI ? 'AI-parsing notes' : 'Parsing notes');
+  const data = await api('POST', '/api/parse-notes', { notes: text, useAI });
   if (data.ok) {
     $('#parsedOutput').textContent = data.formatted;
-    $('#parsedConfidence').textContent = 'Confidence: ' + data.parsed.confidence + '%';
+    $('#parsedConfidence').textContent = 'Confidence: ' + data.parsed.confidence + '%' + (data.parsed.aiParsed ? ' (AI)' : '');
     setStatus('Parsed \u2014 confidence: ' + data.parsed.confidence + '%');
     collapseStep('step-notes', 'Notes parsed');
     revealStep('step-parsed');
