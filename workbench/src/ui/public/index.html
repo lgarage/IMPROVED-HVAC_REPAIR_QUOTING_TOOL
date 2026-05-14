@@ -562,7 +562,7 @@
     <span class="status-dot" id="statusDot"></span>
     <div style="line-height:1.1">
       <h1 style="font-size:16px;font-weight:600;margin:0">Repo Workbench</h1>
-      <div style="font-size:9px;color:#6677aa;font-family:monospace;margin-top:2px;letter-spacing:0.3px">v1.2</div>
+      <div style="font-size:9px;color:#6677aa;font-family:monospace;margin-top:2px;letter-spacing:0.3px">v1.3</div>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
@@ -1068,33 +1068,32 @@ async function proceedFromNotes() {
 
 function setLiveBadgeConnected() {
   const badge = $('#liveBadge');
-  const dot = $('#liveDot');
+  const dot = document.getElementById('liveDot');
+  const label = document.getElementById('liveBadgeLabel');
   badge.classList.add('visible');
-  badge.style.background = 'rgba(231,76,60,0.15)';
-  badge.style.borderColor = 'rgba(231,76,60,0.4)';
-  badge.style.color = 'var(--danger)';
-  dot.style.background = 'var(--danger)';
-  dot.style.animation = '';
-  $('#liveBadgeLabel').textContent = 'LIVE \u2715';
+  badge.setAttribute('data-live', 'on');
+  badge.style.cssText = 'background:rgba(231,76,60,0.18);border:1px solid rgba(231,76,60,0.5);color:#e74c3c;display:flex;align-items:center;gap:5px';
+  if (dot) dot.style.cssText = 'background:#e74c3c;animation:livepulse 1s ease-in-out infinite';
+  if (label) label.textContent = 'LIVE \u2715';
 }
 
 function setLiveBadgeDisconnected() {
   const badge = $('#liveBadge');
-  const dot = $('#liveDot');
+  const dot = document.getElementById('liveDot');
+  const label = document.getElementById('liveBadgeLabel');
   badge.classList.add('visible');
-  badge.style.background = 'rgba(136,136,170,0.1)';
-  badge.style.borderColor = 'rgba(136,136,170,0.3)';
-  badge.style.color = '#8888aa';
-  dot.style.background = '#8888aa';
-  dot.style.animation = 'none';
-  $('#liveBadgeLabel').textContent = '\u25B6 Connect';
+  badge.setAttribute('data-live', 'off');
+  badge.style.cssText = 'background:#1a1a2e;border:2px solid #44aa66;color:#44aa66;display:flex;align-items:center;gap:5px;font-weight:700';
+  if (dot) dot.style.cssText = 'background:#44aa66;animation:none;width:7px;height:7px;border-radius:50%';
+  if (label) label.textContent = '\u25B6 RESUME';
 }
 
 function hideLiveBadge() {
   const badge = $('#liveBadge');
   badge.classList.remove('visible');
+  badge.setAttribute('data-live', '');
   badge.style.cssText = '';
-  const dot = $('#liveDot');
+  const dot = document.getElementById('liveDot');
   if (dot) dot.style.cssText = '';
 }
 
@@ -1124,11 +1123,11 @@ function stopPolling() {
 }
 
 function toggleLiveConnection() {
-  const label = $('#liveBadgeLabel');
-  if (label && label.textContent.includes('Connect')) {
+  const badge = document.getElementById('liveBadge');
+  if (badge && badge.getAttribute('data-live') === 'off') {
     if (!currentSandboxId) return;
     startPolling(currentSandboxId);
-    setStatus('Reconnected to live updates');
+    setStatus('Reconnected \u2014 live updates resuming');
   } else {
     disconnectLive();
   }
@@ -1765,6 +1764,19 @@ function escAttr(s) {
 
 // --- Init ---
 loadStatus();
+
+// Belt-and-suspenders: addEventListener is more reliable than onclick on mobile
+(function() {
+  const liveBadge = document.getElementById('liveBadge');
+  if (liveBadge) {
+    liveBadge.removeAttribute('onclick');
+    liveBadge.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleLiveConnection();
+    }, { passive: false });
+  }
+})();
 </script>
 </body>
 </html>

@@ -24,7 +24,17 @@ const PORT = parseInt(process.env.WORKBENCH_PORT || "4040", 10);
 
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "ui", "public")));
+
+// Never cache the HTML shell — ensures mobile always gets fresh UI after updates
+app.use(express.static(path.join(__dirname, "ui", "public"), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+    }
+  },
+}));
 
 // --- State ---
 let currentRepoPath: string = process.argv[2] || process.cwd();
