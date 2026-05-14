@@ -20,6 +20,7 @@ import { buildPrompt } from "./prompt_builder";
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const STATE_FILE = path.join(__dirname, ".build_state.json");
 const LOG_FILE = path.join(__dirname, "build_log.txt");
+const VERSION = "2.0.0";
 
 let stopAfterCurrent = false;
 let currentSliceStart = 0;
@@ -84,12 +85,16 @@ interface BuildState {
 }
 
 function loadState(): BuildState {
+  let state: BuildState;
   if (fs.existsSync(STATE_FILE)) {
-    return JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"));
+    state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"));
+  } else {
+    state = { slices: {}, lastRun: "" };
   }
-  const state: BuildState = { slices: {}, lastRun: "" };
   for (const s of SLICES) {
-    state.slices[s.id] = { status: "pending", attempts: 0 };
+    if (!state.slices[s.id]) {
+      state.slices[s.id] = { status: "pending", attempts: 0 };
+    }
   }
   return state;
 }
@@ -117,7 +122,7 @@ function canRun(slice: Slice, state: BuildState): boolean {
 function getNextSlice(state: BuildState): Slice | null {
   for (const slice of SLICES) {
     const ss = state.slices[slice.id];
-    if (ss.status === "pending" && canRun(slice, state)) {
+    if ((ss.status === "pending" || ss.status === "failed") && canRun(slice, state)) {
       return slice;
     }
   }
@@ -171,13 +176,38 @@ async function runSliceAttempt(
 
   const prompt = buildPrompt(slice, model);
 
+  let ticker: ReturnType<typeof setInterval> | null = null;
   try {
     log(`Launching SDK agent with ${model}...`);
+    console.log(`  ─── Press S to stop after this slice ───`);
+
+    ticker = setInterval(() => {
+      const elapsed = Math.round((Date.now() - currentSliceStart) / 1000);
+      const avgDuration = recentSliceDurations.length > 0
+        ? Math.round(recentSliceDurations.reduce((a, b) => a + b, 0) / recentSliceDurations.length / 1000)
+        : 0;
+      const remaining = avgDuration > elapsed ? avgDuration - elapsed : 0;
+      let timeStr: string;
+      if (avgDuration === 0) {
+        timeStr = "estimating...";
+      } else if (remaining > 0) {
+        const mins = Math.floor(remaining / 60);
+        const secs = remaining % 60;
+        timeStr = mins > 0 ? `~${mins}m ${secs}s remaining` : `~${secs}s remaining`;
+      } else {
+        timeStr = "finishing up...";
+      }
+      process.stdout.write(`\r  ⏳ Slice ${slice.id}: ${timeStr}  [S = pause after this slice]   `);
+    }, 15000);
+
     const result = await Agent.prompt(prompt, {
       apiKey: process.env.CURSOR_API_KEY!,
       model: { id: model },
       local: { cwd: PROJECT_ROOT },
     });
+
+    clearInterval(ticker);
+    console.log();
 
     if (result.status === "error") {
       log(`Agent returned error status for slice ${slice.id}`);
@@ -200,6 +230,8 @@ async function runSliceAttempt(
 
     return { passed: true, model, errors: [] };
   } catch (e: any) {
+    if (ticker) clearInterval(ticker);
+    console.log();
     log(`SDK error for slice ${slice.id}: ${e.message?.slice(0, 500)}`);
     return { passed: false, model, errors: [e.message?.slice(0, 500) || "Unknown SDK error"] };
   }
@@ -376,14 +408,26 @@ const commands: SlashCommand[] = [
       let count = 0;
       while (next) {
         if (stopAfterCurrent) {
-          console.log(`\n  ⏸  Graceful stop requested. Finished ${count} slice(s). Repo is clean.`);
+          console.log(`\n  ⏸  Graceful stop. Finished ${count} slice(s). Repo is clean.`);
           console.log(`  Next pending: Slice ${next.id} — ${next.title}`);
-          console.log(`  You can safely edit in Cursor now. Run /a to resume later.\n`);
+          console.log(`  You can safely edit in Cursor now.`);
+          console.log(`  Type 'vertex' to resume later.\n`);
           stopAfterCurrent = false;
-          break;
+          disableStopHotkey();
+          process.exit(0);
         }
         count++;
-        console.log(`\n  [${ count }] Running: Slice ${next.id} — ${next.title}\n`);
+        const ss = state.slices[next.id];
+        const retrying = ss.status === "failed";
+        if (retrying) {
+          console.log(`\n  [${count}] Retrying: Slice ${next.id} — ${next.title} (previously failed)\n`);
+          ss.status = "pending";
+          ss.attempts = 0;
+          ss.errors = undefined;
+          saveState(state);
+        } else {
+          console.log(`\n  [${count}] Running: Slice ${next.id} — ${next.title}\n`);
+        }
         const success = await runSliceWithEscalation(next, state);
         if (!success) {
           console.log(`\n  Stopped: Slice ${next.id} failed after full escalation.\n`);
@@ -865,7 +909,7 @@ async function main(): Promise<void> {
 
   // Interactive mode — run preflight on startup
   console.log("\n  ╔══════════════════════════════════════════╗");
-  console.log("  ║   Vertex Build Runner                    ║");
+  console.log(`  ║   Vertex Build Runner  v${VERSION}            ║`);
   console.log("  ╚══════════════════════════════════════════╝");
 
   const ready = await runPreflight();
@@ -881,7 +925,8 @@ async function main(): Promise<void> {
   }
 
   if (ready) {
-    console.log("  Type / for commands, /next to build one, /all to build everything.\n");
+    console.log("  Type / for commands, /next to build one, /all to build everything.");
+    console.log("  While building: press S to finish current slice then pause.\n");
   } else {
     console.log("  Fix the issues above, then type /preflight to re-check.\n");
   }

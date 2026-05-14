@@ -5,6 +5,8 @@
   var CACHE_TTL_MS = 4 * 60 * 60 * 1000;
   var EMPTY_CONTEXT = {
     siteNotes: "",
+    siteAccessNotes: "",
+    unresolvedIssues: [],
     equipment: [],
     recentReports: [],
     techNotes: "",
@@ -35,6 +37,8 @@
     var src = ctx || EMPTY_CONTEXT;
     return {
       siteNotes: safeTrim(src.siteNotes),
+      siteAccessNotes: safeTrim(src.siteAccessNotes || ""),
+      unresolvedIssues: Array.isArray(src.unresolvedIssues) ? src.unresolvedIssues.slice() : [],
       equipment: Array.isArray(src.equipment) ? src.equipment.slice() : [],
       recentReports: Array.isArray(src.recentReports) ? src.recentReports.slice() : [],
       techNotes: safeTrim(src.techNotes),
