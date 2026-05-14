@@ -569,6 +569,15 @@ const commands: SlashCommand[] = [
     },
   },
   {
+    name: "/preflight",
+    alias: ["/check", "/pre"],
+    args: "",
+    description: "Check that everything is ready to run",
+    handler: async () => {
+      await runPreflight();
+    },
+  },
+  {
     name: "/quit",
     alias: ["/q", "/exit"],
     args: "",
@@ -588,7 +597,7 @@ function printHelp(): void {
     "Build": commands.filter((c) => ["/next", "/all", "/run"].includes(c.name)),
     "Info": commands.filter((c) => ["/status", "/plan", "/inspect", "/preview", "/errors", "/log"].includes(c.name)),
     "Cost": commands.filter((c) => ["/cost", "/models"].includes(c.name)),
-    "Manage": commands.filter((c) => ["/reset", "/push"].includes(c.name)),
+    "Manage": commands.filter((c) => ["/reset", "/push", "/preflight"].includes(c.name)),
     "Other": commands.filter((c) => ["/help", "/quit"].includes(c.name)),
   };
 
@@ -618,6 +627,122 @@ function requireApiKey(): boolean {
   return true;
 }
 
+// ─── Preflight Check ───
+
+async function runPreflight(): Promise<boolean> {
+  console.log("\n  ═══ Preflight Check ═══\n");
+  let allGood = true;
+
+  // 1. CURSOR_API_KEY
+  if (process.env.CURSOR_API_KEY) {
+    const keyPreview = process.env.CURSOR_API_KEY.slice(0, 10) + "...";
+    console.log(`  ✓ CURSOR_API_KEY is set (${keyPreview})`);
+  } else {
+    console.log("  ✗ CURSOR_API_KEY is NOT set");
+    console.log("    Fix: set CURSOR_API_KEY=your_key_here");
+    console.log("    Get key: https://cursor.com/dashboard/integrations");
+    allGood = false;
+  }
+
+  // 2. Node.js
+  try {
+    const nodeVersion = execSync("node -v", { stdio: "pipe" }).toString().trim();
+    console.log(`  ✓ Node.js ${nodeVersion}`);
+  } catch {
+    console.log("  ✗ Node.js not found");
+    allGood = false;
+  }
+
+  // 3. @cursor/sdk installed
+  const sdkPath = path.join(__dirname, "node_modules", "@cursor", "sdk");
+  if (fs.existsSync(sdkPath)) {
+    console.log("  ✓ @cursor/sdk installed");
+  } else {
+    console.log("  ✗ @cursor/sdk not installed");
+    console.log("    Fix: cd tools && npm install");
+    allGood = false;
+  }
+
+  // 4. Git repo clean
+  try {
+    const status = execSync("git status --porcelain", {
+      cwd: PROJECT_ROOT,
+      stdio: "pipe",
+    }).toString().trim();
+    if (status) {
+      console.log(`  ⚠ Git has uncommitted changes (${status.split("\n").length} files)`);
+      console.log("    This is OK but slices will commit on top of your changes.");
+    } else {
+      console.log("  ✓ Git working tree is clean");
+    }
+  } catch {
+    console.log("  ✗ Not a git repo or git not found");
+    allGood = false;
+  }
+
+  // 5. Git can push
+  try {
+    execSync("git remote get-url origin", { cwd: PROJECT_ROOT, stdio: "pipe" });
+    console.log("  ✓ Git remote 'origin' configured");
+  } catch {
+    console.log("  ✗ No git remote 'origin' — safe slices won't auto-push");
+    allGood = false;
+  }
+
+  // 6. technician/index.html exists (main file we modify)
+  const techHtml = path.join(PROJECT_ROOT, "technician", "index.html");
+  if (fs.existsSync(techHtml)) {
+    const lines = fs.readFileSync(techHtml, "utf-8").split("\n").length;
+    console.log(`  ✓ technician/index.html exists (${lines} lines)`);
+  } else {
+    console.log("  ✗ technician/index.html not found — are you in the right repo?");
+    allGood = false;
+  }
+
+  // 7. MODEL_LOOKUP.md exists
+  const lookupPath = path.join(PROJECT_ROOT, "PROJECT_STATUS", "MODEL_LOOKUP.md");
+  if (fs.existsSync(lookupPath)) {
+    console.log("  ✓ MODEL_LOOKUP.md found");
+  } else {
+    console.log("  ✗ MODEL_LOOKUP.md not found");
+    allGood = false;
+  }
+
+  // 8. Firebase CLI (optional — for preview deploys)
+  try {
+    const fbVersion = execSync("npx firebase --version", {
+      stdio: "pipe",
+      timeout: 15000,
+    }).toString().trim();
+    console.log(`  ✓ Firebase CLI ${fbVersion} (preview deploys will work)`);
+  } catch {
+    console.log("  ⚠ Firebase CLI not found (preview deploys will be skipped — builds still work)");
+  }
+
+  // 9. Slice state
+  const stateExists = fs.existsSync(STATE_FILE);
+  if (stateExists) {
+    const state = loadState();
+    const passed = SLICES.filter((s) => state.slices[s.id]?.status === "passed").length;
+    const failed = SLICES.filter((s) => state.slices[s.id]?.status === "failed").length;
+    const pending = SLICES.length - passed - failed;
+    console.log(`  ✓ Build state found: ${passed} passed, ${failed} failed, ${pending} pending`);
+  } else {
+    console.log("  ✓ Fresh start — no previous build state");
+  }
+
+  // Summary
+  console.log();
+  if (allGood) {
+    console.log("  ✓ All checks passed. Ready to build!");
+    console.log("    Type /next for one slice, or /all to build everything.\n");
+  } else {
+    console.log("  ✗ Some checks failed. Fix the issues above before running.\n");
+  }
+
+  return allGood;
+}
+
 // ═══════════════════════════════════════════════════════════
 //  INTERACTIVE REPL
 // ═══════════════════════════════════════════════════════════
@@ -641,23 +766,27 @@ async function main(): Promise<void> {
     }
   }
 
-  // Interactive mode
+  // Interactive mode — run preflight on startup
   console.log("\n  ╔══════════════════════════════════════════╗");
   console.log("  ║   Vertex Build Runner                    ║");
-  console.log("  ║   Type / for commands                    ║");
-  console.log("  ╚══════════════════════════════════════════╝\n");
+  console.log("  ╚══════════════════════════════════════════╝");
+
+  const ready = await runPreflight();
 
   const passed = SLICES.filter((s) => state.slices[s.id]?.status === "passed").length;
   const failed = SLICES.filter((s) => state.slices[s.id]?.status === "failed").length;
   const pending = SLICES.length - passed - failed;
-  console.log(`  ${passed} passed, ${failed} failed, ${pending} pending`);
 
   const next = getNextSlice(state);
   if (next) {
     const ladder = buildEscalationLadder(next.patterns);
-    console.log(`  Next up: Slice ${next.id} — ${next.title} [${ladder[0]}]\n`);
+    console.log(`  Next up: Slice ${next.id} — ${next.title} [${ladder[0]}]`);
+  }
+
+  if (ready) {
+    console.log("  Type / for commands, /next to build one, /all to build everything.\n");
   } else {
-    console.log(`  No pending slices.\n`);
+    console.log("  Fix the issues above, then type /preflight to re-check.\n");
   }
 
   const rl = readline.createInterface({
