@@ -71,9 +71,20 @@
  *     localStorage (vc_ct_vocab_corrections) and forwarded to
  *     EdgeIntentEngine.learnCorrection() for session-level STT remapping.
  *
+ * Slice 47a: Auto-tag media with equipment context + visibility.
+ *   - tagMedia(entryId, ticketId): exported — writes media metadata to Firestore
+ *     at Customers/{custId}/Equipment/{equipId}/media/{autoId} when equipment
+ *     context is available; falls back to field_evidence/{ticketId}/media/{autoId}.
+ *   - Metadata: jobId, equipmentRef, technicianName, timestamp,
+ *     visibility:"internal" (default — office sees, customer does not).
+ *   - addMediaEntry enhanced: sets visibility on meta, calls tagMedia after
+ *     Storage upload completes.
+ *   - renderMediaEntryHtml: equipment tag badge shown on media bubbles when
+ *     activeEquipment was set at capture time.
+ *
  * Exports: startListening, stopListening, capturePhoto, captureVideo,
  *          processEntry, generateResponse, handleFollowUpResponse,
- *          editEntry, handleCorrection.
+ *          editEntry, handleCorrection, tagMedia.
  */
 (function () {
   "use strict";
@@ -401,6 +412,9 @@
       ? " \u00b7 \u26a0\ufe0f Upload failed"
       : (isUploading ? " \u00b7 Uploading\u2026" : "");
     var typeLabel = meta.mediaType === "video" ? "Video" : "Photo";
+    var equipBadge = meta.activeEquipment
+      ? '<span class="ct-equip-badge">\uD83D\uDD27 ' + escapeHtml(meta.activeEquipment) + '</span>'
+      : "";
 
     var entryClass = "ct-message ct-message--tech ct-media-entry" +
       (isUploading ? " ct-media-uploading" : "") +
@@ -423,6 +437,7 @@
             escapeHtml(formatTime(item.ts)) +
             escapeHtml(sizeLabel) +
             escapeHtml(statusLabel) +
+            equipBadge +
           "</span>" +
           progressHtml +
         "</div>" +
@@ -798,6 +813,83 @@
     if (ticketId === currentTicketId) renderTimeline(ticketId);
   }
 
+  /**
+   * tagMedia — exported (Slice 47a).
+   * Writes media metadata to Firestore with full equipment context + visibility.
+   * Path: Customers/{custId}/Equipment/{equipId}/media/{autoId} when equipment
+   * context resolves; otherwise field_evidence/{ticketId}/media/{autoId}.
+   * Degrades silently if Firestore is unavailable (offline-safe).
+   */
+  function tagMedia(entryId, ticketId) {
+    var id = normalizeTicketId(ticketId);
+    var entries = loadEntries(id);
+    var entry = null;
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i] && entries[i].id === entryId) {
+        entry = entries[i];
+        break;
+      }
+    }
+    if (!entry || !entry.meta) return;
+
+    try {
+      if (!window.firebase || !window.firebase.firestore) return;
+      var db = window.firebase.firestore();
+      if (!db) return;
+    } catch (e) { return; }
+
+    var meta = entry.meta;
+    var equipmentRef = meta.activeEquipment || null;
+    var mediaDoc = {
+      jobId: id,
+      equipmentRef: equipmentRef,
+      technicianName: meta.technicianName || getTechnicianName(),
+      timestamp: entry.ts || new Date().toISOString(),
+      visibility: meta.visibility || "internal",
+      mediaType: meta.mediaType || "photo",
+      fileName: meta.fileName || "",
+      fileSize: meta.fileSize || 0,
+      storageUrl: meta.storageUrl || null,
+      entryId: entryId,
+      createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    var ticket = getActiveTicket();
+    var custId = "";
+    if (ticket && ticket.customerName) {
+      custId = String(ticket.customerName).trim()
+        .replace(/[/\\]+/g, "_").replace(/\s+/g, " ").slice(0, 200);
+    }
+    var equipId = null;
+    if (equipmentRef && window.JobContextEngine &&
+        typeof window.JobContextEngine.resolveEquipmentDocId === "function") {
+      equipId = window.JobContextEngine.resolveEquipmentDocId(equipmentRef);
+    }
+
+    var collRef;
+    if (custId && equipId) {
+      collRef = db.collection("Customers").doc(custId)
+                  .collection("Equipment").doc(equipId)
+                  .collection("media");
+    } else {
+      collRef = db.collection("field_evidence").doc(id)
+                  .collection("media");
+    }
+
+    collRef.add(mediaDoc).then(function (docRef) {
+      var fresh = loadEntries(id);
+      for (var j = 0; j < fresh.length; j++) {
+        if (fresh[j] && fresh[j].id === entryId) {
+          fresh[j].meta.firestoreMediaRef = docRef.path;
+          saveEntries(id, fresh);
+          break;
+        }
+      }
+    }).catch(function () {
+      /* Firestore write failed — media is still in Storage, degrade silently */
+    });
+  }
+
   function addMediaEntry(file, mediaType, thumbnailDataUrl, ticketId) {
     var id = normalizeTicketId(ticketId);
     var entryId = createId();
@@ -815,7 +907,8 @@
         uploadStatus: "uploading",
         activeTicketId: id,
         technicianName: getTechnicianName(),
-        activeEquipment: (window.VCJobContext && window.VCJobContext.activeEquipment) || null
+        activeEquipment: (window.VCJobContext && window.VCJobContext.activeEquipment) || null,
+        visibility: "internal"
       }
     };
 
@@ -835,6 +928,8 @@
       if (url !== null) {
         /* Upload complete — persist URL and re-render cleanly */
         updateMediaEntryStatus(id, entryId, "done", url);
+        /* Slice 47a: write tagged metadata doc to Firestore */
+        tagMedia(entryId, id);
       } else if (pct !== null) {
         /* Progress tick — update progress bar in-place without full re-render */
         var fill = document.querySelector(
@@ -1605,7 +1700,10 @@
       ".ct-edit-cancel{background:rgba(255,255,255,.12);color:#fff;}",
       /* Edited badge */
       ".ct-edited-badge{font-size:10px;font-weight:500;color:#00d4ff;opacity:.8;",
-      "  background:rgba(0,212,255,.1);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle;}"
+      "  background:rgba(0,212,255,.1);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle;}",
+      ".ct-equip-badge{display:inline-block;font-size:10px;font-weight:600;color:#00d4ff;",
+      "  background:rgba(0,212,255,.12);border-radius:4px;padding:1px 6px;margin-left:4px;vertical-align:middle;",
+      "  white-space:nowrap;}"
     ].join("");
     (document.head || document.documentElement).appendChild(style);
   }
@@ -1968,6 +2066,7 @@
     generateResponse: generateResponse,
     handleFollowUpResponse: handleFollowUpResponse,
     editEntry: editEntry,
-    handleCorrection: handleCorrection
+    handleCorrection: handleCorrection,
+    tagMedia: tagMedia
   };
 })();

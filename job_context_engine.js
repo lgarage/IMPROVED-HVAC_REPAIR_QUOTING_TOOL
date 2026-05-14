@@ -533,6 +533,27 @@
   }
 
   /**
+   * resolveEquipmentDocId — given a freeform equipment reference string (e.g. "RTU 3"),
+   * searches the current context's equipment list for a matching unitTag and returns
+   * its Firestore document ID.  Returns null if no match or no equipment loaded.
+   */
+  function resolveEquipmentDocId(ref) {
+    if (!ref) return null;
+    var needle = String(ref).replace(/[\s\-#]+/g, "").toLowerCase();
+    if (!needle) return null;
+    var equipment = currentContext.equipment || [];
+    for (var i = 0; i < equipment.length; i++) {
+      var item = equipment[i];
+      if (!item) continue;
+      var tag = String(item.unitTag || "").replace(/[\s\-#]+/g, "").toLowerCase();
+      if (tag && tag === needle) return item.id || null;
+      var idNorm = String(item.id || "").replace(/[\s\-#]+/g, "").toLowerCase();
+      if (idNorm && idNorm === needle) return item.id || null;
+    }
+    return null;
+  }
+
+  /**
    * markChecklistItem — thin wrapper delegating to ChecklistReminderEngine.markMentioned.
    * Allows other modules to record a mention without importing ChecklistReminderEngine directly.
    */
@@ -556,5 +577,6 @@
     getActiveEquipment: getActiveEquipment,
     getChecklistState: getChecklistState,
     markChecklistItem: markChecklistItem,
+    resolveEquipmentDocId: resolveEquipmentDocId,
   };
 })();
