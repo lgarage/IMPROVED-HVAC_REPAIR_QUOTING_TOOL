@@ -39,7 +39,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "ConsoleClean-2026-05-13";
+      window.VC_BUILD = "SettingsViewFix-2026-05-13";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -2317,8 +2317,13 @@
       #view-settings {
         background: #f1f5f9;
         min-height: 100%;
-        display: flex;
         align-items: flex-start;
+      }
+      /* display:flex must live here, not on the bare #view-settings selector,
+         because #view-settings { display:flex } beats .app-view { display:none }
+         in specificity and keeps Settings visible when another tab is active. */
+      #view-settings.active {
+        display: flex;
       }
 
       /* ── Left nav sidebar ── */

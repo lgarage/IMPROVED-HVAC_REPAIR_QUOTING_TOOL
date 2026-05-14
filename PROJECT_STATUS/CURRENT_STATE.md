@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 40 — Field Chronicle (Experimental). Phase 1 shipped.
-- **Last shipped (2026-05-13):** Console error cleanup: (1) `shared/firebase_config.js` catch now swallows all errors (silences duplicate `enablePersistence` FirebaseError); (2) Maps URL gains `&loading=async`; cache-busted `shared/firebase_config.js?v=1→v=2` in all 3 HTML files. `VC_BUILD = "ConsoleClean-2026-05-13"`. Prior session: 3-part hotfix (Firestore rules + Places API migration + Save Parent Billing for new parents).
+- **Last shipped (2026-05-13):** Settings view isolation fix — `#view-settings { display:flex }` was overriding `.app-view { display:none }` (higher specificity), so Settings content bled into Service intake when switching tabs. Moved `display:flex` to `#view-settings.active` only. `VC_BUILD = "SettingsViewFix-2026-05-13"`. Prior: console error cleanup (firebase_config.js catch + Maps loading=async).
 - **Prior (2026-05-12):** Field Chronicle Phase 1 shipped.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
