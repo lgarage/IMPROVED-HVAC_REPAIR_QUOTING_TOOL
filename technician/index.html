@@ -1128,6 +1128,77 @@ body.vc-override-active #vcOfficeOverrideBanner {
   background: rgba(148, 163, 184, 0.16);
   border-color: rgba(148, 163, 184, 0.28);
   color: #dbe4f1;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* Vertex "V" monogram icon beside system bubbles (Slice 41d) */
+.ct-vertex-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 212, 255, 0.18);
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  color: #00d4ff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  margin-top: 1px;
+  letter-spacing: -0.5px;
+}
+
+.ct-msg-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* "Which unit?" follow-up prompt (Slice 41d) */
+.ct-followup-prompt {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+}
+
+.ct-followup-prompt__text {
+  flex: 1;
+  font-size: 12px;
+  color: #9fb2c8;
+  font-style: italic;
+}
+
+.ct-followup-prompt__dismiss {
+  background: none;
+  border: none;
+  color: #9fb2c8;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  opacity: 0.65;
+  -webkit-tap-highlight-color: transparent;
+  min-width: 28px;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ct-followup-prompt__dismiss:hover,
+.ct-followup-prompt__dismiss:focus {
+  opacity: 1;
+  outline: none;
 }
 
 .ct-empty {
@@ -5965,7 +6036,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase41-Slice41c-2026-05-14";
+window.VC_BUILD = "Phase41-Slice41d-2026-05-14";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -11051,7 +11122,7 @@ window.onload = async function(){
     <script src="../unit_work_parser.js?v=10"></script>
     <script src="../field_forms.js?v=3"></script>
 <script src="../field_chronicle.js?v=1"></script>
-  <script src="../conversational_timeline.js?v=3"></script>
+  <script src="../conversational_timeline.js?v=4"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
       if (typeof initGlobalSiteDirectory === "function") initGlobalSiteDirectory();

@@ -1,5 +1,5 @@
 /**
- * Conversational Timeline — Slice 41c.
+ * Conversational Timeline — Slice 41d.
  *
  * Slice 41a: localStorage-only timeline, bubble layout, workspace integration.
  * Slice 41b: Hold-to-Talk action bar + live Web Speech API STT.
@@ -18,8 +18,15 @@
  *   - Upload to Firebase Storage: field_evidence/{ticketId}/{ts}_{filename}.
  *   - Progress bar on timeline entry; dashed border while uploading.
  *   - Auto-attaches: activeTicketId, technicianName, timestamp.
+ * Slice 41d: Vertex system responses (confirmation + short follow-ups).
+ *   - Rule-based v1 (no AI): confirmation, media saved, equipment echo.
+ *   - Equipment regex: RTU, AHU, Unit, Chiller, VAV, FCU, HP, MAU, EF.
+ *   - 300 ms delay before system response appears (natural pacing).
+ *   - System bubbles show a "V" monogram icon in a circle.
+ *   - Follow-up stub: "Which unit?" if last 3 entries lack equipment refs.
  *
- * Exports: startListening, stopListening, capturePhoto, captureVideo.
+ * Exports: startListening, stopListening, capturePhoto, captureVideo,
+ *          processEntry, generateResponse.
  */
 (function () {
   "use strict";
@@ -29,6 +36,10 @@
   var LS_PREFIX = "vc_conversational_timeline_";
   var currentTicketId = "draft";
   var initialized = false;
+
+  /* ── equipment reference pattern (Slice 41d) ─────────────────── */
+
+  var EQUIPMENT_REGEX = /\b(RTU[-\s]?\d+|AHU[-\s]?\d+|Unit[-\s]?\d+|Chiller[-\s]?\d+|VAV[-\s]?\d+|FCU[-\s]?\d+|HP[-\s]?\d+|MAU[-\s]?\d+|EF[-\s]?\d+)\b/i;
 
   function storageKey(ticketId) {
     return LS_PREFIX + (ticketId || "draft");
@@ -251,15 +262,25 @@
       } else {
         if (!item.text) continue;
         var isTech = item.role === "tech";
-        var alignClass = isTech ? "tech" : "system";
-        var senderLabel = isTech ? "Technician" : "System";
-        html +=
-          '<div class="ct-message ct-message--' + alignClass + '">' +
-            '<span class="ct-message__body">' + escapeHtml(item.text) + "</span>" +
-            '<span class="ct-message__meta">' +
-              escapeHtml(senderLabel) + " \u00b7 " + escapeHtml(formatTime(item.ts)) +
-            "</span>" +
-          "</div>";
+        if (isTech) {
+          html +=
+            '<div class="ct-message ct-message--tech">' +
+              '<span class="ct-message__body">' + escapeHtml(item.text) + "</span>" +
+              '<span class="ct-message__meta">Technician \u00b7 ' +
+                escapeHtml(formatTime(item.ts)) +
+              "</span>" +
+            "</div>";
+        } else {
+          /* System bubble — "V" monogram icon beside message content */
+          html +=
+            '<div class="ct-message ct-message--system">' +
+              '<div class="ct-vertex-icon" aria-hidden="true">V</div>' +
+              '<div class="ct-msg-content">' +
+                '<span class="ct-message__body">' + escapeHtml(item.text) + "</span>" +
+                '<span class="ct-message__meta">' + escapeHtml(formatTime(item.ts)) + "</span>" +
+              "</div>" +
+            "</div>";
+        }
       }
     }
     list.innerHTML = html;
@@ -275,6 +296,10 @@
     saveEntries(id, entries);
     if (id === currentTicketId) {
       renderTimeline(id);
+    }
+    /* Vertex system response fires only for tech-authored entries */
+    if (entry.role === "tech") {
+      processEntry(entry, id);
     }
     return entry;
   }
@@ -604,6 +629,9 @@
     saveEntries(id, entries);
     if (id === currentTicketId) renderTimeline(id);
 
+    /* Vertex system response for media entries */
+    processEntry(entry, id);
+
     uploadMediaToStorage(file, id, entryId, function (pct, url, err) {
       if (err) {
         updateMediaEntryStatus(id, entryId, "error", null);
@@ -787,6 +815,109 @@
     });
   }
 
+  /* ── Vertex system responses (Slice 41d) ─────────────────────── */
+
+  /**
+   * generateResponse — exported.
+   * Pure function: given a tech entry, returns the Vertex confirmation text.
+   * v1 is rule-based (no AI).
+   */
+  function generateResponse(entry) {
+    if (!entry) return null;
+
+    /* Media entries ------------------------------------------------ */
+    if (entry.meta && entry.meta.mediaType) {
+      return entry.meta.mediaType === "video" ? "\uD83C\uDFA5 Saved." : "\uD83D\uDCF7 Saved.";
+    }
+
+    var text = safeText(entry.text);
+    if (!text) return null;
+
+    /* Equipment reference ------------------------------------------ */
+    var match = text.match(EQUIPMENT_REGEX);
+    if (match) {
+      return "Got it. " + match[0] + ".";
+    }
+
+    /* Default (short or plain text) -------------------------------- */
+    return "Got it.";
+  }
+
+  /* ── follow-up prompt helpers ─────────────────────────────────── */
+
+  var _followUpDismissed = false;
+
+  function getFollowUpEl() {
+    return document.getElementById("ct-followup-prompt");
+  }
+
+  function createFollowUpEl() {
+    var bar = document.getElementById("ct-action-bar");
+    if (!bar || !bar.parentNode) return null;
+    var el = document.createElement("div");
+    el.id = "ct-followup-prompt";
+    el.className = "ct-followup-prompt";
+    el.style.display = "none";
+    el.innerHTML =
+      '<span class="ct-followup-prompt__text">Which unit?</span>' +
+      '<button class="ct-followup-prompt__dismiss" aria-label="Dismiss follow-up">\u2715</button>';
+    el.querySelector(".ct-followup-prompt__dismiss").addEventListener("click", function () {
+      _followUpDismissed = true;
+      hideFollowUpPrompt();
+    });
+    bar.parentNode.insertBefore(el, bar);
+    return el;
+  }
+
+  function showFollowUpPrompt() {
+    if (_followUpDismissed) return;
+    var el = getFollowUpEl() || createFollowUpEl();
+    if (el) el.style.display = "flex";
+  }
+
+  function hideFollowUpPrompt() {
+    var el = getFollowUpEl();
+    if (el) el.style.display = "none";
+  }
+
+  function checkFollowUpPrompt(ticketId) {
+    var entries = loadEntries(ticketId);
+    /* Only consider tech text entries (not media, not seed context) */
+    var techText = entries.filter(function (e) {
+      return e && e.role === "tech" && !(e.meta && (e.meta.seed || e.meta.mediaType));
+    });
+    var last3 = techText.slice(-3);
+    if (!last3.length) {
+      hideFollowUpPrompt();
+      return;
+    }
+    var anyEquipment = last3.some(function (e) {
+      return EQUIPMENT_REGEX.test(safeText(e.text));
+    });
+    if (anyEquipment) {
+      hideFollowUpPrompt();
+    } else {
+      showFollowUpPrompt();
+    }
+  }
+
+  /**
+   * processEntry — exported.
+   * Called after a tech entry is saved; schedules the Vertex system response
+   * with a 300 ms delay, then re-evaluates the follow-up prompt.
+   */
+  function processEntry(entry, ticketId) {
+    if (!entry || entry.role !== "tech") return;
+    var id = normalizeTicketId(ticketId);
+    var responseText = generateResponse(entry);
+    if (!responseText) return;
+    setTimeout(function () {
+      /* addEntry with role "system" → will NOT re-trigger processEntry */
+      addEntry(responseText, "system", id);
+      checkFollowUpPrompt(id);
+    }, 300);
+  }
+
   /* ── action bar wiring ────────────────────────────────────────── */
 
   function wireActionBar() {
@@ -901,6 +1032,9 @@
 
   function onWorkspaceOpen(ticketId) {
     currentTicketId = normalizeTicketId(ticketId || resolveTicketIdFromObject(getActiveTicket()));
+    /* Reset follow-up dismiss state per ticket open */
+    _followUpDismissed = false;
+    hideFollowUpPrompt();
     seedFromTicket(currentTicketId);
     renderTimeline(currentTicketId);
   }
@@ -943,6 +1077,8 @@
     startListening: startListening,
     stopListening: stopListening,
     capturePhoto: capturePhoto,
-    captureVideo: captureVideo
+    captureVideo: captureVideo,
+    processEntry: processEntry,
+    generateResponse: generateResponse
   };
 })();
