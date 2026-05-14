@@ -102,6 +102,15 @@
     }
     .live-badge.visible { display: flex; }
     .live-badge:active { opacity: 0.7; }
+    .live-badge.disconnected {
+      background: rgba(136,136,170,0.1);
+      border-color: rgba(136,136,170,0.3);
+      color: var(--text-dim);
+    }
+    .live-badge.disconnected .live-dot {
+      background: var(--text-dim);
+      animation: none;
+    }
     .live-dot {
       width: 7px; height: 7px; border-radius: 50%;
       background: var(--danger);
@@ -559,8 +568,8 @@
       <span id="serverBadgeLabel">:4100</span>
       <span class="server-badge-stop">&#x2715; hide</span>
     </button>
-    <button class="live-badge" id="liveBadge" onclick="disconnectLive()" title="Tap to disconnect live updates on this device">
-      <span class="live-dot"></span>LIVE <span style="font-size:10px;opacity:0.7;margin-left:2px">&#x2715;</span>
+    <button class="live-badge" id="liveBadge" onclick="toggleLiveConnection()" title="Tap to disconnect / reconnect live updates">
+      <span class="live-dot" id="liveDot"></span><span id="liveBadgeLabel">LIVE &#x2715;</span>
     </button>
     <a class="start-over" id="startOverLink" onclick="startOver()">Start Over</a>
     <span id="headerRepo" style="font-size:12px;color:var(--text-dim)"></span>
@@ -1055,9 +1064,27 @@ async function proceedFromNotes() {
 
 // --- Polling ---
 
+function setLiveBadgeConnected() {
+  const badge = $('#liveBadge');
+  badge.classList.remove('disconnected');
+  badge.classList.add('visible');
+  $('#liveBadgeLabel').textContent = 'LIVE \u2715';
+}
+
+function setLiveBadgeDisconnected() {
+  const badge = $('#liveBadge');
+  badge.classList.add('visible', 'disconnected');
+  $('#liveBadgeLabel').textContent = '\u25B6 Connect';
+}
+
+function hideLiveBadge() {
+  const badge = $('#liveBadge');
+  badge.classList.remove('visible', 'disconnected');
+}
+
 function startPolling(id) {
   stopPolling();
-  $('#liveBadge').classList.add('visible');
+  setLiveBadgeConnected();
   pollTimer = setInterval(async () => {
     const data = await api('GET', `/api/sandbox/${id}/status`);
     const logEl = $('#runningLogs');
@@ -1067,6 +1094,7 @@ function startPolling(id) {
     }
     if (!data.running && data.hasResult) {
       stopPolling();
+      hideLiveBadge();
       setStatus('AI task complete');
       addCascadeMsg('AI task complete', 'done');
       $('#cascadeLogs').classList.add('hidden');
@@ -1077,7 +1105,22 @@ function startPolling(id) {
 
 function stopPolling() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-  $('#liveBadge').classList.remove('visible');
+}
+
+function toggleLiveConnection() {
+  if ($('#liveBadge').classList.contains('disconnected')) {
+    if (!currentSandboxId) return;
+    startPolling(currentSandboxId);
+    setStatus('Reconnected to live updates');
+  } else {
+    disconnectLive();
+  }
+}
+
+function disconnectLive() {
+  stopPolling();
+  setLiveBadgeDisconnected();
+  setStatus('Live updates paused \u2014 tap Connect to resume');
 }
 
 function disconnectLive() {
@@ -1545,6 +1588,7 @@ function showMergeResult(data) {
 
 async function startOver() {
   stopPolling();
+  hideLiveBadge();
   currentSandboxId = null;
   await api('DELETE', '/api/parsed-notes');
   hideStepsFrom('step-analysis');
