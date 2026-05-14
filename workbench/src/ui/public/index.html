@@ -551,10 +551,10 @@
     <h1>Repo Workbench</h1>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
-    <button class="server-badge" id="serverBadge" onclick="stopSandboxServerFromHeader()" title="Sandbox server running — tap to stop">
+    <button class="server-badge" id="serverBadge" onclick="stopSandboxServerFromHeader()" title="Sandbox server running — tap to disconnect live view on this device">
       <span class="server-dot-green"></span>
       <span id="serverBadgeLabel">:4100</span>
-      <span class="server-badge-stop">&#x25A0; stop</span>
+      <span class="server-badge-stop">&#x2715; hide</span>
     </button>
     <div class="live-badge" id="liveBadge">
       <span class="live-dot"></span>Live
@@ -1321,9 +1321,13 @@ function hideServerBadge() {
   $('#serverBadge').classList.remove('visible');
 }
 
-async function stopSandboxServerFromHeader() {
-  if (!currentSandboxId) return;
-  await stopSandboxServer(currentSandboxId);
+function stopSandboxServerFromHeader() {
+  // Disconnects the live view on THIS device only — does NOT kill the server process.
+  // The server keeps running on the PC. Use Review Changes → Stop Server to kill the process.
+  hideServerBadge();
+  const iframeEl = $('#sandboxIframe');
+  if (iframeEl) { iframeEl.src = ''; iframeEl.style.display = 'none'; }
+  setStatus('Live view disconnected — server still running on host');
 }
 
 async function startSandboxServer(id) {
