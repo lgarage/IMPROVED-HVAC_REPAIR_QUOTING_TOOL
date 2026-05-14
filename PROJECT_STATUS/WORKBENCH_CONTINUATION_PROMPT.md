@@ -186,6 +186,7 @@ These are NOT blockers — the tool is functional. Pick any if the user asks to 
 13. **Breadcrumb tap targets** — segments too close together on phone, need more spacing
 14. **Copy logs to clipboard** — button to copy AI task logs
 15. **Sandbox proxy** — `sandbox-preview` static serving works but API calls from sandboxed SPAs will fail; a full reverse proxy would fix that
+16. **OpenRouter / open-source model backend** — `sandbox_runner.ts` currently calls `@cursor/sdk` `Agent.prompt()`, which bills against Cursor API tokens. Swap (or make configurable) to use [OpenRouter](https://openrouter.ai) instead: single API key, OpenAI-compatible endpoint (`https://openrouter.ai/api/v1/chat/completions`), 200+ models including free/cheap open-source ones (Llama 3.1 8B ~$0.02/M tokens, DeepSeek V3, Mistral 7B). The existing `model_selector.ts` escalation ladder maps cleanly to OpenRouter model IDs — cheap model for T0–T1, escalate to Claude Sonnet / GPT-4o only for T3. Set via `OPENROUTER_API_KEY` env var; fall back to Cursor SDK if absent. This preserves the Cursor IDE for the developer's own coding while keeping workbench AI task costs near zero.
 
 ### Suggested model for continuation
 
