@@ -1,7 +1,7 @@
 # AI Work Path
 
-> Generated: 2026-05-14 14:25:34
-> Parser confidence: 80%
+> Generated: 2026-05-14 14:49:06
+> Parser confidence: 70%
 
 ## Project Snapshot
 
@@ -15,26 +15,25 @@
 
 ## User Goal
 
-- one more thing - when the AI task is running the live logs section is too small on mobile, can barely read it
+- when the ai task is running the log viewer is really small on mobile i can barely read it, needs to be taller maybe 60% of screen height
 
 ## Parsed Work Items
 
 ### Bugs
-- [ ] the browse folders modal opens but when i tap a folder it takes a second to load and theres no loading indicator so it feels broken
+- [ ] the folder browser is slow when you tap a folder theres no loading indicator so it just feels broken
 
 ### UI / Layout Changes
-- [ ] the browse folders modal opens but when i tap a folder it takes a second to load and theres no loading indicator so it feels broken
-- [ ] id also like a "recent repos" feature so i dont have to browse every time - maybe save the last 3-5 repos i used and show them as quick-pick buttons on the repo step
-- [ ] one more thing - when the AI task is running the live logs section is too small on mobile, can barely read it
-- [ ] make it taller, maybe 60% of the screen
+- [ ] when the ai task is running the log viewer is really small on mobile i can barely read it, needs to be taller maybe 60% of screen height
+- [ ] also would be nice to have a copy button on the logs so i can paste them somewhere
 
 ### Business Logic Changes
-- [ ] the browse folders modal opens but when i tap a folder it takes a second to load and theres no loading indicator so it feels broken
-- [ ] id also like a "recent repos" feature so i dont have to browse every time - maybe save the last 3-5 repos i used and show them as quick-pick buttons on the repo step
-- [ ] and add a way to copy the logs to clipboard
+- [ ] the folder browser is slow when you tap a folder theres no loading indicator so it just feels broken
+- [ ] when the ai task is running the log viewer is really small on mobile i can barely read it, needs to be taller maybe 60% of screen height
 
 ### Config / Documentation / Other
-- [ ] also the breadcrumb path wraps weird on my phone screen - the segments are too close together and hard to tap individually
+- [ ] also the breadcrumb segments are too close together on phone hard to tap the right one
+- [ ] one more thing - if i restart the server everything is wiped
+- [ ] it would be nice if it remembered the last repo i had open at least so i dont have to re-pick it every time
 
 ## Likely Files To Inspect
 
