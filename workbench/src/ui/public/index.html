@@ -571,8 +571,8 @@
       <span id="serverBadgeLabel">:4100</span>
       <span class="server-badge-stop">&#x2715; hide</span>
     </button>
-    <button class="live-badge" id="liveBadge" onclick="toggleLiveConnection()" title="Tap to disconnect / reconnect live updates">
-      <span class="live-dot" id="liveDot"></span><span id="liveBadgeLabel">LIVE &#x2715;</span>
+    <button class="live-badge" id="liveBadge" title="Live status indicator">
+      <span class="live-dot" id="liveDot"></span><span id="liveBadgeLabel">&#x25CF; LIVE</span>
     </button>
     <a class="start-over" id="startOverLink" onclick="startOver()">Start Over</a>
     <span id="headerRepo" style="font-size:12px;color:var(--text-dim)"></span>
@@ -1072,9 +1072,9 @@ function setLiveBadgeConnected() {
   const label = document.getElementById('liveBadgeLabel');
   badge.classList.add('visible');
   badge.setAttribute('data-live', 'on');
-  badge.style.cssText = 'background:rgba(231,76,60,0.18);border:1px solid rgba(231,76,60,0.5);color:#e74c3c;display:flex;align-items:center;gap:5px';
+  badge.style.cssText = 'background:rgba(231,76,60,0.18);border:1px solid rgba(231,76,60,0.5);color:#e74c3c;display:flex;align-items:center;gap:5px;pointer-events:none';
   if (dot) dot.style.cssText = 'background:#e74c3c;animation:livepulse 1s ease-in-out infinite';
-  if (label) label.textContent = 'LIVE \u2715';
+  if (label) label.textContent = '\u25CF LIVE';
 }
 
 function setLiveBadgeDisconnected() {
@@ -1083,7 +1083,7 @@ function setLiveBadgeDisconnected() {
   const label = document.getElementById('liveBadgeLabel');
   badge.classList.add('visible');
   badge.setAttribute('data-live', 'off');
-  badge.style.cssText = 'background:#1a1a2e;border:2px solid #44aa66;color:#44aa66;display:flex;align-items:center;gap:5px;font-weight:700';
+  badge.style.cssText = 'background:#1a1a2e;border:2px solid #44aa66;color:#44aa66;display:flex;align-items:center;gap:5px;font-weight:700;pointer-events:auto;cursor:pointer';
   if (dot) dot.style.cssText = 'background:#44aa66;animation:none;width:7px;height:7px;border-radius:50%';
   if (label) label.textContent = '\u25B6 RESUME';
 }
@@ -1128,15 +1128,13 @@ function toggleLiveConnection() {
     if (!currentSandboxId) return;
     startPolling(currentSandboxId);
     setStatus('Reconnected \u2014 live updates resuming');
-  } else {
-    disconnectLive();
   }
 }
 
 function disconnectLive() {
   stopPolling();
   setLiveBadgeDisconnected();
-  setStatus('Live updates paused \u2014 tap Connect to resume');
+  setStatus('Live updates paused \u2014 tap RESUME to reconnect');
 }
 
 function disconnectLive() {
