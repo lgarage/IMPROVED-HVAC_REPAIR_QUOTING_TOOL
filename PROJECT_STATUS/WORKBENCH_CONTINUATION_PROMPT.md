@@ -151,11 +151,12 @@ Returns:
 ```powershell
 cd workbench
 $env:CURSOR_API_KEY="<your-key>"
-$env:WORKBENCH_PORT="4141"    # optional, default 4040
 npx ts-node src/server.ts
-# OR (compiled):
+# OR (compiled — must run `npx tsc` first):
 node dist/server.js
 ```
+
+**Port:** Default is **4141** (hardcoded). Override with `$env:WORKBENCH_PORT="<port>"` if needed.
 
 ### Key constraints
 
@@ -166,6 +167,15 @@ node dist/server.js
 - **Safe:** Never auto-merge, never auto-deploy, never auto-commit to the original repo without explicit user confirmation.
 - **Mobile-friendly:** Large touch targets, responsive layout, works over Tailscale from phone.
 - **PowerShell on Windows:** This workspace uses PowerShell. Do NOT use heredocs (`<<'EOF'`), `&&` chaining, or bash subshells. Use `;` or separate shell calls. Multi-line commits: use a single `-m` flag with consolidated message.
+- **Static asset path:** `tsc` does NOT copy `src/ui/public/` into `dist/`. `server.ts` uses a `uiPublicDir()` resolver that checks `__dirname/ui/public` first, then falls back to `../src/ui/public`. Do NOT break this — both `ts-node src/server.ts` and `node dist/server.js` must serve the UI.
+- **Port must stay 4141:** Default port is hardcoded to `4141` in `server.ts`. Do NOT change it or omit it — the user has bookmarked URLs on PC (`localhost:4141`) and phone (Tailscale IP:4141).
+- **CURSOR_API_KEY required for AI tasks:** The server must be started with `$env:CURSOR_API_KEY` set. Without it, `/api/sandbox/:id/run` falls back to dry-run mode (no actual AI edits). If you start the server, always include the API key env var.
+- **Kill stale servers before starting:** Multiple Node processes on different ports cause confusion (user hits wrong port, gets "non-JSON" errors because the old server is missing routes). Always kill existing workbench processes before starting a new one.
+
+### Lessons from prior bugs (DO NOT REPEAT)
+
+1. **Composer 2 started server without `CURSOR_API_KEY` and on wrong port (4040 vs 4141)** — cascade reached "Run AI task" then failed with "Server returned non-JSON" because the server Composer 2 started was running stale code missing the `/api/sandbox/:id/run` route entirely. The user's browser was hitting port 4040 (Composer's server) while the correct server was on 4141. Fix: default port is now hardcoded to 4141; always set the API key; always kill stale processes first.
+2. **`node dist/server.js` → ENOENT for `dist/ui/public/index.html`** — TypeScript compiler only emits `.ts` → `.js`; static HTML/CSS assets in `src/ui/public/` are never copied to `dist/`. The `uiPublicDir()` resolver in `server.ts` handles this. Do NOT revert it or use raw `path.join(__dirname, "ui", "public")` without the fallback.
 
 ### Known gaps / future work ideas
 

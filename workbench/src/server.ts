@@ -20,7 +20,7 @@ import { type ConfidenceReport } from "./engines/confidence_reporter";
 import { executeMerge, getMergePreviewDetailed } from "./engines/merge_manager";
 
 const app = express();
-const PORT = parseInt(process.env.WORKBENCH_PORT || "4040", 10);
+const PORT = parseInt(process.env.WORKBENCH_PORT || "4141", 10);
 
 /** Compiled output is under dist/ only; UI assets stay in src/ui/public */
 function uiPublicDir(): string {
