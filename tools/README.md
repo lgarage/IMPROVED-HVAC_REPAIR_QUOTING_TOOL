@@ -1,0 +1,92 @@
+# Vertex Build Runner — Quick Start
+
+## What is this?
+
+An automated build tool that builds the New Field Tech UX in phases using the Cursor SDK. It picks the cheapest AI model for each task, auto-escalates to a stronger model if it fails, validates the output, and deploys previews.
+
+## How to run it
+
+### First time setup (one-time)
+
+1. **Get your API key:**
+   - Go to https://cursor.com/dashboard/integrations
+   - Generate a key and copy it
+
+2. **Set it permanently (so you never have to paste it again):**
+   - Search "Environment Variables" in Windows Start menu
+   - Under **User variables**, click **New**
+   - Name: `CURSOR_API_KEY`
+   - Value: paste your key
+   - Click OK
+   - Restart Cursor (so it picks up the new variable)
+
+### Every time you want to run it
+
+1. Open a terminal in Cursor: **Ctrl + `** (backtick)
+2. Run:
+   ```
+   cd tools
+   npx ts-node build_runner.ts
+   ```
+3. Type `/` to see all commands
+
+### Commands
+
+| Command | What it does |
+|---------|-------------|
+| `/` or `/help` | Show all commands |
+| `/status` | Show status of all 18 slices |
+| `/next` | Build the next pending slice |
+| `/all` | Build ALL pending slices (fire and forget) |
+| `/run 41a` | Build a specific slice |
+| `/plan` | Preview what would run next (no actual build) |
+| `/inspect 41a` | See full details for a slice |
+| `/preview` | Show all Firebase preview URLs |
+| `/errors` | Show what went wrong on failed slices |
+| `/log` | Show recent build log |
+| `/cost` | Estimate remaining cost |
+| `/models` | Show the model cost table |
+| `/reset 41a` | Reset a failed slice so it can retry |
+| `/reset all` | Reset everything to start over |
+| `/push` | Git push review slices you've checked |
+| `/quit` | Exit |
+
+### If something goes wrong
+
+- **Slice failed?** Type `/errors` to see why, then `/reset 41a` and `/run 41a` to retry.
+- **Want to start over?** Type `/reset all`.
+- **Terminal closed?** Just re-run step 2 above. The tool remembers where it left off.
+- **API key error?** Make sure `CURSOR_API_KEY` is set. Type `echo %CURSOR_API_KEY%` in terminal to check.
+
+### How model selection works
+
+The tool picks the **cheapest model** that can do each task. If it fails, it tries the next one up:
+
+```
+Haiku 4.5 → Composer 2 → GPT-5.4 Mini → Codex Spark → Sonnet 4.6 → Codex 5.3 → GPT-5.2 → GPT-5.4 → GPT-5.5 → Opus 4.6
+```
+
+Firestore/security tasks always use Opus 4.6 (can't go cheaper — safety rule).
+
+The tool learns: if a cheap model works, it remembers. If it fails, it bumps up. Over time it gets better at picking the right model.
+
+### Files in this folder
+
+| File | What it is |
+|------|-----------|
+| `build_runner.ts` | The main tool (this is what you run) |
+| `slices.ts` | All 18 slice definitions (what to build, in what order) |
+| `model_selector.ts` | Picks the cheapest model, builds escalation ladder |
+| `validator.ts` | Checks if the build worked (syntax, HTML, exports) |
+| `prompt_builder.ts` | Generates the prompt each AI agent receives |
+| `package.json` | Dependencies (Cursor SDK, TypeScript) |
+| `.build_state.json` | Remembers which slices passed/failed (auto-generated) |
+| `build_log.txt` | Full log of everything the tool did (auto-generated) |
+
+### Related files outside this folder
+
+| File | What it is |
+|------|-----------|
+| `PROJECT_STATUS/NEW_FIELDTECH_UX_PLAN.md` | Full build plan (phases, scope, dependencies) |
+| `PROJECT_STATUS/MODEL_LOOKUP.md` | Model-per-task-pattern table (the tool reads + updates this) |
+| `PROJECT_STATUS/new_fieldtech_ux.md` | The original spec (moves to ARCHIVE when done) |
