@@ -632,11 +632,350 @@
         }
     }
 
+    /* ── Review Package (Slice 49a) ─────────────────────────────── */
+
+    var reviewPkgState = {
+        ticketId: "",
+        reportDocId: "",
+        findings: [],
+        photos: [],
+        editLog: [],
+        approvedReportText: "",
+    };
+
+    function loadReviewPackage(ticketId) {
+        reviewPkgState.ticketId = ticketId;
+        reviewPkgState.findings = [];
+        reviewPkgState.photos = [];
+        reviewPkgState.editLog = [];
+        reviewPkgState.reportDocId = "";
+        reviewPkgState.approvedReportText = "";
+
+        var card = document.getElementById("vc-review-package");
+        if (!card) return Promise.resolve();
+
+        if (!ticketId || typeof firebase === "undefined" || !firebase.firestore) {
+            card.style.display = "none";
+            return Promise.resolve();
+        }
+
+        var db = firebase.firestore();
+        var crCol = (typeof VCFirestore !== "undefined" && VCFirestore.completedReports)
+            ? VCFirestore.completedReports(db)
+            : db.collection("completed_reports");
+
+        return crCol
+            .where("ticketId", "==", ticketId)
+            .orderBy("compiledAt", "desc")
+            .limit(1)
+            .get()
+            .then(function (snap) {
+                if (snap.empty) {
+                    card.style.display = "none";
+                    return;
+                }
+                var doc = snap.docs[0];
+                var data = doc.data();
+                reviewPkgState.reportDocId = doc.id;
+
+                var cr = data.compiledResult || {};
+                reviewPkgState.findings = (Array.isArray(cr.equipmentFindings) ? cr.equipmentFindings : []).map(function (f, i) {
+                    return {
+                        id: "ef-" + i,
+                        equipment: f.equipment || "Unknown Equipment",
+                        diagnosis: f.diagnosis || "",
+                        measurements: f.measurements || "",
+                        actionsTaken: f.actionsTaken || "",
+                        visible: true,
+                        internalOnly: false,
+                    };
+                });
+                reviewPkgState.photos = Array.isArray(data.photos) ? data.photos : [];
+
+                card.style.display = "block";
+                renderReviewPackageCard();
+            })
+            .catch(function (err) {
+                console.warn("[ReviewPackage] load error:", err);
+                card.style.display = "none";
+            });
+    }
+
+    function renderReviewPackageCard() {
+        var card = document.getElementById("vc-review-package");
+        if (!card) return;
+
+        var findings = reviewPkgState.findings;
+        if (!findings.length) {
+            card.innerHTML =
+                '<div class="vc-rp-empty" style="padding:16px;color:#94a3b8;font-size:13px;">' +
+                "No equipment findings in this review package.</div>";
+            return;
+        }
+
+        var html = '<div class="vc-rp-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+            '<h4 style="margin:0;font-size:15px;color:#e2e8f0;">Review Package <span style="font-size:12px;color:#64748b;">(' + findings.length + ' finding' + (findings.length !== 1 ? "s" : "") + ')</span></h4>' +
+            '<span style="font-size:11px;color:#f59e0b;">⚠ Requires human review</span>' +
+            "</div>";
+
+        for (var i = 0; i < findings.length; i++) {
+            var f = findings[i];
+            var opacity = f.visible ? "1" : "0.4";
+            var badge = f.internalOnly
+                ? ' <span style="font-size:10px;background:#7c3aed;color:#fff;padding:2px 6px;border-radius:3px;">INTERNAL</span>'
+                : "";
+
+            html += '<div class="vc-rp-finding" data-finding-id="' + escapeHtml(f.id) + '" style="' +
+                "background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px;margin-bottom:10px;opacity:" + opacity + ';">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+                '<strong style="color:#00d4ff;font-size:13px;">' + escapeHtml(f.equipment) + "</strong>" + badge +
+                "</div>" +
+                '<div style="margin-bottom:6px;">' +
+                '<label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:2px;">Diagnosis</label>' +
+                '<textarea class="vc-rp-edit" data-field="diagnosis" data-idx="' + i + '" style="' +
+                "width:100%;box-sizing:border-box;min-height:36px;resize:vertical;font-family:inherit;font-size:12px;" +
+                'background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:4px;padding:6px;">' +
+                escapeHtml(f.diagnosis) + "</textarea></div>" +
+                '<div style="margin-bottom:6px;">' +
+                '<label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:2px;">Measurements</label>' +
+                '<textarea class="vc-rp-edit" data-field="measurements" data-idx="' + i + '" style="' +
+                "width:100%;box-sizing:border-box;min-height:36px;resize:vertical;font-family:inherit;font-size:12px;" +
+                'background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:4px;padding:6px;">' +
+                escapeHtml(f.measurements) + "</textarea></div>" +
+                '<div style="margin-bottom:6px;">' +
+                '<label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:2px;">Actions Taken</label>' +
+                '<textarea class="vc-rp-edit" data-field="actionsTaken" data-idx="' + i + '" style="' +
+                "width:100%;box-sizing:border-box;min-height:36px;resize:vertical;font-family:inherit;font-size:12px;" +
+                'background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:4px;padding:6px;">' +
+                escapeHtml(f.actionsTaken) + "</textarea></div>" +
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">' +
+                '<button type="button" class="vc-rp-toggle-btn" data-idx="' + i + '" style="' +
+                "font-size:11px;padding:4px 10px;border:1px solid #475569;background:transparent;color:#94a3b8;" +
+                'border-radius:4px;cursor:pointer;">' +
+                (f.visible ? "Remove" : "Restore") + "</button>" +
+                '<button type="button" class="vc-rp-internal-btn" data-idx="' + i + '" style="' +
+                "font-size:11px;padding:4px 10px;border:1px solid #7c3aed;background:transparent;color:#a78bfa;" +
+                'border-radius:4px;cursor:pointer;">' +
+                (f.internalOnly ? "Make Customer-Visible" : "Mark Internal Only") + "</button>" +
+                "</div></div>";
+        }
+
+        html += '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">' +
+            '<button type="button" id="vcRpApproveBtn" style="' +
+            "padding:10px 18px;background:#0f766e;color:#fff;border:none;border-radius:6px;" +
+            'font-weight:bold;cursor:pointer;font-size:13px;">Approve for Customer Report</button>' +
+            '<button type="button" id="vcRpPreviewBtn" style="' +
+            "padding:10px 18px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:6px;" +
+            'cursor:pointer;font-size:13px;">Preview Report</button>' +
+            "</div>" +
+            '<div id="vcRpStatus" style="font-size:12px;color:#64748b;margin-top:8px;" aria-live="polite"></div>' +
+            '<div id="vcRpPreviewArea" style="display:none;margin-top:12px;"></div>';
+
+        card.innerHTML = html;
+        wireReviewPackageEvents(card);
+    }
+
+    function wireReviewPackageEvents(card) {
+        if (!card) return;
+
+        card.querySelectorAll(".vc-rp-toggle-btn").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                var idx = parseInt(btn.getAttribute("data-idx"), 10);
+                if (isNaN(idx) || !reviewPkgState.findings[idx]) return;
+                reviewPkgState.findings[idx].visible = !reviewPkgState.findings[idx].visible;
+                renderReviewPackageCard();
+            });
+        });
+
+        card.querySelectorAll(".vc-rp-internal-btn").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                var idx = parseInt(btn.getAttribute("data-idx"), 10);
+                if (isNaN(idx) || !reviewPkgState.findings[idx]) return;
+                reviewPkgState.findings[idx].internalOnly = !reviewPkgState.findings[idx].internalOnly;
+                renderReviewPackageCard();
+            });
+        });
+
+        card.querySelectorAll(".vc-rp-edit").forEach(function (ta) {
+            ta.addEventListener("blur", function () {
+                var idx = parseInt(ta.getAttribute("data-idx"), 10);
+                var field = ta.getAttribute("data-field");
+                if (isNaN(idx) || !reviewPkgState.findings[idx] || !field) return;
+                var original = reviewPkgState.findings[idx][field] || "";
+                var edited = ta.value || "";
+                if (original !== edited) {
+                    reviewPkgState.findings[idx][field] = edited;
+                    reviewPkgState.editLog.push({
+                        field: field,
+                        findingId: reviewPkgState.findings[idx].id,
+                        original: original,
+                        edited: edited,
+                    });
+                }
+            });
+        });
+
+        var approveBtn = document.getElementById("vcRpApproveBtn");
+        if (approveBtn) {
+            approveBtn.addEventListener("click", function () {
+                void approveReviewPackage();
+            });
+        }
+        var previewBtn = document.getElementById("vcRpPreviewBtn");
+        if (previewBtn) {
+            previewBtn.addEventListener("click", function () {
+                previewCustomerReport();
+            });
+        }
+    }
+
+    function buildCustomerReportText() {
+        var lines = [];
+        lines.push("SERVICE REPORT");
+        lines.push("");
+        var visibleFindings = reviewPkgState.findings.filter(function (f) {
+            return f.visible && !f.internalOnly;
+        });
+
+        if (!visibleFindings.length) {
+            lines.push("Service was performed. No reportable findings at this time.");
+            return lines.join("\n");
+        }
+
+        for (var i = 0; i < visibleFindings.length; i++) {
+            var f = visibleFindings[i];
+            lines.push(f.equipment);
+            if (f.diagnosis) lines.push("  Diagnosis: " + f.diagnosis);
+            if (f.measurements) lines.push("  Measurements: " + f.measurements);
+            if (f.actionsTaken) lines.push("  Actions taken: " + f.actionsTaken);
+            lines.push("");
+        }
+
+        return lines.join("\n").trim();
+    }
+
+    function previewCustomerReport() {
+        var area = document.getElementById("vcRpPreviewArea");
+        if (!area) return;
+        var text = buildCustomerReportText();
+        area.style.display = "block";
+        area.innerHTML =
+            '<label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">Customer Report Preview</label>' +
+            '<pre style="background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:6px;' +
+            'padding:12px;font-size:12px;white-space:pre-wrap;max-height:260px;overflow-y:auto;">' +
+            escapeHtml(text) + "</pre>";
+    }
+
+    function getDispatcherName() {
+        try {
+            if (typeof window.VCAuth !== "undefined" && VCAuth.currentProfile) {
+                var p = VCAuth.currentProfile();
+                if (p && p.name) return String(p.name);
+                if (p && p.email) return String(p.email);
+            }
+        } catch (e) {}
+        return "dispatcher";
+    }
+
+    async function saveReviewEdits() {
+        if (!reviewPkgState.reportDocId || !reviewPkgState.editLog.length) return;
+        if (typeof firebase === "undefined" || !firebase.firestore) return;
+        var db = firebase.firestore();
+
+        var crCol = (typeof VCFirestore !== "undefined" && VCFirestore.completedReports)
+            ? VCFirestore.completedReports(db)
+            : db.collection("completed_reports");
+
+        var editsCol = crCol.doc(reviewPkgState.reportDocId).collection("review_edits");
+        var editorName = getDispatcherName();
+        var now = new Date().toISOString();
+
+        var batch = db.batch();
+        for (var i = 0; i < reviewPkgState.editLog.length; i++) {
+            var entry = reviewPkgState.editLog[i];
+            var ref = editsCol.doc();
+            batch.set(ref, {
+                original: entry.original,
+                edited: entry.edited,
+                field: entry.field,
+                editedBy: editorName,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                findingId: entry.findingId || "",
+                localTimestamp: now,
+            });
+        }
+        await batch.commit();
+        reviewPkgState.editLog = [];
+    }
+
+    async function approveReviewPackage() {
+        var btn = document.getElementById("vcRpApproveBtn");
+        var statusEl = document.getElementById("vcRpStatus");
+        if (!reviewPkgState.ticketId) {
+            if (statusEl) statusEl.textContent = "No ticket loaded.";
+            return;
+        }
+
+        var reportText = buildCustomerReportText();
+        if (!reportText.trim()) {
+            if (statusEl) statusEl.textContent = "Nothing to approve — all findings removed.";
+            return;
+        }
+
+        if (btn) { btn.disabled = true; btn.textContent = "Approving…"; }
+        if (statusEl) statusEl.textContent = "Saving…";
+
+        try {
+            await saveReviewEdits();
+
+            if (typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged) {
+                var db = firebase.firestore();
+                await VCFirestore.setServiceCallMerged(db, reviewPkgState.ticketId, {
+                    clientPortalMemo: reportText,
+                    reviewPackageApproved: true,
+                    reviewPackageApprovedAt: new Date().toISOString(),
+                    reviewPackageApprovedBy: getDispatcherName(),
+                }, true);
+            }
+
+            var memoEl = document.getElementById("scClientPortalMemo");
+            if (memoEl) memoEl.value = reportText;
+
+            var dbLocal = [];
+            try { dbLocal = JSON.parse(localStorage.getItem("twinPillarsServiceDB") || "[]"); } catch (e) {}
+            var ix = dbLocal.findIndex(function (r) { return r && r.id === reviewPkgState.ticketId; });
+            if (ix >= 0) {
+                dbLocal[ix].clientPortalMemo = reportText;
+                dbLocal[ix].reviewPackageApproved = true;
+                try { localStorage.setItem("twinPillarsServiceDB", JSON.stringify(dbLocal)); } catch (e) {}
+            }
+
+            reviewPkgState.approvedReportText = reportText;
+            if (statusEl) {
+                statusEl.style.color = "#16a34a";
+                statusEl.textContent = "✓ Customer report approved and saved to portal memo.";
+            }
+            if (typeof global.showSaveCue === "function") {
+                global.showSaveCue("✓ Review package approved — customer report saved.");
+            }
+        } catch (err) {
+            console.error("[ReviewPackage] approve error:", err);
+            if (statusEl) {
+                statusEl.style.color = "#dc2626";
+                statusEl.textContent = "Error: " + (err && err.message ? err.message : String(err));
+            }
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = "Approve for Customer Report"; }
+        }
+    }
+
     global.VcAiReportReviewer = {
         openModal: openModal,
         closeModal: closeModal,
         generate: generate,
         approveAndSave: approveAndSave,
+        loadReviewPackage: loadReviewPackage,
+        approveReviewPackage: approveReviewPackage,
         init: init,
     };
 

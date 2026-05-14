@@ -1344,6 +1344,8 @@ function clearServiceForm() {
     if (typeof renderDispatcherFieldEvidenceOverrides === "function") {
         renderDispatcherFieldEvidenceOverrides(null);
     }
+    var vcRpCard = document.getElementById("vc-review-package");
+    if (vcRpCard) { vcRpCard.style.display = "none"; vcRpCard.innerHTML = ""; }
     document.getElementById('serviceFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -1785,6 +1787,10 @@ async function loadServiceCall(dbId) {
         renderDispatcherFieldEvidenceOverrides(data);
     }
     await loadDispatcherSiteIntelForCurrentForm();
+
+    if (typeof VcAiReportReviewer !== "undefined" && VcAiReportReviewer.loadReviewPackage) {
+        VcAiReportReviewer.loadReviewPackage(data.id);
+    }
 }
 
 // --- HELPER FUNCTION: FORMAT TIME FOR BLOCKS ---

@@ -39,7 +39,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "SettingsViewFix-2026-05-13";
+      window.VC_BUILD = "Phase49-Slice49a-2026-05-14";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -4045,6 +4045,15 @@
                   "
                   placeholder="The full report from the Field app appears here after the tech taps Complete &amp; Sync. Dispatch notes above are separate."
                 ></textarea>
+              </div>
+            </div>
+
+            <div class="form-row" id="vc-review-package" style="display:none">
+              <div class="input-group" style="width:100%">
+                <label style="display:flex;align-items:center;gap:8px;">
+                  <span>Technician Review Package</span>
+                  <span style="font-size:11px;color:#f59e0b;font-weight:normal;">Human review required</span>
+                </label>
               </div>
             </div>
 
@@ -9686,7 +9695,7 @@
       /* ── end Settings inner-nav ─────────────────────────────────────── */
     </script>
     <script src="service_call.js?v=70"></script>
-    <script src="dispatcher/js/ai_report_reviewer.js?v=3"></script>
+    <script src="dispatcher/js/ai_report_reviewer.js?v=4"></script>
     <script src="dispatcher/js/insights_manager.js?v=4"></script>
     <script src="dispatcher/js/report_builder.js?v=3"></script>
     <script>
