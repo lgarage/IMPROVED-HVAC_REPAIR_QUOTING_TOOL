@@ -42,27 +42,27 @@ export function validateSlice(slice: Slice): ValidationResult {
     }
   }
 
-  // 3. Check expected HTML element IDs exist in technician/index.html
+  // 3. Check expected HTML element IDs exist in target HTML file
   if (slice.expectedIds.length > 0) {
-    const htmlPath = path.join(PROJECT_ROOT, "technician", "index.html");
+    const htmlPath = path.join(PROJECT_ROOT, slice.htmlTarget || path.join("technician", "index.html"));
     if (fs.existsSync(htmlPath)) {
       const html = fs.readFileSync(htmlPath, "utf-8");
       for (const id of slice.expectedIds) {
         if (!html.includes(`id="${id}"`) && !html.includes(`id='${id}'`)) {
-          errors.push(`Expected HTML element #${id} not found in technician/index.html`);
+          errors.push(`Expected HTML element #${id} not found in ${slice.htmlTarget || "technician/index.html"}`);
         }
       }
     }
   }
 
-  // 4. Check script tags wired in technician/index.html
+  // 4. Check script tags wired in target HTML file
   for (const bust of slice.cacheBusts) {
-    const htmlPath = path.join(PROJECT_ROOT, "technician", "index.html");
+    const htmlPath = path.join(PROJECT_ROOT, slice.htmlTarget || path.join("technician", "index.html"));
     if (fs.existsSync(htmlPath)) {
       const html = fs.readFileSync(htmlPath, "utf-8");
       const fileName = bust.split("?")[0];
       if (!html.includes(fileName)) {
-        errors.push(`Script tag for ${fileName} not found in technician/index.html`);
+        errors.push(`Script tag for ${fileName} not found in ${slice.htmlTarget || "technician/index.html"}`);
       }
     }
   }

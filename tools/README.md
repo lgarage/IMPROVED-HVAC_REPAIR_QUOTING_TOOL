@@ -49,12 +49,14 @@ An automated build tool that builds the New Field Tech UX in phases using the Cu
 | `/reset 41a` | Reset a failed slice so it can retry |
 | `/reset all` | Reset everything to start over |
 | `/push` | Git push review slices you've checked |
+| `/stop` | Finish current slice then pause (so you can edit in Cursor safely) |
 | `/quit` | Exit |
 
 ### If something goes wrong
 
 - **Slice failed?** Type `/errors` to see why, then `/reset 41a` and `/run 41a` to retry.
 - **Want to start over?** Type `/reset all`.
+- **Want to use Cursor while it's running?** Press **S** on your keyboard — it will finish the current slice then pause. Type `/a` to resume later.
 - **Terminal closed?** Just re-run step 2 above. The tool remembers where it left off.
 - **API key error?** Make sure `CURSOR_API_KEY` is set. Type `echo %CURSOR_API_KEY%` in terminal to check.
 

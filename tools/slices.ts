@@ -18,6 +18,7 @@ export interface Slice {
   scope: string;            // detailed scope description for the agent prompt
   outOfScope: string;
   cacheBusts: string[];     // e.g. "conversational_timeline.js?v=1"
+  htmlTarget?: string;      // which HTML file to validate IDs/scripts against (default: "technician/index.html")
 }
 
 export const SLICES: Slice[] = [
@@ -359,6 +360,7 @@ This merges the Field Chronicle compile + Dictation Hub Complete & Sync into one
     dependsOn: ["48a"],
     patterns: ["Firestore write path (new collection/doc)", "Gemini prompt integration"],
     riskLevel: "review",
+    htmlTarget: "index.html",
     filesToCreate: [],
     filesToModify: ["dispatcher/js/ai_report_reviewer.js", "service_call.js", "index.html"],
     expectedIds: ["vc-review-package"],
@@ -493,5 +495,263 @@ Display answer as a system bubble with source badge: "📖 Site notes" / "🏢 C
 Future techs at the same site or with same equipment benefit automatically.`,
     outOfScope: "Manual upload system. Full-text search across all knowledge. Embedding/vector search.",
     cacheBusts: ["teaching_layer.js?v=2", "conversational_timeline.js?v=14"],
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  //  Phase 54: Integration & Hardening
+  // ═══════════════════════════════════════════════════════════
+
+  {
+    id: "54a",
+    phase: 54,
+    title: "Integration smoke test — all modules load cleanly",
+    dependsOn: ["50a", "51a", "52a", "53a"],
+    patterns: ["Cross-module wiring (3+ files)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["technician/index.html"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Integration verification pass across all Phase 41–53 modules.
+In technician/index.html, verify:
+- All new script tags present and loading in correct order (dependencies before dependents):
+  conversational_timeline.js, job_context_engine.js, edge_intent_engine.js,
+  checklist_reminder_engine.js, teaching_layer.js, learning_sync.js
+- All expected window.* IIFE exports exist: ConversationalTimeline, VCJobContext,
+  EdgeIntentEngine, ChecklistReminder, TeachingLayer, LearningSync
+- Add a self-test block at bottom of technician/index.html that runs on load (gated by
+  window.VC_INTEGRATION_TEST flag) and logs pass/fail for each module to console.
+- Fix any broken cross-references between modules (e.g. timeline calling EdgeIntentEngine
+  but function name doesn't match).
+- Consolidate VC_BUILD stamp to a single current value.
+Do NOT change module logic — only fix wiring, load order, and export mismatches.`,
+    outOfScope: "Changing module behavior. Adding new features. Firestore writes.",
+    cacheBusts: [],
+  },
+  {
+    id: "54b",
+    phase: 54,
+    title: "Offline graceful degradation for all new modules",
+    dependsOn: ["54a"],
+    patterns: ["Multi-file UI feature (no Firestore writes)", "Cross-module wiring (3+ files)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: [
+      "conversational_timeline.js", "job_context_engine.js", "edge_intent_engine.js",
+      "checklist_reminder_engine.js", "teaching_layer.js", "learning_sync.js",
+      "technician/index.html",
+    ],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Add offline guards to every new module created in Phases 41–53.
+For each module:
+- Wrap all Firestore reads/writes in try/catch with fallback to localStorage cache
+- job_context_engine.js: if Firestore preload fails, load from localStorage last-cached snapshot
+- edge_intent_engine.js: local-only parsing must work without any network calls
+- checklist_reminder_engine.js: if form_templates fetch fails, skip reminders gracefully
+- teaching_layer.js: if knowledge fetch fails, hide "Tips available" chip
+- learning_sync.js: if upload fails, queue to localStorage, retry on next online event
+- conversational_timeline.js: timeline must render from localStorage if Firestore unavailable
+- Add navigator.onLine check before cloud escalation in edge_intent_engine.js
+- Add a subtle "offline" indicator CSS class to the timeline header when !navigator.onLine
+Pattern: addEventListener("online"/"offline") to toggle state.
+Do NOT add IndexedDB — use localStorage only for now.`,
+    outOfScope: "IndexedDB migration. Service worker changes. Full offline-first rewrite.",
+    cacheBusts: [
+      "conversational_timeline.js?v=15", "job_context_engine.js?v=5",
+      "edge_intent_engine.js?v=3", "checklist_reminder_engine.js?v=2",
+      "teaching_layer.js?v=3", "learning_sync.js?v=2",
+    ],
+  },
+  {
+    id: "54c",
+    phase: 54,
+    title: "Push review slices + consolidate VC_BUILD",
+    dependsOn: ["54a"],
+    patterns: ["UI container / HTML+CSS layout"],
+    riskLevel: "review",
+    filesToCreate: [],
+    filesToModify: ["technician/index.html", "index.html"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Consolidation pass:
+1. In technician/index.html: find all VC_BUILD assignments and consolidate to a single
+   window.VC_BUILD = "Phase54-Integration-YYYY-MM-DD" (use today's date).
+2. In index.html (dispatcher): bump VC_BUILD to match.
+3. Run git add -A, git commit with message "Phase 54c: consolidate VC_BUILD after Phases 41-53".
+4. Run git push origin main.
+This pushes ALL previously committed-but-not-pushed review slices (42a, 43b, 45a, 47a, 48a)
+along with the integration and offline fixes.`,
+    outOfScope: "Code changes beyond VC_BUILD stamp. New features.",
+    cacheBusts: [],
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  //  Phase 55: Field Deployment Readiness
+  // ═══════════════════════════════════════════════════════════
+
+  {
+    id: "55a",
+    phase: 55,
+    title: "Firebase Hosting deploy with all new JS files",
+    dependsOn: ["54c"],
+    patterns: ["Cross-module wiring (3+ files)"],
+    riskLevel: "review",
+    filesToCreate: [],
+    filesToModify: ["firebase.json"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Verify firebase.json hosting config includes all new JS files in the public directory.
+Check that the following files are accessible after deploy:
+- conversational_timeline.js
+- job_context_engine.js
+- edge_intent_engine.js
+- checklist_reminder_engine.js
+- teaching_layer.js
+- learning_sync.js
+If firebase.json "public" points to root or a subfolder, verify all new files are inside that path.
+Add rewrites/headers if needed for cache-control on new JS files (match existing pattern).
+Run: npx firebase deploy --only hosting
+Verify the live URL loads technician/index.html with no 404s for new scripts (check Network tab).
+If any file is missing from the deploy, fix the path or firebase.json config.`,
+    outOfScope: "Firestore rules deploy (that's 55b). Cloud Functions. Auth changes.",
+    cacheBusts: [],
+  },
+  {
+    id: "55b",
+    phase: 55,
+    title: "Firestore rules for new collections",
+    dependsOn: ["55a"],
+    patterns: ["Firestore write path (new collection/doc)"],
+    riskLevel: "review",
+    filesToCreate: [],
+    filesToModify: ["firestore.rules"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Add Firestore security rules for new collections created by Phases 47–52.
+New paths that need rules:
+- completed_reports/{id}/review_edits/{autoId} — write: admin only; read: authenticated
+- tenants/{tid}/learning_data/{autoId} — write: authenticated (field app auto-uploads); read: admin
+- tenants/{tid}/knowledge/{autoId} — write: authenticated (techs create teaching notes); read: authenticated
+Follow the existing pattern in firestore.rules: explicit allow per path, no catch-all.
+Use isStoredAdmin(tid) for admin-only paths (matches existing auth.js pattern).
+Use request.auth != null for authenticated-user paths.
+Do NOT deploy rules automatically — commit only. User reviews and deploys manually with:
+npx firebase deploy --only firestore:rules`,
+    outOfScope: "Storage rules. Auth provider changes. Cloud Functions.",
+    cacheBusts: [],
+  },
+  {
+    id: "55c",
+    phase: 55,
+    title: "Auth + roster verification for field test accounts",
+    dependsOn: ["55a"],
+    patterns: ["Cross-module wiring (3+ files)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["technician/index.html"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Field deployment verification pass:
+1. In technician/index.html, add a diagnostic block (gated by window.VC_FIELD_DIAG flag) that
+   on load checks and logs:
+   - Firebase Auth state (signed in / anonymous / error)
+   - app_config/technicians document accessible (read succeeds or fails)
+   - Current tech matched in roster (payroll name found)
+   - Schedule subscription active (onSnapshot fires)
+   - VCJobContext available (window.VCJobContext exists)
+   - ConversationalTimeline available (window.ConversationalTimeline exists)
+2. Display results as a dismissible banner at top of schedule screen when VC_FIELD_DIAG is true.
+3. Log all results to console for remote debugging via Shadow Mode.
+This is a diagnostic tool for field testing — not user-facing in production.`,
+    outOfScope: "Creating Firebase Auth accounts. Populating roster data. UI changes beyond diagnostic banner.",
+    cacheBusts: [],
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  //  Phase 56: Offline Photo Outbox + SW Cache
+  // ═══════════════════════════════════════════════════════════
+
+  {
+    id: "56a",
+    phase: 56,
+    title: "Offline photo outbox (KI-004)",
+    dependsOn: ["55a"],
+    patterns: ["New JS module (IIFE, no Firestore)", "Cross-module wiring (3+ files)"],
+    riskLevel: "review",
+    filesToCreate: ["shared/offline_storage_outbox.js"],
+    filesToModify: [
+      "technician/index.html", "equipment_manager.js",
+      "technician/js/workspace_ui.js", "unit_work_parser.js",
+    ],
+    expectedIds: ["vcPendingSyncChip"],
+    expectedExports: { "shared/offline_storage_outbox.js": ["enqueue", "drain", "getPendingCount"] },
+    scope: `New file: shared/offline_storage_outbox.js (IIFE, exports window.VCStorageOutbox).
+Implements an IndexedDB-backed queue for Firebase Storage uploads that fail offline.
+API: enqueue(storagePath, blob, metadata) → stores in IDB; drain() → retries all pending;
+getPendingCount() → number of items waiting.
+Auto-drain on 'online' event. Manual drain on app foreground (visibilitychange).
+UI: #vcPendingSyncChip — small pill showing pending count, pulses when draining, hides when empty.
+Wire into the 8 existing ref.put() call sites in:
+- equipment_manager.js (equipment photos — plate + overall)
+- technician/index.html (field evidence photos, addendum file uploads)
+- unit_work_parser.js (inline equipment photos)
+- workspace_ui.js (field evidence uploads)
+Pattern at each call site: wrap ref.put(blob) in try/catch → on failure, call
+VCStorageOutbox.enqueue(ref.fullPath, blob, metadata) instead of silently dropping.
+Design per ADR-012 in DECISIONS.md.`,
+    outOfScope: "Firestore document write queuing (only Storage uploads). Service worker integration.",
+    cacheBusts: ["shared/offline_storage_outbox.js?v=1"],
+  },
+  {
+    id: "56b",
+    phase: 56,
+    title: "Service worker cache hygiene",
+    dependsOn: ["55a"],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["sw.js"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Update sw.js with proper cache lifecycle management:
+1. Bump CACHE_NAME to include a version number or date stamp (e.g. "vertex-cache-v2")
+2. Add an 'activate' event handler that deletes all caches whose name !== current CACHE_NAME
+   (prevents stale cached resources from being served indefinitely)
+3. Change caching strategy for index.html and technician/index.html to network-first
+   (try network, fall back to cache) — all other assets can stay cache-first
+4. Add the new JS files from Phases 41–53 to the precache list if one exists
+Document the dispatcher-has-SW vs tech-app-no-SW asymmetry in a comment block.`,
+    outOfScope: "Adding a service worker to the tech app. PWA manifest changes. Push notifications.",
+    cacheBusts: [],
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  //  Phase 57: Dispatcher Polish
+  // ═══════════════════════════════════════════════════════════
+
+  {
+    id: "57a",
+    phase: 57,
+    title: "Dispatcher ticket details Save button",
+    dependsOn: ["55a"],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    htmlTarget: "index.html",
+    filesToCreate: [],
+    filesToModify: ["index.html", "service_call.js"],
+    expectedIds: ["vcTicketDetailsSaveBtn"],
+    expectedExports: {},
+    scope: `Add an explicit Save button to the ticket details modal (#ticketDetailsModal) footer in index.html.
+Refactor the persist logic currently inside closeTicketDetails() in service_call.js:
+- Extract the persist body into persistTicketDetailsModal({ closeAfter: boolean })
+- Wire Save button to call persistTicketDetailsModal({ closeAfter: false })
+- Wire existing Close to call persistTicketDetailsModal({ closeAfter: true })
+- On successful save, show the existing showSaveCue("✓ Saved") feedback
+- Save button stays enabled, Close button unchanged
+This gives dispatchers visible save confirmation without closing the modal.
+Pure UX polish — no data model change, no new Firestore paths.`,
+    outOfScope: "Auto-save. Undo. New fields in ticket details.",
+    cacheBusts: ["service_call.js?v=71"],
   },
 ];

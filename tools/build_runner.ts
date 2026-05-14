@@ -21,6 +21,52 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const STATE_FILE = path.join(__dirname, ".build_state.json");
 const LOG_FILE = path.join(__dirname, "build_log.txt");
 
+let stopAfterCurrent = false;
+let currentSliceStart = 0;
+let currentSliceId = "";
+let recentSliceDurations: number[] = [];
+
+function enableStopHotkey(): void {
+  if (!process.stdin.isTTY) return;
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.on("data", (key: Buffer) => {
+    const ch = key.toString();
+    if (ch === "s" || ch === "S") {
+      if (!stopAfterCurrent) {
+        stopAfterCurrent = true;
+        const elapsed = currentSliceStart ? Math.round((Date.now() - currentSliceStart) / 1000) : 0;
+        const avgDuration = recentSliceDurations.length > 0
+          ? Math.round(recentSliceDurations.reduce((a, b) => a + b, 0) / recentSliceDurations.length / 1000)
+          : 0;
+        const remaining = avgDuration > elapsed ? avgDuration - elapsed : 0;
+        console.log(`\n\n  ⏸  STOP received — will finish current slice then pause.`);
+        if (currentSliceId) {
+          console.log(`  Currently running: Slice ${currentSliceId} (${elapsed}s elapsed)`);
+        }
+        if (remaining > 0) {
+          console.log(`  Estimated time to safe stop: ~${remaining}s (avg slice takes ~${avgDuration}s)`);
+        } else if (avgDuration > 0) {
+          console.log(`  Should finish soon (avg slice takes ~${avgDuration}s, already ${elapsed}s in)`);
+        } else {
+          console.log(`  First slice — no duration estimate yet. Hang tight.`);
+        }
+        console.log();
+      }
+    }
+    if (ch === "\u0003") {
+      console.log("\n  Force quit.\n");
+      process.exit(1);
+    }
+  });
+}
+
+function disableStopHotkey(): void {
+  if (!process.stdin.isTTY) return;
+  process.stdin.setRawMode(false);
+  process.stdin.removeAllListeners("data");
+}
+
 // ─── State Management ───
 
 interface SliceState {
@@ -120,6 +166,9 @@ async function runSliceAttempt(
   log(`Patterns: ${slice.patterns.join(", ")}`);
   log(`${"═".repeat(60)}`);
 
+  currentSliceStart = Date.now();
+  currentSliceId = slice.id;
+
   const prompt = buildPrompt(slice, model);
 
   try {
@@ -205,7 +254,11 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
 
       ss.status = "passed";
       saveState(state);
-      log(`✓ Slice ${slice.id} PASSED on ${model}`);
+      const sliceDuration = Date.now() - currentSliceStart;
+      recentSliceDurations.push(sliceDuration);
+      if (recentSliceDurations.length > 5) recentSliceDurations.shift();
+      log(`✓ Slice ${slice.id} PASSED on ${model} (${Math.round(sliceDuration / 1000)}s)`);
+      currentSliceId = "";
       return true;
     }
 
@@ -223,7 +276,11 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
   ss.status = "failed";
   ss.errors = lastResult?.errors || ["All escalation attempts failed"];
   saveState(state);
-  log(`✗✗ Slice ${slice.id} FAILED after ${ladder.length} attempts (${ladder.join(" → ")})`);
+  const sliceDuration = Date.now() - currentSliceStart;
+  recentSliceDurations.push(sliceDuration);
+  if (recentSliceDurations.length > 5) recentSliceDurations.shift();
+  log(`✗✗ Slice ${slice.id} FAILED after ${ladder.length} attempts (${ladder.join(" → ")}) (${Math.round(sliceDuration / 1000)}s)`);
+  currentSliceId = "";
   return false;
 }
 
@@ -289,8 +346,12 @@ const commands: SlashCommand[] = [
         console.log("\n  No pending slices with satisfied dependencies.\n");
         return;
       }
-      console.log(`\n  Running: Slice ${next.id} — ${next.title}\n`);
+      console.log(`\n  Running: Slice ${next.id} — ${next.title}`);
+      console.log(`  Press S to stop after this slice finishes.\n`);
+      enableStopHotkey();
       await runSliceWithEscalation(next, state);
+      disableStopHotkey();
+      stopAfterCurrent = false;
     },
   },
   {
@@ -302,22 +363,25 @@ const commands: SlashCommand[] = [
       if (!requireApiKey()) return;
       console.log(`
   ┌──────────────────────────────────────────────────────────┐
-  │  AUTO-STOP RULES (from NEW_FIELDTECH_UX_PLAN.md)        │
+  │  Press S at any time to stop after the current slice.    │
   │                                                          │
-  │  • Stops if a slice fails all models in its escalation   │
-  │    ladder (3 attempts max per slice).                    │
-  │  • "review" slices (Firestore/Gemini) are committed      │
-  │    but NOT pushed — you must review & push manually.     │
-  │  • "safe" slices (UI-only) auto-push to main.            │
-  │  • Each slice is validated before moving on (HTML IDs,   │
-  │    exports, VC_BUILD bump, syntax).                      │
-  │  • Dependency order is enforced — a slice won't run      │
-  │    until its dependencies have completed.                │
+  │  • "review" slices are committed but NOT pushed.         │
+  │  • "safe" slices auto-push to main.                     │
+  │  • Each slice is validated before moving on.             │
+  │  • Dependency order is enforced.                         │
   └──────────────────────────────────────────────────────────┘
 `);
+      enableStopHotkey();
       let next = getNextSlice(state);
       let count = 0;
       while (next) {
+        if (stopAfterCurrent) {
+          console.log(`\n  ⏸  Graceful stop requested. Finished ${count} slice(s). Repo is clean.`);
+          console.log(`  Next pending: Slice ${next.id} — ${next.title}`);
+          console.log(`  You can safely edit in Cursor now. Run /a to resume later.\n`);
+          stopAfterCurrent = false;
+          break;
+        }
         count++;
         console.log(`\n  [${ count }] Running: Slice ${next.id} — ${next.title}\n`);
         const success = await runSliceWithEscalation(next, state);
@@ -327,6 +391,8 @@ const commands: SlashCommand[] = [
         }
         next = getNextSlice(state);
       }
+      disableStopHotkey();
+      stopAfterCurrent = false;
       if (!next) {
         console.log(`\n  All done! ${count} slices completed.\n`);
       }
@@ -593,6 +659,22 @@ const commands: SlashCommand[] = [
     },
   },
   {
+    name: "/stop",
+    alias: ["/pause", "/yield"],
+    args: "",
+    description: "Finish current slice then stop (so you can use Cursor safely)",
+    handler: async () => {
+      if (stopAfterCurrent) {
+        console.log("\n  Already stopping after current slice.\n");
+        return;
+      }
+      stopAfterCurrent = true;
+      console.log("\n  ⏸  Stop requested. Will finish the current slice then pause.");
+      console.log("  The repo will be in a clean state when it stops.");
+      console.log("  Use /a to resume building later.\n");
+    },
+  },
+  {
     name: "/quit",
     alias: ["/q", "/exit"],
     args: "",
@@ -613,7 +695,7 @@ function printHelp(): void {
     "Info": commands.filter((c) => ["/status", "/plan", "/inspect", "/preview", "/errors", "/log"].includes(c.name)),
     "Cost": commands.filter((c) => ["/cost", "/models"].includes(c.name)),
     "Manage": commands.filter((c) => ["/reset", "/push", "/preflight"].includes(c.name)),
-    "Other": commands.filter((c) => ["/help", "/quit"].includes(c.name)),
+    "Other": commands.filter((c) => ["/help", "/stop", "/quit"].includes(c.name)),
   };
 
   for (const [group, cmds] of Object.entries(groups)) {
