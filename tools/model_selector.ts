@@ -59,9 +59,9 @@ export function selectModel(taskPatterns: string[]): string {
     const row = table.find((r) => r.pattern === pattern);
     if (!row) {
       // Unknown pattern — default to Sonnet as safe middle ground
-      if (MODEL_COST_RANK["claude-4.6-sonnet"] > bestRank) {
-        bestModel = "claude-4.6-sonnet";
-        bestRank = MODEL_COST_RANK["claude-4.6-sonnet"];
+      if (MODEL_COST_RANK["claude-sonnet-4-6"] > bestRank) {
+        bestModel = "claude-sonnet-4-6";
+        bestRank = MODEL_COST_RANK["claude-sonnet-4-6"];
       }
       continue;
     }
@@ -210,7 +210,7 @@ export function buildEscalationLadder(taskPatterns: string[]): string[] {
 
   // If we couldn't add 2 escalation steps (base was already near top), pad with ceiling
   while (ladder.length < 3) {
-    ladder.push("claude-4.6-opus");
+    ladder.push("claude-opus-4-6");
   }
 
   // Deduplicate
