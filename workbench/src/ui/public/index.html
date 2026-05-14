@@ -52,6 +52,37 @@
     }
     .start-over:hover { color: var(--accent); text-decoration: underline; }
 
+    /* Sandbox server badge (header) */
+    .server-badge {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px 4px 8px;
+      border-radius: 20px;
+      background: rgba(46,204,113,0.12);
+      border: 1px solid rgba(46,204,113,0.35);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--success);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .server-badge.visible { display: flex; }
+    .server-badge:active { opacity: 0.7; }
+    .server-dot-green {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--success);
+      animation: livepulse 1.4s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    .server-badge-stop {
+      font-size: 10px;
+      color: var(--danger);
+      margin-left: 3px;
+      opacity: 0.8;
+    }
+
     /* LIVE badge */
     .live-badge {
       display: none;
@@ -519,7 +550,12 @@
     <span class="status-dot" id="statusDot"></span>
     <h1>Repo Workbench</h1>
   </div>
-  <div style="display:flex;align-items:center;gap:12px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="server-badge" id="serverBadge" onclick="stopSandboxServerFromHeader()" title="Sandbox server running — tap to stop">
+      <span class="server-dot-green"></span>
+      <span id="serverBadgeLabel">:4100</span>
+      <span class="server-badge-stop">&#x25A0; stop</span>
+    </button>
     <div class="live-badge" id="liveBadge">
       <span class="live-dot"></span>Live
     </div>
@@ -839,6 +875,10 @@ async function loadStatus() {
   // Auto-resume if a task is already running or has results (e.g. opened from phone mid-run)
   if (activeRun.sandboxId) {
     currentSandboxId = activeRun.sandboxId;
+
+    // Restore server badge if sandbox dev-server is already running
+    const serverStatus = await api('GET', `/api/sandbox/${activeRun.sandboxId}/server-status`);
+    if (serverStatus.running) showServerBadge(serverStatus.port);
 
     if (activeRun.running) {
       // Task in progress — show live log viewer and start polling
@@ -1201,6 +1241,7 @@ async function reviewChanges(id) {
     // Dev-server already running — load it
     const serverUrl = `http://${window.location.hostname}:${serverStatus.port}`;
     showSandboxServerRunning(id, serverUrl);
+    showServerBadge(serverStatus.port);
     waitAndLoadIframe(serverUrl);
 
   } else {
@@ -1271,6 +1312,20 @@ async function waitAndLoadIframe(url, maxAttempts = 12, delayMs = 2000) {
   `;
 }
 
+function showServerBadge(port) {
+  $('#serverBadgeLabel').textContent = 'Server :' + port;
+  $('#serverBadge').classList.add('visible');
+}
+
+function hideServerBadge() {
+  $('#serverBadge').classList.remove('visible');
+}
+
+async function stopSandboxServerFromHeader() {
+  if (!currentSandboxId) return;
+  await stopSandboxServer(currentSandboxId);
+}
+
 async function startSandboxServer(id) {
   if (!id) return;
   $('#launchServerBtn').disabled = true;
@@ -1294,6 +1349,7 @@ async function startSandboxServer(id) {
 
   const serverUrl = `http://${window.location.hostname}:${data.port}`;
   showSandboxServerRunning(id, serverUrl);
+  showServerBadge(data.port);
   setStatus('Sandbox server starting on port ' + data.port);
   waitAndLoadIframe(serverUrl);
 }
@@ -1301,6 +1357,7 @@ async function startSandboxServer(id) {
 async function stopSandboxServer(id) {
   if (!id) return;
   await api('POST', `/api/sandbox/${id}/stop-server`);
+  hideServerBadge();
   const iframeEl = $('#sandboxIframe');
   iframeEl.src = '';
   iframeEl.style.display = 'none';
