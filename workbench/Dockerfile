@@ -13,9 +13,9 @@ COPY bin/ ./bin/
 
 RUN npx tsc
 
-EXPOSE 4040
+EXPOSE 4141
 
-ENV WORKBENCH_PORT=4040
+ENV WORKBENCH_PORT=4141
 
 # Mount target repo at /workspace
 VOLUME ["/workspace"]
