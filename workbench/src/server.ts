@@ -315,6 +315,29 @@ app.get("/api/browse-dirs", (req, res) => {
   }
 });
 
+// --- Active run discovery (for mobile page-load resume) ---
+
+app.get("/api/active-run", (_req, res) => {
+  const runningIds = Array.from(activeSandboxRuns);
+  if (runningIds.length > 0) {
+    const id = runningIds[0];
+    const logs = sandboxStatusLogs.get(id) || [];
+    return res.json({ running: true, sandboxId: id, logs, hasResult: false });
+  }
+
+  // No active run — find the most recently started sandbox that has results or logs
+  const sandboxes = listSandboxes(getWorkbenchDir()).sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt)
+  );
+  for (const sb of sandboxes) {
+    if (sandboxResults.has(sb.id)) {
+      return res.json({ running: false, sandboxId: sb.id, logs: sandboxStatusLogs.get(sb.id) || [], hasResult: true });
+    }
+  }
+
+  res.json({ running: false, sandboxId: null, logs: [], hasResult: false });
+});
+
 // --- Sandbox static file preview ---
 
 app.get("/api/sandbox/:id/entry-point", (req, res) => {

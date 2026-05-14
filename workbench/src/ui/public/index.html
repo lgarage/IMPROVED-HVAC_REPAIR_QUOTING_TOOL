@@ -52,6 +52,43 @@
     }
     .start-over:hover { color: var(--accent); text-decoration: underline; }
 
+    /* LIVE badge */
+    .live-badge {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: rgba(231,76,60,0.15);
+      border: 1px solid rgba(231,76,60,0.4);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--danger);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .live-badge.visible { display: flex; }
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--danger);
+      animation: livepulse 1s ease-in-out infinite;
+    }
+    @keyframes livepulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    /* Taller log viewer on mobile */
+    .log-viewer {
+      background: var(--bg); border: 1px solid var(--surface2); border-radius: var(--radius);
+      padding: 10px; font-family: "SF Mono", monospace; font-size: 12px;
+      max-height: 200px; overflow-y: auto; color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+    @media (max-width: 640px) {
+      .log-viewer { max-height: 55vh; font-size: 13px; }
+    }
+
     #conversation {
       max-width: 720px;
       margin: 0 auto;
@@ -295,13 +332,6 @@
     .dialog-actions { display: flex; gap: 8px; margin-top: 16px; }
     .dialog-actions .btn { flex: 1; }
 
-    .log-viewer {
-      background: var(--bg); border: 1px solid var(--surface2); border-radius: var(--radius);
-      padding: 10px; font-family: "SF Mono", monospace; font-size: 12px;
-      max-height: 200px; overflow-y: auto; color: var(--text-dim);
-      margin-bottom: 10px;
-    }
-
     /* Repo path display */
     .repo-path-display {
       background: var(--bg);
@@ -489,7 +519,10 @@
     <span class="status-dot" id="statusDot"></span>
     <h1>Repo Workbench</h1>
   </div>
-  <div style="display:flex;align-items:center;gap:16px">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="live-badge" id="liveBadge">
+      <span class="live-dot"></span>Live
+    </div>
     <a class="start-over" id="startOverLink" onclick="startOver()">Start Over</a>
     <span id="headerRepo" style="font-size:12px;color:var(--text-dim)"></span>
   </div>
@@ -779,7 +812,11 @@ function replaceCascadeMsg(el, text, cls) {
 // --- Load initial state ---
 
 async function loadStatus() {
-  const data = await api('GET', '/api/status');
+  const [data, activeRun] = await Promise.all([
+    api('GET', '/api/status'),
+    api('GET', '/api/active-run'),
+  ]);
+
   $('#repoPathInput').value = data.repoPath || '';
   updateRepoPathDisplay(data.repoPath);
   $('#headerRepo').textContent = data.repoPath ? data.repoPath.split(/[\\/]/).pop() : '';
@@ -792,6 +829,30 @@ async function loadStatus() {
     collapseStep('step-repo', data.repoPath.split(/[\\/]/).pop());
     revealStep('step-analysis');
     revealStep('step-notes');
+  }
+
+  // Auto-resume if a task is already running or has results (e.g. opened from phone mid-run)
+  if (activeRun.sandboxId) {
+    currentSandboxId = activeRun.sandboxId;
+
+    if (activeRun.running) {
+      // Task in progress — show live log viewer and start polling
+      revealStep('step-cascade');
+      $('#cascadeStatus').innerHTML = '';
+      addCascadeMsg('AI task in progress (resumed)', 'done');
+      $('#cascadeLogs').classList.remove('hidden');
+      const logEl = $('#runningLogs');
+      logEl.textContent = activeRun.logs.length ? activeRun.logs.join('\n') : 'Running\u2026';
+      logEl.scrollTop = logEl.scrollHeight;
+      setStatus('AI task running in sandbox ' + activeRun.sandboxId);
+      startPolling(activeRun.sandboxId);
+    } else if (activeRun.hasResult) {
+      // Task already done — show results
+      revealStep('step-cascade');
+      $('#cascadeStatus').innerHTML = '';
+      addCascadeMsg('AI task complete', 'done');
+      await showResults(activeRun.sandboxId);
+    }
   }
 }
 
@@ -947,6 +1008,7 @@ async function proceedFromNotes() {
 
 function startPolling(id) {
   stopPolling();
+  $('#liveBadge').classList.add('visible');
   pollTimer = setInterval(async () => {
     const data = await api('GET', `/api/sandbox/${id}/status`);
     const logEl = $('#runningLogs');
@@ -966,6 +1028,7 @@ function startPolling(id) {
 
 function stopPolling() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  $('#liveBadge').classList.remove('visible');
 }
 
 // --- Results ---
