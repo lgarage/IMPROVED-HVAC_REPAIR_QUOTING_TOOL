@@ -1,0 +1,17 @@
+{
+  "name": "vertex-build-runner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SDK automation for Vertex field tech UX phased build",
+  "scripts": {
+    "build": "npx tsc",
+    "start": "npx ts-node build_runner.ts",
+    "dry-run": "npx ts-node build_runner.ts --dry-run",
+    "status": "npx ts-node build_runner.ts --status"
+  },
+  "dependencies": {
+    "@cursor/sdk": "latest",
+    "typescript": "^5.5.0",
+    "ts-node": "^10.9.0"
+  }
+}

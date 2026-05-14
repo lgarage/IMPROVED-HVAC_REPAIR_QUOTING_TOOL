@@ -289,6 +289,59 @@ The agent receiving this prompt should:
 
 ---
 
+## SDK Build Runner (`tools/build_runner.ts`)
+
+Automated slice runner using the Cursor SDK. Builds slices sequentially, picks the cheapest model, auto-escalates on failure, validates, deploys previews, and keeps the model lookup table current.
+
+### Setup (one-time)
+```bash
+cd tools
+npm install
+```
+
+### Get your API key
+1. Go to https://cursor.com/dashboard/integrations
+2. Generate a user API key
+3. Set it: `set CURSOR_API_KEY=your_key_here` (Windows) or `export CURSOR_API_KEY=your_key_here` (Mac/Linux)
+
+### Commands
+```bash
+npx ts-node build_runner.ts --status       # Show slice status table
+npx ts-node build_runner.ts --dry-run --all # Preview all slices + escalation ladders
+npx ts-node build_runner.ts                 # Run next pending slice
+npx ts-node build_runner.ts --all           # Run ALL pending slices (fire and forget)
+npx ts-node build_runner.ts 41a             # Run a specific slice
+```
+
+### How escalation works
+1. Script reads `MODEL_LOOKUP.md` and picks the **cheapest model** that matches the slice's patterns
+2. If that model **fails** (agent error or validation failure), it **reverts partial changes** and retries with the **next cheapest model**
+3. Up to 3 attempts per slice (escalation ladder shown in `--dry-run`)
+4. Lookup table is updated **only** after the final outcome — success lowers future costs, failure raises them
+5. **Floor constraints** (e.g. Firestore writes → Opus 4.6 minimum) can never be lowered
+
+### What it validates after each slice
+- JS syntax (`node --check`)
+- Expected HTML element IDs exist
+- Script tags wired correctly
+- Cache-bust versions bumped
+- Expected function exports present
+- VC_BUILD stamp updated
+
+### Push safety
+- `riskLevel: "safe"` slices (UI-only) → auto-push to main
+- `riskLevel: "review"` slices (Firestore/Gemini) → committed but NOT pushed (you review + push)
+
+### Files
+- `tools/build_runner.ts` — orchestrator
+- `tools/slices.ts` — all 18 slice definitions (scope, files, patterns, validation)
+- `tools/model_selector.ts` — reads MODEL_LOOKUP.md, picks cheapest model, builds escalation ladder
+- `tools/validator.ts` — post-build validation checks
+- `tools/prompt_builder.ts` — generates the detailed prompt each agent receives
+- `PROJECT_STATUS/MODEL_LOOKUP.md` — compact model-per-pattern table (max 50 rows)
+
+---
+
 ## Invariants (every slice must not break)
 
 - Existing workspace flow (`openWorkspace`, `switchScreen`, schedule) must keep working throughout — new timeline is additive, not a rip-and-replace until stable.

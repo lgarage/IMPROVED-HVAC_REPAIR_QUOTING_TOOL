@@ -1,0 +1,497 @@
+/**
+ * Slice definitions for the New Field Tech UX phased build.
+ * Each slice has scope, files, patterns (for model lookup), validation checks,
+ * and push safety level.
+ */
+
+export interface Slice {
+  id: string;
+  phase: number;
+  title: string;
+  dependsOn: string[];
+  patterns: string[];       // match against MODEL_LOOKUP.md Pattern column
+  riskLevel: "safe" | "review";  // safe = auto-push, review = commit only
+  filesToCreate: string[];
+  filesToModify: string[];
+  expectedIds: string[];    // HTML element IDs to verify after build
+  expectedExports: Record<string, string[]>;  // file → exported function names
+  scope: string;            // detailed scope description for the agent prompt
+  outOfScope: string;
+  cacheBusts: string[];     // e.g. "conversational_timeline.js?v=1"
+}
+
+export const SLICES: Slice[] = [
+  // ─── Phase 41: Conversational Timeline UI ───
+  {
+    id: "41a",
+    phase: 41,
+    title: "Timeline container + message rendering",
+    dependsOn: [],
+    patterns: ["UI container / HTML+CSS layout", "New JS module (IIFE, no Firestore)"],
+    riskLevel: "safe",
+    filesToCreate: ["conversational_timeline.js"],
+    filesToModify: ["technician/index.html"],
+    expectedIds: ["conversational-timeline", "ct-message-list"],
+    expectedExports: { "conversational_timeline.js": ["addEntry", "renderTimeline"] },
+    scope: `Create a new conversational timeline UI inside #screen-workspace in technician/index.html. 
+New file: conversational_timeline.js (IIFE pattern matching existing modules like field_chronicle.js).
+The timeline is a single scrollable container showing message bubbles — tech messages on right (cyan), system responses on left (gray). 
+Seed the timeline with activeTicket data on openWorkspace (job info, customer, site).
+CSS: chat-bubble layout, auto-scroll to bottom, obsidian background (#1a1a2e) with cyan accents matching existing theme.
+Wire: add <script src="../conversational_timeline.js?v=1"></script> before closing </body> in technician/index.html.
+The timeline container sits ABOVE the existing dictation hub section — additive, not replacing anything yet.
+Export window.ConversationalTimeline = { init, addEntry, renderTimeline, scrollToBottom }.
+Use localStorage keyed by ticketId for timeline persistence between reloads.`,
+    outOfScope: "Voice input, media capture, follow-up prompts, Vertex AI responses, Firestore writes.",
+    cacheBusts: ["conversational_timeline.js?v=1"],
+  },
+  {
+    id: "41b",
+    phase: 41,
+    title: "Hold-to-Talk + live STT in timeline",
+    dependsOn: ["41a"],
+    patterns: ["Speech API / media capture integration", "Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["conversational_timeline.js", "technician/index.html"],
+    expectedIds: ["ct-action-bar", "ct-talk-btn"],
+    expectedExports: { "conversational_timeline.js": ["startListening", "stopListening"] },
+    scope: `Add a bottom action bar to the conversational timeline with a Hold-to-Talk button (right side).
+Press-and-hold triggers webkitSpeechRecognition (or SpeechRecognition). Live transcript appears as a "draft" bubble (pulsing border).
+Release → finalize entry → add to timeline as a tech message.
+Fallback: text input field between the buttons for type-to-add.
+The action bar is fixed at the bottom of #conversational-timeline, always visible.
+CSS: large circular talk button (56px), glove-friendly tap target, cyan glow while recording.
+Handle: permission denied, not-supported browser, and interim vs final results.
+Must work on mobile Safari (iOS) and Chrome Android.`,
+    outOfScope: "Photo/video capture button (that's 41c). Vertex AI responses.",
+    cacheBusts: ["conversational_timeline.js?v=2"],
+  },
+  {
+    id: "41c",
+    phase: 41,
+    title: "Media capture button + timeline attachment",
+    dependsOn: ["41b"],
+    patterns: ["Speech API / media capture integration", "UI container / HTML+CSS layout"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["conversational_timeline.js", "technician/index.html"],
+    expectedIds: ["ct-media-btn"],
+    expectedExports: { "conversational_timeline.js": ["capturePhoto", "captureVideo"] },
+    scope: `Add a media capture button (left side of action bar, beside the talk button).
+Tap → open camera for photo (input type="file" accept="image/*" — NO capture attribute so iOS shows full picker).
+Hold (500ms) → start video recording via MediaRecorder API.
+Captured media appears as a timeline entry with thumbnail (80px wide), timestamp, and file size.
+Upload to Firebase Storage using existing pattern: firebase.storage().ref().child('field_evidence/{ticketId}/{timestamp}_{filename}').
+Show upload progress bar on the timeline entry.
+Auto-attach metadata: activeTicketId, technicianName, timestamp.
+CSS: camera icon button (56px), same style as talk button. Dashed border placeholder while uploading.`,
+    outOfScope: "Equipment-context auto-detection (that's Phase 42). Office/customer visibility split (Phase 47).",
+    cacheBusts: ["conversational_timeline.js?v=3"],
+  },
+  {
+    id: "41d",
+    phase: 41,
+    title: "Vertex system responses (confirmation + short follow-ups)",
+    dependsOn: ["41c"],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["conversational_timeline.js"],
+    expectedIds: [],
+    expectedExports: { "conversational_timeline.js": ["processEntry", "generateResponse"] },
+    scope: `After tech adds a timeline entry, Vertex responds with a system bubble on the left side.
+v1 is rule-based (no AI):
+- Entry contains text → "Got it." + timestamp
+- Entry contains photo/video → "📷 Saved." or "🎥 Saved."
+- Entry mentions equipment reference (regex: RTU\\d+, Unit\\s*\\d+, AHU\\d+, etc.) → "Got it. [equipment ref]."
+- Entry is very short (<5 words, no equipment) → "Got it."
+Follow-up stub: if the last 3 entries have no equipment reference, show a subtle prompt: "Which unit?" (gray italic, dismissible).
+System bubbles have a small Vertex icon (use a simple "V" monogram in a circle).
+Add a 300ms delay before system response appears (feels more natural than instant).`,
+    outOfScope: "AI-powered follow-ups, checklist reminders, confidence-based escalation. Those are Phases 43-45.",
+    cacheBusts: ["conversational_timeline.js?v=4"],
+  },
+
+  // ─── Phase 42: Local Job Context Engine ───
+  {
+    id: "42a",
+    phase: 42,
+    title: "Context preload on openWorkspace",
+    dependsOn: ["41a"],
+    patterns: ["Firestore multi-read (query, no writes)", "New JS module (IIFE, no Firestore)"],
+    riskLevel: "review",
+    filesToCreate: ["job_context_engine.js"],
+    filesToModify: ["technician/index.html"],
+    expectedIds: [],
+    expectedExports: { "job_context_engine.js": ["preloadContext", "getContext", "clearContext"] },
+    scope: `New file: job_context_engine.js (IIFE, exports window.JobContextEngine).
+On openWorkspace(ticketId), bulk-fetch and cache in localStorage (keyed by ticketId):
+- Site intel notes (existing site_intelligence doc)
+- Equipment list (Customers/{custId}/Equipment collection)
+- Last 10 completed reports for this site (completed_reports where customerName + locationAddress match)
+- Previous tech notes from activeTicket.techNotes and internal_comms
+- Open quotes (if field exists on activeTicket)
+Use Promise.all for parallel Firestore reads. Total: 4-5 reads max.
+Expose window.VCJobContext = { siteNotes, equipment[], recentReports[], techNotes, quotes[], activeEquipment: null }.
+Cache expires after 4 hours (store timestamp, re-fetch if stale).
+Graceful offline: if reads fail, use cached version with a subtle "Offline — using cached data" indicator.
+Wire: add <script src="../job_context_engine.js?v=1"></script> in technician/index.html before conversational_timeline.js.`,
+    outOfScope: "12-month history (too expensive for v1). Offline writes. Equipment context tracking (42b).",
+    cacheBusts: ["job_context_engine.js?v=1"],
+  },
+  {
+    id: "42b",
+    phase: 42,
+    title: "Active equipment context tracking",
+    dependsOn: ["42a", "41d"],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["job_context_engine.js", "conversational_timeline.js"],
+    expectedIds: ["ct-active-equipment"],
+    expectedExports: { "job_context_engine.js": ["setActiveEquipment", "getActiveEquipment"] },
+    scope: `Add active equipment tracking to JobContextEngine.
+When a timeline entry mentions an equipment reference (RTU4, Unit 7, AHU2, etc.), 
+auto-set VCJobContext.activeEquipment to that reference.
+Show a small sticky chip at the top of the timeline: "🔧 RTU4" (tappable to change/clear).
+All subsequent timeline entries are tagged with the active equipment until changed.
+The conversational_timeline.js processEntry function should call JobContextEngine.setActiveEquipment() 
+when it detects an equipment reference.
+Media captures auto-tagged with active equipment in their metadata.
+Regex patterns for equipment: /\\b(RTU|AHU|FCU|MAU|CU|HP|Unit|Chiller|Boiler)\\s*#?\\d+/i`,
+    outOfScope: "Persisting equipment context to Firestore. Full offline context engine.",
+    cacheBusts: ["job_context_engine.js?v=2", "conversational_timeline.js?v=5"],
+  },
+
+  // ─── Phase 43: Edge Intent Engine ───
+  {
+    id: "43a",
+    phase: 43,
+    title: "HVAC vocabulary correction + local entity extraction",
+    dependsOn: ["42b"],
+    patterns: ["Pure regex / dictionary logic", "New JS module (IIFE, no Firestore)"],
+    riskLevel: "safe",
+    filesToCreate: ["edge_intent_engine.js"],
+    filesToModify: ["technician/index.html", "conversational_timeline.js"],
+    expectedIds: [],
+    expectedExports: { "edge_intent_engine.js": ["parse", "correctVocab", "extractEntities"] },
+    scope: `New file: edge_intent_engine.js (IIFE, exports window.EdgeIntentEngine).
+Dictionary-based HVAC term correction: map common speech-to-text errors to correct terms.
+Include at least 30 mappings: "cat pastor"→"capacitor", "mc ferry"→"microfarad", "colonizer"→"economizer",
+"connector fan"→"condenser fan", "shiv"→"sheave", "compress her"→"compressor", etc.
+Regex-based entity extraction returning { entities[], confidence: 0-1 }:
+- Equipment refs: RTU/AHU/FCU/MAU/Unit + number
+- Temperatures: numbers followed by degrees/°F/°C or preceded by "temp"/"supply"/"return"
+- Amp draws: numbers followed by "amps"/"A" or preceded by "amps"/"draw"
+- Refrigerant: R-22, R-410A, R-407C, etc.
+- Belt sizes: AX##, BX##, A##, B##
+- Parts: capacitor, contactor, relay, motor, belt, filter, etc.
+- Capacitance: numbers followed by "microfarad"/"µF"/"mfd"
+Wire into conversational_timeline.js processEntry: run EdgeIntentEngine.parse(text) before generateResponse.`,
+    outOfScope: "Cloud escalation (43b). Learning from corrections. Persisting dictionary updates.",
+    cacheBusts: ["edge_intent_engine.js?v=1", "conversational_timeline.js?v=6"],
+  },
+  {
+    id: "43b",
+    phase: 43,
+    title: "Confidence-based cloud escalation",
+    dependsOn: ["43a"],
+    patterns: ["Gemini prompt integration", "Cross-module wiring (3+ files)"],
+    riskLevel: "review",
+    filesToCreate: [],
+    filesToModify: ["edge_intent_engine.js", "conversational_timeline.js"],
+    expectedIds: [],
+    expectedExports: { "edge_intent_engine.js": ["escalateToCloud"] },
+    scope: `Add confidence-based escalation to EdgeIntentEngine.
+When parse() returns confidence < 0.6, silently send to Gemini for structured parse.
+Reuse the existing Gemini API pattern from dictation_hub.js (getGeminiApiKey from firebase-config.js, 
+fetch to generativelanguage.googleapis.com).
+Gemini prompt: "Extract structured HVAC field data from this technician note. Return JSON with: 
+equipment, temperatures, ampDraws, parts, deficiencies, actions. Note: {text}"
+High confidence (≥0.8) → "Got it." 
+Medium confidence (0.6-0.8) → short clarification bubble ("RTU4?" or "Capacitor reading?")
+Low confidence (<0.6) → cloud escalation → use Gemini result → if still uncertain, ask shortest follow-up.
+Important: do NOT constantly ask technicians to confirm obvious things.`,
+    outOfScope: "Learning from escalation patterns. Offline escalation queue.",
+    cacheBusts: ["edge_intent_engine.js?v=2", "conversational_timeline.js?v=7"],
+  },
+
+  // ─── Phase 44: Voice + Text Follow-Ups ───
+  {
+    id: "44a",
+    phase: 44,
+    title: "Voice responses to follow-up prompts",
+    dependsOn: ["43a"],
+    patterns: ["Speech API / media capture integration", "Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["conversational_timeline.js", "technician/index.html"],
+    expectedIds: ["ct-settings-voice"],
+    expectedExports: { "conversational_timeline.js": ["handleFollowUpResponse"] },
+    scope: `When Vertex shows a follow-up prompt ("RTU4?", "Capacitor?"), tech can answer by voice.
+Speech recognition stays active for 3 seconds after a follow-up appears.
+Parse spoken responses: "yes", "no", "skip", "correct"/"correction", number values, equipment refs.
+Also allow tapping quick-reply buttons below the follow-up: [Yes] [No] [Skip].
+Settings (stored in localStorage):
+- Voice + Text mode (default): spoken prompts + text bubbles
+- Text Only mode: text bubbles + ding/vibration notification
+- Silent mode: visual only, no sound
+Add a small gear icon in the timeline header that opens a bottom-sheet with these 3 options.`,
+    outOfScope: "Settings sync to Firestore. Custom wake words.",
+    cacheBusts: ["conversational_timeline.js?v=8"],
+  },
+
+  // ─── Phase 45: Dynamic Checklist Reminder Engine ───
+  {
+    id: "45a",
+    phase: 45,
+    title: "Checklist reminder engine from form_templates",
+    dependsOn: ["42b"],
+    patterns: ["Cross-module wiring (3+ files)", "Firestore multi-read (query, no writes)"],
+    riskLevel: "review",
+    filesToCreate: ["checklist_reminder_engine.js"],
+    filesToModify: ["technician/index.html", "conversational_timeline.js", "job_context_engine.js"],
+    expectedIds: [],
+    expectedExports: { "checklist_reminder_engine.js": ["loadWorkflow", "checkMissing", "getReminders"] },
+    scope: `New file: checklist_reminder_engine.js (IIFE, exports window.ChecklistReminderEngine).
+CRITICAL: Do NOT hardcode PM checklists. Load dynamically from form_templates Firestore collection
+(same collection used by field_forms.js).
+On job check-in, load the relevant workflow template based on ticket type (PM, service call, etc.).
+Track completion state per equipment in VCJobContext: which checklist items have been mentioned
+in timeline entries (match by EdgeIntentEngine entity extraction).
+When tech says "moving onto RTU7", check RTU6's workflow state for missing items.
+If items missing, surface as a timeline follow-up: "RTU6 capacitor?" (short, not aggressive).
+Reminder philosophy: assist and remind, never hard-block or force forms.
+Wire into conversational_timeline when equipment context changes.`,
+    outOfScope: "Custom workflow editor. Escalation logic. Quote triggers from checklist.",
+    cacheBusts: ["checklist_reminder_engine.js?v=1", "conversational_timeline.js?v=9"],
+  },
+
+  // ─── Phase 46: Corrections + Editable Timeline ───
+  {
+    id: "46a",
+    phase: 46,
+    title: "Editable timeline entries + voice corrections",
+    dependsOn: ["43a"],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["conversational_timeline.js"],
+    expectedIds: [],
+    expectedExports: { "conversational_timeline.js": ["editEntry", "handleCorrection"] },
+    scope: `Allow corrections to timeline entries.
+Tap a timeline entry → inline edit mode (contenteditable, save/cancel buttons).
+Voice correction: if entry text starts with "correction" or "actually", parse the correction
+and update the most recent relevant entry (match by equipment ref or recency).
+Example: "correction, that was RTU6" → update last entry's equipment tag from RTU4 to RTU6.
+Store both original transcript and corrected version in the entry object.
+Corrected entries show a small "edited" indicator.
+Corrections feed back to EdgeIntentEngine vocabulary (if "cat pastor" was corrected to "capacitor",
+remember that mapping for this session in localStorage).`,
+    outOfScope: "Persisting corrections to Firestore for long-term learning. Undo history beyond current session.",
+    cacheBusts: ["conversational_timeline.js?v=10"],
+  },
+
+  // ─── Phase 47: Media + Context Tagging ───
+  {
+    id: "47a",
+    phase: 47,
+    title: "Auto-tag media with equipment context + visibility",
+    dependsOn: ["42b"],
+    patterns: ["Firestore write path (new collection/doc)", "Cross-module wiring (3+ files)"],
+    riskLevel: "review",
+    filesToCreate: [],
+    filesToModify: ["conversational_timeline.js", "job_context_engine.js"],
+    expectedIds: [],
+    expectedExports: { "conversational_timeline.js": ["tagMedia"] },
+    scope: `Enhance media capture to auto-tag with full context.
+When a photo/video is captured, attach metadata:
+- jobId (activeTicketId)
+- equipmentRef (from VCJobContext.activeEquipment)
+- technicianName
+- timestamp
+- visibility: "internal" (default — office can see, customer cannot)
+Write metadata to Firestore: Customers/{custId}/Equipment/{equipId}/media/{autoId}
+(or field_evidence/{ticketId}/media/{autoId} if no equipment context).
+Office view: group media by equipment in the dispatcher's service call view.
+Customer view: only show media marked as visibility:"customer" (future — dispatcher toggles this).
+Timeline entry for media shows the equipment tag badge if active equipment was set.`,
+    outOfScope: "Dispatcher UI for toggling customer visibility. Video thumbnails. Media compression.",
+    cacheBusts: ["conversational_timeline.js?v=11", "job_context_engine.js?v=3"],
+  },
+
+  // ─── Phase 48: Compile Notes Workflow ───
+  {
+    id: "48a",
+    phase: 48,
+    title: "Compile Notes — unified structured output",
+    dependsOn: ["47a"],
+    patterns: ["Gemini prompt integration", "Firestore write path (new collection/doc)"],
+    riskLevel: "review",
+    filesToCreate: [],
+    filesToModify: ["conversational_timeline.js", "technician/index.html"],
+    expectedIds: ["ct-compile-btn", "ct-compile-modal"],
+    expectedExports: { "conversational_timeline.js": ["compileNotes"] },
+    scope: `Add "Compile Notes" button at bottom of timeline (appears after ≥3 entries exist).
+Tap → gather all timeline entries + equipment context + checklist state.
+Send to Gemini with a structured prompt requesting:
+1. Per-equipment findings summary (diagnosis, measurements, actions taken)
+2. Quote recommendations (parts mentioned, labor estimates)
+3. Unresolved issues (items flagged but not resolved)
+4. Equipment history updates (new data points per unit)
+Show result in an editable modal (like Field Chronicle's compile preview).
+Copy Summary button for clipboard. 
+On "Submit to Office" → write structured package to Firestore:
+- completed_reports/{autoId} with structured JSON
+- Update each equipment's work_history subcollection
+- Flag unresolved issues on site_intelligence doc
+This merges the Field Chronicle compile + Dictation Hub Complete & Sync into one flow.`,
+    outOfScope: "Customer-facing report generation (Phase 49). Quote creation.",
+    cacheBusts: ["conversational_timeline.js?v=12"],
+  },
+
+  // ─── Phase 49: Dispatcher Review + Customer Report ───
+  {
+    id: "49a",
+    phase: 49,
+    title: "Dispatcher review workflow + customer report",
+    dependsOn: ["48a"],
+    patterns: ["Firestore write path (new collection/doc)", "Gemini prompt integration"],
+    riskLevel: "review",
+    filesToCreate: [],
+    filesToModify: ["dispatcher/js/ai_report_reviewer.js", "service_call.js", "index.html"],
+    expectedIds: ["vc-review-package"],
+    expectedExports: {},
+    scope: `Extend the dispatcher's AI Report Reviewer to receive the structured package from Phase 48.
+When a technician submits via Compile Notes, the structured package appears in the dispatcher's
+service call view as a "Review Package" card.
+Dispatcher can:
+- View per-equipment findings
+- Edit AI-generated wording
+- Remove findings or mark as internal-only
+- Approve for customer report
+On approval → generate customer-facing report (clean prose, approved photos only).
+Track dispatcher edits in a Firestore subcollection: completed_reports/{id}/review_edits/{autoId}
+with { original, edited, field, editedBy, timestamp }.
+Human review is REQUIRED before any customer-facing release.`,
+    outOfScope: "AI learning from edits (Phase 50). Customer portal delivery.",
+    cacheBusts: ["ai_report_reviewer.js?v=4", "service_call.js?v=70"],
+  },
+
+  // ─── Phase 50: Post-Job Learning Sync ───
+  {
+    id: "50a",
+    phase: 50,
+    title: "Post-job learning upload",
+    dependsOn: ["49a"],
+    patterns: ["Firestore write path (new collection/doc)", "Cross-module wiring (3+ files)"],
+    riskLevel: "review",
+    filesToCreate: ["learning_sync.js"],
+    filesToModify: ["technician/index.html", "conversational_timeline.js"],
+    expectedIds: [],
+    expectedExports: { "learning_sync.js": ["uploadLearningData"] },
+    scope: `New file: learning_sync.js (IIFE, exports window.LearningSync).
+After job checkout (Compile Notes submitted), silently upload:
+- Vocabulary corrections made during session (from EdgeIntentEngine)
+- Confidence scores per entity extraction
+- Cloud escalation results
+- Dispatcher edit history (from review_edits subcollection)
+Write to Firestore: tenants/{tid}/learning_data/{autoId}
+System learns from: corrections, reviews, repeated patterns, dispatcher edits.
+Technicians should NOT manually train the system — learning is passive.
+Include a simple weight adjustment: if a dispatcher consistently removes a finding type,
+reduce its default inclusion weight in future Gemini compile prompts.`,
+    outOfScope: "ML model retraining. Real-time learning during active job.",
+    cacheBusts: ["learning_sync.js?v=1"],
+  },
+
+  // ─── Phase 51: Site Notes + Operational Memory ───
+  {
+    id: "51a",
+    phase: 51,
+    title: "Extended site notes + operational memory",
+    dependsOn: ["42a"],
+    patterns: ["Firestore multi-read (query, no writes)", "Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["job_context_engine.js", "conversational_timeline.js", "technician/index.html"],
+    expectedIds: ["ct-site-memory"],
+    expectedExports: { "job_context_engine.js": ["getSiteMemory", "getUnresolvedIssues"] },
+    scope: `Extend JobContextEngine preload to include full operational memory:
+- Unresolved issues from previous visits (from site_intelligence doc)
+- Recurring failures (equipment with ≥2 deficiency entries in work_history)
+- Previous quotes (from service calls at this site)
+- Historical deficiencies (aggregated from completed_reports)
+Surface on workspace open: a collapsible "Site Memory" panel at top of timeline showing:
+- ⚠️ Unresolved from last visit: [list]
+- 🔄 Recurring: [equipment + issue pattern]
+- 📝 Site notes: [access codes, ladder info, parking, etc.]
+Load locally from cached context — no additional Firestore reads beyond 42a preload.
+Goal: maintain operational continuity across years and technician turnover.`,
+    outOfScope: "Editing site memory from timeline. Writing new site notes to Firestore.",
+    cacheBusts: ["job_context_engine.js?v=4", "conversational_timeline.js?v=13"],
+  },
+
+  // ─── Phase 52: Technician Teaching Layer ───
+  {
+    id: "52a",
+    phase: 52,
+    title: "Knowledge capture + contextual surfacing",
+    dependsOn: ["42a"],
+    patterns: ["Firestore write path (new collection/doc)", "New JS module (IIFE, no Firestore)"],
+    riskLevel: "review",
+    filesToCreate: ["teaching_layer.js"],
+    filesToModify: ["technician/index.html", "conversational_timeline.js"],
+    expectedIds: ["ct-teaching-btn", "ct-knowledge-panel"],
+    expectedExports: { "teaching_layer.js": ["saveTeaching", "findTeaching", "getRelevantKnowledge"] },
+    scope: `New file: teaching_layer.js (IIFE, exports window.TeachingLayer).
+Senior techs can save teaching notes via a "💡 Teach" button in the action bar:
+- Photo + voice explanation
+- Text procedure
+- Video walkthrough
+Scope levels for each teaching note:
+- Site-specific (ladder access, thermostat location)
+- Equipment-specific (RTU6 black-box economizer quirk)
+- Model-specific (Honeywell 8000 setup procedure)
+- Company-wide (PM best practices, bearing identification)
+Write to Firestore: tenants/{tid}/knowledge/{autoId} with { scope, scopeRef, mediaUrls[], text, 
+createdBy, timestamp, tags[] }.
+Contextual surfacing: when tech opens a workspace, check knowledge collection for:
+- Matching site (by customerName + locationAddress)
+- Matching equipment model/brand
+- Company-wide tips for current work type
+Show relevant knowledge as a subtle "💡 Tips available" chip — tap to expand panel.`,
+    outOfScope: "Knowledge approval workflow. Gamification. Video transcription.",
+    cacheBusts: ["teaching_layer.js?v=1"],
+  },
+
+  // ─── Phase 53: Knowledge Lookup Ladder ───
+  {
+    id: "53a",
+    phase: 53,
+    title: "Hierarchical knowledge retrieval",
+    dependsOn: ["51a", "52a"],
+    patterns: ["Gemini prompt integration", "Cross-module wiring (3+ files)"],
+    riskLevel: "review",
+    filesToCreate: [],
+    filesToModify: ["teaching_layer.js", "job_context_engine.js", "conversational_timeline.js"],
+    expectedIds: ["ct-ask-btn"],
+    expectedExports: { "teaching_layer.js": ["lookupKnowledge"] },
+    scope: `Add a "❓ Ask" button to the action bar. Tech types or speaks a question.
+Lookup ladder (stop at first hit):
+1. Current job notes (search timeline entries)
+2. Site notes (from VCJobContext.siteNotes)
+3. Equipment history (from VCJobContext.equipment work_history)
+4. Company-wide knowledge (from TeachingLayer.findTeaching with company-wide scope)
+5. Uploaded manuals (future — stub this level, return "No manual found")
+6. Cloud lookup via Gemini (send question + context, get answer)
+If cloud lookup succeeds, offer to save the answer:
+- "Save as company knowledge?" → writes to knowledge collection with company-wide scope
+- "Save as site note?" → writes to site_intelligence
+Display answer as a system bubble with source badge: "📖 Site notes" / "🏢 Company" / "☁️ Cloud".
+Future techs at the same site or with same equipment benefit automatically.`,
+    outOfScope: "Manual upload system. Full-text search across all knowledge. Embedding/vector search.",
+    cacheBusts: ["teaching_layer.js?v=2", "conversational_timeline.js?v=14"],
+  },
+];

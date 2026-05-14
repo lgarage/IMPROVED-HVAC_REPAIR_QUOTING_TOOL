@@ -1,0 +1,4 @@
+node_modules/
+dist/
+.build_state.json
+build_log.txt
