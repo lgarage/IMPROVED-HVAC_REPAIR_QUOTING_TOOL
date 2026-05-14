@@ -1633,6 +1633,186 @@ body.vc-override-active #vcOfficeOverrideBanner {
   50%       { border-color: rgba(0, 212, 255, 0.12); }
 }
 
+/* --- COMPILE NOTES button + modal (Slice 48a) --- */
+
+.ct-compile-btn {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 10px 12px 12px;
+  padding: 14px 18px;
+  border: 2px solid rgba(0, 212, 255, 0.45);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.08) 0%, rgba(0, 212, 255, 0.02) 100%);
+  color: #00d4ff;
+  font-size: 15px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  min-height: 48px;
+}
+.ct-compile-btn:active {
+  transform: scale(0.97);
+  background: rgba(0, 212, 255, 0.15);
+}
+.ct-compile-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ct-compile-btn.hidden {
+  display: none;
+}
+
+.ct-compile-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+.ct-compile-modal.hidden {
+  display: none !important;
+}
+.ct-compile-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.ct-compile-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  max-height: 92vh;
+  background: #1a1a2e;
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-bottom: none;
+}
+.ct-compile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(180deg, #13152a 0%, #151633 100%);
+}
+.ct-compile-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #00d4ff;
+  letter-spacing: 0.03em;
+}
+.ct-compile-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.ct-compile-close-btn:active {
+  background: rgba(148, 163, 184, 0.3);
+}
+.ct-compile-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+.ct-compile-hint {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+.ct-compile-textarea {
+  width: 100%;
+  min-height: 260px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e6f7ff;
+  font-size: 13px;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+  line-height: 1.6;
+  padding: 12px;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+.ct-compile-textarea:focus {
+  border-color: rgba(0, 212, 255, 0.55);
+}
+.ct-compile-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  background: #13152a;
+  flex-wrap: wrap;
+}
+.ct-compile-copy-btn {
+  padding: 12px 18px;
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  border-radius: 10px;
+  background: rgba(0, 212, 255, 0.08);
+  color: #00d4ff;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+.ct-compile-copy-btn:active {
+  background: rgba(0, 212, 255, 0.18);
+}
+.ct-compile-submit-btn {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #00d4ff 0%, #0ea5e9 100%);
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 2px 12px rgba(0, 212, 255, 0.3);
+}
+.ct-compile-submit-btn:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+.ct-compile-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ct-compile-status {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
 /* --- DICTATION HUB (asset-centric visit flow) --- */
 .dictation-hub-shell {
   margin-bottom: 20px;
@@ -5564,6 +5744,13 @@ button#techDisplayLabel:active { opacity: 0.75; }
         title="Hold to talk"
       >🎙️</button>
     </div>
+    <button
+      id="ct-compile-btn"
+      class="ct-compile-btn hidden"
+      type="button"
+      aria-label="Compile notes into structured report"
+      title="Compile timeline into structured report"
+    >📋 Compile Notes</button>
   </section>
 
   <!-- Slice 44a: settings overlay + bottom-sheet -->
@@ -5605,6 +5792,26 @@ button#techDisplayLabel:active { opacity: 0.75; }
           <span class="ct-settings-option__desc">Visual only — no sound or vibration.</span>
         </span>
       </label>
+    </div>
+  </div>
+
+  <!-- Slice 48a: Compile Notes modal -->
+  <div id="ct-compile-modal" class="ct-compile-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ct-compile-modal-title">
+    <div class="ct-compile-backdrop" aria-hidden="true"></div>
+    <div class="ct-compile-sheet" onclick="event.stopPropagation()">
+      <div class="ct-compile-header">
+        <h2 id="ct-compile-modal-title" class="ct-compile-title">Compiled Report</h2>
+        <button type="button" class="ct-compile-close-btn" aria-label="Close">&times;</button>
+      </div>
+      <div class="ct-compile-body">
+        <p class="ct-compile-hint">Review and edit the compiled report below. Copy or submit to office when ready.</p>
+        <textarea class="ct-compile-textarea" rows="18" spellcheck="true"></textarea>
+      </div>
+      <div class="ct-compile-actions">
+        <button type="button" class="ct-compile-copy-btn">📋 Copy Summary</button>
+        <button type="button" class="ct-compile-submit-btn">Submit to Office</button>
+        <span class="ct-compile-status" aria-live="polite"></span>
+      </div>
     </div>
   </div>
 
@@ -6340,7 +6547,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase47-Slice47a-2026-05-14";
+window.VC_BUILD = "Phase48-Slice48a-2026-05-14";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -11435,7 +11642,7 @@ window.onload = async function(){
     <script src="../job_context_engine.js?v=3"></script>
     <script src="../edge_intent_engine.js?v=2"></script>
     <script src="../checklist_reminder_engine.js?v=1"></script>
-    <script src="../conversational_timeline.js?v=11"></script>
+    <script src="../conversational_timeline.js?v=12"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
       if (typeof initGlobalSiteDirectory === "function") initGlobalSiteDirectory();

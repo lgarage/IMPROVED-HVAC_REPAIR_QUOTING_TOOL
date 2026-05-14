@@ -1,5 +1,5 @@
 /**
- * Conversational Timeline — Slice 46a.
+ * Conversational Timeline — Slice 48a.
  *
  * Slice 41a: localStorage-only timeline, bubble layout, workspace integration.
  * Slice 41b: Hold-to-Talk action bar + live Web Speech API STT.
@@ -82,9 +82,19 @@
  *   - renderMediaEntryHtml: equipment tag badge shown on media bubbles when
  *     activeEquipment was set at capture time.
  *
+ * Slice 48a: Compile Notes — unified structured output.
+ *   - #ct-compile-btn: button below timeline, visible after ≥3 tech entries.
+ *   - compileNotes(): exported — gathers timeline + equipment + checklist context,
+ *     sends to Gemini for structured extraction (per-equipment findings, quote
+ *     recommendations, unresolved issues, equipment history updates).
+ *   - #ct-compile-modal: editable modal showing formatted result.
+ *   - Copy Summary button for clipboard. Submit to Office writes to Firestore:
+ *     completed_reports/{autoId}, equipment work_history subcollection,
+ *     site_intelligence unresolved issues flag.
+ *
  * Exports: startListening, stopListening, capturePhoto, captureVideo,
  *          processEntry, generateResponse, handleFollowUpResponse,
- *          editEntry, handleCorrection, tagMedia.
+ *          editEntry, handleCorrection, tagMedia, compileNotes.
  */
 (function () {
   "use strict";
@@ -494,6 +504,7 @@
     }
     list.innerHTML = html;
     scrollToBottom();
+    updateCompileBtnVisibility();
   }
 
   function addEntry(text, role, ticketId, meta) {
@@ -2011,6 +2022,471 @@
     } catch (e) { /* degrade silently */ }
   }
 
+  /* ── Compile Notes (Slice 48a) ─────────────────────────────────── */
+
+  var COMPILE_MIN_ENTRIES = 3;
+
+  function getCompileBtn() {
+    return document.getElementById("ct-compile-btn");
+  }
+
+  function updateCompileBtnVisibility() {
+    var btn = getCompileBtn();
+    if (!btn) return;
+    var entries = loadEntries(currentTicketId);
+    var techEntries = entries.filter(function (e) {
+      return e && e.role === "tech" && !(e.meta && e.meta.seed);
+    });
+    if (techEntries.length >= COMPILE_MIN_ENTRIES) {
+      btn.classList.remove("hidden");
+    } else {
+      btn.classList.add("hidden");
+    }
+  }
+
+  function gatherCompileContext() {
+    var entries = loadEntries(currentTicketId);
+    var ticket = getActiveTicket();
+    var equipmentContext = "";
+    try {
+      if (window.JobContextEngine && typeof window.JobContextEngine.getActiveEquipment === "function") {
+        equipmentContext = window.JobContextEngine.getActiveEquipment() || "";
+      }
+    } catch (e) {}
+
+    var checklistState = null;
+    try {
+      if (window.ChecklistReminderEngine && typeof window.ChecklistReminderEngine.getChecklistState === "function") {
+        checklistState = window.ChecklistReminderEngine.getChecklistState();
+      }
+    } catch (e) {}
+
+    return {
+      entries: entries,
+      ticket: ticket,
+      equipmentContext: equipmentContext,
+      checklistState: checklistState
+    };
+  }
+
+  function buildCompilePrompt(context) {
+    var lines = [];
+    lines.push("You are an HVAC field service report compiler. Analyze the following technician timeline entries and produce a structured JSON report.");
+    lines.push("");
+    lines.push("TIMELINE ENTRIES:");
+    for (var i = 0; i < context.entries.length; i++) {
+      var e = context.entries[i];
+      if (!e) continue;
+      var prefix = e.role === "system" ? "[SYSTEM]" : "[TECH]";
+      var meta = "";
+      if (e.meta && e.meta.mediaType) meta = " (media: " + e.meta.mediaType + ")";
+      if (e.meta && e.meta.activeEquipment) meta += " [equip: " + e.meta.activeEquipment + "]";
+      lines.push(prefix + " " + (e.ts || "") + " — " + (e.text || "") + meta);
+    }
+
+    if (context.ticket) {
+      lines.push("");
+      lines.push("JOB CONTEXT:");
+      if (context.ticket.customerName) lines.push("Customer: " + context.ticket.customerName);
+      if (context.ticket.address || context.ticket.locationAddress) {
+        lines.push("Location: " + (context.ticket.address || context.ticket.locationAddress));
+      }
+      if (context.ticket.issue) lines.push("Reported issue: " + context.ticket.issue);
+    }
+
+    if (context.equipmentContext) {
+      lines.push("");
+      lines.push("ACTIVE EQUIPMENT: " + context.equipmentContext);
+    }
+
+    if (context.checklistState && context.checklistState.items) {
+      lines.push("");
+      lines.push("CHECKLIST STATE:");
+      var items = context.checklistState.items;
+      for (var j = 0; j < items.length; j++) {
+        var ci = items[j];
+        var status = ci.completed ? "DONE" : "PENDING";
+        lines.push("  - [" + status + "] " + (ci.label || ci.id || "item " + j));
+      }
+    }
+
+    lines.push("");
+    lines.push("OUTPUT FORMAT — Return ONLY valid JSON with this structure:");
+    lines.push('{');
+    lines.push('  "equipmentFindings": [');
+    lines.push('    { "equipment": "string", "diagnosis": "string", "measurements": "string", "actionsTaken": "string" }');
+    lines.push('  ],');
+    lines.push('  "quoteRecommendations": [');
+    lines.push('    { "part": "string", "description": "string", "laborEstimate": "string" }');
+    lines.push('  ],');
+    lines.push('  "unresolvedIssues": [');
+    lines.push('    { "issue": "string", "severity": "low|medium|high", "notes": "string" }');
+    lines.push('  ],');
+    lines.push('  "equipmentHistoryUpdates": [');
+    lines.push('    { "equipment": "string", "dataPoints": "string" }');
+    lines.push('  ],');
+    lines.push('  "summary": "string (1-2 sentence overall summary)"');
+    lines.push('}');
+
+    return lines.join("\n");
+  }
+
+  function getGeminiModel() {
+    if (typeof GEMINI_GENERATE_MODEL !== "undefined" && GEMINI_GENERATE_MODEL) {
+      return GEMINI_GENERATE_MODEL;
+    }
+    return "gemini-2.5-flash";
+  }
+
+  function parseGeminiJsonResponse(raw) {
+    var t = String(raw || "").trim();
+    t = t.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+    try { return JSON.parse(t); } catch (e) { return null; }
+  }
+
+  function callGeminiCompile(prompt) {
+    if (typeof getGeminiApiKey !== "function") {
+      return Promise.reject(new Error("Gemini API key not available"));
+    }
+    return getGeminiApiKey().then(function (key) {
+      if (!key) throw new Error("No Gemini API key configured");
+      var url =
+        "https://generativelanguage.googleapis.com/v1beta/models/" +
+        getGeminiModel() +
+        ":generateContent?key=" +
+        encodeURIComponent(key);
+
+      var body = {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 2048,
+          responseMimeType: "application/json"
+        }
+      };
+
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).then(function (resp) {
+        if (!resp.ok) throw new Error("Gemini API error: " + resp.status);
+        return resp.json();
+      }).then(function (data) {
+        var part =
+          data.candidates &&
+          data.candidates[0] &&
+          data.candidates[0].content &&
+          data.candidates[0].content.parts &&
+          data.candidates[0].content.parts[0];
+        var rawOut = part && part.text ? String(part.text) : "";
+        var parsed = parseGeminiJsonResponse(rawOut);
+        if (!parsed) throw new Error("Failed to parse Gemini response as JSON");
+        return parsed;
+      });
+    });
+  }
+
+  function formatCompileResultForDisplay(result) {
+    var lines = [];
+    lines.push("═══ COMPILED FIELD NOTES ═══");
+    lines.push("");
+
+    if (result.summary) {
+      lines.push("SUMMARY:");
+      lines.push(result.summary);
+      lines.push("");
+    }
+
+    if (result.equipmentFindings && result.equipmentFindings.length) {
+      lines.push("─── EQUIPMENT FINDINGS ───");
+      for (var i = 0; i < result.equipmentFindings.length; i++) {
+        var ef = result.equipmentFindings[i];
+        lines.push("");
+        lines.push("▸ " + (ef.equipment || "Unknown Equipment"));
+        if (ef.diagnosis) lines.push("  Diagnosis: " + ef.diagnosis);
+        if (ef.measurements) lines.push("  Measurements: " + ef.measurements);
+        if (ef.actionsTaken) lines.push("  Actions: " + ef.actionsTaken);
+      }
+      lines.push("");
+    }
+
+    if (result.quoteRecommendations && result.quoteRecommendations.length) {
+      lines.push("─── QUOTE RECOMMENDATIONS ───");
+      for (var j = 0; j < result.quoteRecommendations.length; j++) {
+        var qr = result.quoteRecommendations[j];
+        lines.push("  • " + (qr.part || "Item") + (qr.description ? " — " + qr.description : ""));
+        if (qr.laborEstimate) lines.push("    Labor: " + qr.laborEstimate);
+      }
+      lines.push("");
+    }
+
+    if (result.unresolvedIssues && result.unresolvedIssues.length) {
+      lines.push("─── UNRESOLVED ISSUES ───");
+      for (var k = 0; k < result.unresolvedIssues.length; k++) {
+        var ui = result.unresolvedIssues[k];
+        var sev = ui.severity ? " [" + ui.severity.toUpperCase() + "]" : "";
+        lines.push("  ⚠ " + (ui.issue || "Unknown issue") + sev);
+        if (ui.notes) lines.push("    " + ui.notes);
+      }
+      lines.push("");
+    }
+
+    if (result.equipmentHistoryUpdates && result.equipmentHistoryUpdates.length) {
+      lines.push("─── EQUIPMENT HISTORY UPDATES ───");
+      for (var m = 0; m < result.equipmentHistoryUpdates.length; m++) {
+        var eh = result.equipmentHistoryUpdates[m];
+        lines.push("  • " + (eh.equipment || "Unknown") + ": " + (eh.dataPoints || ""));
+      }
+      lines.push("");
+    }
+
+    return lines.join("\n");
+  }
+
+  var _lastCompileResult = null;
+
+  function openCompileModal(displayText) {
+    var modal = document.getElementById("ct-compile-modal");
+    if (!modal) return;
+    var textarea = modal.querySelector(".ct-compile-textarea");
+    var statusEl = modal.querySelector(".ct-compile-status");
+    if (textarea) {
+      textarea.value = displayText || "";
+      textarea.readOnly = false;
+    }
+    if (statusEl) statusEl.textContent = "";
+    modal.classList.remove("hidden");
+    if (textarea) {
+      textarea.focus();
+      textarea.setSelectionRange(0, 0);
+    }
+  }
+
+  function closeCompileModal() {
+    var modal = document.getElementById("ct-compile-modal");
+    if (modal) modal.classList.add("hidden");
+  }
+
+  function compileNotes() {
+    var btn = getCompileBtn();
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Compiling…";
+    }
+
+    var context = gatherCompileContext();
+    var prompt = buildCompilePrompt(context);
+
+    callGeminiCompile(prompt).then(function (result) {
+      _lastCompileResult = result;
+      var displayText = formatCompileResultForDisplay(result);
+      openCompileModal(displayText);
+    }).catch(function (err) {
+      var fallbackText = "── Compile Error ──\n" +
+        (err && err.message ? err.message : "Unknown error") +
+        "\n\nFallback: Raw timeline entries\n\n";
+      var entries = loadEntries(currentTicketId);
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        if (e && e.text) fallbackText += (e.ts || "") + " [" + (e.role || "") + "] " + e.text + "\n";
+      }
+      _lastCompileResult = null;
+      openCompileModal(fallbackText);
+    }).finally(function () {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "📋 Compile Notes";
+      }
+    });
+  }
+
+  function copyCompileSummary() {
+    var modal = document.getElementById("ct-compile-modal");
+    if (!modal) return;
+    var textarea = modal.querySelector(".ct-compile-textarea");
+    if (!textarea) return;
+    var text = textarea.value;
+    var statusEl = modal.querySelector(".ct-compile-status");
+
+    function showCopyStatus(msg, ok) {
+      if (!statusEl) return;
+      statusEl.textContent = msg;
+      statusEl.style.color = ok ? "#16a34a" : "#dc2626";
+      setTimeout(function () { statusEl.textContent = ""; }, 2500);
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function () { showCopyStatus("Copied!", true); },
+        function () { compileFallbackCopy(text, showCopyStatus); }
+      );
+    } else {
+      compileFallbackCopy(text, showCopyStatus);
+    }
+  }
+
+  function compileFallbackCopy(text, showStatus) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      showStatus("Copied!", true);
+    } catch (e) {
+      showStatus("Copy failed — select text manually.", false);
+    }
+  }
+
+  function submitCompileToOffice() {
+    if (!_lastCompileResult) {
+      alert("No compiled data to submit. Please compile notes first.");
+      return;
+    }
+
+    var modal = document.getElementById("ct-compile-modal");
+    var statusEl = modal ? modal.querySelector(".ct-compile-status") : null;
+    var submitBtn = modal ? modal.querySelector(".ct-compile-submit-btn") : null;
+
+    function showSubmitStatus(msg, ok) {
+      if (!statusEl) return;
+      statusEl.textContent = msg;
+      statusEl.style.color = ok ? "#16a34a" : "#dc2626";
+    }
+
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      showSubmitStatus("Firebase unavailable — saved locally only.", false);
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting…";
+    }
+    showSubmitStatus("Uploading…", true);
+
+    var db = firebase.firestore();
+    var ticket = getActiveTicket();
+    var ticketId = currentTicketId || "draft";
+    var techName = "";
+    try { techName = localStorage.getItem("tp_saved_tech") || ""; } catch (e) {}
+    var now = new Date().toISOString();
+
+    var textarea = modal ? modal.querySelector(".ct-compile-textarea") : null;
+    var editedText = textarea ? textarea.value : "";
+
+    var reportPayload = {
+      ticketId: ticketId,
+      techName: techName,
+      customerName: (ticket && ticket.customerName) || "",
+      location: (ticket && (ticket.address || ticket.locationAddress)) || "",
+      compiledAt: now,
+      compiledResult: _lastCompileResult,
+      editedDisplayText: editedText,
+      source: "conversational_timeline_compile",
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    var crCol = (typeof VCFirestore !== "undefined" && VCFirestore.completedReports)
+      ? VCFirestore.completedReports(db)
+      : db.collection("completed_reports");
+
+    var writes = [];
+    writes.push(crCol.add(reportPayload));
+
+    if (_lastCompileResult.equipmentHistoryUpdates && _lastCompileResult.equipmentHistoryUpdates.length) {
+      var linkedEquipEl = document.getElementById("linkedEquipmentSelect");
+      var linkedEquipId = (linkedEquipEl && linkedEquipEl.value) ? String(linkedEquipEl.value).trim() : "";
+      if (linkedEquipId) {
+        var eqParts = linkedEquipId.split("/");
+        if (eqParts.length >= 3) {
+          var custId = eqParts[0];
+          var locId = eqParts[1];
+          var unitDocId = eqParts.slice(2).join("/");
+          for (var i = 0; i < _lastCompileResult.equipmentHistoryUpdates.length; i++) {
+            var upd = _lastCompileResult.equipmentHistoryUpdates[i];
+            var histDoc = {
+              ticketId: ticketId,
+              techName: techName,
+              date: now.slice(0, 10),
+              equipment: upd.equipment || "",
+              dataPoints: upd.dataPoints || "",
+              source: "compile_notes",
+              savedAt: now,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            writes.push(
+              db.collection("Customers").doc(custId)
+                .collection("Locations").doc(locId)
+                .collection("Equipment").doc(unitDocId)
+                .collection("work_history").add(histDoc)
+            );
+          }
+        }
+      }
+    }
+
+    if (_lastCompileResult.unresolvedIssues && _lastCompileResult.unresolvedIssues.length && ticket) {
+      var custName = (ticket.customerName || "").replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+      var addr = (ticket.address || ticket.locationAddress || "").replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+      var siteDocId = custName && addr ? custName + "__" + addr : "";
+      if (siteDocId) {
+        var siCol = (typeof VCFirestore !== "undefined" && VCFirestore.siteIntelligence)
+          ? VCFirestore.siteIntelligence(db)
+          : db.collection("site_intelligence");
+        var unresolvedPayload = {
+          unresolvedIssues: _lastCompileResult.unresolvedIssues,
+          lastUpdated: now,
+          lastUpdatedBy: techName,
+          ticketId: ticketId
+        };
+        writes.push(siCol.doc(siteDocId).set(unresolvedPayload, { merge: true }));
+      }
+    }
+
+    Promise.all(writes).then(function () {
+      showSubmitStatus("Submitted to office ✓", true);
+      if (submitBtn) {
+        submitBtn.textContent = "Submitted ✓";
+        submitBtn.disabled = true;
+      }
+    }).catch(function (err) {
+      showSubmitStatus("Submit failed: " + (err && err.message ? err.message : "Unknown error"), false);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit to Office";
+      }
+    });
+  }
+
+  function wireCompileModal() {
+    var modal = document.getElementById("ct-compile-modal");
+    if (!modal) return;
+
+    var closeBtn = modal.querySelector(".ct-compile-close-btn");
+    if (closeBtn) closeBtn.addEventListener("click", closeCompileModal);
+
+    var backdrop = modal.querySelector(".ct-compile-backdrop");
+    if (backdrop) backdrop.addEventListener("click", closeCompileModal);
+
+    var copyBtn = modal.querySelector(".ct-compile-copy-btn");
+    if (copyBtn) copyBtn.addEventListener("click", copyCompileSummary);
+
+    var submitBtn = modal.querySelector(".ct-compile-submit-btn");
+    if (submitBtn) submitBtn.addEventListener("click", submitCompileToOffice);
+  }
+
+  function wireCompileBtn() {
+    var btn = getCompileBtn();
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      compileNotes();
+    });
+  }
+
   /* ── init ─────────────────────────────────────────────────────── */
 
   function init() {
@@ -2022,6 +2498,8 @@
     wireEquipmentChip();
     wireSettingsGear();
     wireTimelineEditing();
+    wireCompileBtn();
+    wireCompileModal();
 
     try {
       window.addEventListener("vc:workspaceOpened", function () {
@@ -2067,6 +2545,7 @@
     handleFollowUpResponse: handleFollowUpResponse,
     editEntry: editEntry,
     handleCorrection: handleCorrection,
-    tagMedia: tagMedia
+    tagMedia: tagMedia,
+    compileNotes: compileNotes
   };
 })();
