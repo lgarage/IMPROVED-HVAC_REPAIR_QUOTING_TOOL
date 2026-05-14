@@ -1,5 +1,5 @@
 /**
- * Conversational Timeline — Slice 41d.
+ * Conversational Timeline — Slice 42b.
  *
  * Slice 41a: localStorage-only timeline, bubble layout, workspace integration.
  * Slice 41b: Hold-to-Talk action bar + live Web Speech API STT.
@@ -24,6 +24,12 @@
  *   - 300 ms delay before system response appears (natural pacing).
  *   - System bubbles show a "V" monogram icon in a circle.
  *   - Follow-up stub: "Which unit?" if last 3 entries lack equipment refs.
+ * Slice 42b: Active equipment context tracking.
+ *   - #ct-active-equipment: sticky chip showing current active equipment.
+ *   - processEntry calls JobContextEngine.setActiveEquipment() on equipment match.
+ *   - Chip is tappable — tap to clear active equipment.
+ *   - Media captures auto-tagged with activeEquipment in meta.
+ *   - Listens for vc:activeEquipmentChanged to sync chip UI.
  *
  * Exports: startListening, stopListening, capturePhoto, captureVideo,
  *          processEntry, generateResponse.
@@ -37,9 +43,9 @@
   var currentTicketId = "draft";
   var initialized = false;
 
-  /* ── equipment reference pattern (Slice 41d) ─────────────────── */
+  /* ── equipment reference pattern (Slice 42b — supersedes 41d) ── */
 
-  var EQUIPMENT_REGEX = /\b(RTU[-\s]?\d+|AHU[-\s]?\d+|Unit[-\s]?\d+|Chiller[-\s]?\d+|VAV[-\s]?\d+|FCU[-\s]?\d+|HP[-\s]?\d+|MAU[-\s]?\d+|EF[-\s]?\d+)\b/i;
+  var EQUIPMENT_REGEX = /\b(RTU|AHU|FCU|MAU|CU|HP|Unit|Chiller|Boiler)\s*#?\d+/i;
 
   function storageKey(ticketId) {
     return LS_PREFIX + (ticketId || "draft");
@@ -620,7 +626,8 @@
         storageUrl: null,
         uploadStatus: "uploading",
         activeTicketId: id,
-        technicianName: getTechnicianName()
+        technicianName: getTechnicianName(),
+        activeEquipment: (window.VCJobContext && window.VCJobContext.activeEquipment) || null
       }
     };
 
@@ -901,14 +908,62 @@
     }
   }
 
+  /* ── active equipment chip (Slice 42b) ───────────────────────── */
+
+  function getEquipmentChipEl() {
+    return document.getElementById("ct-active-equipment");
+  }
+
+  function updateEquipmentChip(ref) {
+    var el = getEquipmentChipEl();
+    if (!el) return;
+    if (ref) {
+      el.textContent = "\uD83D\uDD27 " + ref;
+      el.removeAttribute("hidden");
+    } else {
+      el.hidden = true;
+    }
+  }
+
+  function wireEquipmentChip() {
+    var el = getEquipmentChipEl();
+    if (!el) return;
+    el.addEventListener("click", function () {
+      if (window.JobContextEngine && typeof JobContextEngine.setActiveEquipment === "function") {
+        JobContextEngine.setActiveEquipment(null);
+      }
+    });
+    /* Sync chip if activeEquipment is already set (e.g. page reload) */
+    updateEquipmentChip(
+      window.VCJobContext && window.VCJobContext.activeEquipment
+        ? window.VCJobContext.activeEquipment
+        : null
+    );
+  }
+
   /**
    * processEntry — exported.
    * Called after a tech entry is saved; schedules the Vertex system response
    * with a 300 ms delay, then re-evaluates the follow-up prompt.
+   * Slice 42b: also detects equipment references and calls
+   * JobContextEngine.setActiveEquipment() so all subsequent entries are tagged.
    */
   function processEntry(entry, ticketId) {
     if (!entry || entry.role !== "tech") return;
     var id = normalizeTicketId(ticketId);
+
+    /* Detect equipment reference → update active equipment context */
+    var text = safeText(entry.text);
+    if (text) {
+      var equipMatch = text.match(EQUIPMENT_REGEX);
+      if (equipMatch) {
+        var eqRef = equipMatch[0].replace(/\s+/g, " ").trim();
+        if (window.JobContextEngine && typeof JobContextEngine.setActiveEquipment === "function") {
+          JobContextEngine.setActiveEquipment(eqRef);
+        }
+      }
+    }
+
     var responseText = generateResponse(entry);
     if (!responseText) return;
     setTimeout(function () {
@@ -1046,10 +1101,19 @@
     initialized = true;
 
     wireActionBar();
+    wireEquipmentChip();
 
     try {
       window.addEventListener("vc:workspaceOpened", function () {
         onWorkspaceOpen();
+      });
+    } catch (e) {
+      /* older browsers: no-op */
+    }
+
+    try {
+      window.addEventListener("vc:activeEquipmentChanged", function (e) {
+        updateEquipmentChip(e.detail && e.detail.activeEquipment ? e.detail.activeEquipment : null);
       });
     } catch (e) {
       /* older browsers: no-op */

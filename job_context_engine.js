@@ -14,6 +14,7 @@
   var currentTicketId = "";
   var currentContext = cloneContext(EMPTY_CONTEXT);
   var inflightByTicket = {};
+  var _activeEquipment = null;
 
   function nowMs() {
     return Date.now ? Date.now() : new Date().getTime();
@@ -382,8 +383,30 @@
   function setCurrent(ticketId, context) {
     currentTicketId = safeTrim(ticketId || "");
     currentContext = cloneContext(context);
+    /* Preserve runtime-only activeEquipment across context refreshes (not cached). */
+    currentContext.activeEquipment = _activeEquipment;
     window.VCJobContext = cloneContext(currentContext);
+    window.VCJobContext.activeEquipment = _activeEquipment;
     return window.VCJobContext;
+  }
+
+  function setActiveEquipment(ref) {
+    _activeEquipment = ref ? String(ref).trim() : null;
+    currentContext.activeEquipment = _activeEquipment;
+    window.VCJobContext.activeEquipment = _activeEquipment;
+    try {
+      window.dispatchEvent(
+        new CustomEvent("vc:activeEquipmentChanged", {
+          detail: { activeEquipment: _activeEquipment },
+        })
+      );
+    } catch (e) {
+      /* older browsers — no-op */
+    }
+  }
+
+  function getActiveEquipment() {
+    return _activeEquipment;
   }
 
   function applyCache(ticketId, cacheEntry) {
@@ -470,8 +493,14 @@
     if (!ticketId || tid === currentTicketId) {
       currentTicketId = "";
       currentContext = cloneContext(EMPTY_CONTEXT);
+      _activeEquipment = null;
       window.VCJobContext = cloneContext(EMPTY_CONTEXT);
       setOfflineIndicator(false);
+      try {
+        window.dispatchEvent(
+          new CustomEvent("vc:activeEquipmentChanged", { detail: { activeEquipment: null } })
+        );
+      } catch (e) { /* older browsers */ }
     }
     return window.VCJobContext;
   }
@@ -481,5 +510,7 @@
     preloadContext: preloadContext,
     getContext: getContext,
     clearContext: clearContext,
+    setActiveEquipment: setActiveEquipment,
+    getActiveEquipment: getActiveEquipment,
   };
 })();
