@@ -1,12 +1,8 @@
 /**
- * Vertex Build Runner — SDK automation for phased field tech UX build.
+ * Vertex Build Runner — Interactive CLI with slash commands.
  *
- * Usage:
- *   npx ts-node build_runner.ts              # Run next pending slice
- *   npx ts-node build_runner.ts --all        # Run all pending slices sequentially
- *   npx ts-node build_runner.ts --dry-run    # Show what would run without executing
- *   npx ts-node build_runner.ts --status     # Show current slice status
- *   npx ts-node build_runner.ts --slice 41b  # Run a specific slice
+ * Start:  npx ts-node build_runner.ts
+ * Then:   type / to see all commands
  *
  * Requires: CURSOR_API_KEY environment variable
  */
@@ -14,10 +10,11 @@
 import { Agent } from "@cursor/sdk";
 import * as fs from "fs";
 import * as path from "path";
+import * as readline from "readline";
 import { execSync } from "child_process";
 import { SLICES, type Slice } from "./slices";
-import { selectModel, updateLookupRow, buildEscalationLadder } from "./model_selector";
-import { validateSlice, type ValidationResult } from "./validator";
+import { selectModel, updateLookupRow, buildEscalationLadder, MODEL_COST_RANK } from "./model_selector";
+import { validateSlice } from "./validator";
 import { buildPrompt } from "./prompt_builder";
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -159,11 +156,6 @@ async function runSliceAttempt(
   }
 }
 
-/**
- * Run a slice with automatic escalation: try cheapest model first,
- * escalate to next tier on failure, up to 3 attempts.
- * Lookup table is updated ONLY after the final outcome.
- */
 async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<boolean> {
   const ss = state.slices[slice.id];
   const ladder = buildEscalationLadder(slice.patterns);
@@ -180,7 +172,6 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
     ss.lastAttempt = new Date().toISOString();
     saveState(state);
 
-    // If this is a retry, revert any partial changes from the failed attempt
     if (i > 0) {
       log(`Reverting partial changes before retry...`);
       try {
@@ -194,16 +185,13 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
     lastResult = await runSliceAttempt(slice, model, i + 1, ladder.length);
 
     if (lastResult.passed) {
-      // Success — update lookup table: this model works for these patterns
       for (const pattern of slice.patterns) {
         updateLookupRow(pattern, model, true);
       }
 
-      // Deploy preview
       const previewUrl = deployPreview(slice.id);
       ss.previewUrl = previewUrl || undefined;
 
-      // Auto-push safe slices
       if (slice.riskLevel === "safe") {
         try {
           execSync("git push origin main", { cwd: PROJECT_ROOT, stdio: "pipe" });
@@ -221,7 +209,6 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
       return true;
     }
 
-    // Failed — log and escalate
     if (i < ladder.length - 1) {
       log(`✗ ${model} failed for slice ${slice.id}. Escalating to ${ladder[i + 1]}...`);
     } else {
@@ -229,7 +216,6 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
     }
   }
 
-  // All attempts exhausted — update lookup table with failure on the primary pattern
   for (const pattern of slice.patterns) {
     updateLookupRow(pattern, ladder[ladder.length - 1], false);
   }
@@ -241,130 +227,487 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
   return false;
 }
 
-// ─── Status Display ───
+// ═══════════════════════════════════════════════════════════
+//  SLASH COMMANDS
+// ═══════════════════════════════════════════════════════════
 
-function printStatus(state: BuildState): void {
-  console.log("\n  Vertex Build Runner — Slice Status\n");
-  console.log(
-    "  " +
-      "Slice".padEnd(8) +
-      "Title".padEnd(50) +
-      "Status".padEnd(10) +
-      "Model".padEnd(22) +
-      "Preview"
-  );
-  console.log("  " + "─".repeat(110));
-
-  for (const slice of SLICES) {
-    const ss = state.slices[slice.id] || { status: "pending", attempts: 0 };
-    const icon =
-      ss.status === "passed"
-        ? "✓"
-        : ss.status === "failed"
-        ? "✗"
-        : ss.status === "running"
-        ? "▶"
-        : ss.status === "skipped"
-        ? "⏭"
-        : "○";
-    const statusStr = `${icon} ${ss.status}`;
-    const previewStr = ss.previewUrl || "";
-    console.log(
-      `  ${slice.id.padEnd(8)}${slice.title.slice(0, 48).padEnd(50)}${statusStr.padEnd(10)}${(ss.model || "—").padEnd(22)}${previewStr}`
-    );
-  }
-
-  const passed = SLICES.filter((s) => state.slices[s.id]?.status === "passed").length;
-  const failed = SLICES.filter((s) => state.slices[s.id]?.status === "failed").length;
-  const pending = SLICES.length - passed - failed;
-  console.log(`\n  Total: ${passed} passed, ${failed} failed, ${pending} pending\n`);
+interface SlashCommand {
+  name: string;
+  alias: string[];
+  args: string;
+  description: string;
+  handler: (args: string[], state: BuildState) => Promise<void>;
 }
 
-// ─── Main ───
+const commands: SlashCommand[] = [
+  {
+    name: "/status",
+    alias: ["/s"],
+    args: "",
+    description: "Show status of all slices",
+    handler: async (_args, state) => {
+      console.log("\n  Vertex Build Runner — Slice Status\n");
+      console.log(
+        "  " +
+          "Slice".padEnd(8) +
+          "Title".padEnd(50) +
+          "Status".padEnd(12) +
+          "Model".padEnd(22) +
+          "Preview"
+      );
+      console.log("  " + "─".repeat(110));
 
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const state = loadState();
+      for (const slice of SLICES) {
+        const ss = state.slices[slice.id] || { status: "pending", attempts: 0 };
+        const icon =
+          ss.status === "passed" ? "✓" :
+          ss.status === "failed" ? "✗" :
+          ss.status === "running" ? "▶" :
+          ss.status === "skipped" ? "⏭" : "○";
+        console.log(
+          `  ${slice.id.padEnd(8)}${slice.title.slice(0, 48).padEnd(50)}${(icon + " " + ss.status).padEnd(12)}${(ss.model || "—").padEnd(22)}${ss.previewUrl || ""}`
+        );
+      }
 
-  if (args.includes("--status")) {
-    printStatus(state);
-    return;
+      const passed = SLICES.filter((s) => state.slices[s.id]?.status === "passed").length;
+      const failed = SLICES.filter((s) => state.slices[s.id]?.status === "failed").length;
+      const pending = SLICES.length - passed - failed;
+      console.log(`\n  Total: ${passed} passed, ${failed} failed, ${pending} pending`);
+      if (state.lastRun) console.log(`  Last run: ${state.lastRun}`);
+      console.log();
+    },
+  },
+  {
+    name: "/next",
+    alias: ["/n"],
+    args: "",
+    description: "Run the next pending slice (with auto-escalation)",
+    handler: async (_args, state) => {
+      if (!requireApiKey()) return;
+      const next = getNextSlice(state);
+      if (!next) {
+        console.log("\n  No pending slices with satisfied dependencies.\n");
+        return;
+      }
+      console.log(`\n  Running: Slice ${next.id} — ${next.title}\n`);
+      await runSliceWithEscalation(next, state);
+    },
+  },
+  {
+    name: "/all",
+    alias: ["/a"],
+    args: "",
+    description: "Run ALL pending slices sequentially (fire and forget)",
+    handler: async (_args, state) => {
+      if (!requireApiKey()) return;
+      let next = getNextSlice(state);
+      let count = 0;
+      while (next) {
+        count++;
+        console.log(`\n  [${ count }] Running: Slice ${next.id} — ${next.title}\n`);
+        const success = await runSliceWithEscalation(next, state);
+        if (!success) {
+          console.log(`\n  Stopped: Slice ${next.id} failed after full escalation.\n`);
+          break;
+        }
+        next = getNextSlice(state);
+      }
+      if (!next) {
+        console.log(`\n  All done! ${count} slices completed.\n`);
+      }
+    },
+  },
+  {
+    name: "/run",
+    alias: ["/r"],
+    args: "<slice_id>",
+    description: "Run a specific slice (e.g. /run 41a)",
+    handler: async (args, state) => {
+      if (!requireApiKey()) return;
+      const id = args[0];
+      if (!id) {
+        console.log("\n  Usage: /run <slice_id>  (e.g. /run 41a)\n");
+        return;
+      }
+      const slice = SLICES.find((s) => s.id === id);
+      if (!slice) {
+        console.log(`\n  Slice '${id}' not found. Use /status to see all slices.\n`);
+        return;
+      }
+      if (!canRun(slice, state)) {
+        console.log(`\n  Dependencies not met: ${slice.dependsOn.join(", ")}\n`);
+        return;
+      }
+      await runSliceWithEscalation(slice, state);
+    },
+  },
+  {
+    name: "/preview",
+    alias: ["/p"],
+    args: "",
+    description: "Show all Firebase preview URLs",
+    handler: async (_args, state) => {
+      console.log("\n  Preview URLs:\n");
+      let any = false;
+      for (const slice of SLICES) {
+        const ss = state.slices[slice.id];
+        if (ss?.previewUrl) {
+          console.log(`  ${slice.id.padEnd(8)} ${ss.previewUrl}`);
+          any = true;
+        }
+      }
+      if (!any) console.log("  No previews deployed yet. Run a slice first.");
+      console.log();
+    },
+  },
+  {
+    name: "/plan",
+    alias: [],
+    args: "",
+    description: "Show what would run next (dry run of all pending)",
+    handler: async (_args, state) => {
+      console.log("\n  Build Plan — pending slices in execution order:\n");
+      const simState = JSON.parse(JSON.stringify(state)) as BuildState;
+      let next = getNextSlice(simState);
+      let count = 0;
+      while (next) {
+        const ladder = buildEscalationLadder(next.patterns);
+        console.log(
+          `  ${++count}. Slice ${next.id}: ${next.title}\n` +
+            `     Escalation: ${ladder.join(" → ")}\n` +
+            `     Risk: ${next.riskLevel} | Files: ${[...next.filesToCreate, ...next.filesToModify].join(", ")}\n`
+        );
+        simState.slices[next.id] = { status: "passed", attempts: 1 };
+        next = getNextSlice(simState);
+      }
+      if (count === 0) console.log("  Nothing pending.");
+      console.log();
+    },
+  },
+  {
+    name: "/inspect",
+    alias: ["/i"],
+    args: "<slice_id>",
+    description: "Show full details for a slice (scope, files, escalation)",
+    handler: async (args, _state) => {
+      const id = args[0];
+      if (!id) {
+        console.log("\n  Usage: /inspect <slice_id>  (e.g. /inspect 41a)\n");
+        return;
+      }
+      const slice = SLICES.find((s) => s.id === id);
+      if (!slice) {
+        console.log(`\n  Slice '${id}' not found.\n`);
+        return;
+      }
+      const ladder = buildEscalationLadder(slice.patterns);
+      console.log(`\n  ═══ Slice ${slice.id}: ${slice.title} ═══\n`);
+      console.log(`  Phase:       ${slice.phase}`);
+      console.log(`  Risk:        ${slice.riskLevel}`);
+      console.log(`  Depends on:  ${slice.dependsOn.length > 0 ? slice.dependsOn.join(", ") : "none"}`);
+      console.log(`  Escalation:  ${ladder.join(" → ")}`);
+      console.log(`  Patterns:    ${slice.patterns.join(", ")}`);
+      console.log(`  Create:      ${slice.filesToCreate.length > 0 ? slice.filesToCreate.join(", ") : "none"}`);
+      console.log(`  Modify:      ${slice.filesToModify.join(", ")}`);
+      console.log(`  Cache-busts: ${slice.cacheBusts.join(", ")}`);
+      console.log(`  HTML IDs:    ${slice.expectedIds.length > 0 ? slice.expectedIds.join(", ") : "none"}`);
+      console.log(`\n  Scope:\n    ${slice.scope.replace(/\n/g, "\n    ")}`);
+      console.log(`\n  Out of scope:\n    ${slice.outOfScope}`);
+      console.log();
+    },
+  },
+  {
+    name: "/reset",
+    alias: [],
+    args: "<slice_id | all>",
+    description: "Reset a failed slice to pending (or 'all' to reset everything)",
+    handler: async (args, state) => {
+      const id = args[0];
+      if (!id) {
+        console.log("\n  Usage: /reset <slice_id>  or  /reset all\n");
+        return;
+      }
+      if (id === "all") {
+        for (const s of SLICES) {
+          state.slices[s.id] = { status: "pending", attempts: 0 };
+        }
+        saveState(state);
+        console.log("\n  All slices reset to pending.\n");
+        return;
+      }
+      const ss = state.slices[id];
+      if (!ss) {
+        console.log(`\n  Slice '${id}' not found.\n`);
+        return;
+      }
+      ss.status = "pending";
+      ss.attempts = 0;
+      ss.errors = undefined;
+      saveState(state);
+      console.log(`\n  Slice ${id} reset to pending.\n`);
+    },
+  },
+  {
+    name: "/push",
+    alias: [],
+    args: "<slice_id | unpushed>",
+    description: "Git push a review slice you've checked, or 'unpushed' for all",
+    handler: async (args, _state) => {
+      const id = args[0];
+      if (!id) {
+        console.log("\n  Usage: /push <slice_id>  or  /push unpushed\n");
+        return;
+      }
+      try {
+        execSync("git push origin main", { cwd: PROJECT_ROOT, stdio: "inherit" });
+        console.log("\n  Pushed to origin/main.\n");
+      } catch {
+        console.log("\n  Push failed. Check git status.\n");
+      }
+    },
+  },
+  {
+    name: "/log",
+    alias: ["/l"],
+    args: "[lines]",
+    description: "Show recent build log entries (default: last 30)",
+    handler: async (args, _state) => {
+      const count = parseInt(args[0] || "30", 10);
+      if (!fs.existsSync(LOG_FILE)) {
+        console.log("\n  No build log yet. Run a slice first.\n");
+        return;
+      }
+      const lines = fs.readFileSync(LOG_FILE, "utf-8").split("\n").filter(Boolean);
+      const tail = lines.slice(-count);
+      console.log(`\n  Last ${tail.length} log entries:\n`);
+      for (const l of tail) console.log(`  ${l}`);
+      console.log();
+    },
+  },
+  {
+    name: "/errors",
+    alias: ["/e"],
+    args: "",
+    description: "Show errors from all failed slices",
+    handler: async (_args, state) => {
+      console.log("\n  Failed Slices:\n");
+      let any = false;
+      for (const slice of SLICES) {
+        const ss = state.slices[slice.id];
+        if (ss?.status === "failed" && ss.errors?.length) {
+          any = true;
+          console.log(`  ✗ ${slice.id}: ${slice.title}`);
+          console.log(`    Model: ${ss.model} | Attempts: ${ss.attempts}`);
+          for (const err of ss.errors) console.log(`    - ${err}`);
+          console.log();
+        }
+      }
+      if (!any) console.log("  No failed slices.\n");
+    },
+  },
+  {
+    name: "/cost",
+    alias: [],
+    args: "",
+    description: "Estimate remaining cost based on model selections",
+    handler: async (_args, state) => {
+      const costEstimates: Record<string, [number, number]> = {
+        "composer-2": [3, 8],
+        "claude-4.6-sonnet": [5, 15],
+        "gpt-5.3-codex": [8, 20],
+        "gpt-5.2": [8, 18],
+        "gpt-5.4-medium": [10, 25],
+        "gpt-5.5-medium": [12, 30],
+        "claude-4.6-opus": [15, 35],
+      };
+
+      let totalLow = 0;
+      let totalHigh = 0;
+      let spent = 0;
+
+      console.log("\n  Cost Estimate (remaining slices):\n");
+      for (const slice of SLICES) {
+        const ss = state.slices[slice.id];
+        if (ss?.status === "passed") {
+          const range = costEstimates[ss.model || "claude-4.6-sonnet"] || [10, 20];
+          spent += (range[0] + range[1]) / 2;
+          continue;
+        }
+        if (ss?.status === "failed" || ss?.status === "pending") {
+          const model = selectModel(slice.patterns);
+          const range = costEstimates[model] || [10, 20];
+          totalLow += range[0];
+          totalHigh += range[1];
+          console.log(`  ${slice.id.padEnd(8)} ${model.padEnd(22)} ~$${range[0]}-${range[1]}`);
+        }
+      }
+      console.log(`\n  Estimated remaining: $${totalLow}–$${totalHigh}`);
+      if (spent > 0) console.log(`  Estimated spent:     ~$${Math.round(spent)}`);
+      console.log(`  Ultra plan budget:   $400/month\n`);
+    },
+  },
+  {
+    name: "/models",
+    alias: [],
+    args: "",
+    description: "Show the model lookup table (cheapest per pattern)",
+    handler: async () => {
+      const content = fs.readFileSync(
+        path.join(PROJECT_ROOT, "PROJECT_STATUS", "MODEL_LOOKUP.md"),
+        "utf-8"
+      );
+      console.log("\n" + content);
+    },
+  },
+  {
+    name: "/help",
+    alias: ["/", "/h", "/?"],
+    args: "",
+    description: "Show this command list",
+    handler: async () => {
+      printHelp();
+    },
+  },
+  {
+    name: "/quit",
+    alias: ["/q", "/exit"],
+    args: "",
+    description: "Exit the build runner",
+    handler: async () => {
+      console.log("\n  Goodbye.\n");
+      process.exit(0);
+    },
+  },
+];
+
+function printHelp(): void {
+  console.log("\n  ═══ Vertex Build Runner — Commands ═══\n");
+  console.log("  Type / to see this list at any time.\n");
+
+  const groups: Record<string, SlashCommand[]> = {
+    "Build": commands.filter((c) => ["/next", "/all", "/run"].includes(c.name)),
+    "Info": commands.filter((c) => ["/status", "/plan", "/inspect", "/preview", "/errors", "/log"].includes(c.name)),
+    "Cost": commands.filter((c) => ["/cost", "/models"].includes(c.name)),
+    "Manage": commands.filter((c) => ["/reset", "/push"].includes(c.name)),
+    "Other": commands.filter((c) => ["/help", "/quit"].includes(c.name)),
+  };
+
+  for (const [group, cmds] of Object.entries(groups)) {
+    console.log(`  ${group}:`);
+    for (const cmd of cmds) {
+      const aliasStr = cmd.alias.filter((a) => a !== "/").length > 0
+        ? ` (${cmd.alias.filter((a) => a !== "/").join(", ")})`
+        : "";
+      const nameAndArgs = `${cmd.name} ${cmd.args}`.trim();
+      console.log(`    ${nameAndArgs.padEnd(28)} ${cmd.description}${aliasStr}`);
+    }
+    console.log();
   }
+}
 
-  const dryRun = args.includes("--dry-run");
-
-  if (!process.env.CURSOR_API_KEY && !dryRun) {
-    console.error(
-      "\n  Error: CURSOR_API_KEY not set.\n" +
+function requireApiKey(): boolean {
+  if (!process.env.CURSOR_API_KEY) {
+    console.log(
+      "\n  CURSOR_API_KEY not set.\n" +
         "  Get your key at: https://cursor.com/dashboard/integrations\n" +
         "  Then: set CURSOR_API_KEY=your_key_here  (Windows)\n" +
         "    or: export CURSOR_API_KEY=your_key_here (Mac/Linux)\n"
     );
-    process.exit(1);
+    return false;
   }
+  return true;
+}
 
-  const runAll = args.includes("--all");
-  const specificSlice = args.find((a) => !a.startsWith("--"));
+// ═══════════════════════════════════════════════════════════
+//  INTERACTIVE REPL
+// ═══════════════════════════════════════════════════════════
 
-  if (dryRun) {
-    console.log("\n  DRY RUN — showing what would execute:\n");
-    let next = specificSlice
-      ? SLICES.find((s) => s.id === specificSlice) || null
-      : getNextSlice(state);
-    let count = 0;
-    while (next) {
-      const ladder = buildEscalationLadder(next.patterns);
-      console.log(
-        `  ${++count}. Slice ${next.id}: ${next.title}\n` +
-          `     Escalation: ${ladder.join(" → ")}\n` +
-          `     Risk: ${next.riskLevel} | ` +
-          `Files: ${[...next.filesToCreate, ...next.filesToModify].join(", ")}\n`
-      );
-      if (!runAll || specificSlice) break;
-      state.slices[next.id] = { status: "passed", attempts: 1 };
-      next = getNextSlice(state);
+async function main(): Promise<void> {
+  const state = loadState();
+
+  // Handle one-shot CLI args for backwards compatibility
+  const args = process.argv.slice(2);
+  if (args.length > 0) {
+    const mapped = args[0].startsWith("--") ? `/${args[0].slice(2)}` : `/run ${args[0]}`;
+    const parts = mapped.split(" ");
+    const cmdName = parts[0];
+    const cmdArgs = parts.slice(1);
+    const cmd = commands.find(
+      (c) => c.name === cmdName || c.alias.includes(cmdName)
+    );
+    if (cmd) {
+      await cmd.handler(cmdArgs, state);
+      return;
     }
-    return;
   }
 
-  log("Build runner started.");
+  // Interactive mode
+  console.log("\n  ╔══════════════════════════════════════════╗");
+  console.log("  ║   Vertex Build Runner                    ║");
+  console.log("  ║   Type / for commands                    ║");
+  console.log("  ╚══════════════════════════════════════════╝\n");
 
-  if (specificSlice) {
-    const slice = SLICES.find((s) => s.id === specificSlice);
-    if (!slice) {
-      console.error(`Slice '${specificSlice}' not found.`);
-      process.exit(1);
+  const passed = SLICES.filter((s) => state.slices[s.id]?.status === "passed").length;
+  const failed = SLICES.filter((s) => state.slices[s.id]?.status === "failed").length;
+  const pending = SLICES.length - passed - failed;
+  console.log(`  ${passed} passed, ${failed} failed, ${pending} pending`);
+
+  const next = getNextSlice(state);
+  if (next) {
+    const ladder = buildEscalationLadder(next.patterns);
+    console.log(`  Next up: Slice ${next.id} — ${next.title} [${ladder[0]}]\n`);
+  } else {
+    console.log(`  No pending slices.\n`);
+  }
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    prompt: "  vertex> ",
+  });
+
+  rl.prompt();
+
+  rl.on("line", async (line: string) => {
+    const input = line.trim();
+    if (!input) {
+      rl.prompt();
+      return;
     }
-    if (!canRun(slice, state)) {
-      console.error(
-        `Slice ${specificSlice} dependencies not met: ${slice.dependsOn.join(", ")}`
-      );
-      process.exit(1);
+
+    const parts = input.split(/\s+/);
+    let cmdName = parts[0];
+    const cmdArgs = parts.slice(1);
+
+    // Bare "/" shows help
+    if (cmdName === "/") cmdName = "/help";
+
+    // Add / prefix if missing
+    if (!cmdName.startsWith("/")) cmdName = `/${cmdName}`;
+
+    const cmd = commands.find(
+      (c) => c.name === cmdName || c.alias.includes(cmdName)
+    );
+
+    if (!cmd) {
+      console.log(`\n  Unknown command: ${cmdName}. Type / for help.\n`);
+      rl.prompt();
+      return;
     }
-    await runSliceWithEscalation(slice, state);
-    printStatus(state);
-    return;
-  }
 
-  // Run next (or all) pending slices
-  let next = getNextSlice(state);
-  while (next) {
-    const success = await runSliceWithEscalation(next, state);
-
-    if (!success) {
-      log(`Slice ${next.id} failed after full escalation. Stopping.`);
-      break;
+    try {
+      await cmd.handler(cmdArgs, state);
+    } catch (e: any) {
+      console.log(`\n  Error: ${e.message}\n`);
     }
 
-    if (!runAll) break;
-    next = getNextSlice(state);
-  }
+    rl.prompt();
+  });
 
-  if (!next && !SLICES.some((s) => state.slices[s.id]?.status === "failed")) {
-    log("All slices completed successfully!");
-  }
-
-  printStatus(state);
+  rl.on("close", () => {
+    console.log("\n  Goodbye.\n");
+    process.exit(0);
+  });
 }
 
 main().catch((e) => {

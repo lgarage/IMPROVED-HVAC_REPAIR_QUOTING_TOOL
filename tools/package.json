@@ -6,8 +6,8 @@
   "scripts": {
     "build": "npx tsc",
     "start": "npx ts-node build_runner.ts",
-    "dry-run": "npx ts-node build_runner.ts --dry-run",
-    "status": "npx ts-node build_runner.ts --status"
+    "status": "npx ts-node build_runner.ts --status",
+    "plan": "npx ts-node build_runner.ts --plan"
   },
   "dependencies": {
     "@cursor/sdk": "latest",
