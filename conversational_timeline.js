@@ -1,5 +1,5 @@
 /**
- * Conversational Timeline — Slice 41b.
+ * Conversational Timeline — Slice 41c.
  *
  * Slice 41a: localStorage-only timeline, bubble layout, workspace integration.
  * Slice 41b: Hold-to-Talk action bar + live Web Speech API STT.
@@ -10,8 +10,16 @@
  *   - Release → finalise → addEntry("tech") in localStorage timeline.
  *   - Handles: permission denied, browser not-supported, interim vs. final results.
  *   - Compatible with iOS Safari (webkitSpeechRecognition) and Chrome Android.
+ * Slice 41c: Media capture button + timeline attachment.
+ *   - #ct-media-btn: 56px camera button (left of action bar).
+ *   - Tap → photo picker (input[type=file] accept=image/*, no capture attr for iOS).
+ *   - Hold 500ms → MediaRecorder video capture; release → stop + save.
+ *   - Media entries render as timeline bubbles with 80px thumbnail, timestamp, size.
+ *   - Upload to Firebase Storage: field_evidence/{ticketId}/{ts}_{filename}.
+ *   - Progress bar on timeline entry; dashed border while uploading.
+ *   - Auto-attaches: activeTicketId, technicianName, timestamp.
  *
- * Exports: startListening, stopListening (required by slice validation).
+ * Exports: startListening, stopListening, capturePhoto, captureVideo.
  */
 (function () {
   "use strict";
@@ -164,6 +172,63 @@
     list.scrollTop = list.scrollHeight;
   }
 
+  function formatFileSize(bytes) {
+    if (!bytes || bytes === 0) return "0 B";
+    var k = 1024;
+    var sizes = ["B", "KB", "MB", "GB"];
+    var i = Math.floor(Math.log(bytes) / Math.log(k));
+    return (bytes / Math.pow(k, i)).toFixed(1) + " " + sizes[i];
+  }
+
+  function renderMediaEntryHtml(item) {
+    var meta = item.meta || {};
+    var isUploading = meta.uploadStatus === "uploading";
+    var isError = meta.uploadStatus === "error";
+
+    var thumbHtml;
+    if (meta.thumbnailDataUrl) {
+      /* data URLs only contain base64 chars — safe in attribute without further escaping */
+      thumbHtml = '<img class="ct-media-thumb" src="' + meta.thumbnailDataUrl + '" alt="Media thumbnail" loading="lazy">';
+    } else if (meta.mediaType === "video") {
+      thumbHtml = '<div class="ct-media-thumb ct-media-thumb--icon">&#9654;</div>';
+    } else {
+      thumbHtml = '<div class="ct-media-thumb ct-media-thumb--icon">&#128247;</div>';
+    }
+
+    var sizeLabel = meta.fileSize ? " \u00b7 " + formatFileSize(meta.fileSize) : "";
+    var statusLabel = isError
+      ? " \u00b7 \u26a0\ufe0f Upload failed"
+      : (isUploading ? " \u00b7 Uploading\u2026" : "");
+    var typeLabel = meta.mediaType === "video" ? "Video" : "Photo";
+
+    var entryClass = "ct-message ct-message--tech ct-media-entry" +
+      (isUploading ? " ct-media-uploading" : "") +
+      (isError ? " ct-media-error" : "");
+
+    var progressHtml = isUploading
+      ? '<div class="ct-upload-bar"><div class="ct-upload-bar__fill" data-entry-id="' +
+        escapeHtml(item.id) + '" style="width:0%"></div></div>'
+      : "";
+
+    return (
+      '<div class="' + entryClass + '" data-entry-id="' + escapeHtml(item.id) + '">' +
+        thumbHtml +
+        '<div class="ct-media-info">' +
+          '<span class="ct-media-filename">' +
+            escapeHtml(meta.fileName || item.text || "Media") +
+          "</span>" +
+          '<span class="ct-message__meta">' +
+            escapeHtml(typeLabel) + " \u00b7 " +
+            escapeHtml(formatTime(item.ts)) +
+            escapeHtml(sizeLabel) +
+            escapeHtml(statusLabel) +
+          "</span>" +
+          progressHtml +
+        "</div>" +
+      "</div>"
+    );
+  }
+
   function renderTimeline(ticketId) {
     var id = normalizeTicketId(ticketId);
     var list = getListElement();
@@ -179,17 +244,23 @@
     var html = "";
     for (var i = 0; i < entries.length; i++) {
       var item = entries[i];
-      if (!item || !item.text) continue;
-      var isTech = item.role === "tech";
-      var alignClass = isTech ? "tech" : "system";
-      var senderLabel = isTech ? "Technician" : "System";
-      html +=
-        '<div class="ct-message ct-message--' + alignClass + '">' +
-          '<span class="ct-message__body">' + escapeHtml(item.text) + "</span>" +
-          '<span class="ct-message__meta">' +
-            escapeHtml(senderLabel) + " · " + escapeHtml(formatTime(item.ts)) +
-          "</span>" +
-        "</div>";
+      if (!item) continue;
+
+      if (item.meta && item.meta.mediaType) {
+        html += renderMediaEntryHtml(item);
+      } else {
+        if (!item.text) continue;
+        var isTech = item.role === "tech";
+        var alignClass = isTech ? "tech" : "system";
+        var senderLabel = isTech ? "Technician" : "System";
+        html +=
+          '<div class="ct-message ct-message--' + alignClass + '">' +
+            '<span class="ct-message__body">' + escapeHtml(item.text) + "</span>" +
+            '<span class="ct-message__meta">' +
+              escapeHtml(senderLabel) + " \u00b7 " + escapeHtml(formatTime(item.ts)) +
+            "</span>" +
+          "</div>";
+      }
     }
     list.innerHTML = html;
     scrollToBottom();
@@ -379,6 +450,343 @@
     }
   }
 
+  /* ── Media capture (Slice 41c) ────────────────────────────────── */
+
+  var _mediaRecorder = null;
+  var _mediaChunks = [];
+  var _isVideoRecording = false;
+
+  function getTechnicianName() {
+    try {
+      if (window.firebase && window.firebase.auth) {
+        var u = window.firebase.auth().currentUser;
+        if (u) return u.displayName || u.email || "Technician";
+      }
+    } catch (e) { /* no-op */ }
+    try {
+      if (typeof window.currentUser !== "undefined" && window.currentUser) {
+        return window.currentUser.displayName || window.currentUser.email || "Technician";
+      }
+    } catch (e) { /* no-op */ }
+    try {
+      if (typeof window.technicianName !== "undefined" && window.technicianName) {
+        return String(window.technicianName);
+      }
+    } catch (e) { /* no-op */ }
+    return "Technician";
+  }
+
+  function createImageThumbnail(file, callback) {
+    try {
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        var img = new Image();
+        img.onload = function () {
+          try {
+            var canvas = document.createElement("canvas");
+            var maxW = 160;
+            var ratio = Math.min(maxW / img.width, maxW / img.height, 1);
+            canvas.width = Math.round(img.width * ratio);
+            canvas.height = Math.round(img.height * ratio);
+            var ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            callback(canvas.toDataURL("image/jpeg", 0.72));
+          } catch (ex) { callback(null); }
+        };
+        img.onerror = function () { callback(null); };
+        img.src = e.target.result;
+      };
+      reader.onerror = function () { callback(null); };
+      reader.readAsDataURL(file);
+    } catch (e) { callback(null); }
+  }
+
+  function createVideoThumbnail(blob, callback) {
+    try {
+      var url = URL.createObjectURL(blob);
+      var video = document.createElement("video");
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = "metadata";
+      video.onseeked = function () {
+        try {
+          var canvas = document.createElement("canvas");
+          var maxW = 160;
+          var vw = video.videoWidth || 160;
+          var vh = video.videoHeight || 90;
+          var ratio = Math.min(maxW / vw, maxW / vh, 1);
+          canvas.width = Math.round(vw * ratio);
+          canvas.height = Math.round(vh * ratio);
+          canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+          callback(canvas.toDataURL("image/jpeg", 0.72));
+        } catch (ex) { URL.revokeObjectURL(url); callback(null); }
+      };
+      video.onloadedmetadata = function () {
+        video.currentTime = 0.1;
+      };
+      video.onerror = function () { URL.revokeObjectURL(url); callback(null); };
+      video.src = url;
+      video.load();
+    } catch (e) { callback(null); }
+  }
+
+  function uploadMediaToStorage(file, ticketId, entryId, onProgress) {
+    try {
+      if (!window.firebase || !window.firebase.storage) {
+        onProgress(null, null, new Error("Firebase Storage unavailable"));
+        return;
+      }
+      var ts = Date.now();
+      var safeName = (file.name || "capture").replace(/[^a-zA-Z0-9._-]/g, "_");
+      var path = "field_evidence/" + (ticketId || "draft") + "/" + ts + "_" + safeName;
+      var storageRef = window.firebase.storage().ref().child(path);
+      var task = storageRef.put(file);
+      task.on(
+        "state_changed",
+        function (snapshot) {
+          var pct = snapshot.totalBytes > 0
+            ? Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
+            : 0;
+          onProgress(pct, null, null);
+        },
+        function (err) {
+          onProgress(null, null, err);
+        },
+        function () {
+          task.snapshot.ref.getDownloadURL().then(function (url) {
+            onProgress(100, url, null);
+          }).catch(function (err) {
+            onProgress(100, null, err);
+          });
+        }
+      );
+    } catch (e) {
+      onProgress(null, null, e);
+    }
+  }
+
+  function updateMediaEntryStatus(ticketId, entryId, status, storageUrl) {
+    var entries = loadEntries(ticketId);
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i] && entries[i].id === entryId) {
+        entries[i].meta.uploadStatus = status;
+        if (storageUrl) entries[i].meta.storageUrl = storageUrl;
+        saveEntries(ticketId, entries);
+        break;
+      }
+    }
+    if (ticketId === currentTicketId) renderTimeline(ticketId);
+  }
+
+  function addMediaEntry(file, mediaType, thumbnailDataUrl, ticketId) {
+    var id = normalizeTicketId(ticketId);
+    var entryId = createId();
+    var entry = {
+      id: entryId,
+      ts: new Date().toISOString(),
+      role: "tech",
+      text: file.name || (mediaType === "video" ? "video_capture" : "photo_capture"),
+      meta: {
+        mediaType: mediaType,
+        fileName: file.name || (mediaType === "video" ? "video.webm" : "photo.jpg"),
+        fileSize: file.size || 0,
+        thumbnailDataUrl: thumbnailDataUrl || null,
+        storageUrl: null,
+        uploadStatus: "uploading",
+        activeTicketId: id,
+        technicianName: getTechnicianName()
+      }
+    };
+
+    var entries = loadEntries(id);
+    entries.push(entry);
+    saveEntries(id, entries);
+    if (id === currentTicketId) renderTimeline(id);
+
+    uploadMediaToStorage(file, id, entryId, function (pct, url, err) {
+      if (err) {
+        updateMediaEntryStatus(id, entryId, "error", null);
+        return;
+      }
+      if (url !== null) {
+        /* Upload complete — persist URL and re-render cleanly */
+        updateMediaEntryStatus(id, entryId, "done", url);
+      } else if (pct !== null) {
+        /* Progress tick — update progress bar in-place without full re-render */
+        var fill = document.querySelector(
+          '.ct-upload-bar__fill[data-entry-id="' + entryId + '"]'
+        );
+        if (fill) fill.style.width = pct + "%";
+      }
+    });
+
+    return entry;
+  }
+
+  function setMediaBtnVideoState(active) {
+    var btn = document.getElementById("ct-media-btn");
+    if (!btn) return;
+    if (active) {
+      btn.classList.add("ct-recording");
+      btn.setAttribute("aria-pressed", "true");
+      btn.textContent = "⏹️";
+      btn.title = "Release to stop recording";
+    } else {
+      btn.classList.remove("ct-recording");
+      btn.setAttribute("aria-pressed", "false");
+      btn.textContent = "📷";
+      btn.title = "Tap for photo · Hold for video";
+    }
+  }
+
+  function stopVideoCapture() {
+    if (!_isVideoRecording && !_mediaRecorder) return;
+    _isVideoRecording = false;
+    setMediaBtnVideoState(false);
+    if (_mediaRecorder) {
+      try { _mediaRecorder.stop(); } catch (e) { _mediaRecorder = null; }
+    }
+  }
+
+  /**
+   * capturePhoto — exported.
+   * Opens the native media picker (no capture attribute → iOS shows full picker).
+   */
+  function capturePhoto() {
+    var input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    /* intentionally no capture attribute — full picker on iOS */
+    input.style.cssText = "position:fixed;left:-9999px;opacity:0;pointer-events:none;";
+    document.body.appendChild(input);
+
+    input.addEventListener("change", function () {
+      var file = input.files && input.files[0];
+      try { document.body.removeChild(input); } catch (e) { /* no-op */ }
+      if (!file) return;
+      createImageThumbnail(file, function (thumbDataUrl) {
+        addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
+      });
+    });
+
+    /* Remove orphaned input if user cancels (blur fires after picker dismissed) */
+    input.addEventListener("blur", function () {
+      setTimeout(function () {
+        if (!input.files || !input.files.length) {
+          try { document.body.removeChild(input); } catch (e) { /* no-op */ }
+        }
+      }, 1000);
+    });
+
+    input.click();
+  }
+
+  /**
+   * captureVideo — exported.
+   * Starts MediaRecorder video capture. Release hold → stopVideoCapture() finishes.
+   * Falls back to file picker if getUserMedia is unavailable.
+   */
+  function captureVideo() {
+    if (_isVideoRecording) return;
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      /* Fallback: video file picker */
+      var input = document.createElement("input");
+      input.type = "file";
+      input.accept = "video/*";
+      input.style.cssText = "position:fixed;left:-9999px;opacity:0;pointer-events:none;";
+      document.body.appendChild(input);
+      input.addEventListener("change", function () {
+        var file = input.files && input.files[0];
+        try { document.body.removeChild(input); } catch (e) { /* no-op */ }
+        if (!file) return;
+        createVideoThumbnail(file, function (thumbDataUrl) {
+          addMediaEntry(file, "video", thumbDataUrl, currentTicketId);
+        });
+      });
+      input.click();
+      return;
+    }
+
+    _isVideoRecording = true;
+    _mediaChunks = [];
+    setMediaBtnVideoState(true);
+
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(function (stream) {
+      var mimeType = "";
+      var candidates = ["video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
+      for (var ci = 0; ci < candidates.length; ci++) {
+        if (MediaRecorder.isTypeSupported(candidates[ci])) {
+          mimeType = candidates[ci];
+          break;
+        }
+      }
+
+      try {
+        _mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType: mimeType } : {});
+      } catch (e) {
+        _mediaRecorder = new MediaRecorder(stream);
+      }
+
+      _mediaRecorder.ondataavailable = function (e) {
+        if (e.data && e.data.size > 0) _mediaChunks.push(e.data);
+      };
+
+      _mediaRecorder.onstop = function () {
+        stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) { /* no-op */ } });
+        _isVideoRecording = false;
+        setMediaBtnVideoState(false);
+
+        if (!_mediaChunks.length) { _mediaRecorder = null; return; }
+
+        var recorderMime = (_mediaRecorder && _mediaRecorder.mimeType) || "video/webm";
+        var blob = new Blob(_mediaChunks, { type: recorderMime });
+        _mediaChunks = [];
+        _mediaRecorder = null;
+
+        var ext = recorderMime.indexOf("mp4") !== -1 ? "mp4" : "webm";
+        var tsStr = new Date().toISOString().replace(/[:.]/g, "-");
+        var fileName = "video_" + tsStr + "." + ext;
+
+        var file;
+        try {
+          file = new File([blob], fileName, { type: blob.type });
+        } catch (e) {
+          /* Safari < 14.1 doesn't support File constructor with options */
+          file = blob;
+          file.name = fileName;
+        }
+
+        createVideoThumbnail(blob, function (thumbDataUrl) {
+          addMediaEntry(file, "video", thumbDataUrl, currentTicketId);
+        });
+      };
+
+      _mediaRecorder.onerror = function () {
+        stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) { /* no-op */ } });
+        _isVideoRecording = false;
+        setMediaBtnVideoState(false);
+        _mediaRecorder = null;
+      };
+
+      _mediaRecorder.start();
+
+    }).catch(function () {
+      _isVideoRecording = false;
+      setMediaBtnVideoState(false);
+      _mediaRecorder = null;
+      var list = getListElement();
+      if (list) {
+        var hint = document.createElement("p");
+        hint.className = "ct-empty";
+        hint.textContent = "Camera access denied — cannot record video.";
+        list.appendChild(hint);
+        scrollToBottom();
+      }
+    });
+  }
+
   /* ── action bar wiring ────────────────────────────────────────── */
 
   function wireActionBar() {
@@ -437,6 +845,56 @@
         }
       });
     }
+
+    /* ── Media button wiring ──────────────────────────────────────── */
+
+    var mediaBtn = document.getElementById("ct-media-btn");
+    if (mediaBtn) {
+      var _mediaBtnDownTime = 0;
+      var _mediaBtnHoldTimer = null;
+
+      function onMediaBtnDown(e) {
+        if (e && e.cancelable) e.preventDefault();
+        _mediaBtnDownTime = Date.now();
+        _mediaBtnHoldTimer = setTimeout(function () {
+          _mediaBtnHoldTimer = null;
+          captureVideo();
+        }, 500);
+      }
+
+      function onMediaBtnUp(e) {
+        if (e && e.cancelable) e.preventDefault();
+        var elapsed = Date.now() - _mediaBtnDownTime;
+        if (_mediaBtnHoldTimer) {
+          clearTimeout(_mediaBtnHoldTimer);
+          _mediaBtnHoldTimer = null;
+        }
+        if (_isVideoRecording) {
+          stopVideoCapture();
+        } else if (elapsed < 500) {
+          capturePhoto();
+        }
+      }
+
+      function onMediaBtnCancel() {
+        if (_mediaBtnHoldTimer) { clearTimeout(_mediaBtnHoldTimer); _mediaBtnHoldTimer = null; }
+        if (_isVideoRecording) stopVideoCapture();
+      }
+
+      var hasPointerEventsMedia = (typeof window.PointerEvent !== "undefined");
+      if (hasPointerEventsMedia) {
+        mediaBtn.addEventListener("pointerdown", onMediaBtnDown);
+        mediaBtn.addEventListener("pointerup", onMediaBtnUp);
+        mediaBtn.addEventListener("pointercancel", onMediaBtnCancel);
+        mediaBtn.addEventListener("pointerleave", function () {
+          if (_isVideoRecording) stopVideoCapture();
+        });
+      } else {
+        mediaBtn.addEventListener("touchstart", onMediaBtnDown, { passive: false });
+        mediaBtn.addEventListener("touchend", onMediaBtnUp, { passive: false });
+        mediaBtn.addEventListener("touchcancel", onMediaBtnCancel);
+      }
+    }
   }
 
   /* ── workspace integration ────────────────────────────────────── */
@@ -483,6 +941,8 @@
     scrollToBottom: scrollToBottom,
     onWorkspaceOpen: onWorkspaceOpen,
     startListening: startListening,
-    stopListening: stopListening
+    stopListening: stopListening,
+    capturePhoto: capturePhoto,
+    captureVideo: captureVideo
   };
 })();
