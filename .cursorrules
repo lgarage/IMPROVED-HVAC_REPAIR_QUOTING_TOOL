@@ -8,7 +8,7 @@ The repo uses a **layered markdown memory system** in **`PROJECT_STATUS/`** at t
 
 #### Tier 1 — Hot (always read at session start)
 
-1. **`PROJECT_STATUS/CURRENT_STATE.md`** — active phase, active blocker (`KI-NNN` ref only), immediate next step, pointers. **Hard-capped at ~30 content lines / ~400 tokens.** If it grows past that, migrate excess into the appropriate Tier 2 file before adding more.
+1. **`PROJECT_STATUS/CURRENT_STATE.md`** — active phase, blocker ref, immediate next steps, pointers; **stay lean** (~30 substantive lines goal). Use the file's own **Update Protocol** footer for the hard line-count migrate rule (avoid bloating Tier 1).
 2. **`.cursorrules`** (this file) — hard rules.
 
 That is the entire mandatory read at session start. Total budget: ~1.5k tokens.
@@ -30,13 +30,15 @@ That is the entire mandatory read at session start. Total budget: ~1.5k tokens.
 
 All paths below are relative to the repo root. Memory files live in `PROJECT_STATUS/`; cross-references between memory files use bare filenames (they are siblings inside the folder).
 
-- **`PROJECT_STATUS/CURRENT_STATE.md`:** Active phase, last shipped step, active blocker (by `KI-NNN`), immediate next step, on-deck phases. Update at the end of every working session, even if the only change is "no progress." When a phase fully ships, move it from here into `PROJECT_MAP.md → Build History`.
-- **`PROJECT_STATUS/KNOWN_ISSUES.md`:** Open bugs, standing environmental gotchas, resolved-for-reference. New bugs get a `KI-NNN` id with severity, affected files, what works, what's broken, investigation checklist, and (when known) directive fix. Resolved bugs move to the **Resolved (Reference)** section with a date and one-line summary; do not delete.
-- **`PROJECT_STATUS/DECISIONS.md`:** Append-only. When you make a non-obvious architectural choice (or reverse one), add an `ADR-NNN` entry with Context / Decision / Alternatives considered / Consequences. Never edit a past entry; supersede it with a new one and mark the old as `Superseded by ADR-MMM`.
-- **`PROJECT_STATUS/PROJECT_MAP.md`:** Implemented features only, organized by domain. `Current Focus` at the bottom collapses to a 3-line pointer into `CURRENT_STATE.md` and `KNOWN_ISSUES.md`. Do not let it grow into a debugging journal again.
-- **`PROJECT_STATUS/ROADMAP.md`:** Unbuilt ideas only. Once a phase enters active build it is tracked in `CURRENT_STATE.md`; once it ships, it moves into `PROJECT_MAP.md → Build History`.
-- **`PROJECT_STATUS/AI_CONTEXT_PROJECT_OVERVIEW.md`:** Stable high-level architecture handoff. Update only on major architectural shifts.
-- **`PROJECT_STATUS/MODEL_DOSSIER.md`:** Agent **running notes** for model choice: tiers, **Workspace enabled models**, **Registry**, **§ Task outcome log** by **task type** (not every trivial edit). **§6H**: after substantive work that **adds learning**, append a row unless the dossier **skip** rules apply; default **ok** if the user doesn't report failure. Strive to **reuse** the log when recommending. Update workspace toggles when Settings → Models change. Archive older rows per dossier § Retention.
+**End-of-session `PROJECT_STATUS` updates (collapse rules, line caps, dossier defaults):** see `.cursor/rules/model-selection.mdc` — § *After substantive work* (avoid duplicating that checklist here).
+
+- **`PROJECT_STATUS/CURRENT_STATE.md`:** Snapshot / blocker pointer / Immediate Next Step. Touch every session (`no code change` line if idle). Ship detail → `PROJECT_MAP.md`; never duplicate **On Deck** (ideas → **`ROADMAP.md` only`).
+- **`PROJECT_STATUS/KNOWN_ISSUES.md`:** Open + resolved refs; use `KI-NNN`; resolved lines stay dated (no delete).
+- **`PROJECT_STATUS/DECISIONS.md`:** Append-only ADRs (`ADR-NNN`); supersede old via new entry, never rewrite history.
+- **`PROJECT_STATUS/PROJECT_MAP.md`:** Shipped domains only; `Current Focus` ≤3 lines pointing at `CURRENT_STATE` + `KNOWN_ISSUES`; Build History checkbox sync on ship.
+- **`PROJECT_STATUS/ROADMAP.md`:** Unbuilt ideas; active build → `CURRENT_STATE`; shipped → Build History.
+- **`PROJECT_STATUS/AI_CONTEXT_PROJECT_OVERVIEW.md`:** Major architecture shifts only (otherwise cold).
+- **`PROJECT_STATUS/MODEL_DOSSIER.md`:** Tier list + **`§ Task outcome log`** (**task shapes**, skip trivial churn). **`§6H`** = obey dossier *When to log* / *Skip logging* / *Retention* — full column spec lives there.
 - **`PROJECT_STATUS/<PHASE>_PLAN.md` (handoff plan docs):** One file per active multi-slice phase, created per **§1D**. Deleted (or folded into `PROJECT_MAP.md → Build History`) when the phase fully ships. `CURRENT_STATE.md` **must** link to it by exact filename.
 
 ### 1D. Handoff Plan Protocol — keeping a fresh AI on track
@@ -241,26 +243,13 @@ Immediately after the block (same message, not a second reply), run the **strict
 - **Do not** “just quickly” fix something, tweak one line, or update docs **before** the user confirms the model — that **violates §6§ Preamble**.
 - **Read-only** exploration (searching/reading files **without** edits) is discouraged before the gate if it would substitute for starting implementation; if the user explicitly asked **read-only** reconnaissance only, you may read after `Override: … — proceed` or `Model switched — proceed` scoped as *investigation only* — still require the gate so the model is recorded as intentional.
 
-### 6H. After implementation — **`MODEL_DOSSIER.md` outcome log**
+### 6H. After implementation — **`MODEL_DOSSIER.md` outcome log`
 
-**Purpose:** Give the next run **better data** for **which model fits which task type** — this file is the agent’s **experience log**, not an audit of every keystroke.
-
-**When to append a row:** After **substantive** work (see dossier § *How to add a row* and § *When to log / Skip logging*). You **must** log when the work **teaches something new** about an archetype, domain, or tier (new or updated pattern). You **must not** treat logging as required for **trivial** or **purely duplicate** work that doesn’t add signal — the dossier **skip** rules apply.
-
-**How:** Append **one row** to **`PROJECT_STATUS/MODEL_DOSSIER.md` § Task outcome log** (newest first) **in the same session** when you log, ideally **before** you treat the task as done. **Skipping** a row when you **should** have captured a new task type (per dossier) breaks the learning loop.
-
-Each logged row **MUST** include: **Date**, short **Task** (grep-friendly **type** label), **Class**, **Arch**, **Tier used** (Fast / Balanced / Strong), **Conf start %**, **Conf after %**, **Tier fit**, **Outcome**, **Note**. In **Note**, record the **exact Cursor model**, e.g. `Cursor: Sonnet 4.6`.
-
-**Default success (user silent):** If the user **does not** say the result failed, needs revert, is wrong, or is incomplete, assume it **worked for the requested scope**:
-- **Outcome = `ok`** (`partial` / `rework` / `fail` only if the user said so **or** **objective** evidence).
-- **Tier fit = `ok`** unless you struggled or left gaps; `could_use_smaller` / `needed_bigger` when fairly earned.
-- **Conf after %** ≥ **Conf start %** unless you have a concrete reason to lower it.
-
-**Continuous improvement:** Before classifying the next task, **grep** the log for the same **type** and **apply** what worked or failed — don’t rely on static tables alone.
+Append **`PROJECT_STATUS/MODEL_DOSSIER.md` → § Task outcome log** **only** when dossier § *When to log* applies (skip trivia per § *Skip logging*). **Same session**, **newest first**, full columns including **`Cursor:` + picker** in **Note**. Default **Outcome / Tier fit / Conf after** → dossier § *Default success* if the user stays silent on quality. Columns + retention → dossier § *How to add a row* / § *Retention*.
 
 ### 6C. Escalation Behavior
 
-If the task is **HIGH** or **UNCERTAIN**: do **NOT** proceed with implementation. Instead output the following block and **wait for user confirmation** before continuing. Set **Recommended** to a **Strong** model from **`MODEL_DOSSIER.md` § Workspace enabled models** (e.g. **Opus 4.7**, **Codex 5.3**, **GPT-5.5** per dossier defaults) — exact Cursor-picker label, not a vague “better model.”
+If the task is **HIGH** or **UNCERTAIN**: do **NOT** proceed with implementation. Instead output the following block and **wait for user confirmation** before continuing. Set **Recommended** to a **Strong** model from **`MODEL_DOSSIER.md` § Workspace enabled models** (defaults: **Opus 4.6**, **Codex 5.3**, **GPT-5.5** — exact picker label, never a vague “better model”; **Opus 4.7** is disabled per dossier).
 
 ```
 ⚠️ SWITCH TO STRONGER MODEL REQUIRED (per MODEL_DOSSIER)

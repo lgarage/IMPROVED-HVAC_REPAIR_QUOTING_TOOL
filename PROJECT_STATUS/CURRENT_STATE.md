@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 40 — Field Chronicle (Experimental). Phase 1 shipped.
-- **Last shipped (2026-05-13):** Settings view isolation fix — `#view-settings { display:flex }` was overriding `.app-view { display:none }` (higher specificity), so Settings content bled into Service intake when switching tabs. Moved `display:flex` to `#view-settings.active` only. `VC_BUILD = "SettingsViewFix-2026-05-13"`. Prior: console error cleanup (firebase_config.js catch + Maps loading=async).
+- **Last shipped (2026-05-13):** Governance token trim — `.cursorrules` §1B/§6H point session-end checklist at `model-selection.mdc` (no duplicated collapse/lines); CURRENT_STATE aligns with ROADMAP-only On Deck; §6C Strong-model examples use Opus 4.6 (4.7 disabled). Prior: Settings view isolation fix (`VC_BUILD = "SettingsViewFix-2026-05-13"`); console error cleanup.
 - **Prior (2026-05-12):** Field Chronicle Phase 1 shipped.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
