@@ -22,11 +22,20 @@ import { executeMerge, getMergePreviewDetailed } from "./engines/merge_manager";
 const app = express();
 const PORT = parseInt(process.env.WORKBENCH_PORT || "4040", 10);
 
+/** Compiled output is under dist/ only; UI assets stay in src/ui/public */
+function uiPublicDir(): string {
+  const besideRunner = path.join(__dirname, "ui", "public");
+  if (fs.existsSync(path.join(besideRunner, "index.html"))) return besideRunner;
+  return path.join(__dirname, "..", "src", "ui", "public");
+}
+
+const UI_PUBLIC = uiPublicDir();
+
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // Never cache the HTML shell — ensures mobile always gets fresh UI after updates
-app.use(express.static(path.join(__dirname, "ui", "public"), {
+app.use(express.static(UI_PUBLIC, {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith(".html")) {
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -482,7 +491,7 @@ app.get("/sandbox-preview/:id/*", (req, res) => {
 
 // --- SPA fallback ---
 app.get("*", (_req, res) => {
-  res.sendFile(path.join(__dirname, "ui", "public", "index.html"));
+  res.sendFile(path.join(UI_PUBLIC, "index.html"));
 });
 
 // --- Start ---
