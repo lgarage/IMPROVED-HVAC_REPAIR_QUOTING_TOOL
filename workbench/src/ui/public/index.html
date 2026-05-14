@@ -1201,14 +1201,99 @@ function closeMergeDialog() {
 
 async function executeMerge() {
   if (!mergeSandboxId) return;
-  showLoading('Merging sandbox');
+  const btn = $('#mergeConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = 'Merging\u2026';
+  showLoading('Merging sandbox\u2026');
+
   const data = await api('POST', `/api/sandbox/${mergeSandboxId}/merge`, { confirmed: true });
   closeMergeDialog();
+  btn.disabled = false;
+  btn.textContent = 'Merge to Main';
+
   if (data.success) {
-    setStatus(`Merged! Backup branch: ${data.checkpointBranch} \u2014 ${data.filesCopied.length} file(s) copied`);
+    showMergeResult(data);
   } else {
     setStatus('Merge failed: ' + (data.error || 'unknown'));
   }
+}
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '\u2713 Copied';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  });
+}
+
+function showMergeResult(data) {
+  const branch = data.checkpointBranch || '';
+  const restoreCmd = branch ? `git checkout ${branch}` : '';
+  const hardResetCmd = branch ? `git reset --hard ${branch}` : '';
+
+  const pushRow = data.pushSuccess
+    ? `<div style="display:flex;align-items:center;gap:8px;padding:8px 0">
+        <span style="color:var(--success)">&#x2714;</span>
+        <span style="font-size:13px">Pushed to remote</span>
+        ${data.commitHash ? `<span style="font-family:monospace;font-size:12px;color:var(--text-dim);">${esc(data.commitHash)}</span>` : ''}
+       </div>`
+    : `<div style="padding:8px 0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="color:var(--warn)">&#x26A0;</span>
+          <span style="font-size:13px;color:var(--warn);font-weight:600">Push failed &mdash; run manually:</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--surface2);border-radius:8px;padding:10px 12px">
+          <code style="flex:1;font-size:12px;color:var(--text)">${esc('cd ' + (data.sourceRepo || '<your repo>') + ' && git push')}</code>
+          <button class="btn btn-ghost btn-sm" style="width:auto;min-height:32px;padding:4px 10px" onclick="copyText('git push', this)">Copy</button>
+        </div>
+        ${data.pushError ? `<div style="font-size:11px;color:var(--danger);margin-top:4px">${esc(data.pushError)}</div>` : ''}
+       </div>`;
+
+  const restoreBlock = branch ? `
+    <div style="margin-top:14px;padding:14px;background:rgba(243,156,18,0.08);border:1px solid rgba(243,156,18,0.3);border-radius:var(--radius)">
+      <div style="font-size:12px;font-weight:600;color:var(--warn);margin-bottom:10px">&#x1F6E1; Backup branch &mdash; keep this safe</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">To undo the merge and restore your original files:</div>
+
+      <div style="margin-bottom:8px">
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:3px">Switch to backup (non-destructive):</div>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--surface2);border-radius:8px;padding:10px 12px">
+          <code style="flex:1;font-size:12px;color:var(--text)">${esc(restoreCmd)}</code>
+          <button class="btn btn-ghost btn-sm" style="width:auto;min-height:32px;padding:4px 10px" onclick="copyText('${escAttr(restoreCmd)}', this)">Copy</button>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:3px">Hard reset main to backup (discards merge commit):</div>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--surface2);border-radius:8px;padding:10px 12px">
+          <code style="flex:1;font-size:12px;color:var(--text)">${esc(hardResetCmd)}</code>
+          <button class="btn btn-ghost btn-sm" style="width:auto;min-height:32px;padding:4px 10px" onclick="copyText('${escAttr(hardResetCmd)}', this)">Copy</button>
+        </div>
+      </div>
+    </div>` : '';
+
+  // Inject a result card above the action buttons in step-results
+  const existing = document.getElementById('mergeResultCard');
+  if (existing) existing.remove();
+
+  const card = document.createElement('div');
+  card.id = 'mergeResultCard';
+  card.className = 'card';
+  card.style.borderColor = data.pushSuccess ? 'var(--success)' : 'var(--warn)';
+  card.innerHTML = `
+    <h3 style="color:var(--success)">&#x2705; Merged to Main</h3>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px">
+      ${esc(data.filesCopied.length)} file(s) copied from sandbox into your repo.
+    </div>
+    ${pushRow}
+    ${restoreBlock}
+  `;
+
+  const btnRow = $('#step-results .btn-row');
+  btnRow.parentNode.insertBefore(card, btnRow);
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setStatus(data.pushSuccess
+    ? `Merged and pushed \u2014 backup: ${branch}`
+    : `Merged locally \u2014 push manually \u2014 backup: ${branch}`);
 }
 
 // --- Start Over ---

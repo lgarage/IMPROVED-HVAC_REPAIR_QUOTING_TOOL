@@ -23,6 +23,9 @@ export interface MergeResult {
   success: boolean;
   checkpointBranch: string;
   filesCopied: string[];
+  commitHash?: string;
+  pushSuccess?: boolean;
+  pushError?: string;
   error?: string;
 }
 
@@ -207,6 +210,27 @@ export function executeMerge(request: MergeRequest): MergeResult {
     };
   }
 
+  // Commit the copied files into the original repo
+  execSafe("git add -A", sandbox.sourceRepo);
+  const commitMsg = `workbench: AI task applied (backup: ${checkpoint.branch})`;
+  const commitResult = execSafe(`git commit -m "${commitMsg}"`, sandbox.sourceRepo);
+
+  let commitHash: string | undefined;
+  if (commitResult.ok) {
+    const hashResult = execSafe("git rev-parse --short HEAD", sandbox.sourceRepo);
+    if (hashResult.ok) commitHash = hashResult.output.trim();
+  }
+
+  // Push to remote
+  let pushSuccess = false;
+  let pushError: string | undefined;
+  const pushResult = execSafe("git push", sandbox.sourceRepo);
+  if (pushResult.ok) {
+    pushSuccess = true;
+  } else {
+    pushError = pushResult.output.trim() || "Push failed — run `git push` manually in your repo.";
+  }
+
   const metaPath = path.join(sandbox.path, ".sandbox_meta.json");
   try {
     sandbox.status = "merged";
@@ -217,6 +241,9 @@ export function executeMerge(request: MergeRequest): MergeResult {
     success: true,
     checkpointBranch: checkpoint.branch,
     filesCopied: copied,
+    commitHash,
+    pushSuccess,
+    pushError,
     error: errors.length > 0 ? `Partial merge — failed files: ${errors.join("; ")}` : undefined,
   };
 }
