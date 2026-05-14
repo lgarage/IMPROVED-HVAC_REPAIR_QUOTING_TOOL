@@ -592,7 +592,12 @@ async function api(method, url, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(url, opts);
-  return res.json();
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: 'Server returned non-JSON (restart server with new code?)' };
+  }
 }
 
 // --- Load initial state ---
@@ -604,6 +609,9 @@ async function loadStatus() {
   if (data.analyzed) {
     $('#statusDot').classList.add('active');
     renderAnalysis(data.analysis);
+  }
+  if (data.platform !== 'win32') {
+    $('#browseNativeBtn').classList.add('hidden');
   }
 }
 
@@ -1027,7 +1035,6 @@ function esc(s) { const d = document.createElement('div'); d.textContent = s || 
 
 // --- Folder browsing ---
 
-let nativeBrowseAvailable = true;
 let folderBrowserCurrentPath = '';
 
 function updateRepoPathDisplay(p) {
@@ -1039,16 +1046,6 @@ function updateRepoPathDisplay(p) {
     el.textContent = 'No repo selected';
     el.classList.add('empty');
   }
-}
-
-async function checkNativeBrowse() {
-  try {
-    const res = await fetch('/api/browse-native', { method: 'POST' });
-    if (res.status === 501) {
-      nativeBrowseAvailable = false;
-      $('#browseNativeBtn').classList.add('hidden');
-    }
-  } catch { /* ignore — will just hide button if server unreachable */ }
 }
 
 async function browseNative() {
@@ -1178,7 +1175,6 @@ function escAttr(s) {
 // --- Init ---
 loadStatus();
 loadSandboxes();
-checkNativeBrowse();
 </script>
 </body>
 </html>

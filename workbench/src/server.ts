@@ -56,6 +56,7 @@ app.get("/api/status", (_req, res) => {
     analysis: currentAnalysis,
     notesCount: parsedNotes.length,
     hasWorkPath: !!readWorkPath(currentRepoPath),
+    platform: process.platform,
   });
 });
 
