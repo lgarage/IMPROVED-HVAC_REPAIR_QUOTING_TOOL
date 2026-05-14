@@ -1232,6 +1232,222 @@ body.vc-override-active #vcOfficeOverrideBanner {
   outline: none;
 }
 
+/* Slice 44a: follow-up prompt layout with quick replies */
+.ct-followup-prompt {
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.ct-followup-prompt__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.ct-followup-prompt__replies {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ct-followup-reply {
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 212, 255, 0.45);
+  background: rgba(0, 212, 255, 0.1);
+  color: #00d4ff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 30px;
+  min-width: 44px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ct-followup-reply:active,
+.ct-followup-reply:hover {
+  background: rgba(0, 212, 255, 0.22);
+  border-color: rgba(0, 212, 255, 0.75);
+}
+
+.ct-followup-reply--skip {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.08);
+  color: #9fb2c8;
+}
+
+.ct-followup-reply--skip:active,
+.ct-followup-reply--skip:hover {
+  background: rgba(148, 163, 184, 0.18);
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
+/* Slice 44a: settings gear icon in timeline header */
+#ct-settings-gear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: none;
+  color: rgba(148, 163, 184, 0.65);
+  font-size: 16px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+#ct-settings-gear:active,
+#ct-settings-gear:hover {
+  background: rgba(148, 163, 184, 0.12);
+  color: #e6f7ff;
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+/* Slice 44a: settings bottom-sheet overlay */
+#ct-settings-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1100;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Slice 44a: settings bottom-sheet (#ct-settings-voice) */
+#ct-settings-voice {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1101;
+  background: linear-gradient(180deg, #1a1c30 0%, #12131f 100%);
+  border-top: 1px solid rgba(0, 212, 255, 0.22);
+  border-radius: 18px 18px 0 0;
+  padding: 0 0 env(safe-area-inset-bottom, 16px);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+#ct-settings-voice.ct-settings-sheet--open {
+  transform: translateY(0);
+}
+
+.ct-settings-sheet__handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(148, 163, 184, 0.3);
+  margin: 10px auto 0;
+}
+
+.ct-settings-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+}
+
+.ct-settings-sheet__title {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #00d4ff;
+  margin: 0;
+}
+
+#ct-settings-close {
+  background: none;
+  border: none;
+  color: rgba(148, 163, 184, 0.7);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#ct-settings-close:hover,
+#ct-settings-close:active {
+  color: #e6f7ff;
+}
+
+.ct-settings-sheet__options {
+  padding: 4px 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ct-settings-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ct-settings-option:active,
+.ct-settings-option:hover {
+  background: rgba(0, 212, 255, 0.08);
+  border-color: rgba(0, 212, 255, 0.3);
+}
+
+.ct-settings-option input[type=radio] {
+  accent-color: #00d4ff;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.ct-settings-option__icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.ct-settings-option__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-settings-option__label {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #e6f7ff;
+}
+
+.ct-settings-option__desc {
+  display: block;
+  font-size: 12px;
+  color: #9fb2c8;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
 .ct-empty {
   margin: 0;
   color: #9fb2c8;
@@ -5312,6 +5528,12 @@ button#techDisplayLabel:active { opacity: 0.75; }
         aria-label="Active equipment — tap to clear"
         title="Tap to clear active equipment"
       ></button>
+      <button
+        id="ct-settings-gear"
+        type="button"
+        aria-label="Timeline notification settings"
+        title="Timeline settings"
+      >⚙️</button>
     </div>
     <div id="ct-message-list" aria-live="polite" role="log" aria-label="Conversation messages">
       <p class="ct-empty">Open a ticket to load its conversation timeline.</p>
@@ -5343,6 +5565,48 @@ button#techDisplayLabel:active { opacity: 0.75; }
       >🎙️</button>
     </div>
   </section>
+
+  <!-- Slice 44a: settings overlay + bottom-sheet -->
+  <div id="ct-settings-overlay" aria-hidden="true"></div>
+  <div
+    id="ct-settings-voice"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Timeline notification settings"
+    aria-hidden="true"
+  >
+    <div class="ct-settings-sheet__handle" aria-hidden="true"></div>
+    <div class="ct-settings-sheet__header">
+      <p class="ct-settings-sheet__title">Notification Mode</p>
+      <button id="ct-settings-close" type="button" aria-label="Close settings">✕</button>
+    </div>
+    <div class="ct-settings-sheet__options">
+      <label class="ct-settings-option">
+        <input type="radio" name="ct-mode" value="voice_text" checked />
+        <span class="ct-settings-option__icon">🔊</span>
+        <span class="ct-settings-option__body">
+          <span class="ct-settings-option__label">Voice + Text</span>
+          <span class="ct-settings-option__desc">Spoken prompts &amp; text bubbles. Mic auto-activates for follow-ups.</span>
+        </span>
+      </label>
+      <label class="ct-settings-option">
+        <input type="radio" name="ct-mode" value="text_only" />
+        <span class="ct-settings-option__icon">🔔</span>
+        <span class="ct-settings-option__body">
+          <span class="ct-settings-option__label">Text Only</span>
+          <span class="ct-settings-option__desc">Text bubbles with ding &amp; vibration notification.</span>
+        </span>
+      </label>
+      <label class="ct-settings-option">
+        <input type="radio" name="ct-mode" value="silent" />
+        <span class="ct-settings-option__icon">🔇</span>
+        <span class="ct-settings-option__body">
+          <span class="ct-settings-option__label">Silent</span>
+          <span class="ct-settings-option__desc">Visual only — no sound or vibration.</span>
+        </span>
+      </label>
+    </div>
+  </div>
 
   <section class="dictation-hub-shell" aria-labelledby="dictationHubSectionTitle">
     <div class="dictation-hub-top">
@@ -6076,7 +6340,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase43-Slice43b-2026-05-14";
+window.VC_BUILD = "Phase44-Slice44a-2026-05-14";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -11170,7 +11434,7 @@ window.onload = async function(){
     <script src="../field_chronicle.js?v=1"></script>
     <script src="../job_context_engine.js?v=2"></script>
     <script src="../edge_intent_engine.js?v=2"></script>
-    <script src="../conversational_timeline.js?v=7"></script>
+    <script src="../conversational_timeline.js?v=8"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
       if (typeof initGlobalSiteDirectory === "function") initGlobalSiteDirectory();

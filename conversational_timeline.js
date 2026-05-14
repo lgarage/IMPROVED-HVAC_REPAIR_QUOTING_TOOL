@@ -1,5 +1,5 @@
 /**
- * Conversational Timeline — Slice 43b.
+ * Conversational Timeline — Slice 44a.
  *
  * Slice 41a: localStorage-only timeline, bubble layout, workspace integration.
  * Slice 41b: Hold-to-Talk action bar + live Web Speech API STT.
@@ -35,9 +35,20 @@
  *   - Medium confidence (0.6–0.8) → short clarification bubble.
  *   - Low confidence (<0.6) → silent Gemini escalation → structured parse.
  *   - Uses EdgeIntentEngine.escalateToCloud() for Gemini structured extraction.
+ * Slice 44a: Voice responses to follow-up prompts + settings.
+ *   - STT auto-activates for 3 s when a follow-up prompt appears (voice_text mode).
+ *   - parseFollowUpResponse(): yes/no/skip/correct/number/equipment/text.
+ *   - handleFollowUpResponse(): exported — processes spoken/tapped reply.
+ *   - Quick-reply buttons [Yes] [No] [Skip] rendered below every follow-up.
+ *   - Settings stored in localStorage (vc_ct_settings):
+ *       voice_text  — spoken prompts + text bubbles (default)
+ *       text_only   — text bubbles + ding/vibration notification
+ *       silent      — visual only, no sound
+ *   - #ct-settings-gear: small gear icon in timeline header.
+ *   - #ct-settings-voice: element ID inside the settings bottom-sheet.
  *
  * Exports: startListening, stopListening, capturePhoto, captureVideo,
- *          processEntry, generateResponse.
+ *          processEntry, generateResponse, handleFollowUpResponse.
  */
 (function () {
   "use strict";
@@ -45,8 +56,71 @@
   /* ── localStorage helpers ─────────────────────────────────────── */
 
   var LS_PREFIX = "vc_conversational_timeline_";
+  var LS_SETTINGS_KEY = "vc_ct_settings";
   var currentTicketId = "draft";
   var initialized = false;
+
+  /* ── settings helpers (Slice 44a) ────────────────────────────── */
+
+  var VALID_MODES = ["voice_text", "text_only", "silent"];
+
+  function loadSettings() {
+    try {
+      var raw = localStorage.getItem(LS_SETTINGS_KEY);
+      if (!raw) return { mode: "voice_text" };
+      var parsed = JSON.parse(raw);
+      if (parsed && VALID_MODES.indexOf(parsed.mode) !== -1) return parsed;
+      return { mode: "voice_text" };
+    } catch (e) {
+      return { mode: "voice_text" };
+    }
+  }
+
+  function saveSettings(settings) {
+    try {
+      localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(settings));
+    } catch (e) { /* quota exceeded */ }
+  }
+
+  function getMode() {
+    return loadSettings().mode || "voice_text";
+  }
+
+  function setMode(mode) {
+    if (VALID_MODES.indexOf(mode) === -1) return;
+    saveSettings({ mode: mode });
+    updateSettingsSheetUI(mode);
+  }
+
+  /* ── ding notification (Slice 44a) ───────────────────────────── */
+
+  function playFollowUpDing() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var oscillator = ctx.createOscillator();
+      var gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12);
+      gainNode.gain.setValueAtTime(0.25, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.35);
+    } catch (e) { /* AudioContext unavailable — no-op */ }
+  }
+
+  function triggerFollowUpNotification() {
+    var mode = getMode();
+    if (mode === "silent") return;
+    if (mode === "text_only") {
+      playFollowUpDing();
+      if (navigator.vibrate) {
+        try { navigator.vibrate([80, 40, 80]); } catch (e) { /* no-op */ }
+      }
+    }
+    /* voice_text: notification handled by auto-listen audio cue */
+  }
 
   /* ── equipment reference pattern (Slice 42b — supersedes 41d) ── */
 
@@ -883,6 +957,140 @@
     return "Got it.";
   }
 
+  /* ── follow-up response parsing (Slice 44a) ──────────────────── */
+
+  /**
+   * parseFollowUpResponse — classifies a spoken or typed follow-up answer.
+   * Returns { type, value? } where type is one of:
+   *   "yes" | "no" | "skip" | "correction" | "number" | "equipment" | "text"
+   */
+  function parseFollowUpResponse(text) {
+    var t = String(text || "").trim().toLowerCase();
+
+    if (/^(yes|yeah|yep|yup|correct|affirmative|that'?s right|confirmed?)$/.test(t)) {
+      return { type: "yes" };
+    }
+    if (/^(no|nope|nah|negative|incorrect)$/.test(t)) {
+      return { type: "no" };
+    }
+    if (/^(skip|next|pass|never ?mind|n\/a|none)$/.test(t)) {
+      return { type: "skip" };
+    }
+    if (/^(correction|correct that|i meant|actually)/.test(t)) {
+      return { type: "correction", value: text };
+    }
+
+    var eqMatch = String(text).match(EQUIPMENT_REGEX);
+    if (eqMatch) {
+      return { type: "equipment", value: eqMatch[0] };
+    }
+
+    var numMatch = String(text).match(/\b(\d+\.?\d*)\s*(psi|amps?|degrees?|°|rpm|cfm|volts?|watts?|hz|kw|ton|tons?)?\b/i);
+    if (numMatch) {
+      return { type: "number", value: numMatch[0] };
+    }
+
+    return { type: "text", value: text };
+  }
+
+  /**
+   * handleFollowUpResponse — exported.
+   * Processes a spoken or quick-reply follow-up answer:
+   *   - Dismisses the active follow-up prompt.
+   *   - "skip" → dismisses silently (no entry created).
+   *   - All other types → adds a tech entry and lets processEntry handle Vertex reply.
+   */
+  function handleFollowUpResponse(responseText) {
+    var text = String(responseText || "").trim();
+    if (!text) return;
+
+    var parsed = parseFollowUpResponse(text);
+
+    _followUpDismissed = true;
+    hideFollowUpPrompt();
+    stopFollowUpListening();
+
+    if (parsed.type === "skip") {
+      return;
+    }
+
+    addEntry(text, "tech", currentTicketId);
+  }
+
+  /* ── follow-up auto-listen (Slice 44a) ───────────────────────── */
+
+  var _followUpRecognition = null;
+  var _followUpListenTimer = null;
+
+  function stopFollowUpListening() {
+    if (_followUpListenTimer) {
+      clearTimeout(_followUpListenTimer);
+      _followUpListenTimer = null;
+    }
+    if (_followUpRecognition) {
+      try { _followUpRecognition.stop(); } catch (e) { /* no-op */ }
+      _followUpRecognition = null;
+    }
+  }
+
+  function startFollowUpListening() {
+    if (!isSTTSupported()) return;
+    if (_isRecording) return; /* hold-to-talk already active */
+    if (_followUpRecognition) return;
+
+    var SRClass = getSpeechRecognitionClass();
+    if (!SRClass) return;
+
+    var r = new SRClass();
+    r.continuous = false;
+    r.interimResults = false;
+    r.lang = "en-US";
+    r.maxAlternatives = 1;
+
+    _followUpRecognition = r;
+
+    /* 3-second hard ceiling — stop recognition if no result yet */
+    _followUpListenTimer = setTimeout(function () {
+      stopFollowUpListening();
+    }, 3000);
+
+    r.onresult = function (e) {
+      clearTimeout(_followUpListenTimer);
+      _followUpListenTimer = null;
+      var transcript = "";
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          transcript += e.results[i][0].transcript;
+        }
+      }
+      transcript = transcript.trim();
+      _followUpRecognition = null;
+      if (transcript) {
+        handleFollowUpResponse(transcript);
+      }
+    };
+
+    r.onerror = function () {
+      clearTimeout(_followUpListenTimer);
+      _followUpListenTimer = null;
+      _followUpRecognition = null;
+    };
+
+    r.onend = function () {
+      clearTimeout(_followUpListenTimer);
+      _followUpListenTimer = null;
+      _followUpRecognition = null;
+    };
+
+    try {
+      r.start();
+    } catch (e) {
+      _followUpRecognition = null;
+      clearTimeout(_followUpListenTimer);
+      _followUpListenTimer = null;
+    }
+  }
+
   /* ── follow-up prompt helpers ─────────────────────────────────── */
 
   var _followUpDismissed = false;
@@ -899,25 +1107,61 @@
     el.className = "ct-followup-prompt";
     el.style.display = "none";
     el.innerHTML =
-      '<span class="ct-followup-prompt__text">Which unit?</span>' +
-      '<button class="ct-followup-prompt__dismiss" aria-label="Dismiss follow-up">\u2715</button>';
+      '<div class="ct-followup-prompt__top">' +
+        '<span class="ct-followup-prompt__text">Which unit?</span>' +
+        '<button class="ct-followup-prompt__dismiss" aria-label="Dismiss follow-up">\u2715</button>' +
+      '</div>' +
+      '<div class="ct-followup-prompt__replies" role="group" aria-label="Quick replies">' +
+        '<button class="ct-followup-reply" data-reply="yes" type="button">Yes</button>' +
+        '<button class="ct-followup-reply" data-reply="no" type="button">No</button>' +
+        '<button class="ct-followup-reply ct-followup-reply--skip" data-reply="skip" type="button">Skip</button>' +
+      '</div>';
+
     el.querySelector(".ct-followup-prompt__dismiss").addEventListener("click", function () {
       _followUpDismissed = true;
+      stopFollowUpListening();
       hideFollowUpPrompt();
     });
+
+    var replyBtns = el.querySelectorAll(".ct-followup-reply");
+    for (var ri = 0; ri < replyBtns.length; ri++) {
+      (function (btn) {
+        btn.addEventListener("click", function () {
+          handleFollowUpResponse(btn.getAttribute("data-reply"));
+        });
+      })(replyBtns[ri]);
+    }
+
     bar.parentNode.insertBefore(el, bar);
     return el;
   }
 
-  function showFollowUpPrompt() {
+  function showFollowUpPrompt(promptText) {
     if (_followUpDismissed) return;
     var el = getFollowUpEl() || createFollowUpEl();
-    if (el) el.style.display = "flex";
+    if (!el) return;
+
+    if (promptText) {
+      var textEl = el.querySelector(".ct-followup-prompt__text");
+      if (textEl) textEl.textContent = promptText;
+    }
+
+    el.style.display = "flex";
+    triggerFollowUpNotification();
+
+    /* voice_text: start 3-second auto-listen window */
+    if (getMode() === "voice_text") {
+      setTimeout(function () {
+        /* Delay slightly so recognition doesn't capture the prompt display moment */
+        if (!_followUpDismissed) startFollowUpListening();
+      }, 400);
+    }
   }
 
   function hideFollowUpPrompt() {
     var el = getFollowUpEl();
     if (el) el.style.display = "none";
+    stopFollowUpListening();
   }
 
   function checkFollowUpPrompt(ticketId) {
@@ -972,6 +1216,79 @@
         ? window.VCJobContext.activeEquipment
         : null
     );
+  }
+
+  /* ── settings gear + bottom-sheet (Slice 44a) ────────────────── */
+
+  function updateSettingsSheetUI(mode) {
+    var sheet = document.getElementById("ct-settings-voice");
+    if (!sheet) return;
+    var radios = sheet.querySelectorAll("input[type=radio][name=ct-mode]");
+    for (var i = 0; i < radios.length; i++) {
+      radios[i].checked = (radios[i].value === mode);
+    }
+  }
+
+  function openSettingsSheet() {
+    var sheet = document.getElementById("ct-settings-voice");
+    var overlay = document.getElementById("ct-settings-overlay");
+    if (sheet) {
+      updateSettingsSheetUI(getMode());
+      sheet.classList.add("ct-settings-sheet--open");
+      sheet.setAttribute("aria-hidden", "false");
+    }
+    if (overlay) {
+      overlay.style.display = "block";
+    }
+  }
+
+  function closeSettingsSheet() {
+    var sheet = document.getElementById("ct-settings-voice");
+    var overlay = document.getElementById("ct-settings-overlay");
+    if (sheet) {
+      sheet.classList.remove("ct-settings-sheet--open");
+      sheet.setAttribute("aria-hidden", "true");
+    }
+    if (overlay) {
+      overlay.style.display = "none";
+    }
+  }
+
+  function wireSettingsGear() {
+    var gearBtn = document.getElementById("ct-settings-gear");
+    if (gearBtn) {
+      gearBtn.addEventListener("click", function () {
+        openSettingsSheet();
+      });
+    }
+
+    var closeBtn = document.getElementById("ct-settings-close");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", function () {
+        closeSettingsSheet();
+      });
+    }
+
+    var overlay = document.getElementById("ct-settings-overlay");
+    if (overlay) {
+      overlay.addEventListener("click", function () {
+        closeSettingsSheet();
+      });
+    }
+
+    var sheet = document.getElementById("ct-settings-voice");
+    if (sheet) {
+      var radios = sheet.querySelectorAll("input[type=radio][name=ct-mode]");
+      for (var i = 0; i < radios.length; i++) {
+        (function (radio) {
+          radio.addEventListener("change", function () {
+            if (radio.checked) {
+              setMode(radio.value);
+            }
+          });
+        })(radios[i]);
+      }
+    }
   }
 
   /**
@@ -1230,6 +1547,7 @@
 
     wireActionBar();
     wireEquipmentChip();
+    wireSettingsGear();
 
     try {
       window.addEventListener("vc:workspaceOpened", function () {
@@ -1271,6 +1589,7 @@
     capturePhoto: capturePhoto,
     captureVideo: captureVideo,
     processEntry: processEntry,
-    generateResponse: generateResponse
+    generateResponse: generateResponse,
+    handleFollowUpResponse: handleFollowUpResponse
   };
 })();
