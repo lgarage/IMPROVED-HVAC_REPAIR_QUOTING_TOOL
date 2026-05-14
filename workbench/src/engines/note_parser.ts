@@ -267,6 +267,7 @@ ${rawText}`;
     throw new Error(`Gemini returned invalid JSON: ${cleaned.substring(0, 200)}`);
   }
 
+  const uncertainties = Array.isArray(parsed.uncertainties) ? parsed.uncertainties : [];
   return {
     rawText,
     primaryGoal: parsed.primaryGoal || "Could not determine primary goal",
@@ -277,8 +278,8 @@ ${rawText}`;
     verificationExpectations: Array.isArray(parsed.verificationExpectations) ? parsed.verificationExpectations : [],
     risks: Array.isArray(parsed.risks) ? parsed.risks : [],
     likelyFiles: Array.isArray(parsed.likelyFiles) ? parsed.likelyFiles : [],
-    uncertainties: Array.isArray(parsed.uncertainties) ? parsed.uncertainties : [],
-    followUpQuestion: parsed.uncertainties?.length > 0 ? "Some items need clarification — see Uncertainties above" : null,
+    uncertainties,
+    followUpQuestion: uncertainties.length > 0 ? "Some items need clarification — see 'Unclassified' section above" : null,
     confidence: typeof parsed.confidence === "number" ? parsed.confidence : 75,
     aiParsed: true,
   };

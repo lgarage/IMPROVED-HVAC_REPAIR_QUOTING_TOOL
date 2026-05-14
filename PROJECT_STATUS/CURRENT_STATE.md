@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 41 — Conversational Field Capture (New Field Tech UX). Planning shipped; Slice 41a next.
-- **Last shipped (2026-05-13):** New Field Tech UX phased build plan; governance token trim; Settings view isolation fix; console error cleanup.
-- **Note:** `workbench/` is a standalone tool (NOT Vertex). See `workbench/README.md` for its own docs. Do not reference workbench state here.
+- **Last shipped (2026-05-14):** Workbench paused + documented (`PAUSE_NOTES.md`); README corrected (port, UI description). Vertex next: Phase 41a (conversational timeline UI).
+- **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume; last sandbox (invoice fixes, confidence 100%) is ready to Review/Merge when wanted.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
 

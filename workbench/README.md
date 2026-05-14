@@ -14,7 +14,7 @@ A portable, local-first AI workbench that can be dropped into any repo to analyz
 cd workbench
 npm install
 npx ts-node src/server.ts
-# Open http://localhost:4040
+# Open http://localhost:4141
 ```
 
 ### Local (built)
@@ -31,7 +31,7 @@ node bin/repo-workbench.js serve
 ```bash
 cd workbench
 docker build -t repo-workbench .
-docker run --rm -it -p 4040:4040 -v "C:\Projects\my-repo:/workspace" repo-workbench
+docker run --rm -it -p 4141:4141 -v "C:\Projects\my-repo:/workspace" repo-workbench
 ```
 
 ---
@@ -52,7 +52,7 @@ npx ts-node src/cli.ts generate "C:\Projects\my-repo" "fix the login bug"
 npx ts-node src/cli.ts sandbox "C:\Projects\my-repo"
 
 # Start web UI
-npx ts-node src/cli.ts serve 4040
+npx ts-node src/cli.ts serve 4141
 ```
 
 ---
@@ -66,12 +66,14 @@ The primary remote-access method is **Tailscale** — no public ports, no intern
 1. Install [Tailscale](https://tailscale.com) on your workstation and phone
 2. Both devices join the same Tailnet
 3. Start the workbench on your workstation:
-   ```bash
-   cd workbench && npx ts-node src/server.ts
+   ```powershell
+   cd workbench
+   $env:CURSOR_API_KEY="<your-key>"
+   npx ts-node src/server.ts
    ```
 4. The terminal shows your network IP. On your phone, open:
    ```
-   http://<your-tailscale-ip>:4040
+   http://<your-tailscale-ip>:4141
    ```
 
 ### Expected workflow
@@ -87,17 +89,18 @@ The primary remote-access method is **Tailscale** — no public ports, no intern
 
 ---
 
-## Web UI Features
+## Web UI
 
-| Tab | What it does |
-|-----|-------------|
-| **Repo** | Set target repo path, run analysis |
-| **Notes** | Paste messy notes, see parsed output |
-| **Work Path** | Generate/preview AI_WORK_PATH.md |
-| **Sandbox** | Create isolated repo copies for safe AI edits |
-| **Results** | View confidence reports and verification checklists |
+The UI is a **single scrolling conversation** (not tabs). Each step appears below the previous and auto-scrolls:
 
-The UI is mobile-first with large touch targets — designed for phone use over Tailscale.
+1. **Pick repo** — Windows Explorer dialog, in-browser folder navigator, or manual path
+2. **Analyze** — detects framework, commands, structure; collapses to summary when done
+3. **Paste messy notes** — free-form text (voice transcripts, complaints, ideas)
+4. **Parsed output** — structured work items; edit or confirm to proceed
+5. **Auto-cascade** — generates work path → creates sandbox → runs AI task (live log)
+6. **Results** — confidence score (0-100, A–F), files changed, checklist; "Review Changes" overlay with diff + iframe preview; "Merge to Main" dialog
+
+Mobile-first with large touch targets — designed for phone use over Tailscale. **"Start Over"** in the header resets the conversation.
 
 ---
 
@@ -137,7 +140,7 @@ Before merge, the UI shows exact files changing and requires confirmation.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `WORKBENCH_PORT` | `4040` | Web UI port |
+| `WORKBENCH_PORT` | `4141` | Web UI port (hardcoded default — bookmarked on PC + phone) |
 | `CURSOR_API_KEY` | — | Required for AI task execution via Cursor SDK |
 
 ---
@@ -211,7 +214,7 @@ Merge is only enabled when score >= 70% and build passes.
 workbench/
 ├── bin/repo-workbench.js          CLI entry point (production)
 ├── src/
-│   ├── server.ts                  Express web server (port 4040)
+│   ├── server.ts                  Express web server (port 4141)
 │   ├── cli.ts                     CLI interface
 │   └── engines/
 │       ├── model_selector.ts      Cheapest-safe-model picker + escalation ladder
