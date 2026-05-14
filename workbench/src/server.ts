@@ -315,6 +315,48 @@ app.get("/api/browse-dirs", (req, res) => {
   }
 });
 
+// --- Sandbox static file preview ---
+
+app.get("/api/sandbox/:id/entry-point", (req, res) => {
+  const sandbox = findSandbox(req.params.id);
+  if (!sandbox) return res.status(404).json({ error: "Sandbox not found" });
+
+  const candidates = [
+    "index.html",
+    "public/index.html",
+    "dist/index.html",
+    "src/index.html",
+    "www/index.html",
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(sandbox.path, candidate))) {
+      return res.json({
+        entryPoint: candidate,
+        previewUrl: `/sandbox-preview/${sandbox.id}/${candidate}`,
+      });
+    }
+  }
+  res.json({ entryPoint: null, previewUrl: null });
+});
+
+app.get("/sandbox-preview/:id/*", (req, res) => {
+  const sandbox = findSandbox(req.params.id);
+  if (!sandbox) return res.status(404).send("Sandbox not found");
+
+  const prefix = `/sandbox-preview/${req.params.id}/`;
+  const subPath = req.path.startsWith(prefix) ? req.path.slice(prefix.length) : "index.html";
+  const fullPath = path.resolve(sandbox.path, subPath || "index.html");
+  const sandboxResolved = path.resolve(sandbox.path);
+
+  if (!fullPath.startsWith(sandboxResolved)) {
+    return res.status(403).send("Access denied");
+  }
+  if (!fs.existsSync(fullPath)) {
+    return res.status(404).send(`File not found in sandbox: ${subPath}`);
+  }
+  res.sendFile(fullPath);
+});
+
 // --- SPA fallback ---
 app.get("*", (_req, res) => {
   res.sendFile(path.join(__dirname, "ui", "public", "index.html"));
