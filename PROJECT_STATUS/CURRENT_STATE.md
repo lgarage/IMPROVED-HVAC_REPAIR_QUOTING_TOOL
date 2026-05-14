@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 41 — Conversational Field Capture (New Field Tech UX). Planning shipped; Slice 41a next.
-- **Last shipped (2026-05-14):** AI Repo Workbench v0.1 (`workbench/`) — standalone portable tool: repo analyzer, messy-note parser, AI_WORK_PATH.md generator, sandbox manager, Express web UI (mobile/Tailscale-ready), CLI, Dockerfile. `tools/` (Vertex Build Runner) untouched.
-- **Prior (2026-05-13):** New Field Tech UX phased build plan; governance token trim; Settings view isolation fix; console error cleanup.
+- **Last shipped (2026-05-13):** New Field Tech UX phased build plan; governance token trim; Settings view isolation fix; console error cleanup.
+- **Note:** `workbench/` is a standalone tool (NOT Vertex). See `workbench/README.md` for its own docs. Do not reference workbench state here.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
 

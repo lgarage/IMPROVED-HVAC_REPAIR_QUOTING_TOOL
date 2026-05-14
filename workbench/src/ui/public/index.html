@@ -27,7 +27,6 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* --- Header --- */
     .header {
       background: var(--surface);
       padding: 16px 20px;
@@ -48,7 +47,6 @@
     }
     .header .status-dot.active { background: var(--success); }
 
-    /* --- Tabs --- */
     .tabs {
       display: flex;
       background: var(--surface);
@@ -75,11 +73,9 @@
       border-bottom-color: var(--accent);
     }
 
-    /* --- Panels --- */
     .panel { display: none; padding: 16px; max-width: 720px; margin: 0 auto; }
     .panel.active { display: block; }
 
-    /* --- Cards --- */
     .card {
       background: var(--surface);
       border-radius: var(--radius);
@@ -93,7 +89,6 @@
       color: var(--accent);
     }
 
-    /* --- Buttons --- */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -120,8 +115,8 @@
       border: 1px solid var(--accent-dim);
     }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-sm { padding: 10px 16px; font-size: 13px; min-height: 38px; width: auto; }
 
-    /* --- Inputs --- */
     input[type="text"], textarea {
       width: 100%;
       padding: 14px;
@@ -141,7 +136,6 @@
     textarea { min-height: 150px; }
     label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
 
-    /* --- Output --- */
     .output {
       background: var(--bg);
       border: 1px solid var(--surface2);
@@ -157,7 +151,6 @@
       margin-bottom: 10px;
     }
 
-    /* --- Status bar --- */
     .status-bar {
       background: var(--surface);
       border-top: 1px solid var(--surface2);
@@ -173,12 +166,10 @@
     }
     .main-content { padding-bottom: 50px; }
 
-    /* --- Table --- */
     .kv-table { width: 100%; font-size: 13px; }
     .kv-table td { padding: 6px 0; vertical-align: top; }
     .kv-table td:first-child { color: var(--text-dim); width: 40%; }
 
-    /* --- Badge --- */
     .badge {
       display: inline-block;
       padding: 3px 10px;
@@ -188,9 +179,9 @@
     }
     .badge-success { background: rgba(46,204,113,0.2); color: var(--success); }
     .badge-warn { background: rgba(243,156,18,0.2); color: var(--warn); }
+    .badge-danger { background: rgba(231,76,60,0.2); color: var(--danger); }
     .badge-info { background: rgba(0,212,255,0.15); color: var(--accent); }
 
-    /* --- Loading --- */
     .spinner {
       display: inline-block;
       width: 18px; height: 18px;
@@ -203,6 +194,95 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .hidden { display: none !important; }
+
+    /* Score gauge */
+    .score-gauge {
+      display: flex; align-items: center; gap: 16px; margin-bottom: 16px;
+    }
+    .score-circle {
+      width: 80px; height: 80px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; font-weight: 700; flex-shrink: 0;
+    }
+    .score-circle.grade-a { background: rgba(46,204,113,0.2); color: var(--success); border: 3px solid var(--success); }
+    .score-circle.grade-b { background: rgba(46,204,113,0.15); color: var(--success); border: 3px solid var(--success); }
+    .score-circle.grade-c { background: rgba(243,156,18,0.15); color: var(--warn); border: 3px solid var(--warn); }
+    .score-circle.grade-d { background: rgba(243,156,18,0.2); color: var(--warn); border: 3px solid var(--warn); }
+    .score-circle.grade-f { background: rgba(231,76,60,0.15); color: var(--danger); border: 3px solid var(--danger); }
+
+    .score-details { font-size: 13px; color: var(--text-dim); }
+    .score-details strong { color: var(--text); display: block; font-size: 15px; margin-bottom: 4px; }
+
+    /* Checklist */
+    .checklist-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--surface2);
+      font-size: 14px;
+    }
+    .checklist-item:last-child { border-bottom: none; }
+    .checklist-item input[type="checkbox"] {
+      width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px;
+      accent-color: var(--success);
+    }
+    .checklist-cat {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--accent-dim); margin-left: auto; flex-shrink: 0;
+    }
+
+    /* Diff viewer */
+    .diff-file { margin-bottom: 12px; }
+    .diff-file-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 12px; background: var(--surface2); border-radius: 8px 8px 0 0;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .diff-file-header:hover { background: #2a2a4a; }
+    .diff-file-stat { font-size: 12px; font-weight: 400; }
+    .diff-file-stat .add { color: var(--success); }
+    .diff-file-stat .del { color: var(--danger); }
+    .diff-body {
+      display: none; background: var(--bg); border: 1px solid var(--surface2);
+      border-top: none; border-radius: 0 0 8px 8px;
+      padding: 10px; font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 12px; white-space: pre-wrap; max-height: 300px; overflow-y: auto;
+      color: var(--text-dim);
+    }
+    .diff-body.open { display: block; }
+
+    /* Screenshot viewer */
+    .screenshot-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px; margin-top: 8px;
+    }
+    .screenshot-thumb {
+      width: 100%; border-radius: 8px; border: 1px solid var(--surface2);
+      cursor: pointer; transition: transform .15s;
+    }
+    .screenshot-thumb:hover { transform: scale(1.05); }
+
+    /* Confirmation dialog */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 200;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .overlay.open { display: flex; }
+    .dialog {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 24px; max-width: 440px; width: 100%;
+      border: 1px solid var(--surface2);
+    }
+    .dialog h3 { margin-bottom: 12px; }
+    .dialog-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .dialog-actions .btn { flex: 1; }
+
+    /* Log viewer */
+    .log-viewer {
+      background: var(--bg); border: 1px solid var(--surface2); border-radius: var(--radius);
+      padding: 10px; font-family: "SF Mono", monospace; font-size: 12px;
+      max-height: 200px; overflow-y: auto; color: var(--text-dim);
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
@@ -283,28 +363,96 @@
       <button class="btn btn-warn" onclick="createSandbox()">Create Sandbox Copy</button>
     </div>
     <div id="sandboxList"></div>
-    <div class="card hidden" id="mergeCard">
-      <h3>Merge Sandbox</h3>
-      <div id="mergePreview"></div>
-      <button class="btn btn-success" id="mergeBtn" disabled onclick="mergeSandbox()">
-        Merge Sandbox Into Main
-      </button>
-    </div>
   </div>
 
   <!-- RESULTS TAB -->
   <div class="panel" id="panel-results">
-    <div class="card">
+    <div id="resultsEmpty" class="card">
       <h3>Confidence Report</h3>
-      <div id="confidenceReport">
-        <p style="color:var(--text-dim)">No results yet. Run an AI task in a sandbox first.</p>
+      <p style="color:var(--text-dim)">No results yet. Select a sandbox and run an AI task first.</p>
+    </div>
+
+    <div id="resultsRunning" class="hidden">
+      <div class="card">
+        <h3><span class="spinner"></span>AI Task Running</h3>
+        <div id="runningLogs" class="log-viewer"></div>
       </div>
     </div>
-    <div class="card">
-      <h3>Verification Checklist</h3>
-      <div id="verificationChecklist">
-        <p style="color:var(--text-dim)">Generate a work path to see the checklist.</p>
+
+    <div id="resultsComplete" class="hidden">
+      <div class="card">
+        <h3>Confidence Report</h3>
+        <div id="scoreGauge"></div>
+        <div id="reportSummary" class="output" style="max-height:250px"></div>
       </div>
+
+      <div class="card">
+        <h3>Files Changed</h3>
+        <div id="filesChangedList"></div>
+      </div>
+
+      <div class="card">
+        <h3>Bugs Addressed</h3>
+        <div id="bugsReport"></div>
+      </div>
+
+      <div id="errorsCard" class="card hidden">
+        <h3>Console Errors</h3>
+        <div id="errorsList" class="output" style="max-height:200px;color:var(--danger)"></div>
+      </div>
+
+      <div id="screenshotsCard" class="card hidden">
+        <h3>Screenshots</h3>
+        <div id="screenshotGrid" class="screenshot-grid"></div>
+      </div>
+
+      <div class="card">
+        <h3>Escalation</h3>
+        <div id="escalationInfo"></div>
+      </div>
+
+      <div class="card">
+        <h3>Verification Checklist</h3>
+        <div id="verificationChecklist"></div>
+      </div>
+
+      <div id="concernsCard" class="card hidden">
+        <h3>Remaining Concerns</h3>
+        <div id="concernsList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Review Changes overlay -->
+<div class="overlay" id="reviewOverlay">
+  <div class="dialog">
+    <h3>Review Changes</h3>
+    <p style="color:var(--text-dim);font-size:13px;margin-bottom:8px">
+      These are the changes the AI made inside the sandbox. Your original repo is untouched.
+    </p>
+    <div id="reviewPreviewContent" style="font-size:12px;margin-bottom:12px;max-height:400px;overflow-y:auto"></div>
+    <div id="reviewSandboxPath" style="font-size:11px;color:var(--text-dim);margin-bottom:12px"></div>
+    <div class="dialog-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeReviewDialog()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Merge to Main confirmation dialog -->
+<div class="overlay" id="mergeOverlay">
+  <div class="dialog">
+    <h3>Merge to Main</h3>
+    <p style="color:var(--danger);font-size:13px;font-weight:600;margin-bottom:4px">
+      This will modify your original repo.
+    </p>
+    <p style="color:var(--text-dim);font-size:13px;margin-bottom:8px">
+      A backup branch is created first. Changed files are copied from the sandbox into your real repo.
+    </p>
+    <div id="mergeDialogPreview" style="font-size:12px;margin-bottom:12px"></div>
+    <div class="dialog-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeMergeDialog()">Cancel</button>
+      <button class="btn btn-danger btn-sm" id="mergeConfirmBtn" onclick="executeMerge()">Merge to Main</button>
     </div>
   </div>
 </div>
@@ -315,7 +463,9 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-// --- Tab switching ---
+let currentSandboxId = null;
+let pollTimer = null;
+
 $$('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     $$('.tab').forEach(t => t.classList.remove('active'));
@@ -366,7 +516,7 @@ async function analyzeRepo() {
   if (data.ok) {
     renderAnalysis(data.analysis);
     $('#statusDot').classList.add('active');
-    setStatus('Repo analyzed — ' + data.analysis.totalFiles + ' files found');
+    setStatus('Repo analyzed \u2014 ' + data.analysis.totalFiles + ' files found');
   } else {
     setStatus('Error: ' + (data.error || 'unknown'));
   }
@@ -404,7 +554,7 @@ async function parseNotes() {
   if (data.ok) {
     $('#parsedOutput').textContent = data.formatted;
     $('#parsedResult').classList.remove('hidden');
-    setStatus('Parsed — confidence: ' + data.parsed.confidence + '%');
+    setStatus('Parsed \u2014 confidence: ' + data.parsed.confidence + '%');
   } else {
     setStatus('Error: ' + (data.error || 'unknown'));
   }
@@ -453,17 +603,312 @@ async function loadSandboxes() {
     <div class="card">
       <h3>${esc(s.id)}</h3>
       <table class="kv-table">
-        <tr><td>Status</td><td><span class="badge badge-${s.status === 'ready' ? 'success' : 'warn'}">${s.status}</span></td></tr>
+        <tr><td>Status</td><td><span class="badge badge-${statusBadge(s.status)}">${s.status}</span></td></tr>
         <tr><td>Branch</td><td>${esc(s.branch)}</td></tr>
         <tr><td>Created</td><td>${new Date(s.createdAt).toLocaleString()}</td></tr>
         <tr><td>Path</td><td style="font-size:11px">${esc(s.path)}</td></tr>
       </table>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="runAiTask('${esc(s.id)}')"
+          ${s.status === 'running' ? 'disabled' : ''}>Run AI Task</button>
+        <button class="btn btn-ghost btn-sm" onclick="rerunTests('${esc(s.id)}')">Re-run Tests</button>
+        <button class="btn btn-ghost btn-sm" onclick="viewResults('${esc(s.id)}')">View Results</button>
+        <button class="btn btn-warn btn-sm" onclick="reviewChanges('${esc(s.id)}')">Review Changes</button>
+        <button class="btn btn-success btn-sm" onclick="openMergeDialog('${esc(s.id)}')"
+          ${canMerge(s) ? '' : 'disabled'}>Merge to Main</button>
+      </div>
     </div>
   `).join('');
 }
 
-async function mergeSandbox() {
-  setStatus('Merge not yet implemented — coming in next version');
+function statusBadge(s) {
+  if (s === 'ready' || s === 'tested') return 'success';
+  if (s === 'running') return 'info';
+  if (s === 'merged') return 'warn';
+  if (s === 'failed') return 'danger';
+  return 'warn';
+}
+
+function canMerge(s) {
+  if (s.status === 'merged') return false;
+  if (!s.testResults) return false;
+  return s.testResults.buildPassed && s.testResults.confidenceScore >= 70;
+}
+
+// --- Run AI Task ---
+async function runAiTask(id) {
+  currentSandboxId = id;
+  showLoading('Starting AI task in sandbox ' + id);
+  const data = await api('POST', `/api/sandbox/${id}/run`);
+  if (data.ok) {
+    switchToTab('results');
+    showRunningState();
+    startPolling(id);
+  } else {
+    setStatus('Error: ' + (data.error || 'unknown'));
+  }
+}
+
+function showRunningState() {
+  $('#resultsEmpty').classList.add('hidden');
+  $('#resultsRunning').classList.remove('hidden');
+  $('#resultsComplete').classList.add('hidden');
+  $('#runningLogs').textContent = 'Starting...\n';
+}
+
+function startPolling(id) {
+  stopPolling();
+  pollTimer = setInterval(async () => {
+    const data = await api('GET', `/api/sandbox/${id}/status`);
+    const logEl = $('#runningLogs');
+    logEl.textContent = data.logs.join('\n');
+    logEl.scrollTop = logEl.scrollHeight;
+
+    if (!data.running && data.hasResult) {
+      stopPolling();
+      setStatus('AI task complete');
+      await showResults(id);
+      loadSandboxes();
+    }
+  }, 2000);
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+// --- View Results ---
+async function viewResults(id) {
+  currentSandboxId = id;
+  switchToTab('results');
+
+  const statusData = await api('GET', `/api/sandbox/${id}/status`);
+  if (statusData.running) {
+    showRunningState();
+    $('#runningLogs').textContent = statusData.logs.join('\n');
+    startPolling(id);
+    return;
+  }
+  if (statusData.hasResult) {
+    await showResults(id);
+  } else {
+    $('#resultsEmpty').classList.remove('hidden');
+    $('#resultsRunning').classList.add('hidden');
+    $('#resultsComplete').classList.add('hidden');
+  }
+}
+
+async function showResults(id) {
+  const data = await api('GET', `/api/sandbox/${id}/results`);
+  if (data.error) {
+    setStatus('No results: ' + data.error);
+    return;
+  }
+
+  const r = data.confidenceReport;
+  $('#resultsEmpty').classList.add('hidden');
+  $('#resultsRunning').classList.add('hidden');
+  $('#resultsComplete').classList.remove('hidden');
+
+  // Score gauge
+  const gradeClass = 'grade-' + r.grade.toLowerCase();
+  $('#scoreGauge').innerHTML = `
+    <div class="score-gauge">
+      <div class="score-circle ${gradeClass}">${r.score}%</div>
+      <div class="score-details">
+        <strong>Grade: ${r.grade}</strong>
+        Model: ${esc(data.modelUsed)}<br>
+        ${r.filesChanged.length} file(s) changed
+      </div>
+    </div>
+  `;
+  $('#reportSummary').textContent = r.summary;
+
+  // Files changed
+  if (r.filesChanged.length > 0) {
+    $('#filesChangedList').innerHTML = r.filesChanged.map(f =>
+      `<div style="padding:4px 0;font-size:13px;font-family:monospace">${esc(f)}</div>`
+    ).join('');
+  } else {
+    $('#filesChangedList').innerHTML = '<p style="color:var(--text-dim)">No files changed</p>';
+  }
+
+  // Bugs
+  const allBugs = r.bugsAddressed.length + r.bugsRemaining.length;
+  let bugsHtml = '';
+  if (allBugs === 0) {
+    bugsHtml = '<p style="color:var(--text-dim)">No bugs were identified in parsed notes</p>';
+  } else {
+    bugsHtml = r.bugsAddressed.map(b => `<div style="padding:4px 0;font-size:13px"><span class="badge badge-success">addressed</span> ${esc(b)}</div>`).join('');
+    bugsHtml += r.bugsRemaining.map(b => `<div style="padding:4px 0;font-size:13px"><span class="badge badge-danger">remaining</span> ${esc(b)}</div>`).join('');
+  }
+  $('#bugsReport').innerHTML = bugsHtml;
+
+  // Errors
+  const errs = data.testResults.consoleErrors || [];
+  if (errs.length > 0) {
+    $('#errorsCard').classList.remove('hidden');
+    $('#errorsList').textContent = errs.join('\n');
+  } else {
+    $('#errorsCard').classList.add('hidden');
+  }
+
+  // Screenshots
+  if (r.screenshotPaths.length > 0) {
+    $('#screenshotsCard').classList.remove('hidden');
+    $('#screenshotGrid').innerHTML = r.screenshotPaths.map(p =>
+      `<img class="screenshot-thumb" src="/screenshots/${encodeURIComponent(p)}" alt="screenshot" />`
+    ).join('');
+  } else {
+    $('#screenshotsCard').classList.add('hidden');
+  }
+
+  // Escalation
+  $('#escalationInfo').innerHTML = `<p style="font-size:13px;color:var(--text-dim)">${esc(r.escalationReasoning)}</p>`;
+
+  // Verification checklist
+  if (r.verificationChecklist.length > 0) {
+    $('#verificationChecklist').innerHTML = r.verificationChecklist.map((item, i) => `
+      <div class="checklist-item">
+        <input type="checkbox" id="chk${i}" ${item.autoChecked ? 'checked' : ''} />
+        <label for="chk${i}" style="margin-bottom:0;font-size:14px;color:var(--text)">${esc(item.label)}</label>
+        <span class="checklist-cat">${item.category}</span>
+      </div>
+    `).join('');
+  } else {
+    $('#verificationChecklist').innerHTML = '<p style="color:var(--text-dim)">No checklist items</p>';
+  }
+
+  // Concerns
+  if (r.remainingConcerns.length > 0) {
+    $('#concernsCard').classList.remove('hidden');
+    $('#concernsList').innerHTML = r.remainingConcerns.map(c =>
+      `<div style="padding:4px 0;font-size:13px;color:var(--warn)">\u26A0 ${esc(c)}</div>`
+    ).join('');
+  } else {
+    $('#concernsCard').classList.add('hidden');
+  }
+}
+
+// --- Re-run Tests ---
+async function rerunTests(id) {
+  showLoading('Re-running tests in sandbox ' + id);
+  const data = await api('POST', `/api/sandbox/${id}/test`);
+  if (data.ok) {
+    setStatus('Tests complete');
+    loadSandboxes();
+  } else {
+    setStatus('Error: ' + (data.error || 'unknown'));
+  }
+}
+
+// --- Review Changes ---
+async function reviewChanges(id) {
+  showLoading('Loading changes');
+  const preview = await api('GET', `/api/sandbox/${id}/merge-preview`);
+
+  let html = `<p style="font-size:13px;margin-bottom:8px"><strong>${preview.filesChanged.length}</strong> file(s) changed &nbsp;
+    <span style="color:var(--success)">+${preview.additions}</span> &nbsp;
+    <span style="color:var(--danger)">-${preview.deletions}</span></p>`;
+
+  if (preview.detailedDiff) {
+    preview.detailedDiff.forEach(f => {
+      html += `<div class="diff-file">
+        <div class="diff-file-header" onclick="this.nextElementSibling.classList.toggle('open')">
+          <span><span class="badge badge-${f.status === 'added' ? 'success' : f.status === 'deleted' ? 'danger' : 'info'}">${f.status}</span> ${esc(f.path)}</span>
+          <span class="diff-file-stat"><span class="add">+${f.additions}</span> <span class="del">-${f.deletions}</span></span>
+        </div>
+        <div class="diff-body">${esc(f.diff)}</div>
+      </div>`;
+    });
+  } else {
+    preview.filesChanged.forEach(f => {
+      html += `<div style="padding:4px 0;font-size:13px;font-family:monospace">${esc(f)}</div>`;
+    });
+  }
+
+  const sandboxes = await api('GET', '/api/sandboxes');
+  const sb = sandboxes.sandboxes.find(s => s.id === id);
+  const sbPath = sb ? sb.path : '';
+
+  $('#reviewPreviewContent').innerHTML = html;
+  $('#reviewSandboxPath').innerHTML = sbPath
+    ? `<strong>Sandbox path:</strong> <code>${esc(sbPath)}</code><br>Open this folder to inspect files directly.`
+    : '';
+  $('#reviewOverlay').classList.add('open');
+  setStatus('Reviewing sandbox changes');
+}
+
+function closeReviewDialog() {
+  $('#reviewOverlay').classList.remove('open');
+}
+
+// --- Merge to Main ---
+let mergeSandboxId = null;
+
+async function openMergeDialog(id) {
+  mergeSandboxId = id;
+  showLoading('Loading merge preview');
+  const preview = await api('GET', `/api/sandbox/${id}/merge-preview`);
+
+  let html = `<p style="font-size:13px"><strong>${preview.filesChanged.length}</strong> file(s) to merge</p>`;
+  html += `<p style="font-size:12px;color:var(--success)">+${preview.additions}</p>`;
+  html += `<p style="font-size:12px;color:var(--danger)">-${preview.deletions}</p>`;
+
+  if (preview.blockReasons && preview.blockReasons.length > 0) {
+    html += '<div style="margin-top:8px">';
+    preview.blockReasons.forEach(r => {
+      html += `<div style="font-size:12px;color:var(--danger)">\u26A0 ${esc(r)}</div>`;
+    });
+    html += '</div>';
+    $('#mergeConfirmBtn').disabled = true;
+  } else {
+    $('#mergeConfirmBtn').disabled = false;
+  }
+
+  if (preview.detailedDiff) {
+    html += '<div style="margin-top:10px;max-height:200px;overflow-y:auto">';
+    preview.detailedDiff.forEach(f => {
+      html += `<div style="font-size:12px;font-family:monospace;padding:2px 0">
+        <span class="badge badge-${f.status === 'added' ? 'success' : f.status === 'deleted' ? 'danger' : 'info'}">${f.status}</span>
+        ${esc(f.path)}
+        <span style="color:var(--success)">+${f.additions}</span>
+        <span style="color:var(--danger)">-${f.deletions}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  $('#mergeDialogPreview').innerHTML = html;
+  $('#mergeOverlay').classList.add('open');
+  setStatus('Review merge preview');
+}
+
+function closeMergeDialog() {
+  $('#mergeOverlay').classList.remove('open');
+  mergeSandboxId = null;
+}
+
+async function executeMerge() {
+  if (!mergeSandboxId) return;
+  showLoading('Merging sandbox');
+  const data = await api('POST', `/api/sandbox/${mergeSandboxId}/merge`, { confirmed: true });
+  closeMergeDialog();
+  if (data.success) {
+    setStatus(`Merged! Backup branch: ${data.checkpointBranch} \u2014 ${data.filesCopied.length} file(s) copied`);
+  } else {
+    setStatus('Merge failed: ' + (data.error || 'unknown'));
+  }
+  loadSandboxes();
+}
+
+function switchToTab(name) {
+  $$('.tab').forEach(t => t.classList.remove('active'));
+  $$('.panel').forEach(p => p.classList.remove('active'));
+  const tab = document.querySelector(`.tab[data-tab="${name}"]`);
+  if (tab) tab.classList.add('active');
+  const panel = $(`#panel-${name}`);
+  if (panel) panel.classList.add('active');
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }

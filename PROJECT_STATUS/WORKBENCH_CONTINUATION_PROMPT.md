@@ -1,4 +1,4 @@
-# AI Repo Workbench — Continuation Prompt (Phase D + E)
+# AI Repo Workbench — Continuation Prompt (Post Phase D+E)
 
 > **Copy-paste this entire file** as the first message in a new Cursor conversation to continue the workbench build.
 
@@ -8,111 +8,85 @@
 
 You are continuing work on the **AI Repo Workbench** — a standalone portable tool in `workbench/` inside the `PROJECT-DISPATCHER TOOL` repo. This is a completely separate project from the Vertex Build Runner in `tools/` and from the Vertex Core dispatcher/field app.
 
-**DO NOT TOUCH** anything outside `workbench/`. The `tools/` directory is a separate working program.
+**DO NOT TOUCH** anything outside `workbench/`. The `tools/` directory is a separate working program. **DO NOT** update any files in `PROJECT_STATUS/` — those are Vertex-owned. The workbench's own docs live in `workbench/README.md`.
 
-### What was completed (Phase A + B + C)
+### What is built and working (Phases A–E complete)
 
-The `workbench/` directory already exists with these working files:
+The full end-to-end pipeline is functional and tested. `npx tsc --noEmit` passes clean.
 
 ```
 workbench/
-├── bin/repo-workbench.js       # CLI entry point (production)
+├── bin/repo-workbench.js          # CLI entry point (production)
 ├── src/
-│   ├── server.ts               # Express web server (port 4040, binds 0.0.0.0)
-│   ├── cli.ts                  # CLI interface (analyze, parse, generate, sandbox, serve)
+│   ├── server.ts                  # Express web server (port 4040, env WORKBENCH_PORT)
+│   │                              # 12 API routes: status, repo, analyze, parse-notes,
+│   │                              # generate-work-path, work-path, sandbox CRUD,
+│   │                              # sandbox run/status/results/test, merge
+│   ├── cli.ts                     # CLI interface (analyze, parse, generate, sandbox, serve)
 │   └── engines/
-│       ├── model_selector.ts   # Cheapest-safe-model picker + escalation ladder (generalized from tools/)
-│       ├── repo_analyzer.ts    # Framework/structure/command detection for any repo
-│       ├── note_parser.ts      # Messy natural-language → structured work items (rule-based)
-│       ├── work_path_generator.ts  # AI_WORK_PATH.md builder (combines analysis + parsed notes)
-│       └── sandbox_manager.ts  # Sandbox copy/branch/list (creates isolated repo copies)
-├── src/ui/public/index.html    # Mobile-friendly SPA (dark theme, tabs: Repo/Notes/WorkPath/Sandbox/Results)
-├── src/sandbox/                # Empty — for sandbox-related utilities
-├── Dockerfile                  # Docker build (mounts repo at /workspace)
+│       ├── model_selector.ts      # Cheapest-safe-model picker + escalation ladder
+│       │                          # Exports: selectModel(), buildEscalationLadder(), updateLookupRow()
+│       ├── repo_analyzer.ts       # Framework/structure/command detection for any repo
+│       │                          # Exports: analyzeRepo(), formatAnalysisSummary(), RepoAnalysis
+│       ├── note_parser.ts         # Messy natural-language → structured work items (rule-based)
+│       │                          # Exports: parseNotes(), formatParsedNote(), ParsedNote
+│       ├── work_path_generator.ts # AI_WORK_PATH.md builder (combines analysis + parsed notes)
+│       │                          # Exports: generateWorkPath(), writeWorkPath(), readWorkPath()
+│       ├── sandbox_manager.ts     # Sandbox copy/branch/list + interfaces
+│       │                          # Exports: createSandbox(), listSandboxes(), getMergePreview()
+│       │                          # Interfaces: Sandbox, TestResults, MergePreview, SandboxConfig
+│       ├── sandbox_runner.ts      # AI task execution via @cursor/sdk Agent.prompt()
+│       │                          # Uses escalation ladder: try cheapest model, escalate on failure
+│       │                          # Dry-run mode if no CURSOR_API_KEY
+│       │                          # Exports: runSandboxTask(), RunTaskOptions, RunTaskResult
+│       ├── test_runner.ts         # Post-edit verification: build, test, Playwright
+│       │                          # Exports: runTests(), TestRunOptions, TestRunResult
+│       ├── confidence_reporter.ts # Confidence scoring (0-100) + verification checklist
+│       │                          # Exports: generateConfidenceReport(), ConfidenceReport, ChecklistItem
+│       └── merge_manager.ts       # Safe merge: git checkpoint → file copy → require confirmation
+│                                  # NEVER auto-merge, NEVER auto-deploy
+│                                  # Exports: executeMerge(), getDetailedDiff(), getMergePreviewDetailed()
+├── src/ui/public/index.html       # Mobile-friendly SPA (dark theme, 5 tabs)
+│                                  # Tabs: Repo, Notes, Work Path, Sandbox, Results
+│                                  # Features: live AI task logs, score gauge, diff viewer,
+│                                  # screenshot grid, verification checklist, Review Changes dialog,
+│                                  # Merge to Main confirmation dialog (red warning + backup branch)
+├── Dockerfile                     # Docker build (node:20-slim + git, mounts /workspace)
 ├── .dockerignore
 ├── .gitignore
-├── package.json                # deps: express, @cursor/sdk, typescript, ts-node, @types/*
+├── package.json                   # deps: express, @cursor/sdk, typescript, ts-node, @types/*
+├── package-lock.json
 ├── tsconfig.json
-└── README.md                   # Full docs: local/Docker/Tailscale/CLI usage + examples
+└── README.md                      # Full docs: local/Docker/Tailscale/CLI, API reference,
+                                   # confidence scoring rubric, project structure
 ```
 
-**All of the above compiles cleanly** (`npx tsc --noEmit` passes). The server starts on port 4040, the CLI works, the repo analyzer correctly detects frameworks, the note parser extracts bugs/UI/logic/rules, and the AI_WORK_PATH.md generator produces structured output. The `sandbox_manager.ts` creates isolated copies with git init + branch.
+### What was verified in live testing (2026-05-14)
 
-### What needs to be built (Phase D + E)
+1. **Repo analysis** — pointed at `workbench/` itself, correctly detected Express, npm, build/test commands, 18 files
+2. **Note parsing** — pasted messy notes, extracted UI requests + primary goal, 70% confidence
+3. **Work path generation** — created AI_WORK_PATH.md with project snapshot, parsed items, verification plan
+4. **Sandbox creation** — isolated copy created with git init + branch, status "ready"
+5. **AI task execution** — `composer-2` (cheapest model) succeeded, no escalation, edited README.md + index.html
+6. **Confidence report** — 90% score, Grade A, 2 files changed, 90 insertions
+7. **Review Changes dialog** — shows diff with expandable file sections + sandbox path
+8. **Merge to Main** — separate button with red warning, requires explicit confirmation
 
-**Phase D — Sandbox System (full implementation)**
+### Server startup
 
-1. **`src/engines/sandbox_runner.ts`** (NEW) — Execute AI tasks inside a sandbox:
-   - Read AI_WORK_PATH.md from the sandbox
-   - Use `@cursor/sdk` Agent.prompt to execute work items
-   - Use the escalation ladder from `model_selector.ts` (try cheap model first, escalate on failure)
-   - Run only inside the sandbox path (never touch original repo)
-   - After edits: run build command, run test command
-   - Generate confidence report
+```powershell
+cd workbench
+$env:CURSOR_API_KEY="<your-key>"
+$env:WORKBENCH_PORT="4141"    # optional, default 4040
+npx ts-node src/server.ts
+```
 
-2. **`src/engines/test_runner.ts`** (NEW) — Post-edit verification:
-   - Run build commands (from repo analysis)
-   - Run test commands
-   - Launch app if applicable
-   - Playwright integration: if `playwright.config.ts` exists, run `npx playwright test`
-   - Capture: console errors, page errors, failed requests, screenshots
-   - Generate test results object (matches `TestResults` interface in `sandbox_manager.ts`)
+Can run simultaneously with the Vertex Build Runner (different ports).
 
-3. **`src/engines/confidence_reporter.ts`** (NEW) — Generate confidence report:
-   - Files changed (git diff)
-   - Bugs addressed (cross-reference with parsed notes)
-   - Tests run and results
-   - Console errors found
-   - Screenshots captured
-   - Confidence score (0-100)
-   - Escalation reasoning
-   - Remaining concerns
-   - User verification checklist
-
-4. **Wire into server.ts** — Add API routes:
-   - `POST /api/sandbox/:id/run` — Execute AI task in sandbox
-   - `GET /api/sandbox/:id/results` — Get test/confidence results
-   - `POST /api/sandbox/:id/test` — Re-run tests
-
-5. **Wire into UI** — The Results tab needs:
-   - Live status updates during AI task execution
-   - Confidence report display
-   - Verification checklist with checkboxes
-   - Screenshot viewer (if Playwright captured any)
-
-**Phase E — Merge Workflow + Polish**
-
-1. **`src/engines/merge_manager.ts`** (NEW) — Safe merge from sandbox to original:
-   - Show exact files changing (diff preview)
-   - Create git checkpoint/backup in original repo before merge
-   - Apply changes via file copy (not git merge — sandbox has its own .git)
-   - NEVER auto-merge, NEVER auto-deploy, NEVER delete files automatically
-   - Require explicit user confirmation
-
-2. **Wire merge into server.ts**:
-   - `POST /api/sandbox/:id/merge` — Execute merge (after confirmation)
-   - Body must include `{ confirmed: true }` or reject
-
-3. **Wire merge into UI** — The Sandbox tab's merge card:
-   - Show diff preview before merge
-   - Enable merge button only when conditions met (build passes, tests pass, no critical errors, confidence >= 70%)
-   - Confirmation dialog before executing
-
-4. **Dockerfile refinement** — Verify Docker build works end-to-end:
-   - `docker build -t repo-workbench .`
-   - `docker run --rm -it -p 4040:4040 -v "$PWD:/workspace" repo-workbench`
-
-5. **README updates** — Add sections for:
-   - Sandbox workflow with screenshots/examples
-   - Merge workflow details
-   - AI task execution via Cursor SDK
-   - Environment variable for CURSOR_API_KEY
-
-### Interfaces to implement against (already defined)
-
-In `sandbox_manager.ts`, these interfaces exist:
+### Key interfaces (already defined and stable)
 
 ```typescript
+// sandbox_manager.ts
 interface TestResults {
   buildPassed: boolean;
   testsPassed: boolean;
@@ -131,25 +105,63 @@ interface MergePreview {
   canMerge: boolean;
   blockReasons: string[];
 }
-```
 
-The `model_selector.ts` exports:
-- `selectModel(lookupPath, taskPatterns)` — returns cheapest safe model
-- `buildEscalationLadder(lookupPath, taskPatterns)` — returns [cheap, mid, expensive]
-- `updateLookupRow(lookupPath, pattern, model, succeeded)` — learns from results
+// confidence_reporter.ts
+interface ConfidenceReport {
+  score: number;
+  grade: string;
+  summary: string;
+  filesChanged: string[];
+  bugsAddressed: string[];
+  bugsRemaining: string[];
+  testSummary: { buildPassed: boolean; testsPassed: boolean; totalErrors: number };
+  screenshotPaths: string[];
+  escalationReasoning: string;
+  remainingConcerns: string[];
+  verificationChecklist: ChecklistItem[];
+  generatedAt: string;
+}
+
+// sandbox_runner.ts
+interface RunTaskResult {
+  success: boolean;
+  modelUsed: string;
+  escalations: string[];
+  testResults: TestResults;
+  confidenceReport: ConfidenceReport;
+  error?: string;
+}
+```
 
 ### Key constraints
 
 - **Standalone:** This is NOT part of Vertex. Do not import from or reference `tools/`, `shared/`, `dispatcher/`, `technician/`, or root-level `.js` files.
+- **Vertex docs isolation:** Do NOT update `PROJECT_STATUS/CURRENT_STATE.md`, `ROADMAP.md`, `PROJECT_MAP.md`, or any other Vertex-owned files. The workbench docs are `workbench/README.md` only.
 - **Lightweight:** Express + vanilla HTML. No React, no framework.
 - **Local-first:** Everything runs on the user's machine. No cloud dependencies except optional Cursor SDK.
 - **Safe:** Never auto-merge, never auto-deploy, never auto-commit to the original repo.
 - **Mobile-friendly:** Large touch targets, responsive layout, works over Tailscale from phone.
 
-### Suggested model for this continuation
+### Known gaps / future work ideas
 
-**Opus 4.6** — this is still T3/UNCERTAIN scope (new @cursor/sdk integration, sandbox execution, merge safety). Alternative: **Codex 5.3** if the work is purely implementation against the defined interfaces.
+These are NOT blockers — the tool is functional. Pick any of these if the user asks to continue:
+
+1. **CLI commands for `run` and `merge`** — currently web-only; CLI only supports analyze/parse/generate/sandbox/serve
+2. **Screenshot serving** — screenshots are captured to disk but not served via a web route; need a `/screenshots/*` static route
+3. **Playwright install in Docker** — container needs `npx playwright install` if target repo uses Playwright
+4. **Sandbox deletion** — no UI button or API route to delete old sandboxes
+5. **Multiple sandbox comparison** — can only view one result at a time; no side-by-side
+6. **WebSocket for live logs** — currently polling every 2s; WebSocket would be smoother
+7. **AI-powered note parsing** — note_parser.ts is rule-based; could add optional Gemini/Cursor SDK refinement
+8. **Persistent state** — server state (analysis, parsed notes) is in-memory; lost on restart
+9. **Dark/light theme toggle** — currently dark-only
+
+### Suggested model for continuation
+
+- **UI polish / single-file changes:** Composer 2 or Sonnet 4.6
+- **New engine file or multi-file feature:** Codex 5.3
+- **New SDK integration or safety-critical logic:** Opus 4.6
 
 ---
 
-**Start with Phase D — the sandbox runner + test runner + confidence reporter. Then Phase E — merge workflow. Update the README when done.**
+**The tool is live and tested. Continue from wherever the user directs.**
