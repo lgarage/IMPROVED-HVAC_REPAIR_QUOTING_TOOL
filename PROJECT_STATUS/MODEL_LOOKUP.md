@@ -15,9 +15,9 @@
 | Speech API / media capture integration | claude-sonnet-4-6 | — | 2026-05-13 | Estimated — mobile APIs need decent reasoning |
 | Cross-module wiring (3+ files) | claude-sonnet-4-6 | — | 2026-05-13 | From outcome log: per-user feature toggles |
 | Pure regex / dictionary logic | gpt-5.3-codex-spark | — | 2026-05-13 | Unverified — will auto-escalate to Codex 5.3 if Spark fails |
-| Gemini prompt integration | claude-opus-4-6 | claude-opus-4-6 | 2026-05-13 | From outcome log: unit work parser |
+| Gemini prompt integration | claude-opus-4-6 | claude-opus-4-6 | 2026-05-14 | Bumped from claude-4.6-opus after failure |
 | Firestore multi-read (query, no writes) | gpt-5.4-mini | — | 2026-05-13 | Unverified — will auto-escalate to Sonnet if Mini fails |
-| Firestore write path (new collection/doc) | claude-opus-4-6 | claude-opus-4-6 | 2026-05-13 | Vertex Core rule — never below Strong |
+| Firestore write path (new collection/doc) | claude-opus-4-6 | claude-opus-4-6 | 2026-05-14 | Bumped from claude-4.6-opus after failure |
 | Firestore rules / auth changes | claude-opus-4-6 | claude-opus-4-6 | 2026-05-13 | Vertex Core rule |
 | Firebase config / project migration | claude-opus-4-6 | claude-opus-4-6 | 2026-05-13 | Vertex Core rule |
 | Dispatcher modal (read-only Firestore) | gpt-5.4-mini | — | 2026-05-13 | Unverified — will auto-escalate |

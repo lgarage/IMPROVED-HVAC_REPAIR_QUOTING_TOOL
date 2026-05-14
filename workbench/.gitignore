@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.js.map
+.build_state.json
+build_log.txt
+sandboxes/

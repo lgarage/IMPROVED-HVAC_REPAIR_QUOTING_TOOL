@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>AI Repo Workbench</title>
+  <style>
+    :root {
+      --bg: #0f0f1a;
+      --surface: #1a1a2e;
+      --surface2: #22223a;
+      --accent: #00d4ff;
+      --accent-dim: #007a99;
+      --text: #e8e8f0;
+      --text-dim: #8888aa;
+      --success: #2ecc71;
+      --warn: #f39c12;
+      --danger: #e74c3c;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* --- Header --- */
+    .header {
+      background: var(--surface);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--surface2);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .header .status-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--text-dim);
+      display: inline-block;
+      margin-right: 8px;
+    }
+    .header .status-dot.active { background: var(--success); }
+
+    /* --- Tabs --- */
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 2px solid var(--surface2);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .tab {
+      flex: 1;
+      min-width: 80px;
+      padding: 14px 8px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-dim);
+      border: none;
+      background: none;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+    }
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* --- Panels --- */
+    .panel { display: none; padding: 16px; max-width: 720px; margin: 0 auto; }
+    .panel.active { display: block; }
+
+    /* --- Cards --- */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+      border: 1px solid var(--surface2);
+    }
+    .card h3 {
+      font-size: 15px;
+      margin-bottom: 10px;
+      color: var(--accent);
+    }
+
+    /* --- Buttons --- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px 24px;
+      border-radius: var(--radius);
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      min-height: 48px;
+      width: 100%;
+      margin-bottom: 8px;
+      transition: opacity .15s;
+    }
+    .btn:active { opacity: 0.7; }
+    .btn-primary { background: var(--accent); color: var(--bg); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-warn { background: var(--warn); color: var(--bg); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent-dim);
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* --- Inputs --- */
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--surface2);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 16px;
+      font-family: inherit;
+      resize: vertical;
+      margin-bottom: 10px;
+    }
+    input[type="text"]:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    textarea { min-height: 150px; }
+    label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
+
+    /* --- Output --- */
+    .output {
+      background: var(--bg);
+      border: 1px solid var(--surface2);
+      border-radius: var(--radius);
+      padding: 14px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 400px;
+      overflow-y: auto;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+
+    /* --- Status bar --- */
+    .status-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--surface2);
+      padding: 10px 16px;
+      font-size: 12px;
+      color: var(--text-dim);
+      text-align: center;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+    }
+    .main-content { padding-bottom: 50px; }
+
+    /* --- Table --- */
+    .kv-table { width: 100%; font-size: 13px; }
+    .kv-table td { padding: 6px 0; vertical-align: top; }
+    .kv-table td:first-child { color: var(--text-dim); width: 40%; }
+
+    /* --- Badge --- */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-success { background: rgba(46,204,113,0.2); color: var(--success); }
+    .badge-warn { background: rgba(243,156,18,0.2); color: var(--warn); }
+    .badge-info { background: rgba(0,212,255,0.15); color: var(--accent); }
+
+    /* --- Loading --- */
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid var(--surface2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center">
+    <span class="status-dot" id="statusDot"></span>
+    <h1>Repo Workbench</h1>
+  </div>
+  <span id="headerRepo" style="font-size:12px;color:var(--text-dim)"></span>
+</div>
+
+<div class="tabs" id="tabBar">
+  <button class="tab active" data-tab="repo">Repo</button>
+  <button class="tab" data-tab="notes">Notes</button>
+  <button class="tab" data-tab="workpath">Work Path</button>
+  <button class="tab" data-tab="sandbox">Sandbox</button>
+  <button class="tab" data-tab="results">Results</button>
+</div>
+
+<div class="main-content">
+
+  <!-- REPO TAB -->
+  <div class="panel active" id="panel-repo">
+    <div class="card">
+      <h3>Target Repository</h3>
+      <label>Repo path (local folder)</label>
+      <input type="text" id="repoPathInput" placeholder="C:\Projects\my-repo" />
+      <button class="btn btn-ghost" onclick="setRepo()">Set Repo Path</button>
+    </div>
+    <button class="btn btn-primary" onclick="analyzeRepo()">Analyze Repo</button>
+    <div id="analysisResult" class="hidden">
+      <div class="card" id="analysisCard"></div>
+    </div>
+  </div>
+
+  <!-- NOTES TAB -->
+  <div class="panel" id="panel-notes">
+    <div class="card">
+      <h3>Paste Messy Notes</h3>
+      <label>Paste your raw notes, bug reports, feature requests — however messy</label>
+      <textarea id="notesInput" placeholder="I'm trying the quoting tool again but I still cannot remove the TRUCK/DISPATCH CHARGE when set to 0. Also the multiline descriptions are cutting off after the first line..."></textarea>
+      <button class="btn btn-primary" onclick="parseNotes()">Parse Notes</button>
+    </div>
+    <div id="parsedResult" class="hidden">
+      <div class="card">
+        <h3>Parsed Output</h3>
+        <div id="parsedOutput" class="output"></div>
+      </div>
+      <button class="btn btn-ghost" onclick="clearNotes()">Clear All Notes</button>
+    </div>
+  </div>
+
+  <!-- WORK PATH TAB -->
+  <div class="panel" id="panel-workpath">
+    <div class="card">
+      <h3>AI Work Path</h3>
+      <p style="color:var(--text-dim);font-size:13px;margin-bottom:12px">
+        Combines repo analysis + parsed notes into a structured AI_WORK_PATH.md
+      </p>
+      <button class="btn btn-primary" onclick="generateWorkPath()">Generate AI_WORK_PATH.md</button>
+    </div>
+    <div id="workPathResult" class="hidden">
+      <div class="card">
+        <h3>Preview</h3>
+        <div id="workPathOutput" class="output" style="max-height:600px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SANDBOX TAB -->
+  <div class="panel" id="panel-sandbox">
+    <div class="card">
+      <h3>Sandbox Manager</h3>
+      <p style="color:var(--text-dim);font-size:13px;margin-bottom:12px">
+        Create an isolated copy of the repo for safe AI editing.
+      </p>
+      <button class="btn btn-warn" onclick="createSandbox()">Create Sandbox Copy</button>
+    </div>
+    <div id="sandboxList"></div>
+    <div class="card hidden" id="mergeCard">
+      <h3>Merge Sandbox</h3>
+      <div id="mergePreview"></div>
+      <button class="btn btn-success" id="mergeBtn" disabled onclick="mergeSandbox()">
+        Merge Sandbox Into Main
+      </button>
+    </div>
+  </div>
+
+  <!-- RESULTS TAB -->
+  <div class="panel" id="panel-results">
+    <div class="card">
+      <h3>Confidence Report</h3>
+      <div id="confidenceReport">
+        <p style="color:var(--text-dim)">No results yet. Run an AI task in a sandbox first.</p>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Verification Checklist</h3>
+      <div id="verificationChecklist">
+        <p style="color:var(--text-dim)">Generate a work path to see the checklist.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar" id="statusBar">Ready</div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+// --- Tab switching ---
+$$('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    $$('.tab').forEach(t => t.classList.remove('active'));
+    $$('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    $(`#panel-${tab.dataset.tab}`).classList.add('active');
+  });
+});
+
+function setStatus(msg) { $('#statusBar').textContent = msg; }
+function showLoading(msg) { setStatus('\u23F3 ' + msg + '...'); }
+
+async function api(method, url, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  return res.json();
+}
+
+// --- Load initial state ---
+async function loadStatus() {
+  const data = await api('GET', '/api/status');
+  $('#repoPathInput').value = data.repoPath || '';
+  $('#headerRepo').textContent = data.repoPath ? data.repoPath.split(/[\\/]/).pop() : '';
+  if (data.analyzed) {
+    $('#statusDot').classList.add('active');
+    renderAnalysis(data.analysis);
+  }
+}
+
+// --- Repo ---
+async function setRepo() {
+  const p = $('#repoPathInput').value.trim();
+  if (!p) return;
+  showLoading('Setting repo');
+  const data = await api('POST', '/api/repo', { repoPath: p });
+  if (data.ok) {
+    setStatus('Repo set: ' + p);
+    $('#headerRepo').textContent = p.split(/[\\/]/).pop();
+    $('#statusDot').classList.remove('active');
+    $('#analysisResult').classList.add('hidden');
+  }
+}
+
+async function analyzeRepo() {
+  showLoading('Analyzing repo');
+  const data = await api('POST', '/api/analyze');
+  if (data.ok) {
+    renderAnalysis(data.analysis);
+    $('#statusDot').classList.add('active');
+    setStatus('Repo analyzed — ' + data.analysis.totalFiles + ' files found');
+  } else {
+    setStatus('Error: ' + (data.error || 'unknown'));
+  }
+}
+
+function renderAnalysis(a) {
+  const html = `
+    <table class="kv-table">
+      <tr><td>Project</td><td><strong>${esc(a.projectName)}</strong></td></tr>
+      <tr><td>Type</td><td>${esc(a.projectType)}</td></tr>
+      <tr><td>Framework</td><td>${esc(a.framework)}</td></tr>
+      <tr><td>Pkg manager</td><td>${esc(a.packageManager)}</td></tr>
+      <tr><td>Run</td><td><code>${esc(a.runCommand)}</code></td></tr>
+      <tr><td>Build</td><td><code>${esc(a.buildCommand)}</code></td></tr>
+      <tr><td>Test</td><td><code>${esc(a.testCommand)}</code></td></tr>
+      <tr><td>Playwright</td><td>${a.playwrightSupport ? '<span class="badge badge-success">Yes</span>' : 'No'}</td></tr>
+      <tr><td>Monorepo</td><td>${a.monorepo ? '<span class="badge badge-info">Yes</span>' : 'No'}</td></tr>
+      <tr><td>Files</td><td>~${a.totalFiles}</td></tr>
+      ${a.uiFolders.length ? '<tr><td>UI folders</td><td>' + a.uiFolders.join(', ') + '</td></tr>' : ''}
+      ${a.logicFolders.length ? '<tr><td>Logic folders</td><td>' + a.logicFolders.join(', ') + '</td></tr>' : ''}
+      ${a.configFiles.length ? '<tr><td>Config</td><td>' + a.configFiles.join(', ') + '</td></tr>' : ''}
+      ${a.aiInstructionFiles.length ? '<tr><td>AI files</td><td>' + a.aiInstructionFiles.join(', ') + '</td></tr>' : ''}
+    </table>
+  `;
+  $('#analysisCard').innerHTML = html;
+  $('#analysisResult').classList.remove('hidden');
+}
+
+// --- Notes ---
+async function parseNotes() {
+  const text = $('#notesInput').value.trim();
+  if (!text) return;
+  showLoading('Parsing notes');
+  const data = await api('POST', '/api/parse-notes', { notes: text });
+  if (data.ok) {
+    $('#parsedOutput').textContent = data.formatted;
+    $('#parsedResult').classList.remove('hidden');
+    setStatus('Parsed — confidence: ' + data.parsed.confidence + '%');
+  } else {
+    setStatus('Error: ' + (data.error || 'unknown'));
+  }
+}
+
+async function clearNotes() {
+  await api('DELETE', '/api/parsed-notes');
+  $('#parsedResult').classList.add('hidden');
+  $('#notesInput').value = '';
+  setStatus('Notes cleared');
+}
+
+// --- Work Path ---
+async function generateWorkPath() {
+  showLoading('Generating AI_WORK_PATH.md');
+  const data = await api('POST', '/api/generate-work-path');
+  if (data.ok) {
+    $('#workPathOutput').textContent = data.content;
+    $('#workPathResult').classList.remove('hidden');
+    setStatus('AI_WORK_PATH.md written to repo');
+  } else {
+    setStatus('Error: ' + (data.error || 'unknown'));
+  }
+}
+
+// --- Sandbox ---
+async function createSandbox() {
+  showLoading('Creating sandbox copy');
+  const data = await api('POST', '/api/sandbox/create');
+  if (data.ok) {
+    setStatus('Sandbox created: ' + data.sandbox.id);
+    loadSandboxes();
+  } else {
+    setStatus('Error: ' + (data.error || 'unknown'));
+  }
+}
+
+async function loadSandboxes() {
+  const data = await api('GET', '/api/sandboxes');
+  const list = $('#sandboxList');
+  if (!data.sandboxes || data.sandboxes.length === 0) {
+    list.innerHTML = '';
+    return;
+  }
+  list.innerHTML = data.sandboxes.map(s => `
+    <div class="card">
+      <h3>${esc(s.id)}</h3>
+      <table class="kv-table">
+        <tr><td>Status</td><td><span class="badge badge-${s.status === 'ready' ? 'success' : 'warn'}">${s.status}</span></td></tr>
+        <tr><td>Branch</td><td>${esc(s.branch)}</td></tr>
+        <tr><td>Created</td><td>${new Date(s.createdAt).toLocaleString()}</td></tr>
+        <tr><td>Path</td><td style="font-size:11px">${esc(s.path)}</td></tr>
+      </table>
+    </div>
+  `).join('');
+}
+
+async function mergeSandbox() {
+  setStatus('Merge not yet implemented — coming in next version');
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+// --- Init ---
+loadStatus();
+loadSandboxes();
+</script>
+</body>
+</html>

@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 41 — Conversational Field Capture (New Field Tech UX). Planning shipped; Slice 41a next.
-- **Last shipped (2026-05-13):** New Field Tech UX phased build plan (`NEW_FIELDTECH_UX_PLAN.md`) — 13 spec phases mapped to Phases 41–53, existing overlap cataloged, first 4 slices detailed with files/models/confidence.
-- **Prior (2026-05-13):** Governance token trim; Settings view isolation fix; console error cleanup.
+- **Last shipped (2026-05-14):** AI Repo Workbench v0.1 (`workbench/`) — standalone portable tool: repo analyzer, messy-note parser, AI_WORK_PATH.md generator, sandbox manager, Express web UI (mobile/Tailscale-ready), CLI, Dockerfile. `tools/` (Vertex Build Runner) untouched.
+- **Prior (2026-05-13):** New Field Tech UX phased build plan; governance token trim; Settings view isolation fix; console error cleanup.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
 

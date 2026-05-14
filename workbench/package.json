@@ -1,0 +1,23 @@
+{
+  "name": "repo-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Portable AI Repo Workbench — drop into any repo, analyze, parse notes, sandbox AI edits, verify, merge.",
+  "bin": {
+    "repo-workbench": "./bin/repo-workbench.js"
+  },
+  "scripts": {
+    "build": "npx tsc",
+    "start": "npx ts-node src/server.ts",
+    "cli": "npx ts-node src/cli.ts",
+    "dev": "npx ts-node src/server.ts --dev"
+  },
+  "dependencies": {
+    "@cursor/sdk": "latest",
+    "express": "^4.21.0",
+    "typescript": "^5.5.0",
+    "ts-node": "^10.9.0",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0"
+  }
+}
