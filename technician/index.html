@@ -557,11 +557,22 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 /* --- SCREENS --- */
 .screen { display: none; padding: 20px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 .screen.active { display: block; }
-/* Workspace keeps extra bottom space for the fixed “Complete & Sync” bar (no bottom tab bar anymore). */
+/* Workspace: flex column fills viewport below shell so only #ct-message-list scrolls; composer is fixed. */
 #screen-workspace.screen {
   /* Pull customer/site banner closer to the sticky Schedule nav—avoid double vertical padding vs .screen */
   padding-top: 8px;
   padding-bottom: 0;
+}
+#screen-workspace.screen.active {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - var(--vc-app-shell-height, 118px));
+}
+#screen-workspace.screen.active #workspaceLockScope {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* --- JOB CARDS (SCHEDULE) --- */
@@ -1204,6 +1215,10 @@ body.vc-override-active #vcOfficeOverrideBanner {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
+/* Reserve space so last bubbles clear the fixed composer dock (see .ct-composer-dock). */
+#screen-workspace.screen.active #ct-message-list {
+  padding-bottom: calc(16px + 124px + env(safe-area-inset-bottom, 0px));
+}
 
 .ct-message {
   max-width: 85%;
@@ -1533,7 +1548,7 @@ body.vc-override-active #vcOfficeOverrideBanner {
 /* --- CONVERSATIONAL TIMELINE action bar (slice 41b / 41c) --- */
 
 #ct-action-bar {
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  padding: 8px 12px;
   background: transparent;
 }
 .ct-input-row {
@@ -1869,11 +1884,24 @@ body.vc-override-active #vcOfficeOverrideBanner {
   display: none;
 }
 
-/* Post-chat action row: Compile Notes + Sync Ticket, sits between last message and input bar */
+/* Fixed composer: stays on screen bottom while #ct-message-list scrolls */
+.ct-composer-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 96;
+  background: #0f172a;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Post-chat action row: Compile Notes + Sync Ticket (above pill input, inside dock) */
 .ct-post-chat-actions {
   display: flex;
   gap: 8px;
-  margin: 0 12px 8px;
+  margin: 8px 12px 0;
 }
 .ct-sync-btn {
   flex: 1;
@@ -6284,6 +6312,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
     <div id="ct-message-list" aria-live="polite" role="log" aria-label="Conversation messages">
       <p class="ct-empty">Open a ticket to load its conversation timeline.</p>
     </div>
+    <div id="ct-composer-dock" class="ct-composer-dock" aria-label="Message composer">
     <div id="ct-post-chat-actions" class="ct-post-chat-actions">
       <button
         id="ct-compile-btn"
@@ -6337,6 +6366,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
         >&#x2191;</button>
       </div>
     </div>
+    </div><!-- /ct-composer-dock -->
   </section>
 
   <!-- Slice 44a: settings overlay + bottom-sheet -->
@@ -6922,7 +6952,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase60-MobileUIv4-2026-05-15";
+window.VC_BUILD = "Phase60-MobileUIv5-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
