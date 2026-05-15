@@ -3,6 +3,12 @@ rules_version = '2';
 // ============================================================
 // Vertex Core — Firebase Storage Security Rules
 // 2026-05-09 v2: Explicit-path allowlist, default deny.
+// 2026-05-15 v3: Slice 59c audit — added teaching_media/ prefix
+//   (teaching_layer.js Phase 52a); added 10 MB write-size cap on
+//   all paths; verified conversational_timeline.js (Phase 41c)
+//   uploads to field_evidence/ (already covered); verified
+//   offline_storage_outbox.js (Phase 56a) replays existing paths
+//   only (no new prefix needed).  Audit date: 2026-05-15.
 //
 // Design mirrors firestore.rules: each known upload prefix is
 // listed individually; everything else is denied by default
@@ -20,6 +26,9 @@ rules_version = '2';
 //   workspace_ui.js           → site_access_photos/
 //   dictation_hub.js          → tenants/{tid}/imported_equipment_photos/
 //   technician/index.html     → field_evidence/, service_call_addendums/
+//   conversational_timeline.js → field_evidence/ (Phase 41c — same prefix as above)
+//   teaching_layer.js         → teaching_media/ (Phase 52a)
+//   offline_storage_outbox.js → replays rec.storagePath (Phase 56a — no new prefix)
 // ============================================================
 
 service firebase.storage {
@@ -27,52 +36,80 @@ service firebase.storage {
 
     // Equipment profile photos (Equipment Manager + UWP inline quick-add)
     match /equipment_photos/{allPaths=**} {
-      allow read, write: if true;
+      allow read:  if true;
+      allow write: if true
+                   && request.resource.size < 10 * 1024 * 1024;
     }
 
     // Dictation Hub asset photos (nameplate promotion, watermarked assets)
     match /dictation_hub_assets/{allPaths=**} {
-      allow read, write: if true;
+      allow read:  if true;
+      allow write: if true
+                   && request.resource.size < 10 * 1024 * 1024;
     }
 
     // Customer evidence attachments (service call — dispatcher + field app)
     match /customer_evidence/{allPaths=**} {
-      allow read, write: if true;
+      allow read:  if true;
+      allow write: if true
+                   && request.resource.size < 10 * 1024 * 1024;
     }
 
     // Field quote mandatory evidence photos
     match /field_quote_evidence/{allPaths=**} {
-      allow read, write: if true;
+      allow read:  if true;
+      allow write: if true
+                   && request.resource.size < 10 * 1024 * 1024;
     }
 
     // Field form dynamic question photo uploads
     match /field_form_evidence/{allPaths=**} {
-      allow read, write: if true;
+      allow read:  if true;
+      allow write: if true
+                   && request.resource.size < 10 * 1024 * 1024;
     }
 
     // Repair quote photos
     match /quote_evidence/{allPaths=**} {
-      allow read, write: if true;
+      allow read:  if true;
+      allow write: if true
+                   && request.resource.size < 10 * 1024 * 1024;
     }
 
     // Site Intel access photos (workspace panel — workspace_ui.js)
     match /site_access_photos/{allPaths=**} {
-      allow read, write: if true;
+      allow read:  if true;
+      allow write: if true
+                   && request.resource.size < 10 * 1024 * 1024;
     }
 
     // Vision Hub imported equipment nameplate photos (tenant-scoped)
     match /tenants/{tenantId}/imported_equipment_photos/{allPaths=**} {
-      allow read, write: if true;
+      allow read:  if true;
+      allow write: if true
+                   && request.resource.size < 10 * 1024 * 1024;
     }
 
-    // Field-app pasted photo evidence (uploadFieldEvidencePastedBlob — technician/index.html:7185)
+    // Field-app pasted photo evidence + conversational timeline media capture
+    // (technician/index.html + conversational_timeline.js Phase 41c)
     match /field_evidence/{allPaths=**} {
-      allow read, write: if true;
+      allow read:  if true;
+      allow write: if true
+                   && request.resource.size < 10 * 1024 * 1024;
     }
 
-    // Service call addendum file attachments (addendums flow — technician/index.html:7013)
+    // Service call addendum file attachments (addendums flow — technician/index.html)
     match /service_call_addendums/{allPaths=**} {
-      allow read, write: if true;
+      allow read:  if true;
+      allow write: if true
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // Teaching Layer knowledge media uploads (teaching_layer.js Phase 52a)
+    match /teaching_media/{allPaths=**} {
+      allow read:  if true;
+      allow write: if true
+                   && request.resource.size < 10 * 1024 * 1024;
     }
 
     // All other paths: default deny (no match = no access).
