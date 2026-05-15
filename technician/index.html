@@ -79,21 +79,6 @@ body {
   min-width: 0;
   overflow: visible;
 }
-.app-header-actions {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: nowrap;
-}
-/* Schedule button compact variant inside the header actions row */
-.app-header-actions .nav-item {
-  flex: 0 0 auto;
-  padding: 5px 10px;
-  font-size: 12px;
-  border-radius: 12px;
-  font-weight: 800;
-}
 .vc-field-offline-badge {
   font-size: 11px;
   font-weight: 800;
@@ -497,7 +482,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   display: flex;
   align-items: stretch;
   gap: 6px;
-  padding: 0 12px;
+  padding: 0 12px 10px;
 }
 .app-main-nav .nav-item {
   flex: 1;
@@ -6153,12 +6138,10 @@ button#techDisplayLabel:active { opacity: 0.75; }
 
 <header class="app-top-shell" role="banner">
   <div class="app-header-row">
+    <img id="vcBrandLogo" src="../vertex_core_logo_only.svg" alt="" width="40" height="40" onerror="this.outerHTML='<span style=\'font-weight:800;color:#0ea5e9;font-size:14px;\'>FIELD APP</span>'">
     <div class="app-header-meta">
       <span id="vcFieldOfflineBadge" class="vc-field-offline-badge hidden" role="status" aria-live="polite" title="Firestore is reading from local cache or the device is offline. Data syncs when signal returns."></span>
-      <div class="app-header-actions">
-        <button type="button" class="nav-item active" id="nav-schedule" onclick="switchScreen('schedule')">📋 Schedule</button>
-        <button type="button" id="techDisplayLabel" class="tech-profile-badge" aria-haspopup="dialog" aria-expanded="false">Loading…</button>
-      </div>
+      <button type="button" id="techDisplayLabel" class="tech-profile-badge" aria-haspopup="dialog" aria-expanded="false">Loading…</button>
       <div id="headerShadowTechAnchor" class="vc-header-shadow-tech-anchor">
         <div id="vcShadowTechSelector" class="vc-shadow-tech-selector hidden" aria-label="Shadow tech switcher">
           <button
@@ -6188,6 +6171,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
   </div>
   <div id="vcCoachToast" class="vc-coach-toast hidden" role="alert" aria-live="assertive"></div>
   <nav class="app-main-nav" aria-label="Main">
+    <button type="button" class="nav-item active" id="nav-schedule" onclick="switchScreen('schedule')">📋 Schedule</button>
     <button type="button" class="nav-item hidden" id="nav-clock" onclick="switchScreen('lite')">⏱ Time</button>
   </nav>
 </header>
