@@ -1550,11 +1550,20 @@ body.vc-override-active #vcOfficeOverrideBanner {
 
 #ct-action-bar {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
   border-top: 1px solid rgba(148, 163, 184, 0.2);
   background: linear-gradient(180deg, #13152a 0%, #0f1023 100%);
+}
+.ct-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ct-btn-row {
+  display: flex;
+  gap: 8px;
 }
 
 #ct-type-input {
@@ -1574,58 +1583,94 @@ body.vc-override-active #vcOfficeOverrideBanner {
   color: rgba(147, 197, 253, 0.45);
 }
 #ct-type-input:focus {
-  border-color: rgba(0, 212, 255, 0.55);
+  border-color: rgba(34, 197, 94, 0.65);
   background: rgba(255, 255, 255, 0.1);
 }
 
-#ct-talk-btn {
-  width: 56px;
-  height: 56px;
-  min-width: 56px;
+#ct-send-btn {
   flex-shrink: 0;
-  border-radius: 50%;
-  background: rgba(0, 212, 255, 0.12);
-  border: 2px solid rgba(0, 212, 255, 0.45);
-  color: #00d4ff;
-  font-size: 22px;
+  padding: 9px 18px;
+  border-radius: 20px;
+  background: #22c55e;
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+#ct-send-btn:active { background: #16a34a; }
+
+#ct-talk-btn {
+  flex: 1;
+  min-width: 0;
+  border-radius: 12px;
+  background: #22c55e;
+  border: 2px solid #16a34a;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  font-family: inherit;
+  padding: 14px 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   cursor: pointer;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
-  transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
   -webkit-tap-highlight-color: transparent;
+}
+.ct-talk-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.5;
+  flex-shrink: 0;
+  transition: opacity 0.2s, box-shadow 0.2s;
 }
 #ct-talk-btn.ct-recording {
-  background: rgba(0, 212, 255, 0.32);
-  border-color: #00d4ff;
-  box-shadow:
-    0 0 0 5px rgba(0, 212, 255, 0.22),
-    0 0 22px rgba(0, 212, 255, 0.38);
+  background: #16a34a;
+  border-color: #15803d;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3), 0 0 18px rgba(34, 197, 94, 0.4);
   animation: ct-talk-pulse 1.1s ease-in-out infinite;
 }
+#ct-talk-btn.ct-recording .ct-talk-indicator {
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35);
+  animation: ct-talk-dot-pulse 1.1s ease-in-out infinite;
+}
 @keyframes ct-talk-pulse {
-  0%, 100% { box-shadow: 0 0 0 5px rgba(0, 212, 255, 0.22), 0 0 22px rgba(0, 212, 255, 0.38); }
-  50%       { box-shadow: 0 0 0 9px rgba(0, 212, 255, 0.1),  0 0 32px rgba(0, 212, 255, 0.22); }
+  0%, 100% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3), 0 0 18px rgba(34, 197, 94, 0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.15), 0 0 28px rgba(34, 197, 94, 0.25); }
+}
+@keyframes ct-talk-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(255,255,255,0.35); }
+  50%       { box-shadow: 0 0 0 5px rgba(255,255,255,0.15); }
 }
 
-/* --- MEDIA CAPTURE BUTTON (slice 41c) --- */
+/* --- MEDIA CAPTURE BUTTON --- */
 
 #ct-media-btn {
-  width: 56px;
-  height: 56px;
-  min-width: 56px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: rgba(0, 212, 255, 0.10);
-  border: 2px solid rgba(0, 212, 255, 0.38);
-  color: #00d4ff;
-  font-size: 22px;
+  flex: 1;
+  min-width: 0;
+  border-radius: 12px;
+  background: #f97316;
+  border: 2px solid #ea580c;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  font-family: inherit;
+  padding: 14px 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   cursor: pointer;
   touch-action: none;
   -webkit-user-select: none;
@@ -1633,18 +1678,10 @@ body.vc-override-active #vcOfficeOverrideBanner {
   transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
 }
-#ct-media-btn.ct-recording {
-  background: rgba(255, 60, 60, 0.28);
-  border-color: #ff3c3c;
-  color: #ff3c3c;
-  box-shadow:
-    0 0 0 5px rgba(255, 60, 60, 0.2),
-    0 0 22px rgba(255, 60, 60, 0.35);
-  animation: ct-media-rec-pulse 1.1s ease-in-out infinite;
-}
-@keyframes ct-media-rec-pulse {
-  0%, 100% { box-shadow: 0 0 0 5px rgba(255, 60, 60, 0.2), 0 0 22px rgba(255, 60, 60, 0.35); }
-  50%       { box-shadow: 0 0 0 9px rgba(255, 60, 60, 0.08), 0 0 32px rgba(255, 60, 60, 0.18); }
+#ct-media-btn:active, #ct-media-btn.ct-recording {
+  background: #ea580c;
+  border-color: #c2410c;
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.35);
 }
 
 /* --- MEDIA TIMELINE ENTRIES (slice 41c) --- */
@@ -2040,57 +2077,6 @@ body.vc-override-active #vcOfficeOverrideBanner {
   white-space: nowrap;
 }
 
-/* --- TEACHING LAYER (Slice 52a) --- */
-
-#ct-teaching-btn {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: rgba(250, 204, 21, 0.1);
-  border: 2px solid rgba(250, 204, 21, 0.4);
-  color: #facc15;
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-#ct-teaching-btn:active {
-  background: rgba(250, 204, 21, 0.2);
-  border-color: rgba(250, 204, 21, 0.7);
-}
-
-/* --- ASK BUTTON (Slice 53a) --- */
-
-#ct-ask-btn {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: rgba(0, 212, 255, 0.1);
-  border: 2px solid rgba(0, 212, 255, 0.4);
-  color: #00d4ff;
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-#ct-ask-btn:active {
-  background: rgba(0, 212, 255, 0.2);
-  border-color: rgba(0, 212, 255, 0.7);
-}
-#ct-ask-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 .ct-ask-save-prompt {
   margin-top: 4px;
@@ -6321,28 +6307,6 @@ button#techDisplayLabel:active { opacity: 0.75; }
     <p>Saved successfully. You can return to your schedule.</p>
   </div>
 
-  <section
-    id="workspacePreviousSubmission"
-    class="ws-prev-submission hidden"
-    aria-labelledby="wsPrevSubmissionTitle"
-    hidden
-  >
-    <header class="ws-prev-submission__head">
-      <h3 id="wsPrevSubmissionTitle" class="ws-prev-submission__title">📄 Previously submitted report</h3>
-      <button
-        type="button"
-        id="wsPrevSubmissionToggle"
-        class="ws-prev-submission__toggle"
-        aria-expanded="true"
-        aria-controls="wsPrevSubmissionBody"
-      >Hide</button>
-    </header>
-    <p class="ws-prev-submission__hint" id="wsPrevSubmissionHint">
-      Read-only — the last report a technician synced for this ticket. Use the form below for any new findings or follow-ups.
-    </p>
-    <pre id="wsPrevSubmissionBody" class="ws-prev-submission__body"></pre>
-  </section>
-
   <section id="conversational-timeline" aria-label="Conversational timeline">
     <div class="ct-header">
       <p class="ct-header-title">Conversation Timeline</p>
@@ -6370,42 +6334,40 @@ button#techDisplayLabel:active { opacity: 0.75; }
       <p class="ct-empty">Open a ticket to load its conversation timeline.</p>
     </div>
     <div id="ct-action-bar" role="group" aria-label="Timeline input controls">
-      <button
-        id="ct-media-btn"
-        type="button"
-        aria-label="Tap for photo, hold for video"
-        aria-pressed="false"
-        title="Tap for photo · Hold for video"
-      >📷</button>
-      <button
-        id="ct-teaching-btn"
-        type="button"
-        aria-label="Save a teaching note"
-        title="Save teaching note for other techs"
-      >💡</button>
-      <button
-        id="ct-ask-btn"
-        type="button"
-        aria-label="Ask a question"
-        title="Ask a question — searches job notes, site, equipment, and cloud"
-      >❓</button>
-      <input
-        id="ct-type-input"
-        type="text"
-        placeholder="Type a note and press Enter…"
-        aria-label="Type a note to add to the timeline"
-        autocomplete="off"
-        autocorrect="on"
-        spellcheck="true"
-        enterkeyhint="send"
-      />
-      <button
-        id="ct-talk-btn"
-        type="button"
-        aria-label="Hold to talk"
-        aria-pressed="false"
-        title="Hold to talk"
-      >🎙️</button>
+      <div class="ct-input-row">
+        <input
+          id="ct-type-input"
+          type="text"
+          placeholder="Type here…"
+          aria-label="Type a note to add to the timeline"
+          autocomplete="off"
+          autocorrect="on"
+          spellcheck="true"
+          enterkeyhint="send"
+        />
+        <button
+          id="ct-send-btn"
+          type="button"
+          aria-label="Send message"
+          title="Send"
+        >Send</button>
+      </div>
+      <div class="ct-btn-row">
+        <button
+          id="ct-media-btn"
+          type="button"
+          aria-label="Tap for photo, hold for video"
+          aria-pressed="false"
+          title="Tap for photo · Hold for video"
+        >📷 Photo / Video</button>
+        <button
+          id="ct-talk-btn"
+          type="button"
+          aria-label="Hold to talk"
+          aria-pressed="false"
+          title="Hold to talk"
+        ><span class="ct-talk-indicator" aria-hidden="true"></span>Push to Talk</button>
+      </div>
     </div>
     <button
       id="ct-compile-btn"
@@ -6478,61 +6440,14 @@ button#techDisplayLabel:active { opacity: 0.75; }
     </div>
   </div>
 
-  <section class="dictation-hub-shell" aria-labelledby="dictationHubSectionTitle">
-    <div class="dictation-hub-top">
-      <h2 class="dictation-hub-title" id="dictationHubSectionTitle">Technician notes</h2>
-      <div class="dictation-hub-process-wrap">
-        <button type="button" id="dictationProcessBtn" class="dictation-hub-process-btn">✨ Improve with AI</button>
-        <button type="button" id="btnInsertOfficeNote" style="display: none;" class="vc-btn-secondary">✍️ Insert Office Note</button>
-        <span id="dictationProcessStatus" class="dictation-process-status" aria-live="polite"></span>
-      </div>
-    </div>
-    <div id="svcDiagnosticsFields" class="svc-diagnostics-in-hub hidden">
-      <label for="diagnosis">Findings / diagnosis &amp; repairs made</label>
-      <textarea id="diagnosis" placeholder="Example: Crack found on RTU1 heat exchanger. Confirmed failure, shut unit down and tagged out." rows="8" autocomplete="off"></textarea>
-      <textarea id="repairsMade" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true"></textarea>
-      <label for="recommendations">Recommendations / Next steps</label>
-      <textarea id="recommendations" placeholder="Example: Replace RTU1 due to cracked heat exchanger." rows="3" autocomplete="off"></textarea>
-      <div class="uwp-parse-btn-wrap">
-        <button type="button" id="uwpParseBtn" class="uwp-parse-btn">🔗 Parse &amp; Link to Equipment</button>
-        <span id="uwpParseStatus" class="uwp-parse-status" aria-live="polite"></span>
-      </div>
-    </div>
-    <div class="dictation-hub-notes-sync-wrap">
-      <label for="dictationHubNotes" id="dictationHubNotesSubLabel" class="dictation-hub-notes-sync-label visually-hidden">Technician notes</label>
-      <textarea id="dictationHubNotes" rows="6" autocomplete="off" placeholder="Example: Called site contact on arrival; left lockbox tag on RTU-1; office to email quote for coil — customer approved verbally."></textarea>
-    </div>
-    <div class="dictation-action-tray-wrap">
-      <div class="dictation-action-tray-head">Dynamic action tray — units on site</div>
-      <div id="dictationActionTray" class="dictation-action-tray">
-        <p class="dictation-action-tray-empty">Open a job to load site assets.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Field Chronicle (experimental) — chronological field note capture -->
-  <section id="vcFieldChronicle" class="vc-fc-section" aria-labelledby="vcFcSectionTitle">
-    <div class="vc-fc-head">
-      <h2 class="vc-fc-title" id="vcFcSectionTitle">
-        📝 Field Chronicle <span class="vc-fc-title-badge">Experimental</span>
-        <span id="vcFcNoteCount" class="vc-fc-count"></span>
-      </h2>
-      <button type="button" id="vcFcToggleBtn" class="vc-fc-toggle-btn" aria-expanded="true" aria-controls="vcFcBody">Hide</button>
-    </div>
-    <div id="vcFcBody" class="vc-fc-body">
-      <div class="vc-fc-input-row">
-        <textarea id="vcFcNoteInput" class="vc-fc-input" rows="2" placeholder="What are you seeing? What did you do?" autocomplete="off"></textarea>
-        <button type="button" id="vcFcAddNoteBtn" class="vc-fc-add-btn">+ Add</button>
-      </div>
-      <div id="vcFcNotesList" class="vc-fc-notes-list" aria-live="polite">
-        <p class="vc-fc-empty">No field notes yet. Add your first note above.</p>
-      </div>
-      <div class="vc-fc-actions">
-        <button type="button" id="vcFcCompileBtn" class="vc-fc-compile-btn" disabled style="opacity:0.45">📋 Compile Notes</button>
-        <button type="button" id="vcFcClearAllBtn" class="vc-fc-clear-btn">Clear All</button>
-      </div>
-    </div>
-  </section>
+  <!-- Hidden fields kept for report generation / sync compat -->
+  <div class="hidden" aria-hidden="true">
+    <textarea id="diagnosis" tabindex="-1" autocomplete="off"></textarea>
+    <textarea id="repairsMade" tabindex="-1" autocomplete="off"></textarea>
+    <textarea id="recommendations" tabindex="-1" autocomplete="off"></textarea>
+    <textarea id="dictationHubNotes" tabindex="-1" autocomplete="off"></textarea>
+    <div id="dictationActionTray" hidden></div>
+  </div>
 
   <div id="workspaceCustomerEvidence" class="hidden" aria-live="polite"></div>
   <div id="workspaceFieldEvidence" class="hidden" aria-live="polite"></div>
@@ -6555,127 +6470,24 @@ button#techDisplayLabel:active { opacity: 0.75; }
     <input type="text" id="unitTagInstallDate" tabindex="-1" autocomplete="off">
   </div>
 
-  <div id="pmSection" class="hidden">
-    <div class="accordion open" id="acc-equip-pm">
-      <div class="accordion-header" onclick="toggleAccordion('acc-equip-pm')">1. Equipment on Site</div>
-      <div class="accordion-body">
-        <textarea id="equipment" placeholder="Example: one RTU, one furnace..."></textarea>
-        <div class="pillbar">
-          <button id="addRTU" type="button">+ RTU</button>
-          <button id="addF" type="button">+ Furnace</button>
-          <button id="addUH" type="button">+ Unit Heater</button>
-          <button id="addRH" type="button">+ Radiant</button>
-          <button id="addEF" type="button">+ Exhaust Fan</button>
-          <button id="addMUA" type="button">+ MUA</button>
-        </div>
-      </div>
-    </div>
-    <div class="accordion open" id="acc-notes-pm">
-      <div class="accordion-header" onclick="toggleAccordion('acc-notes-pm')">2. Notes & Repairs</div>
-      <div class="accordion-body">
-        <label>Notes / Repairs</label>
-        <textarea id="notes" placeholder="Leave blank if everything is running good."></textarea>
-        <label>Work done</label>
-        <input id="workdone">
-      </div>
-    </div>
-    <div class="accordion" id="acc-parts-pm">
-      <div class="accordion-header" onclick="toggleAccordion('acc-parts-pm')">3. Parts & Materials</div>
-      <div class="accordion-body">
-        <label>Parts used</label>
-        <textarea id="used" placeholder="Example: two 4l190 belts and two 20 by 24 by 2 filters"></textarea>
-        <label>Cost of parts</label>
-        <input id="cost" placeholder="Example: $23">
-        <label>Parts needed next PM</label>
-        <div class="inline">
-          <div class="grow">
-            <textarea id="next" placeholder="Tap Same if identical to Parts used"></textarea>
-          </div>
-          <button id="same" type="button">Same</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="serviceSection" class="hidden">
-    <!-- Equipment Worked On UI removed; field kept hidden for ticket equip + draft sync + report payload. -->
-    <textarea id="serviceEquipment" class="hidden" aria-hidden="true" tabindex="-1" autocomplete="off"></textarea>
-    <!-- Diagnostics & Repairs fields live in #dictation-hub-shell (#svcDiagnosticsFields) for SERVICE mode; #reason is hidden (shown under job # in header). -->
-    <!-- Phase 34c — additional-repair branching accordion. Wired by field_forms.js
-         (initRepairBranchAccordion) so it cache-busts via ?v= on field_forms.js.
-         Persists onto the active service call doc via VCFirestore.setServiceCallMerged. -->
-    <div class="accordion" id="acc-svc-repair">
-      <div class="accordion-header" onclick="toggleAccordion('acc-svc-repair')">1. Additional repair (optional)</div>
-      <div class="accordion-body">
-        <p style="font-size:13px;color:#7f8c8d;margin:0 0 10px 0;line-height:1.4;">
-          Beyond the primary call — did you discover and perform an extra repair on this visit?
-        </p>
-        <div class="pillbar vc-svc-repair-yesno" role="group" aria-label="Is additional repair needed?">
-          <button type="button" id="svcRepairNeededNoBtn" data-svc-repair-needed="no" aria-pressed="false">No</button>
-          <button type="button" id="svcRepairNeededYesBtn" data-svc-repair-needed="yes" aria-pressed="false">Yes</button>
-        </div>
-        <div id="svcRepairTypesWrap" class="hidden" style="margin-top:14px;">
-          <label style="margin-top:0;">Which repair(s) did you perform?</label>
-          <div class="pillbar pillbar-grid vc-svc-repair-types" role="group" aria-label="Repair types">
-            <button type="button" data-svc-repair-type="supply_fan" aria-pressed="false">Supply Fan</button>
-            <button type="button" data-svc-repair-type="condenser_fan" aria-pressed="false">Condenser Fan</button>
-            <button type="button" data-svc-repair-type="gas_valve" aria-pressed="false">Gas Valve</button>
-            <button type="button" data-svc-repair-type="compressor" aria-pressed="false">Compressor</button>
-            <button type="button" data-svc-repair-type="refrigerant_leak" aria-pressed="false">Refrigerant Leak</button>
-            <button type="button" data-svc-repair-type="other" aria-pressed="false">Other</button>
-          </div>
-          <div id="svcRepairOtherWrap" class="hidden" style="margin-top:10px;">
-            <label>Describe the "Other" repair</label>
-            <input type="text" id="svcRepairOtherLabel" placeholder="Example: belt and bearing replacement" />
-          </div>
-          <div id="svcRepairFormChips" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;"></div>
-        </div>
-      </div>
-    </div>
-    <div class="accordion" id="acc-parts-svc">
-      <div class="accordion-header" onclick="toggleAccordion('acc-parts-svc')">2. Parts & Quote Info</div>
-      <div class="accordion-body">
-        <label>Parts used</label>
-        <textarea id="serviceUsed" placeholder="Example: two 4l190 belts and one 16 by 25 by one"></textarea>
-        <label>Cost of parts</label>
-        <input id="serviceCost" placeholder="Example: $23">
-        <hr style="border:none; border-top:1px solid #e1e8ed; margin:15px 0;">
-        <label>Parts needed for repair quote</label>
-        <textarea id="quoteParts" placeholder="Example: 1 GAS VALVE and 1 IGNITER"></textarea>
-        <label>Labor for repair quote</label>
-        <input id="quoteLabor" placeholder="Example: 3 HOURS">
-      </div>
-    </div>
-  </div>
-
-  <div id="quoteSection" class="hidden">
-    <div class="accordion open" id="acc-equip-qt">
-      <div class="accordion-header" onclick="toggleAccordion('acc-equip-qt')">1. Equipment Repaired</div>
-      <div class="accordion-body">
-        <textarea id="quoteEquip" placeholder="Example: RTU1 on the roof..."></textarea>
-        <div class="pillbar">
-          <button id="addQuoteRTU" type="button">+ RTU</button>
-          <button id="addQuoteF" type="button">+ Furnace</button>
-          <button id="addQuoteUH" type="button">+ Unit Heater</button>
-          <button id="addQuoteRH" type="button">+ Radiant</button>
-          <button id="addQuoteEF" type="button">+ Exhaust Fan</button>
-          <button id="addQuoteMUA" type="button">+ MUA</button>
-        </div>
-      </div>
-    </div>
-    <div class="accordion open" id="acc-notes-qt">
-      <div class="accordion-header" onclick="toggleAccordion('acc-notes-qt')">2. Repairs Completed</div>
-      <div class="accordion-body">
-        <label>Original Issue Resolved</label>
-        <textarea id="quoteIssue" placeholder="Example: Completing quoted repair for bad inducer motor."></textarea>
-        <label>Repairs Completed</label>
-        <textarea id="quoteRepairs" placeholder="Example: Removed old inducer motor and installed new OEM motor."></textarea>
-        <label>System Testing & Verification</label>
-        <textarea id="quoteTesting" placeholder="Example: Cycled heat multiple times..."></textarea>
-        <label>Further Recommendations</label>
-        <textarea id="quoteRecs" placeholder="Example: No further issues found at this time."></textarea>
-      </div>
-    </div>
+  <!-- Hidden fields for report/sync compat — PM, Service, Quote form fields -->
+  <div class="hidden" aria-hidden="true">
+    <textarea id="equipment" tabindex="-1"></textarea>
+    <textarea id="notes" tabindex="-1"></textarea>
+    <input id="workdone" tabindex="-1">
+    <textarea id="used" tabindex="-1"></textarea>
+    <input id="cost" tabindex="-1">
+    <textarea id="next" tabindex="-1"></textarea>
+    <textarea id="serviceEquipment" tabindex="-1" autocomplete="off"></textarea>
+    <textarea id="serviceUsed" tabindex="-1"></textarea>
+    <input id="serviceCost" tabindex="-1">
+    <textarea id="quoteParts" tabindex="-1"></textarea>
+    <input id="quoteLabor" tabindex="-1">
+    <textarea id="quoteEquip" tabindex="-1"></textarea>
+    <textarea id="quoteIssue" tabindex="-1"></textarea>
+    <textarea id="quoteRepairs" tabindex="-1"></textarea>
+    <textarea id="quoteTesting" tabindex="-1"></textarea>
+    <textarea id="quoteRecs" tabindex="-1"></textarea>
   </div>
 
   <div id="acc-status" class="hidden" aria-hidden="true">
@@ -6692,47 +6504,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
     <option value="Dispatched" selected>Still In Progress (Coming back later)</option>
   </select>
 
-  <!-- Phase 34d — Thermostat labeling (one accordion; FAB is shared below workspaceLockScope — visible for PM / Service / Quote) -->
-  <div class="accordion vc-accordion" id="acc-tstat-label" style="margin-bottom: 15px;">
-    <div class="accordion-header" onclick="toggleAccordion('acc-tstat-label')">Did you label <strong id="tstatLabelHeaderUnit">the unit serviced today</strong><span id="tstatLabelHeaderSuffix">?</span></div>
-    <div class="accordion-body">
-      <div class="pillbar vc-tstat-label-pills" role="group" aria-label="Thermostat labeling status">
-        <button type="button" id="tstatPillAlready" data-tstat-status="already_labeled" aria-pressed="false">Already labeled</button>
-        <button type="button" id="tstatPillNow" data-tstat-status="labeled_now" aria-pressed="false">Labeled now</button>
-        <button type="button" id="tstatPillNot" data-tstat-status="not_labeled" aria-pressed="false">Not labeled</button>
-      </div>
-      <div id="tstatNotLabeledWrap" class="hidden" style="margin-top: 12px;">
-        <label style="margin-top:0;" for="tstatLabelReasonSelect">Reason</label>
-        <select id="tstatLabelReasonSelect">
-          <option value="">— Select —</option>
-          <option value="not_needed">Not needed</option>
-          <option value="no_printer">No printer available</option>
-          <option value="no_access">No access</option>
-          <option value="will_label_later">Will label later</option>
-          <option value="other">Other</option>
-        </select>
-        <div id="tstatLabelOtherWrap" class="hidden" style="margin-top: 10px;">
-          <label style="margin-top:0;" for="tstatLabelOtherInput">Describe</label>
-          <input type="text" id="tstatLabelOtherInput" placeholder="Brief note" autocomplete="off" />
-        </div>
-      </div>
-    </div>
-  </div>
-
   </div><!-- /workspaceLockScope -->
-
-  <div id="workspaceAddendumSection" class="workspace-addendum-section hidden">
-    <h3 class="workspace-addendum-title">Supplemental update (addendum)</h3>
-    <p class="workspace-addendum-hint">Add notes or files. Original report fields above stay unchanged.</p>
-    <label for="addendumSupplementalNotes">Supplemental notes</label>
-    <textarea id="addendumSupplementalNotes" rows="4" placeholder="Additional context, corrections, or follow-up…"></textarea>
-    <label for="addendumFilesInput">Additional photos / documents</label>
-    <input type="file" id="addendumFilesInput" multiple accept="image/*,.pdf,.doc,.docx,application/pdf">
-    <button type="button" id="saveAddendumBtn" class="btn btn-primary workspace-addendum-save">💾 Save Supplemental Update</button>
-    <p id="addendumSaveStatus" class="workspace-addendum-status" aria-live="polite"></p>
-  </div>
-
-  <div id="workspaceAddendumTimeline" class="workspace-addendum-timeline-wrap" aria-live="polite"></div>
 
   <div class="fab-container workspace-original-fab">
     <div class="fab-stack">
@@ -6796,24 +6568,6 @@ button#techDisplayLabel:active { opacity: 0.75; }
   </div>
 </div>
 
-<!-- Field Chronicle: Compile Notes modal -->
-<div id="vcFcCompileModal" class="vc-fc-compile-modal hidden" role="dialog" aria-modal="true" aria-labelledby="vcFcCompileTitle">
-  <div id="vcFcCompileBackdrop" class="report-preview-backdrop" aria-hidden="true"></div>
-  <div class="vc-fc-compile-sheet" onclick="event.stopPropagation()">
-    <div class="vc-fc-compile-header">
-      <h2 id="vcFcCompileTitle">Compiled Summary</h2>
-      <button type="button" id="vcFcCompileCloseBtn" class="vc-fc-compile-close" aria-label="Close">&times;</button>
-    </div>
-    <div class="vc-fc-compile-body">
-      <p class="vc-fc-compile-hint">Edit the compiled summary below, then copy it. Your raw field notes are preserved separately.</p>
-      <textarea id="vcFcCompileText" class="vc-fc-compile-textarea" rows="16"></textarea>
-    </div>
-    <div class="vc-fc-compile-actions">
-      <button type="button" id="vcFcCopyBtn" class="vc-fc-copy-btn">📋 Copy Summary</button>
-      <span id="vcFcCopyStatus" class="vc-fc-copy-status" aria-live="polite"></span>
-    </div>
-  </div>
-</div>
 
 <div id="screen-history" class="screen hidden">
   <h2 style="margin: 0 0 16px 0; color: #2c3e50; font-size: 24px;">History</h2>
@@ -7210,7 +6964,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase60-MobileUIv1-2026-05-15";
+window.VC_BUILD = "Phase60-MobileUIv2-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -7842,290 +7596,26 @@ function stripTstatOptionDecorations(text) {
   return t;
 }
 
-function getDerivedTstatUnitLabel() {
-  const scanVal = "__TP_SCAN_NEW_EQUIPMENT__";
-  const sel = document.getElementById("linkedEquipmentSelect");
-  if (sel && sel.value && sel.value !== scanVal) {
-    const opt = sel.options[sel.selectedIndex];
-    if (opt) {
-      const tagAttr = opt.getAttribute("data-unit-tag");
-      if (tagAttr && String(tagAttr).trim()) return String(tagAttr).trim();
-      const stripped = stripTstatOptionDecorations(opt.textContent || "");
-      if (stripped) return stripped;
-    }
-  }
-  const tray = document.getElementById("dictationActionTray");
-  if (tray) {
-    const idEl = tray.querySelector(
-      '.dictation-asset-card:not(.dictation-asset-card--add):not([data-ghost-asset="1"]) .dictation-asset-card-id'
-    );
-    if (idEl && String(idEl.textContent || "").trim()) return String(idEl.textContent).trim();
-  }
-  return "the unit serviced today";
-}
+/* tstat labeling section removed — stubs kept for call-site compat */
+function getDerivedTstatUnitLabel() { return "the unit serviced today"; }
 
-function updateTstatLabelHeaderUnit() {
-  const el = document.getElementById("tstatLabelHeaderUnit");
-  const suf = document.getElementById("tstatLabelHeaderSuffix");
-  if (!el) return;
-  const label = getDerivedTstatUnitLabel();
-  el.textContent = label;
-  if (suf) {
-    const generic = label === "the unit serviced today";
-    suf.textContent = generic ? "?" : " today?";
-  }
-}
+function updateTstatLabelHeaderUnit() {}
+function scrollToTstatLabelAccordion() {}
+function isTstatLabelStatusUnset() { return false; }
+function maybeSoftNudgeThermostatLabeling() {}
 
-function scrollToTstatLabelAccordion() {
-  const acc = document.getElementById("acc-tstat-label");
-  if (!acc) return;
-  acc.classList.add("open");
-  acc.scrollIntoView({ behavior: "smooth", block: "center" });
-}
+function _mergeTstatIntoActiveTicketAfterWrite(patch) {}
 
-function isTstatLabelStatusUnset() {
-  const d = readTstatLabelingFromDom();
-  return d.status == null;
-}
+function setTstatNotLabeledSubUi() {}
+function readTstatLabelingFromDom() { return { status: null, reason: null, otherText: null }; }
+function buildTstatFirestorePatch() { return {}; }
+function schedulePersistTstatLabeling() {}
+function schedulePersistTstatLabelingDebounced() {}
+function applyTstatLabelingPillState() {}
+function hydrateTstatLabelingFromTicket() {}
+function initPhase34dTstatLabeling() {}
 
-function maybeSoftNudgeThermostatLabeling() {
-  if (!isTstatLabelStatusUnset()) return;
-  showVcFieldToast("Don't forget to confirm thermostat labeling.");
-  scrollToTstatLabelAccordion();
-}
-
-function _mergeTstatIntoActiveTicketAfterWrite(patch) {
-  if (typeof activeTicket === "undefined" || !activeTicket || !patch) return;
-  if (Object.prototype.hasOwnProperty.call(patch, "tstatLabelStatus")) {
-    activeTicket.tstatLabelStatus = patch.tstatLabelStatus;
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "tstatLabelReason")) {
-    activeTicket.tstatLabelReason = patch.tstatLabelReason;
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "tstatLabelOtherText")) {
-    activeTicket.tstatLabelOtherText = patch.tstatLabelOtherText;
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, "tstatLabelUnitTag")) {
-    activeTicket.tstatLabelUnitTag = patch.tstatLabelUnitTag;
-  }
-  if (patch.tstatLabelVerifiedAt) {
-    activeTicket.tstatLabelVerifiedAt = true;
-  }
-}
-
-function setTstatNotLabeledSubUi(visible) {
-  const w = document.getElementById("tstatNotLabeledWrap");
-  if (w) w.classList.toggle("hidden", !visible);
-  const ow = document.getElementById("tstatLabelOtherWrap");
-  const rs = document.getElementById("tstatLabelReasonSelect");
-  if (ow && rs) ow.classList.toggle("hidden", !visible || rs.value !== "other");
-}
-
-function readTstatLabelingFromDom() {
-  const pills = document.querySelectorAll(".vc-tstat-label-pills button[data-tstat-status]");
-  var status = null;
-  pills.forEach(function (b) {
-    if (b.getAttribute("aria-pressed") === "true") status = b.getAttribute("data-tstat-status");
-  });
-  const reasonSel = document.getElementById("tstatLabelReasonSelect");
-  const otherInp = document.getElementById("tstatLabelOtherInput");
-  var reason = null;
-  var otherText = null;
-  if (status === "not_labeled" && reasonSel) {
-    reason = reasonSel.value ? reasonSel.value : null;
-    if (reason === "other" && otherInp) otherText = String(otherInp.value || "").trim();
-  }
-  return { status: status, reason: reason, otherText: otherText };
-}
-
-function buildTstatFirestorePatch() {
-  const d = readTstatLabelingFromDom();
-  const patch = {
-    tstatLabelStatus: d.status,
-    tstatLabelReason: d.status === "not_labeled" ? d.reason : null,
-    tstatLabelOtherText: d.status === "not_labeled" && d.reason === "other" ? (d.otherText || "") : null,
-  };
-  const needsFirstStamp =
-    typeof activeTicket !== "undefined" &&
-    activeTicket &&
-    !activeTicket.tstatLabelVerifiedAt &&
-    d.status != null;
-  if (needsFirstStamp) {
-    patch.tstatLabelVerifiedAt = firebase.firestore.FieldValue.serverTimestamp();
-    patch.tstatLabelUnitTag = getDerivedTstatUnitLabel();
-  }
-  return patch;
-}
-
-var _tstatLabelPersistTimer = null;
-function schedulePersistTstatLabeling() {
-  if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
-  const tid = typeof activeTicket !== "undefined" && activeTicket && activeTicket.id ? activeTicket.id : "";
-  if (!tid) return;
-  if (_tstatLabelPersistTimer) window.clearTimeout(_tstatLabelPersistTimer);
-  _tstatLabelPersistTimer = window.setTimeout(function () {
-    _tstatLabelPersistTimer = null;
-    const patch = buildTstatFirestorePatch();
-    if (patch.tstatLabelStatus == null) return;
-    const db = firebase.firestore();
-    const p =
-      typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged
-        ? VCFirestore.setServiceCallMerged(db, tid, patch, true)
-        : db.collection("service_calls").doc(tid).set(patch, { merge: true });
-    p.then(function () {
-      _mergeTstatIntoActiveTicketAfterWrite(patch);
-    }).catch(function (e) {
-      console.error("tstatLabel persist", e);
-      if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("tstatLabel:merge", e);
-    });
-  }, 0);
-}
-
-var _tstatLabelOtherDebounce = null;
-function schedulePersistTstatLabelingDebounced() {
-  if (_tstatLabelOtherDebounce) window.clearTimeout(_tstatLabelOtherDebounce);
-  _tstatLabelOtherDebounce = window.setTimeout(function () {
-    _tstatLabelOtherDebounce = null;
-    schedulePersistTstatLabeling();
-  }, 400);
-}
-
-function applyTstatLabelingPillState(status) {
-  document.querySelectorAll(".vc-tstat-label-pills button[data-tstat-status]").forEach(function (b) {
-    const m = status && b.getAttribute("data-tstat-status") === status;
-    b.setAttribute("aria-pressed", m ? "true" : "false");
-  });
-  setTstatNotLabeledSubUi(status === "not_labeled");
-}
-
-function hydrateTstatLabelingFromTicket(ticket) {
-  const t = ticket || (typeof activeTicket !== "undefined" ? activeTicket : null);
-  if (!t) {
-    updateTstatLabelHeaderUnit();
-    return;
-  }
-  const s = t.tstatLabelStatus;
-  if (s === "already_labeled" || s === "labeled_now" || s === "not_labeled") {
-    applyTstatLabelingPillState(s);
-  } else {
-    applyTstatLabelingPillState(null);
-  }
-  const rs = document.getElementById("tstatLabelReasonSelect");
-  const oi = document.getElementById("tstatLabelOtherInput");
-  if (rs) {
-    const r = t.tstatLabelReason;
-    if (r === "not_needed" || r === "no_printer" || r === "no_access" || r === "will_label_later" || r === "other") {
-      rs.value = r;
-    } else {
-      rs.value = "";
-    }
-  }
-  if (oi) oi.value = t.tstatLabelOtherText ? String(t.tstatLabelOtherText) : "";
-  if (s === "not_labeled" && rs) {
-    const ow = document.getElementById("tstatLabelOtherWrap");
-    if (ow) ow.classList.toggle("hidden", rs.value !== "other");
-  }
-  updateTstatLabelHeaderUnit();
-}
-
-function initPhase34dTstatLabeling() {
-  if (initPhase34dTstatLabeling._done) return;
-  const acc = document.getElementById("acc-tstat-label");
-  if (!acc) return;
-  initPhase34dTstatLabeling._done = true;
-
-  document.querySelectorAll(".vc-tstat-label-pills button[data-tstat-status]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      const st = btn.getAttribute("data-tstat-status");
-      if (!st) return;
-      applyTstatLabelingPillState(st);
-      updateTstatLabelHeaderUnit();
-      schedulePersistTstatLabeling();
-    });
-  });
-  const reasonSel = document.getElementById("tstatLabelReasonSelect");
-  if (reasonSel) {
-    reasonSel.addEventListener("change", function () {
-      const ow = document.getElementById("tstatLabelOtherWrap");
-      if (ow) ow.classList.toggle("hidden", reasonSel.value !== "other");
-      schedulePersistTstatLabeling();
-    });
-  }
-  const otherInp = document.getElementById("tstatLabelOtherInput");
-  if (otherInp) {
-    otherInp.addEventListener("input", function () {
-      schedulePersistTstatLabelingDebounced();
-    });
-  }
-  const le = document.getElementById("linkedEquipmentSelect");
-  if (le) {
-    le.addEventListener("change", function () {
-      updateTstatLabelHeaderUnit();
-    });
-  }
-  const tray = document.getElementById("dictationActionTray");
-  if (tray && typeof MutationObserver !== "undefined") {
-    var moT = null;
-    var obs = new MutationObserver(function () {
-      if (moT) window.clearTimeout(moT);
-      moT = window.setTimeout(function () {
-        updateTstatLabelHeaderUnit();
-      }, 100);
-    });
-    obs.observe(tray, { childList: true, subtree: true });
-  }
-  window.addEventListener("vc:workspaceOpened", function (ev) {
-    const t = (ev && ev.detail && ev.detail.ticket) || (typeof activeTicket !== "undefined" ? activeTicket : null);
-    hydrateTstatLabelingFromTicket(t);
-  });
-  updateTstatLabelHeaderUnit();
-  if (typeof document !== "undefined" && document.readyState !== "loading") {
-    try {
-      hydrateTstatLabelingFromTicket(
-        typeof activeTicket !== "undefined" ? activeTicket : null
-      );
-    } catch (e) {}
-  }
-}
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initPhase34dTstatLabeling);
-} else {
-  initPhase34dTstatLabeling();
-}
-
-function applyMode(){
-  const pmSection = document.getElementById("pmSection");
-  const serviceSection = document.getElementById("serviceSection");
-  const quoteSection = document.getElementById("quoteSection");
-
-  pmSection.classList.add("hidden"); serviceSection.classList.add("hidden"); quoteSection.classList.add("hidden");
-
-  if(currentMode === "PM"){
-    pmSection.classList.remove("hidden"); 
-  } else if(currentMode === "SERVICE"){
-    serviceSection.classList.remove("hidden"); 
-  } else if (currentMode === "QUOTE") {
-    quoteSection.classList.remove("hidden");
-  }
-  var diagFields = document.getElementById("svcDiagnosticsFields");
-  var dhTitle = document.getElementById("dictationHubSectionTitle");
-  var dhSub = document.getElementById("dictationHubNotesSubLabel");
-  if (currentMode === "SERVICE") {
-    if (diagFields) diagFields.classList.remove("hidden");
-    if (dhTitle) dhTitle.textContent = "Diagnostics & Repairs";
-    if (dhSub) {
-      dhSub.classList.remove("visually-hidden");
-      dhSub.textContent = "Technician notes (Inter-office notes)";
-    }
-  } else {
-    if (diagFields) diagFields.classList.add("hidden");
-    if (dhTitle) dhTitle.textContent = "Technician notes";
-    if (dhSub) {
-      dhSub.classList.add("visually-hidden");
-      dhSub.textContent = "Technician notes";
-    }
-  }
-}
+function applyMode() { /* mode sections removed — no-op */ }
 
 /** Sticky workspace header — reason for call (SERVICE #reason, else ticket issue). */
 function getWorkspaceReasonForCallText() {
@@ -8902,12 +8392,7 @@ function applyWorkspaceHistoricalMode(isHistorical) {
 }
 
 function teardownWorkspaceAddendums() {
-  if (workspaceAddendumUnsub) {
-    workspaceAddendumUnsub();
-    workspaceAddendumUnsub = null;
-  }
-  const tl = document.getElementById('workspaceAddendumTimeline');
-  if (tl) tl.innerHTML = '';
+  if (workspaceAddendumUnsub) { workspaceAddendumUnsub(); workspaceAddendumUnsub = null; }
 }
 
 function escapeHtmlTimeline(s) {
@@ -9049,12 +8534,7 @@ async function saveSupplementalUpdate() {
   }
 }
 
-(function wireSaveAddendumBtn() {
-  const b = document.getElementById('saveAddendumBtn');
-  if (!b || b.dataset.wired === '1') return;
-  b.dataset.wired = '1';
-  b.addEventListener('click', () => saveSupplementalUpdate());
-})();
+/* wireSaveAddendumBtn — addendum section removed */
 
 async function maybeOpenDeepLinkedTicket() {
   const params = new URLSearchParams(window.location.search);
@@ -9113,36 +8593,7 @@ function escapeAttrForUrl(s) {
    visit submitted without needing to re-parse the report into the new-visit
    input fields. New input fields stay empty so a fresh follow-up entry can
    be written; the addendum CTA still applies on historical (read-only) tickets. */
-function renderWorkspacePreviousSubmission(ticket) {
-  const wrap = document.getElementById('workspacePreviousSubmission');
-  if (!wrap) return;
-  const body = document.getElementById('wsPrevSubmissionBody');
-  const toggle = document.getElementById('wsPrevSubmissionToggle');
-  const text = ticket && ticket.techNotes != null ? String(ticket.techNotes) : '';
-  if (!text || !text.trim()) {
-    wrap.classList.add('hidden');
-    wrap.hidden = true;
-    if (body) body.textContent = '';
-    return;
-  }
-  if (body) body.textContent = text;
-  wrap.classList.remove('hidden');
-  wrap.hidden = false;
-  /* Default expanded on each open; idempotent click handler collapses on tap. */
-  wrap.classList.remove('is-collapsed');
-  if (toggle) {
-    toggle.setAttribute('aria-expanded', 'true');
-    toggle.textContent = 'Hide';
-    if (!toggle.dataset.vcWired) {
-      toggle.dataset.vcWired = '1';
-      toggle.addEventListener('click', function () {
-        const collapsed = wrap.classList.toggle('is-collapsed');
-        toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-        toggle.textContent = collapsed ? 'Show' : 'Hide';
-      });
-    }
-  }
-}
+function renderWorkspacePreviousSubmission(ticket) { /* section removed */ }
 
 function renderWorkspaceCustomerEvidence(ticket) {
   const el = document.getElementById('workspaceCustomerEvidence');
@@ -12581,13 +12032,22 @@ window.onload = async function(){
     <script src="../equipment_hub.js?v=15"></script>
     <script src="../unit_work_parser.js?v=10"></script>
     <script src="../field_forms.js?v=4"></script>
-    <script src="../field_chronicle.js?v=1"></script>
     <script src="../job_context_engine.js?v=5"></script>
     <script src="../edge_intent_engine.js?v=3"></script>
     <script src="../checklist_reminder_engine.js?v=2"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
     <script src="../conversational_timeline.js?v=15"></script>
+    <script>
+    (function wireSendBtn() {
+      var btn = document.getElementById('ct-send-btn');
+      var inp = document.getElementById('ct-type-input');
+      if (!btn || !inp) return;
+      btn.addEventListener('click', function () {
+        inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
+      });
+    })();
+    </script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
       if (typeof initGlobalSiteDirectory === "function") initGlobalSiteDirectory();
@@ -12799,7 +12259,7 @@ window.onload = async function(){
 
       /* ── 8. Build stamp ──────────────────────────────────────────────── */
       check("VC_BUILD is Phase60-Slice60a-2026-05-15",
-            window.VC_BUILD === "Phase60-MobileUIv1-2026-05-15");
+            window.VC_BUILD === "Phase60-MobileUIv2-2026-05-15");
 
       /* ── 9. VCStorageOutbox (Slice 56a — offline photo outbox) ───────── */
       check("VCStorageOutbox.enqueue is function",
