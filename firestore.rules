@@ -102,6 +102,27 @@ service cloud.firestore {
       allow read, write: if configDoc != "entitlements";
     }
 
+    // ----- LOCKED: review edits on completed reports (Phases 47–52) ---
+    // Admin QA annotations on completed reports; techs can read.
+    match /tenants/{tid}/completed_reports/{id}/review_edits/{autoId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin(tid);
+    }
+
+    // ----- LOCKED: learning data (Phases 47–52) ------------------
+    // Field app auto-uploads learning data; only admins review it.
+    match /tenants/{tid}/learning_data/{autoId} {
+      allow read: if isAdmin(tid);
+      allow write: if isSignedIn();
+    }
+
+    // ----- LOCKED: knowledge / teaching notes (Phases 47–52) -----
+    // Techs create teaching notes; all authenticated users can read.
+    match /tenants/{tid}/knowledge/{autoId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
     // ============================================================
     // Open paths (explicit — see "RULE EVALUATION SEMANTICS" above
     // for why we don't use a catch-all `match /{document=**}`).
@@ -145,7 +166,7 @@ service cloud.firestore {
     match /tenants/{tid}/on_call_state/{document=**} {
       allow read, write: if true;
     }
-    match /tenants/{tid}/completed_reports/{document=**} {
+    match /tenants/{tid}/completed_reports/{docId} {
       allow read, write: if true;
     }
     match /tenants/{tid}/sandbox/{document=**} {
