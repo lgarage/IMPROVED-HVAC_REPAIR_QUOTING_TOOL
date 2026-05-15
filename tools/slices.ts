@@ -780,8 +780,7 @@ Fix: in report_builder.js, remove or skip the dynamic CSS load if the stylesheet
 present in the document. Check document.querySelector('link[href*="report_builder.css"]') —
 if it exists, skip the dynamic injection. If it doesn't exist (e.g. the report builder runs
 in a standalone context), keep the dynamic load but bump the version to match (?v=4).
-In index.html, bump the cache-bust version on the script tag for report_builder.js (if one exists)
-so browsers pick up the changed JS.`,
+In index.html, bump the cache-bust on the report_builder.js script tag if one exists.`,
     outOfScope: "Changing report_builder.css content. Modifying the report builder UI. Any Firestore changes.",
     cacheBusts: ["dispatcher/js/report_builder.js"],
   },
@@ -973,7 +972,12 @@ the app runs on multiple domains (localhost, Firebase Hosting preview channels, 
 The check ensures only same-origin iframes (like the Shadow Mode iframe) can send messages.
 Bump cache-bust versions on workspace_ui.js and shadow_mode.js.`,
     outOfScope: "Adding CSP headers. Changing postMessage data formats. Adding new message types.",
-    cacheBusts: ["technician/js/workspace_ui.js", "dispatcher/js/shadow_mode.js"],
+    cacheBusts: [],
+    // NOTE: cacheBusts intentionally empty. workspace_ui.js lives in technician/index.html
+    // (as "js/workspace_ui.js") while shadow_mode.js lives in index.html (as
+    // "dispatcher/js/shadow_mode.js"). The validator only supports a single htmlTarget,
+    // so cross-HTML cache-bust verification would cause false failures. The scope text
+    // instructs the agent to bump both.
   },
   {
     id: "59b",
