@@ -1215,9 +1215,9 @@ body.vc-override-active #vcOfficeOverrideBanner {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
-/* Reserve space so last bubbles clear the fixed composer dock (see .ct-composer-dock). */
+/* Reserve space so last bubbles clear the fixed composer dock (util-row + input row ≈ 106px). */
 #screen-workspace.screen.active #ct-message-list {
-  padding-bottom: calc(16px + 124px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(16px + 106px + env(safe-area-inset-bottom, 0px));
 }
 
 .ct-message {
@@ -1897,11 +1897,49 @@ body.vc-override-active #vcOfficeOverrideBanner {
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
 }
 
-/* Post-chat action row: Compile Notes + Sync Ticket (above pill input, inside dock) */
-.ct-post-chat-actions {
+/* Utility row inside dock: Take Photo (orange) + PTT (green) — same pill size as compile/sync */
+.ct-util-row {
   display: flex;
   gap: 8px;
   margin: 8px 12px 0;
+}
+.ct-photo-btn,
+.ct-ptt-btn {
+  flex: 1;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, opacity 0.15s;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.ct-photo-btn {
+  background: #ea580c;
+  color: #fff;
+}
+.ct-photo-btn:active { background: #c2410c; }
+.ct-ptt-btn {
+  background: #16a34a;
+  color: #fff;
+}
+.ct-ptt-btn:active { background: #15803d; }
+.ct-ptt-btn.ct-recording {
+  background: rgba(34, 197, 94, 0.25);
+  color: #4ade80;
+}
+
+/* Scrollable post-chat action row: Compile Notes + Sync Ticket scroll with messages */
+.ct-post-chat-actions {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 4px 0;
 }
 .ct-sync-btn {
   flex: 1;
@@ -6311,61 +6349,65 @@ button#techDisplayLabel:active { opacity: 0.75; }
     <div id="ct-knowledge-panel" class="ct-knowledge-panel" hidden aria-label="Knowledge tips"></div>
     <div id="ct-message-list" aria-live="polite" role="log" aria-label="Conversation messages">
       <p class="ct-empty">Open a ticket to load its conversation timeline.</p>
+      <!-- Compile Notes + Sync Ticket scroll with the conversation -->
+      <div id="ct-post-chat-actions" class="ct-post-chat-actions">
+        <button
+          id="ct-compile-btn"
+          class="ct-compile-btn hidden"
+          type="button"
+          aria-label="Compile notes into structured report"
+          title="Compile timeline into structured report"
+        >📋 Compile Notes</button>
+        <button
+          id="ct-sync-btn"
+          class="ct-sync-btn"
+          type="button"
+          aria-label="Complete and sync ticket to office"
+          title="Complete and sync ticket"
+        >Sync Ticket</button>
+      </div>
     </div>
     <div id="ct-composer-dock" class="ct-composer-dock" aria-label="Message composer">
-    <div id="ct-post-chat-actions" class="ct-post-chat-actions">
-      <button
-        id="ct-compile-btn"
-        class="ct-compile-btn hidden"
-        type="button"
-        aria-label="Compile notes into structured report"
-        title="Compile timeline into structured report"
-      >📋 Compile Notes</button>
-      <button
-        id="ct-sync-btn"
-        class="ct-sync-btn"
-        type="button"
-        aria-label="Complete and sync ticket to office"
-        title="Complete and sync ticket"
-      >Sync Ticket</button>
-    </div>
-    <div id="ct-action-bar" role="group" aria-label="Timeline input controls">
-      <div class="ct-input-row">
+      <!-- Utility row: Take Photo (orange) + PTT (green) — always visible, fixed at bottom -->
+      <div class="ct-util-row">
         <button
           id="ct-media-btn"
           type="button"
-          class="ct-icon-btn"
-          aria-label="Attach photo or video"
+          class="ct-photo-btn"
+          aria-label="Take photo"
           aria-pressed="false"
           title="Tap for photo · Hold for video"
-        >+</button>
-        <input
-          id="ct-type-input"
-          type="text"
-          placeholder="Message Vertex…"
-          aria-label="Type a note"
-          autocomplete="off"
-          autocorrect="on"
-          spellcheck="true"
-          enterkeyhint="send"
-        />
+        >📷 Take Photo</button>
         <button
           id="ct-talk-btn"
           type="button"
-          class="ct-icon-btn"
+          class="ct-ptt-btn"
           aria-label="Hold to talk"
           aria-pressed="false"
           title="Hold to talk"
-        ><span class="ct-talk-indicator" aria-hidden="true"></span></button>
-        <button
-          id="ct-send-btn"
-          type="button"
-          class="ct-icon-btn ct-send-icon"
-          aria-label="Send"
-          title="Send"
-        >&#x2191;</button>
+        ><span class="ct-talk-indicator" aria-hidden="true"></span> Push to Talk</button>
       </div>
-    </div>
+      <div id="ct-action-bar" role="group" aria-label="Timeline input controls">
+        <div class="ct-input-row">
+          <input
+            id="ct-type-input"
+            type="text"
+            placeholder="Message Vertex…"
+            aria-label="Type a note"
+            autocomplete="off"
+            autocorrect="on"
+            spellcheck="true"
+            enterkeyhint="send"
+          />
+          <button
+            id="ct-send-btn"
+            type="button"
+            class="ct-icon-btn ct-send-icon"
+            aria-label="Send"
+            title="Send"
+          >&#x2191;</button>
+        </div>
+      </div>
     </div><!-- /ct-composer-dock -->
   </section>
 
@@ -6952,7 +6994,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase60-MobileUIv5-2026-05-15";
+window.VC_BUILD = "Phase60-MobileUIv6-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
