@@ -438,6 +438,15 @@
       try {
         list.scrollTop = list.scrollHeight;
       } catch (e) { /* no-op */ }
+      /* Fallback: if scrollTop didn't move the last bubble into view (e.g. old WebKit), use scrollIntoView.
+         block:"nearest" only scrolls the closest scrollable ancestor, so it won't jump the whole page. */
+      try {
+        var stream = getMessageStreamEl();
+        var last = stream && stream.lastElementChild;
+        if (last && typeof last.scrollIntoView === "function") {
+          last.scrollIntoView({ block: "nearest" });
+        }
+      } catch (e) { /* no-op */ }
     }
     run();
     if (typeof requestAnimationFrame === "function") {
@@ -447,7 +456,7 @@
     } else {
       setTimeout(run, 0);
     }
-    /* Second tick for iOS / deferred layout after innerHTML or images */
+    /* Third tick for iOS / deferred layout flush after innerHTML or images */
     setTimeout(run, 80);
   }
 
