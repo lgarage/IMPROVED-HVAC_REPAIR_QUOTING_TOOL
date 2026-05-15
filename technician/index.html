@@ -10531,7 +10531,7 @@ async function getParentCompany(locationText) {
 }
 
 /* ---------- ui actions ---------- */
-document.getElementById("same").onclick = function(){ document.getElementById("next").value = document.getElementById("used").value; autoGrow(document.getElementById("next")); formatNextField(); };
+var _sameBtn = document.getElementById("same"); if (_sameBtn) _sameBtn.onclick = function(){ document.getElementById("next").value = document.getElementById("used").value; autoGrow(document.getElementById("next")); formatNextField(); };
 
 function collectUnitTagFields(){
   return {
@@ -10810,22 +10810,9 @@ function addEquipmentCode(fieldId, prefix){
   autoGrow(el); saveDraft();
 }
 
-/* Pill Buttons */
-document.getElementById("addRTU").onclick = () => addEquipmentCode("equipment", "RTU");
-document.getElementById("addF").onclick = () => addEquipmentCode("equipment", "F");
-document.getElementById("addUH").onclick = () => addEquipmentCode("equipment", "UH");
-document.getElementById("addRH").onclick = () => addEquipmentCode("equipment", "RH");
-document.getElementById("addEF").onclick = () => addEquipmentCode("equipment", "EF");
-document.getElementById("addMUA").onclick = () => addEquipmentCode("equipment", "MUA");
-
-/* SERVICE equipment pills removed with Equipment Worked On section; #serviceEquipment is hidden + ticket/draft driven. */
-
-document.getElementById("addQuoteRTU").onclick = () => addEquipmentCode("quoteEquip", "RTU");
-document.getElementById("addQuoteF").onclick = () => addEquipmentCode("quoteEquip", "F");
-document.getElementById("addQuoteUH").onclick = () => addEquipmentCode("quoteEquip", "UH");
-document.getElementById("addQuoteRH").onclick = () => addEquipmentCode("quoteEquip", "RH");
-document.getElementById("addQuoteEF").onclick = () => addEquipmentCode("quoteEquip", "EF");
-document.getElementById("addQuoteMUA").onclick = () => addEquipmentCode("quoteEquip", "MUA");
+/* Pill Buttons — guarded; form sections removed but IDs may still exist as hidden fields */
+["addRTU","addF","addUH","addRH","addEF","addMUA"].forEach(function(id){ var b = document.getElementById(id); if (b) b.onclick = function(){ addEquipmentCode("equipment", id.replace("add","")); }; });
+["addQuoteRTU","addQuoteF","addQuoteUH","addQuoteRH","addQuoteEF","addQuoteMUA"].forEach(function(id){ var b = document.getElementById(id); if (b) b.onclick = function(){ addEquipmentCode("quoteEquip", id.replace("addQuote","")); }; });
 
 function addEnterFormatter(id, formatter){
   const el = document.getElementById(id);
