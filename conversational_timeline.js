@@ -1,5 +1,5 @@
 /**
- * Conversational Timeline — Slice 50a.
+ * Conversational Timeline — Slice 52a.
  *
  * Slice 41a: localStorage-only timeline, bubble layout, workspace integration.
  * Slice 41b: Hold-to-Talk action bar + live Web Speech API STT.
@@ -2150,6 +2150,13 @@
         typeof window.ChecklistReminderEngine.onJobCheckin === "function"
       ) {
         window.ChecklistReminderEngine.onJobCheckin(ticket);
+      }
+    } catch (e) { /* degrade silently */ }
+
+    /* Slice 52a: Teaching Layer — surface contextual knowledge tips */
+    try {
+      if (window.TeachingLayer && typeof window.TeachingLayer.onWorkspaceOpen === "function") {
+        window.TeachingLayer.onWorkspaceOpen();
       }
     } catch (e) { /* degrade silently */ }
   }

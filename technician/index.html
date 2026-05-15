@@ -1949,6 +1949,351 @@ body.vc-override-active #vcOfficeOverrideBanner {
   white-space: nowrap;
 }
 
+/* --- TEACHING LAYER (Slice 52a) --- */
+
+#ct-teaching-btn {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(250, 204, 21, 0.1);
+  border: 2px solid rgba(250, 204, 21, 0.4);
+  color: #facc15;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+#ct-teaching-btn:active {
+  background: rgba(250, 204, 21, 0.2);
+  border-color: rgba(250, 204, 21, 0.7);
+}
+
+.ct-knowledge-panel {
+  margin: 0 12px 8px;
+}
+.ct-knowledge-panel[hidden] {
+  display: none;
+}
+.ct-knowledge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: rgba(250, 204, 21, 0.08);
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  color: #facc15;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+.ct-knowledge-chip:active {
+  background: rgba(250, 204, 21, 0.18);
+}
+.ct-knowledge-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 6px;
+}
+.ct-knowledge-header__title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #facc15;
+}
+.ct-knowledge-header__close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ct-knowledge-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+.ct-knowledge-item {
+  background: rgba(250, 204, 21, 0.04);
+  border: 1px solid rgba(250, 204, 21, 0.2);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.ct-knowledge-item__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.ct-knowledge-scope {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+.ct-knowledge-scope--site { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.ct-knowledge-scope--equipment { background: rgba(0, 212, 255, 0.15); color: #00d4ff; }
+.ct-knowledge-scope--model { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+.ct-knowledge-scope--company { background: rgba(250, 204, 21, 0.15); color: #facc15; }
+.ct-knowledge-media-count {
+  font-size: 11px;
+  color: #94a3b8;
+}
+.ct-knowledge-item__text {
+  margin: 0;
+  font-size: 13px;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+.ct-knowledge-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.ct-knowledge-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+}
+.ct-knowledge-item__meta {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #64748b;
+}
+.ct-knowledge-thumbs {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ct-knowledge-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.ct-knowledge-loading,
+.ct-knowledge-empty {
+  font-size: 13px;
+  color: #94a3b8;
+  padding: 12px 0;
+}
+
+/* Teaching modal */
+.ct-teaching-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8999;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.ct-teaching-modal {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9000;
+  max-height: 90vh;
+  background: #1a1a2e;
+  border-radius: 18px 18px 0 0;
+  border: 1px solid rgba(250, 204, 21, 0.3);
+  border-bottom: none;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ct-teaching-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+.ct-teaching-modal__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #facc15;
+}
+.ct-teaching-modal__close {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ct-teaching-modal__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+.ct-teaching-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin: 10px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ct-teaching-label:first-child {
+  margin-top: 0;
+}
+.ct-teaching-select,
+.ct-teaching-input,
+.ct-teaching-textarea {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  color: #e6f7ff;
+  font-size: 14px;
+  padding: 10px 12px;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.ct-teaching-select:focus,
+.ct-teaching-input:focus,
+.ct-teaching-textarea:focus {
+  border-color: rgba(250, 204, 21, 0.55);
+}
+.ct-teaching-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+.ct-teaching-media-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ct-teaching-media-btn {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+.ct-teaching-media-btn:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+.ct-teaching-media-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ct-teaching-media-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  font-size: 11px;
+}
+.ct-teaching-media-remove {
+  border: none;
+  background: none;
+  color: #f87171;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.ct-teaching-modal__footer {
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  background: #13152a;
+}
+.ct-teaching-save-btn {
+  width: 100%;
+  padding: 14px 18px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #facc15 0%, #f59e0b 100%);
+  color: #1a1a2e;
+  font-size: 15px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 48px;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 2px 12px rgba(250, 204, 21, 0.3);
+}
+.ct-teaching-save-btn:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+.ct-teaching-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Teaching toast */
+.ct-teaching-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(20px);
+  background: #1a1a2e;
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  color: #facc15;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 10px;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+.ct-teaching-toast--visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* --- DICTATION HUB (asset-centric visit flow) --- */
 .dictation-hub-shell {
   margin-bottom: 20px;
@@ -5853,6 +6198,8 @@ button#techDisplayLabel:active { opacity: 0.75; }
     </div>
     <!-- Slice 51a: Site Memory panel — populated by renderSiteMemory() in conversational_timeline.js -->
     <div id="ct-site-memory" class="ct-site-memory" hidden aria-label="Site operational memory"></div>
+    <!-- Slice 52a: Knowledge panel — contextual teaching tips surfaced by teaching_layer.js -->
+    <div id="ct-knowledge-panel" class="ct-knowledge-panel" hidden aria-label="Knowledge tips"></div>
     <div id="ct-message-list" aria-live="polite" role="log" aria-label="Conversation messages">
       <p class="ct-empty">Open a ticket to load its conversation timeline.</p>
     </div>
@@ -5864,6 +6211,12 @@ button#techDisplayLabel:active { opacity: 0.75; }
         aria-pressed="false"
         title="Tap for photo · Hold for video"
       >📷</button>
+      <button
+        id="ct-teaching-btn"
+        type="button"
+        aria-label="Save a teaching note"
+        title="Save teaching note for other techs"
+      >💡</button>
       <input
         id="ct-type-input"
         type="text"
@@ -6685,7 +7038,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase51-Slice51a-2026-05-15";
+window.VC_BUILD = "Phase52-Slice52a-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -11781,6 +12134,7 @@ window.onload = async function(){
     <script src="../edge_intent_engine.js?v=2"></script>
     <script src="../checklist_reminder_engine.js?v=1"></script>
     <script src="../learning_sync.js?v=1"></script>
+    <script src="../teaching_layer.js?v=1"></script>
     <script src="../conversational_timeline.js?v=13"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
