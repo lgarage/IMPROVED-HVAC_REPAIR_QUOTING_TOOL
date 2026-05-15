@@ -874,6 +874,65 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   line-height: 1.4;
   box-shadow: 0 2px 12px rgba(14, 165, 233, 0.35);
 }
+.vc-field-diag-banner {
+  background: rgba(2, 6, 23, 0.92);
+  border: 1px solid rgba(34, 211, 238, 0.42);
+  border-radius: 12px;
+  color: #e2e8f0;
+  padding: 12px 12px 10px;
+  margin-bottom: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32);
+}
+.vc-field-diag-banner.hidden { display: none; }
+.vc-field-diag-banner__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.vc-field-diag-banner__title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: #67e8f9;
+}
+.vc-field-diag-banner__dismiss {
+  min-height: 32px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #111827;
+  color: #e5e7eb;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.vc-field-diag-banner__dismiss:hover { border-color: rgba(103, 232, 249, 0.7); }
+.vc-field-diag-banner__summary {
+  font-size: 12px;
+  color: #cbd5e1;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.vc-field-diag-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.vc-field-diag-list li {
+  font-size: 12px;
+  line-height: 1.35;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(71, 85, 105, 0.55);
+}
+.vc-field-diag-list li.ok { border-color: rgba(34, 197, 94, 0.55); }
+.vc-field-diag-list li.fail { border-color: rgba(248, 113, 113, 0.62); }
+.vc-field-diag-list li.pending { border-color: rgba(251, 191, 36, 0.62); }
 .ws-prev-submission {
   background: #0f1d2e;
   border: 1px solid rgba(14, 165, 233, 0.45);
@@ -6137,6 +6196,14 @@ button#techDisplayLabel:active { opacity: 0.75; }
 </div>
 
 <div id="screen-schedule" class="screen active">
+  <div id="vcFieldDiagBanner" class="vc-field-diag-banner hidden" role="status" aria-live="polite">
+    <div class="vc-field-diag-banner__head">
+      <span class="vc-field-diag-banner__title">Field Diagnostic (Auth + roster verification)</span>
+      <button type="button" id="vcFieldDiagDismissBtn" class="vc-field-diag-banner__dismiss">Dismiss</button>
+    </div>
+    <div id="vcFieldDiagSummary" class="vc-field-diag-banner__summary">Initializing diagnostics...</div>
+    <ul id="vcFieldDiagList" class="vc-field-diag-list"></ul>
+  </div>
   <div style="margin-bottom: 15px;">
     <h2 style="margin: 0; color: #f1f5f9; font-size: 24px;">Your schedule</h2>
     <span style="font-size: 12px; color: #94a3b8;">Past 30 days · Today · Next 7 days</span>
@@ -7127,7 +7194,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase55-Slice55b-2026-05-15";
+window.VC_BUILD = "Phase55-Slice55c-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -7376,6 +7443,227 @@ let vcShadowPresenceMetaByKey = {};
 let vcShadowTechSelectorWired = false;
 let vcShadowLivePresenceListUnsub = null;
 let vcShadowParentRosterWired = false;
+(function vcFieldDiagBoot() {
+  "use strict";
+  var CHECKS = [
+    { key: "authState", label: "Firebase Auth state" },
+    { key: "rosterDocAccess", label: "app_config/technicians readable" },
+    { key: "rosterMatch", label: "Current tech matched in roster" },
+    { key: "scheduleActive", label: "Schedule subscription active (onSnapshot)" },
+    { key: "jobContext", label: "VCJobContext available" },
+    { key: "timeline", label: "ConversationalTimeline available" },
+  ];
+  var state = {
+    started: false,
+    dismissed: false,
+    results: {},
+  };
+  function enabled() {
+    return window.VC_FIELD_DIAG === true;
+  }
+  function initResults() {
+    var next = {};
+    CHECKS.forEach(function (c) {
+      next[c.key] = { status: "pending", detail: "Waiting..." };
+    });
+    state.results = next;
+  }
+  function logResult(key, status, detail) {
+    var prefix = "[VC-FIELD-DIAG] " + key + " => " + status.toUpperCase() + ": ";
+    if (status === "ok") console.log(prefix + detail);
+    else if (status === "pending") console.warn(prefix + detail);
+    else console.error(prefix + detail);
+  }
+  function statusMeta(status) {
+    if (status === "ok") return { icon: "PASS", className: "ok" };
+    if (status === "fail") return { icon: "FAIL", className: "fail" };
+    return { icon: "WAIT", className: "pending" };
+  }
+  function setResult(key, status, detail) {
+    if (!enabled()) return;
+    state.results[key] = {
+      status: status,
+      detail: String(detail || ""),
+    };
+    logResult(key, status, detail || "");
+    render();
+  }
+  function render() {
+    if (!enabled() || state.dismissed) return;
+    var banner = document.getElementById("vcFieldDiagBanner");
+    var list = document.getElementById("vcFieldDiagList");
+    var summary = document.getElementById("vcFieldDiagSummary");
+    if (!banner || !list || !summary) return;
+    banner.classList.remove("hidden");
+    var done = 0;
+    var pass = 0;
+    var fail = 0;
+    list.innerHTML = "";
+    CHECKS.forEach(function (c) {
+      var r = state.results[c.key] || { status: "pending", detail: "Waiting..." };
+      if (r.status !== "pending") done += 1;
+      if (r.status === "ok") pass += 1;
+      if (r.status === "fail") fail += 1;
+      var li = document.createElement("li");
+      var meta = statusMeta(r.status);
+      li.className = meta.className;
+      li.textContent = meta.icon + " " + c.label + " - " + (r.detail || "");
+      list.appendChild(li);
+    });
+    summary.textContent =
+      "Field diagnostics enabled for test deployment. Completed " +
+      done + "/" + CHECKS.length + " checks - PASS: " + pass + " - FAIL: " + fail;
+  }
+  function checkFeatureModules() {
+    setResult(
+      "jobContext",
+      window.VCJobContext ? "ok" : "fail",
+      window.VCJobContext ? "window.VCJobContext is present" : "window.VCJobContext missing"
+    );
+    setResult(
+      "timeline",
+      window.ConversationalTimeline ? "ok" : "fail",
+      window.ConversationalTimeline ? "window.ConversationalTimeline is present" : "window.ConversationalTimeline missing"
+    );
+  }
+  function checkAuthState() {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      setResult("authState", "fail", "Firebase app not initialized");
+      return;
+    }
+    if (!firebase.auth || typeof firebase.auth !== "function") {
+      setResult("authState", "fail", "firebase-auth compat not loaded");
+      return;
+    }
+    var auth;
+    try {
+      auth = firebase.auth();
+    } catch (e) {
+      setResult("authState", "fail", "firebase.auth() threw: " + (e && e.message ? e.message : String(e)));
+      return;
+    }
+    var done = false;
+    var unsub = null;
+    var timeoutId = window.setTimeout(function () {
+      if (done) return;
+      done = true;
+      if (typeof unsub === "function") {
+        try { unsub(); } catch (e) {}
+      }
+      setResult("authState", "fail", "Auth state timeout (8s)");
+    }, 8000);
+    try {
+      unsub = auth.onAuthStateChanged(
+        function (user) {
+          if (done) return;
+          done = true;
+          window.clearTimeout(timeoutId);
+          if (typeof unsub === "function") {
+            try { unsub(); } catch (e) {}
+          }
+          if (!user) {
+            setResult("authState", "fail", "No signed-in user");
+            return;
+          }
+          var mode = user.isAnonymous ? "anonymous" : "signed-in";
+          setResult("authState", "ok", mode + " uid=" + String(user.uid || "").slice(0, 8));
+        },
+        function (err) {
+          if (done) return;
+          done = true;
+          window.clearTimeout(timeoutId);
+          if (typeof unsub === "function") {
+            try { unsub(); } catch (e) {}
+          }
+          setResult("authState", "fail", "onAuthStateChanged error: " + (err && err.message ? err.message : String(err)));
+        }
+      );
+    } catch (e) {
+      window.clearTimeout(timeoutId);
+      setResult("authState", "fail", "Auth listener failed: " + (e && e.message ? e.message : String(e)));
+    }
+  }
+  async function checkRosterReadAndMatch() {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      setResult("rosterDocAccess", "fail", "Firebase app not initialized");
+      setResult("rosterMatch", "fail", "Cannot verify roster without Firebase");
+      return;
+    }
+    try {
+      var snap = await firebase.firestore().collection("app_config").doc("technicians").get();
+      if (!snap.exists) {
+        setResult("rosterDocAccess", "ok", "Read succeeded (doc missing)");
+        setResult("rosterMatch", "fail", "Roster document missing");
+        return;
+      }
+      var data = snap.data() || {};
+      var names = Array.isArray(data.names)
+        ? data.names.map(function (n) { return String(n || "").trim(); }).filter(Boolean)
+        : [];
+      setResult("rosterDocAccess", "ok", "Read succeeded (" + names.length + " roster names)");
+      var tech = String(currentTechProfile || localStorage.getItem("tp_saved_tech") || "").trim();
+      if (!tech) {
+        setResult("rosterMatch", "fail", "No current tech profile selected");
+        return;
+      }
+      var canonical = resolveCanonicalTechName(tech, names);
+      if (canonical) {
+        setResult("rosterMatch", "ok", "Matched payroll name: " + canonical);
+      } else {
+        setResult("rosterMatch", "fail", "No payroll roster match for " + tech);
+      }
+    } catch (e) {
+      setResult("rosterDocAccess", "fail", "Read failed: " + (e && e.message ? e.message : String(e)));
+      setResult("rosterMatch", "fail", "Roster match unavailable (read failed)");
+    }
+  }
+  function wireDismiss() {
+    var btn = document.getElementById("vcFieldDiagDismissBtn");
+    if (!btn || btn.dataset.vcWired === "1") return;
+    btn.dataset.vcWired = "1";
+    btn.addEventListener("click", function () {
+      state.dismissed = true;
+      var banner = document.getElementById("vcFieldDiagBanner");
+      if (banner) banner.classList.add("hidden");
+      console.log("[VC-FIELD-DIAG] banner dismissed");
+    });
+  }
+  async function start() {
+    if (!enabled()) return;
+    if (state.started) return;
+    state.started = true;
+    initResults();
+    wireDismiss();
+    render();
+    console.group("[VC-FIELD-DIAG] Field deployment verification");
+    setResult("scheduleActive", "pending", "Waiting for schedule onSnapshot");
+    checkFeatureModules();
+    checkAuthState();
+    await checkRosterReadAndMatch();
+    console.groupEnd();
+  }
+  function markScheduleSnapshot(source) {
+    setResult("scheduleActive", "ok", "onSnapshot fired" + (source ? " via " + source : ""));
+  }
+  function markScheduleError(error) {
+    var msg = error && error.message ? error.message : String(error || "unknown error");
+    setResult("scheduleActive", "fail", "onSnapshot error: " + msg);
+  }
+  function markScheduleInactive(reason) {
+    setResult("scheduleActive", "fail", reason || "Schedule listener not started");
+  }
+  async function refreshRosterCheck() {
+    if (!enabled()) return;
+    await checkRosterReadAndMatch();
+  }
+  window.VCFieldDiag = {
+    start: start,
+    markScheduleSnapshot: markScheduleSnapshot,
+    markScheduleError: markScheduleError,
+    markScheduleInactive: markScheduleInactive,
+    refreshRosterCheck: refreshRosterCheck,
+  };
+})();
 
 /** Parent dispatch window can postMessage roster names (same session as Settings). */
 function wireShadowParentRosterListener() {
@@ -8034,6 +8322,9 @@ async function completeTechnicianLogin() {
       switchScreen('schedule');
     }
   }
+  if (window.VCFieldDiag && typeof window.VCFieldDiag.refreshRosterCheck === 'function') {
+    window.VCFieldDiag.refreshRosterCheck();
+  }
   ensureWireAutosave();
   if (typeof wireCoachingInbox === 'function') wireCoachingInbox();
   if (typeof writeLivePresence === 'function') writeLivePresence();
@@ -8352,6 +8643,9 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
   };
 
   if (!currentTechProfile || typeof firebase === 'undefined' || !firebase.apps.length) {
+    if (window.VCFieldDiag && typeof window.VCFieldDiag.markScheduleInactive === 'function') {
+      window.VCFieldDiag.markScheduleInactive('No tech profile or Firebase unavailable');
+    }
     myTickets = [];
     renderJobListUI();
     if (runDeepLink) maybeOpenDeepLinkedTicket().then(finishFirst);
@@ -8420,6 +8714,9 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
     lastScheduleWindowStart = scheduleWindowStart();
 
     const onSchedErr = (error) => {
+      if (window.VCFieldDiag && typeof window.VCFieldDiag.markScheduleError === 'function') {
+        window.VCFieldDiag.markScheduleError(error);
+      }
       console.error("Schedule listener error:", error);
       container.innerHTML = '<div style="text-align:center; padding: 40px; color:#e74c3c;">Error connecting to dispatch board.</div>';
       if (scheduleFirstSnapshotPending) {
@@ -8443,6 +8740,9 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
       db,
       (col) => col.where("assignedTechs", "array-contains", currentTechProfile),
       (snapshot) => {
+        if (window.VCFieldDiag && typeof window.VCFieldDiag.markScheduleSnapshot === 'function') {
+          window.VCFieldDiag.markScheduleSnapshot("assignedTechs");
+        }
         q1Docs.clear();
         snapshot.forEach((doc) => q1Docs.set(doc.id, doc.data()));
         runScheduleMergeAndRender();
@@ -8454,6 +8754,9 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
       db,
       (col) => col.where("assignedTech", "==", currentTechProfile),
       (snapshot) => {
+        if (window.VCFieldDiag && typeof window.VCFieldDiag.markScheduleSnapshot === 'function') {
+          window.VCFieldDiag.markScheduleSnapshot("assignedTech");
+        }
         q2Docs.clear();
         snapshot.forEach((doc) => q2Docs.set(doc.id, doc.data()));
         runScheduleMergeAndRender();
@@ -8486,6 +8789,9 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
     }
     updateVcFieldOfflineBadge({ fromCache: typeof navigator !== 'undefined' && !navigator.onLine });
   } catch (error) {
+    if (window.VCFieldDiag && typeof window.VCFieldDiag.markScheduleError === 'function') {
+      window.VCFieldDiag.markScheduleError(error);
+    }
     console.error("Error subscribing to tickets:", error);
     container.innerHTML = '<div style="text-align:center; padding: 40px; color:#e74c3c;">Error connecting to dispatch board.</div>';
     if (runDeepLink) maybeOpenDeepLinkedTicket().then(finishFirst);
@@ -11866,6 +12172,9 @@ function wireFormsPanel() {
 
 /* ---------- init ---------- */
 window.onload = async function(){
+  if (window.VCFieldDiag && typeof window.VCFieldDiag.start === 'function') {
+    window.VCFieldDiag.start();
+  }
   if (initShadowViewerFromUrl()) {
     document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
     ensureWireAutosave();
@@ -12435,8 +12744,8 @@ window.onload = async function(){
             window.LearningSync && typeof window.LearningSync.getInclusionWeights === "function");
 
       /* ── 8. Build stamp ──────────────────────────────────────────────── */
-      check("VC_BUILD is Phase55-Slice55b-2026-05-15",
-            window.VC_BUILD === "Phase55-Slice55b-2026-05-15");
+      check("VC_BUILD is Phase55-Slice55c-2026-05-15",
+            window.VC_BUILD === "Phase55-Slice55c-2026-05-15");
 
       /* ── Output ──────────────────────────────────────────────────────── */
       console.group("[VC-SMOKE] Integration smoke test — Phase 55 / Slice 55a");
