@@ -1635,12 +1635,13 @@ function openTicketDetails(dbId) {
     }
 }
 
-function closeTicketDetails() {
+function persistTicketDetailsModal(opts) {
+    var closeAfter = opts && opts.closeAfter !== false;
     if (currentOpenDetailsId) {
         let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
         let scIndex = db.findIndex(s => s.id === currentOpenDetailsId);
         if (scIndex !== -1) {
-            
+
             // Capture updated data from modal
             const dateInput = document.getElementById('tdDate');
             const timeInput = document.getElementById('tdStartTime');
@@ -1680,8 +1681,7 @@ function closeTicketDetails() {
             } else if (!newCrew.length && db[scIndex].status === "Dispatched") {
                 db[scIndex].status = "Unassigned";
             }
-            
-            // Save the new date/time fields
+
             if(dateInput) db[scIndex].date = dateInput.value;
             if(timeInput) db[scIndex].startTime = timeInput.value;
             if(durInput) db[scIndex].duration = durInput.value;
@@ -1698,11 +1698,19 @@ function closeTicketDetails() {
 
             localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
             syncSingleServiceCallToCloud(db[scIndex].id, db[scIndex]);
-            renderServiceBoard(); 
+            renderServiceBoard();
+
+            if (typeof showSaveCue === 'function') showSaveCue("✓ Saved");
         }
     }
-    document.getElementById('ticketDetailsModal').style.display = 'none';
-    currentOpenDetailsId = null;
+    if (closeAfter) {
+        document.getElementById('ticketDetailsModal').style.display = 'none';
+        currentOpenDetailsId = null;
+    }
+}
+
+function closeTicketDetails() {
+    persistTicketDetailsModal({ closeAfter: true });
 }
 
 async function loadServiceCall(dbId) {

@@ -6947,9 +6947,18 @@
             type="button"
             class="gen-btn"
             style="background: #7f8c8d; padding: 10px 20px"
-            onclick="closeTicketDetails()"
+            onclick="persistTicketDetailsModal({ closeAfter: true })"
           >
-            Cancel
+            Close
+          </button>
+          <button
+            type="button"
+            class="gen-btn"
+            id="vcTicketDetailsSaveBtn"
+            style="background: #00d4ff; padding: 10px 20px; color: #1a1a2e; font-weight: 600; min-width: 80px;"
+            onclick="persistTicketDetailsModal({ closeAfter: false })"
+          >
+            Save
           </button>
           <button
             type="button"
@@ -9694,7 +9703,7 @@
 
       /* ── end Settings inner-nav ─────────────────────────────────────── */
     </script>
-    <script src="service_call.js?v=70"></script>
+    <script src="service_call.js?v=71"></script>
     <script src="dispatcher/js/ai_report_reviewer.js?v=4"></script>
     <script src="dispatcher/js/insights_manager.js?v=4"></script>
     <script src="dispatcher/js/report_builder.js?v=3"></script>
