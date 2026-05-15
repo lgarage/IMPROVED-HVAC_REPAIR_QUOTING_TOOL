@@ -998,12 +998,12 @@
     if (active) {
       btn.classList.add("ct-recording");
       btn.setAttribute("aria-pressed", "true");
-      btn.innerHTML = "⏹️ Recording…";
+      btn.textContent = "⏹";
       btn.title = "Release to stop recording";
     } else {
       btn.classList.remove("ct-recording");
       btn.setAttribute("aria-pressed", "false");
-      btn.innerHTML = "📷 Photo / Video";
+      btn.textContent = "+";
       btn.title = "Tap for photo · Hold for video";
     }
   }
