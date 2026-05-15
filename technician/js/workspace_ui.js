@@ -493,11 +493,19 @@
     }
     var path = siteAccessPhotoStorageBase(siteDocId) + ts + "_" + safeBase;
     var ref = firebase.storage().ref().child(path);
-    return ref.put(file, { contentType: (file && file.type) || "image/jpeg" }).then(function () {
-      return ref.getDownloadURL().then(function (url) {
-        return { url: url, storagePath: path };
+    var uploadMeta = { contentType: (file && file.type) || "image/jpeg" };
+    return ref.put(file, uploadMeta)
+      .then(function () {
+        return ref.getDownloadURL().then(function (url) {
+          return { url: url, storagePath: path };
+        });
+      })
+      .catch(function (err) {
+        if (typeof VCStorageOutbox !== "undefined") {
+          VCStorageOutbox.enqueue(ref.fullPath, file, uploadMeta);
+        }
+        throw err;
       });
-    });
   }
 
   function handleSiteIntelPhotoFiles(fileList) {

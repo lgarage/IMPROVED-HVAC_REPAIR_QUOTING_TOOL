@@ -995,19 +995,33 @@
       var urls = { overallPhotoUrl: "", dataPlatePhotoUrl: "" };
 
       if (overallFile) {
-        var oRef = storage.ref().child(base + "/overall_" + ts + ".jpg");
+        var oRef  = storage.ref().child(base + "/overall_" + ts + ".jpg");
+        var oMeta = { contentType: overallFile.type || "image/jpeg" };
         promises.push(
-          oRef.put(overallFile, { contentType: overallFile.type || "image/jpeg" })
+          oRef.put(overallFile, oMeta)
             .then(function () { return oRef.getDownloadURL(); })
             .then(function (url) { urls.overallPhotoUrl = url; })
+            .catch(function (err) {
+              if (typeof VCStorageOutbox !== "undefined") {
+                VCStorageOutbox.enqueue(oRef.fullPath, overallFile, oMeta);
+              }
+              console.warn("[UnitWorkParser] overall photo upload failed — queued for retry", err);
+            })
         );
       }
       if (plateFile) {
-        var pRef = storage.ref().child(base + "/dataplate_" + ts + ".jpg");
+        var pRef  = storage.ref().child(base + "/dataplate_" + ts + ".jpg");
+        var pMeta = { contentType: plateFile.type || "image/jpeg" };
         promises.push(
-          pRef.put(plateFile, { contentType: plateFile.type || "image/jpeg" })
+          pRef.put(plateFile, pMeta)
             .then(function () { return pRef.getDownloadURL(); })
             .then(function (url) { urls.dataPlatePhotoUrl = url; })
+            .catch(function (err) {
+              if (typeof VCStorageOutbox !== "undefined") {
+                VCStorageOutbox.enqueue(pRef.fullPath, plateFile, pMeta);
+              }
+              console.warn("[UnitWorkParser] plate photo upload failed — queued for retry", err);
+            })
         );
       }
 

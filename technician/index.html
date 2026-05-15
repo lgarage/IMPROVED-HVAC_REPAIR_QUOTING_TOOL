@@ -7194,7 +7194,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase55-Slice55c-2026-05-15";
+window.VC_BUILD = "Phase56-Slice56a-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -8982,8 +8982,15 @@ async function saveSupplementalUpdate() {
         const safe = (f.name || 'file').replace(/[^\w.\-]+/g, '_');
         const path = `service_call_addendums/${ticketId}/${batchTs}_${i}_${safe}`;
         const ref = storage.ref(path);
-        await ref.put(f);
-        fileUrls.push(await ref.getDownloadURL());
+        try {
+          await ref.put(f);
+          fileUrls.push(await ref.getDownloadURL());
+        } catch (_putErr) {
+          if (typeof VCStorageOutbox !== 'undefined') {
+            VCStorageOutbox.enqueue(ref.fullPath, f, { contentType: f.type || 'application/octet-stream' });
+          }
+          console.warn('[Addendum] file upload failed — queued for retry', _putErr);
+        }
       }
     }
     const db = firebase.firestore();
@@ -9154,7 +9161,15 @@ async function uploadFieldEvidencePastedBlob(ticketId, blob) {
   const ts = Date.now();
   const path = 'field_evidence/' + ticketId + '/pasted_' + ts + '.png';
   const ref = firebase.storage().ref(path);
-  await ref.put(blob, { contentType: (blob && blob.type) || 'image/png' });
+  const uploadMeta = { contentType: (blob && blob.type) || 'image/png' };
+  try {
+    await ref.put(blob, uploadMeta);
+  } catch (_putErr) {
+    if (typeof VCStorageOutbox !== 'undefined') {
+      VCStorageOutbox.enqueue(ref.fullPath, blob, uploadMeta);
+    }
+    throw _putErr;
+  }
   return ref.getDownloadURL();
 }
 
@@ -12517,6 +12532,9 @@ window.onload = async function(){
       </div>
     </div>
 
+    <!-- Slice 56a: offline Storage upload outbox (KI-004) — chip hidden until module populates it -->
+    <div id="vcPendingSyncChip" role="status" aria-live="polite" style="display:none"></div>
+    <script src="../shared/offline_storage_outbox.js?v=1"></script>
     <script src="../equipment_manager.js?v=16"></script>
     <script src="../equipment_smart_select.js?v=2"></script>
     <script src="js/ufx_adapter.js?v=1"></script>
@@ -12744,11 +12762,21 @@ window.onload = async function(){
             window.LearningSync && typeof window.LearningSync.getInclusionWeights === "function");
 
       /* ── 8. Build stamp ──────────────────────────────────────────────── */
-      check("VC_BUILD is Phase55-Slice55c-2026-05-15",
-            window.VC_BUILD === "Phase55-Slice55c-2026-05-15");
+      check("VC_BUILD is Phase56-Slice56a-2026-05-15",
+            window.VC_BUILD === "Phase56-Slice56a-2026-05-15");
+
+      /* ── 9. VCStorageOutbox (Slice 56a — offline photo outbox) ───────── */
+      check("VCStorageOutbox.enqueue is function",
+            window.VCStorageOutbox && typeof window.VCStorageOutbox.enqueue === "function");
+      check("VCStorageOutbox.drain is function",
+            window.VCStorageOutbox && typeof window.VCStorageOutbox.drain === "function");
+      check("VCStorageOutbox.getPendingCount is function",
+            window.VCStorageOutbox && typeof window.VCStorageOutbox.getPendingCount === "function");
+      check("#vcPendingSyncChip element exists",
+            !!document.getElementById("vcPendingSyncChip"));
 
       /* ── Output ──────────────────────────────────────────────────────── */
-      console.group("[VC-SMOKE] Integration smoke test — Phase 55 / Slice 55a");
+      console.group("[VC-SMOKE] Integration smoke test — Phase 56 / Slice 56a");
       for (var i = 0; i < results.length; i++) {
         if (results[i].indexOf("\u2717") !== -1) {
           console.error(results[i]);

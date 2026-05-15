@@ -323,7 +323,14 @@
     var ts = Date.now();
     var plateRef = storage.ref().child(base + "/dataplate_queue_" + ts + ".jpg");
     var blob = base64ToBlob(rec.imageBase64, mime);
-    await plateRef.put(blob, { contentType: mime });
+    try {
+      await plateRef.put(blob, { contentType: mime });
+    } catch (_putErr) {
+      if (typeof VCStorageOutbox !== "undefined") {
+        VCStorageOutbox.enqueue(plateRef.fullPath, blob, { contentType: mime });
+      }
+      throw _putErr;
+    }
     var plateUrl = await plateRef.getDownloadURL();
     profile.dataPlatePhotoUrl = plateUrl;
     var firestoreDb = getFirestoreDb();
@@ -936,8 +943,15 @@
     // Upload file if provided; otherwise resolve to the existing URL (edit mode).
     function maybeUpload(storageRef, file, existingUrl) {
       if (file) {
-        return storageRef.put(file, { contentType: file.type || "image/jpeg" })
-          .then(function () { return storageRef.getDownloadURL(); });
+        var meta = { contentType: file.type || "image/jpeg" };
+        return storageRef.put(file, meta)
+          .then(function () { return storageRef.getDownloadURL(); })
+          .catch(function (err) {
+            if (typeof VCStorageOutbox !== "undefined") {
+              VCStorageOutbox.enqueue(storageRef.fullPath, file, meta);
+            }
+            throw err;
+          });
       }
       return Promise.resolve(String(existingUrl || ""));
     }
@@ -1305,9 +1319,15 @@
         .then(function () {
           var storage = firebase.storage();
           var ref = storage.ref().child(storagePath);
-          return ref.put(watermarkedFile, { contentType: mime }).then(function () {
-            return ref.getDownloadURL();
-          });
+          var uploadMeta = { contentType: mime };
+          return ref.put(watermarkedFile, uploadMeta)
+            .then(function () { return ref.getDownloadURL(); })
+            .catch(function (err) {
+              if (typeof VCStorageOutbox !== "undefined") {
+                VCStorageOutbox.enqueue(ref.fullPath, watermarkedFile, uploadMeta);
+              }
+              throw err;
+            });
         })
         .then(function (downloadUrl) {
           var assetRef = fsdb
