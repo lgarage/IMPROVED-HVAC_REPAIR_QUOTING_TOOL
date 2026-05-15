@@ -11,7 +11,7 @@
 | CSS-only restyle / theme | claude-haiku-4-5 | — | 2026-05-13 | Unverified — will auto-escalate if Haiku fails |
 | Single-file JS bugfix | composer-2 | — | 2026-05-13 | From outcome log: shadow consent race fix |
 | Multi-file UI feature (no Firestore writes) | claude-sonnet-4-6 | — | 2026-05-15 | From outcome log: equipment hub card thumbs |
-| New JS module (IIFE, no Firestore) | gpt-5.4-mini | — | 2026-05-13 | Unverified — will auto-escalate to Sonnet if Mini fails |
+| New JS module (IIFE, no Firestore) | gpt-5.4-mini | — | 2026-05-15 | Unverified — will auto-escalate to Sonnet if Mini fails |
 | Speech API / media capture integration | claude-sonnet-4-6 | — | 2026-05-13 | Estimated — mobile APIs need decent reasoning |
 | Cross-module wiring (3+ files) | claude-sonnet-4-6 | — | 2026-05-15 | From outcome log: per-user feature toggles |
 | Pure regex / dictionary logic | gpt-5.3-codex-spark | — | 2026-05-13 | Unverified — will auto-escalate to Codex 5.3 if Spark fails |

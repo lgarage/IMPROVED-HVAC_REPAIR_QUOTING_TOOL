@@ -6,8 +6,8 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 41 — Conversational Field Capture (New Field Tech UX). SDK build runner v2.0 ready; 28 slices defined (41a–57a). Slice 49a needs retry (validator fixed).
-- **Last shipped (2026-05-14):** Build runner v2.1 (`tools/build_runner.ts`): fixed stale "running" slices not resetting on startup (caused "0 slices completed"), fixed `/q` and all commands dying after `/a` (readline listener destroyed by hotkey cleanup). Commit `b3bd428`.
+- **Active Phase:** Phases 41–57 — Conversational Field Capture (New Field Tech UX) — **ALL 28 slices passed** (41a–57a). SDK build runner v2.1 completed full automated run.
+- **Last shipped (2026-05-14):** All 28 slices built, validated, deployed to Firebase preview channels, committed, and pushed via SDK build runner. Includes: timeline UI, hold-to-talk STT, media capture, context preload, HVAC vocabulary, confidence-based cloud escalation, voice responses, checklist reminders, editable entries, auto-tagged media, compile notes, dispatcher review workflow, post-job learning, site notes, knowledge capture, hierarchical retrieval, integration smoke test, offline graceful degradation, VC_BUILD consolidation, Firebase Hosting deploy, Firestore rules for new collections, auth/roster verification, offline photo outbox (KI-004), SW cache hygiene, dispatcher ticket Save button. Commit `37e6c05`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,9 +18,8 @@ None.
 
 ## Immediate Next Step
 
-- Run `vertex` in `tools/` CLI → `/a` to start automated slice build. Slice 49a will auto-retry first (was failed, now reset).
-- 📋 See `PROJECT_STATUS/NEW_FIELDTECH_UX_PLAN.md` for full slice detail (Phases 41–57).
-- Press **S** during execution to gracefully stop after the current slice finishes.
+- **Review the "review" slices** on-device: 42a, 43b, 45a, 47a, 48a, 49a, 50a, 52a, 53a, 54c, 55a, 55b, 56a (committed but tagged for manual review — all passed validator but touch Firestore writes, Gemini prompts, or cross-module wiring).
+- Smoke-test the full conversational field capture flow on iPhone (timeline → hold-to-talk → media → compile notes → dispatcher review).
 - Migration carry-over still applies (roster, optional data import).
 
 Smoke-tests carried over (non-blocking): Phase 34e Field Access Notes on iPhone; Phase 33 Field-Add Equipment OCR on Vision Hub.
