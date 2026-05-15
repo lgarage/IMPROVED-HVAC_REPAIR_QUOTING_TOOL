@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **Field app mobile UI v7** (`VC_BUILD: Phase60-MobileUIv7-2026-05-15`). Timeline auto-scrolls to latest content on new messages (typed, STT draft/final, Vertex reply, media) via improved `scrollToBottom` + `#ct-message-stream` inner target so re-renders no longer wipe Compile/Sync. `conversational_timeline.js?v=16`. Previous: v6 (scrollable actions + photo/PTT dock, same day).
+- **Last shipped (2026-05-15):** **Field app mobile UI v8** (`VC_BUILD: Phase60-MobileUIv8-2026-05-15`). Root-fixed auto-scroll: `#screen-workspace.active` changed from `min-height` to `height` (bounded flex chain) + removed `scroll-behavior: smooth` (iOS drop) + `scrollIntoView` fallback. `conversational_timeline.js?v=17`. Previous: v7 (same day).
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,7 +18,7 @@ None (59b regression deployed — verify on phone).
 
 ## Immediate Next Step
 
-- **Verify mobile UI v7:** Long chat should jump to the newest bubble after you send, after STT, and after Vertex replies; Compile/Sync should still work after many messages. https://vertex-core-db.web.app/technician/
+- **Verify mobile UI v8:** Long chat should jump to the newest bubble after you send, after STT, and after Vertex replies; Compile/Sync should still work after many messages. https://vertex-core-db.web.app/technician/
 - **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
 
