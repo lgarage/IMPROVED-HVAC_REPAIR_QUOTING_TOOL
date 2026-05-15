@@ -7194,7 +7194,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase58-Slice58e-2026-05-15";
+window.VC_BUILD = "Phase58-Slice58f-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -12765,8 +12765,8 @@ window.onload = async function(){
             window.LearningSync && typeof window.LearningSync.getInclusionWeights === "function");
 
       /* ── 8. Build stamp ──────────────────────────────────────────────── */
-      check("VC_BUILD is Phase58-Slice58e-2026-05-15",
-            window.VC_BUILD === "Phase58-Slice58e-2026-05-15");
+      check("VC_BUILD is Phase58-Slice58f-2026-05-15",
+            window.VC_BUILD === "Phase58-Slice58f-2026-05-15");
 
       /* ── 9. VCStorageOutbox (Slice 56a — offline photo outbox) ───────── */
       check("VCStorageOutbox.enqueue is function",

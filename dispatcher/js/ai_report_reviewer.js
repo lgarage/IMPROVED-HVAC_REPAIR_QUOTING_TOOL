@@ -581,10 +581,9 @@
                 dbLocal[ix].clientPortalMemo = memo;
                 localStorage.setItem("twinPillarsServiceDB", JSON.stringify(dbLocal));
             }
-            if (typeof global.syncSingleServiceCallToCloud === "function") {
-                var row = dbLocal[ix];
-                if (row) global.syncSingleServiceCallToCloud(state.ticketId, row);
-            }
+            // KI-002 E4: syncSingleServiceCallToCloud removed — it internally calls
+            // VCFirestore.setServiceCallMerged, which was already called above (line ~567).
+            // Keeping the call doubled the Firestore write cost with no additional benefit.
             if (typeof global.showSaveCue === "function") {
                 global.showSaveCue("✓ Client portal memo saved");
             }
