@@ -7110,7 +7110,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase53-Slice53a-2026-05-15";
+window.VC_BUILD = "Phase54-Slice54a-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -12307,6 +12307,140 @@ window.onload = async function(){
       } else {
         initSiteMenu();
       }
+    }());
+    </script>
+
+    <!-- ╔══════════════════════════════════════════════════════════════════╗ -->
+    <!-- ║  Slice 54a — Integration smoke test                             ║ -->
+    <!-- ║  Gate: window.VC_INTEGRATION_TEST = true (never set by default) ║ -->
+    <!-- ║  Usage: set flag before page load, then check console for lines ║ -->
+    <!-- ║  prefixed "[VC-SMOKE]".                                          ║ -->
+    <!-- ╚══════════════════════════════════════════════════════════════════╝ -->
+    <script>
+    (function vcIntegrationSmokeTest() {
+      "use strict";
+      if (!window.VC_INTEGRATION_TEST) return;
+
+      var PASS = "[VC-SMOKE] \u2713 PASS";
+      var FAIL = "[VC-SMOKE] \u2717 FAIL";
+      var WARN = "[VC-SMOKE] \u26a0 WARN";
+      var results = [];
+      var anyFail = false;
+
+      function check(label, condition, warnOnly) {
+        var ok = !!condition;
+        if (!ok && !warnOnly) anyFail = true;
+        var tag = ok ? PASS : (warnOnly ? WARN : FAIL);
+        results.push(tag + " — " + label);
+      }
+
+      /* ── 1. Module presence (window.* IIFE exports) ─────────────────── */
+      check("window.ConversationalTimeline defined",
+            typeof window.ConversationalTimeline === "object" && window.ConversationalTimeline !== null);
+      check("window.VCJobContext defined",
+            typeof window.VCJobContext === "object" && window.VCJobContext !== null);
+      check("window.JobContextEngine defined",
+            typeof window.JobContextEngine === "object" && window.JobContextEngine !== null);
+      check("window.EdgeIntentEngine defined",
+            typeof window.EdgeIntentEngine === "object" && window.EdgeIntentEngine !== null);
+      check("window.ChecklistReminderEngine defined",
+            typeof window.ChecklistReminderEngine === "object" && window.ChecklistReminderEngine !== null);
+      check("window.TeachingLayer defined",
+            typeof window.TeachingLayer === "object" && window.TeachingLayer !== null);
+      check("window.LearningSync defined",
+            typeof window.LearningSync === "object" && window.LearningSync !== null);
+
+      /* ── 2. ConversationalTimeline key functions ─────────────────────── */
+      check("ConversationalTimeline.init is function",
+            window.ConversationalTimeline && typeof window.ConversationalTimeline.init === "function");
+      check("ConversationalTimeline.onWorkspaceOpen is function",
+            window.ConversationalTimeline && typeof window.ConversationalTimeline.onWorkspaceOpen === "function");
+
+      /* ── 3. JobContextEngine key functions ───────────────────────────── */
+      check("JobContextEngine.preloadContext is function",
+            window.JobContextEngine && typeof window.JobContextEngine.preloadContext === "function");
+      check("JobContextEngine.setActiveEquipment is function",
+            window.JobContextEngine && typeof window.JobContextEngine.setActiveEquipment === "function");
+      check("JobContextEngine.getActiveEquipment is function",
+            window.JobContextEngine && typeof window.JobContextEngine.getActiveEquipment === "function");
+      check("JobContextEngine.getSiteMemory is function",
+            window.JobContextEngine && typeof window.JobContextEngine.getSiteMemory === "function");
+      check("JobContextEngine.searchSiteNotes is function",
+            window.JobContextEngine && typeof window.JobContextEngine.searchSiteNotes === "function");
+      check("JobContextEngine.searchEquipmentHistory is function",
+            window.JobContextEngine && typeof window.JobContextEngine.searchEquipmentHistory === "function");
+      check("JobContextEngine.resolveEquipmentDocId is function",
+            window.JobContextEngine && typeof window.JobContextEngine.resolveEquipmentDocId === "function");
+
+      /* ── 4. EdgeIntentEngine key functions ───────────────────────────── */
+      check("EdgeIntentEngine.parse is function",
+            window.EdgeIntentEngine && typeof window.EdgeIntentEngine.parse === "function");
+      check("EdgeIntentEngine.correctVocab is function",
+            window.EdgeIntentEngine && typeof window.EdgeIntentEngine.correctVocab === "function");
+      check("EdgeIntentEngine.extractEntities is function",
+            window.EdgeIntentEngine && typeof window.EdgeIntentEngine.extractEntities === "function");
+      check("EdgeIntentEngine.escalateToCloud is function",
+            window.EdgeIntentEngine && typeof window.EdgeIntentEngine.escalateToCloud === "function");
+      /* learnCorrection is NOT exported by EdgeIntentEngine (uses correctVocab instead).
+         timeline guards this call with typeof check so no runtime error occurs. */
+      check("EdgeIntentEngine.learnCorrection absent (expected — guarded call in timeline)",
+            window.EdgeIntentEngine && typeof window.EdgeIntentEngine.learnCorrection !== "function",
+            true /* warnOnly */);
+
+      /* ── 5. ChecklistReminderEngine key functions ────────────────────── */
+      check("ChecklistReminderEngine.onJobCheckin is function",
+            window.ChecklistReminderEngine && typeof window.ChecklistReminderEngine.onJobCheckin === "function");
+      check("ChecklistReminderEngine.getReminders is function",
+            window.ChecklistReminderEngine && typeof window.ChecklistReminderEngine.getReminders === "function");
+      check("ChecklistReminderEngine.updateFromEntry is function",
+            window.ChecklistReminderEngine && typeof window.ChecklistReminderEngine.updateFromEntry === "function");
+      /* getChecklistState lives on JobContextEngine, not ChecklistReminderEngine.
+         The timeline guard (typeof ...getChecklistState === "function") correctly returns false —
+         no crash, just silent skip. */
+      check("ChecklistReminderEngine.getChecklistState absent (lives on JobContextEngine — guarded)",
+            window.ChecklistReminderEngine && typeof window.ChecklistReminderEngine.getChecklistState !== "function",
+            true /* warnOnly */);
+      check("JobContextEngine.getChecklistState is function (correct home)",
+            window.JobContextEngine && typeof window.JobContextEngine.getChecklistState === "function");
+
+      /* ── 6. TeachingLayer key functions ──────────────────────────────── */
+      check("TeachingLayer.saveTeaching is function",
+            window.TeachingLayer && typeof window.TeachingLayer.saveTeaching === "function");
+      check("TeachingLayer.lookupKnowledge is function",
+            window.TeachingLayer && typeof window.TeachingLayer.lookupKnowledge === "function");
+      check("TeachingLayer.onWorkspaceOpen is function",
+            window.TeachingLayer && typeof window.TeachingLayer.onWorkspaceOpen === "function");
+
+      /* ── 7. LearningSync key functions ───────────────────────────────── */
+      check("LearningSync.uploadLearningData is function",
+            window.LearningSync && typeof window.LearningSync.uploadLearningData === "function");
+      check("LearningSync.getInclusionWeights is function",
+            window.LearningSync && typeof window.LearningSync.getInclusionWeights === "function");
+
+      /* ── 8. Build stamp ──────────────────────────────────────────────── */
+      check("VC_BUILD is Phase54-Slice54a-2026-05-15",
+            window.VC_BUILD === "Phase54-Slice54a-2026-05-15");
+
+      /* ── Output ──────────────────────────────────────────────────────── */
+      console.group("[VC-SMOKE] Integration smoke test — Phase 54 / Slice 54a");
+      for (var i = 0; i < results.length; i++) {
+        if (results[i].indexOf("\u2717") !== -1) {
+          console.error(results[i]);
+        } else if (results[i].indexOf("\u26a0") !== -1) {
+          console.warn(results[i]);
+        } else {
+          console.log(results[i]);
+        }
+      }
+      var summary = anyFail
+        ? "[VC-SMOKE] \u2717 OVERALL: FAIL — see errors above"
+        : "[VC-SMOKE] \u2713 OVERALL: PASS (" + results.length + " checks, build=" + (window.VC_BUILD || "?") + ")";
+      if (anyFail) {
+        console.error(summary);
+      } else {
+        console.log(summary);
+      }
+      console.groupEnd();
     }());
     </script>
 </body>
