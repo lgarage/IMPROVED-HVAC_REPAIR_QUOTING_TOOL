@@ -7194,7 +7194,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase58-Slice58b-2026-05-15";
+window.VC_BUILD = "Phase58-Slice58c-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -7767,6 +7767,7 @@ function switchScreen(screenName) {
     applyWorkspaceHistoricalMode(false);
     if (typeof teardownDictationHub === 'function') teardownDictationHub();
     if (typeof teardownWorkspaceSiteIntel === 'function') teardownWorkspaceSiteIntel();
+    if (typeof vcStopFormTemplatesListener === 'function') vcStopFormTemplatesListener();
     const ws = document.getElementById('screen-workspace');
     if (ws) {
       ws.classList.remove('workspace--lite-readonly');
@@ -7776,6 +7777,8 @@ function switchScreen(screenName) {
     }
     const ob = document.getElementById('vcOfficeOverrideBanner');
     if (ob) ob.classList.add('hidden');
+  } else {
+    if (typeof vcStartFormTemplatesListener === 'function') vcStartFormTemplatesListener();
   }
   document.querySelectorAll('.screen').forEach(s => { s.classList.add('hidden'); s.classList.remove('active'); });
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -12544,7 +12547,7 @@ window.onload = async function(){
     <script src="../dictation_hub.js?v=17"></script>
     <script src="../equipment_hub.js?v=15"></script>
     <script src="../unit_work_parser.js?v=10"></script>
-    <script src="../field_forms.js?v=3"></script>
+    <script src="../field_forms.js?v=4"></script>
     <script src="../field_chronicle.js?v=1"></script>
     <script src="../job_context_engine.js?v=5"></script>
     <script src="../edge_intent_engine.js?v=3"></script>
@@ -12762,8 +12765,8 @@ window.onload = async function(){
             window.LearningSync && typeof window.LearningSync.getInclusionWeights === "function");
 
       /* ── 8. Build stamp ──────────────────────────────────────────────── */
-      check("VC_BUILD is Phase58-Slice58b-2026-05-15",
-            window.VC_BUILD === "Phase58-Slice58b-2026-05-15");
+      check("VC_BUILD is Phase58-Slice58c-2026-05-15",
+            window.VC_BUILD === "Phase58-Slice58c-2026-05-15");
 
       /* ── 9. VCStorageOutbox (Slice 56a — offline photo outbox) ───────── */
       check("VCStorageOutbox.enqueue is function",

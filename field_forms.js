@@ -545,6 +545,14 @@
     }
   }
 
+  function stopFormTemplatesListener() {
+    if (formTemplatesUnsubscribe) {
+      try { formTemplatesUnsubscribe(); } catch (e) { /* best-effort */ }
+      formTemplatesUnsubscribe = null;
+    }
+    formTemplatesCache = null;
+  }
+
   function loadFirebaseStorageCompat() {
     if (typeof firebase !== "undefined" && firebase.storage) {
       return Promise.resolve();
@@ -1967,4 +1975,7 @@
      `window.vcRepairBranchHydrate(window.__vcLastActiveTicket)` from the
      console to force a re-render. */
   window.vcRepairBranchHydrate = hydrateRepairBranchFromTicket;
+  /* Slice 58c — lifecycle hooks called by switchScreen in technician/index.html */
+  window.vcStartFormTemplatesListener = startFormTemplatesListener;
+  window.vcStopFormTemplatesListener = stopFormTemplatesListener;
 })();
