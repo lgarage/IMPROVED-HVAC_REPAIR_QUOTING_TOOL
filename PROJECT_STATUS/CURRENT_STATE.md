@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **Field app mobile UI v1** (`VC_BUILD: Phase60-MobileUIv1-2026-05-15`). Removed FIELD APP logo from header; moved 📋 Schedule button inline beside DAN DAY badge; Reason for Call panel now hidden by default — tap the job number chip (SC-1002) to toggle it. Previous last shipped: HOTFIX 59b rules revert (earlier today).
+- **Last shipped (2026-05-15):** **Field app mobile UI v2** (`VC_BUILD: Phase60-MobileUIv2-2026-05-15`). Workspace stripped to conversation timeline only: removed 6 sections (diagnostics hub, field chronicle, PM/Service/Quote forms, tstat labeling, addendum). Bottom input bar redesigned: text box + green Send top row; orange Photo/Video + green Push-to-Talk (with listening dot) bottom row. 540 net lines removed. Previous: MobileUIv1 (header/schedule/RFC toggle, same session).
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,7 +18,7 @@ None (59b regression deployed — verify on phone).
 
 ## Immediate Next Step
 
-- **Verify mobile UI on phone:** Open https://vertex-core-db.web.app/technician/ — header should show just DAN DAY + Schedule chip (no FIELD APP text); open a job and confirm Reason for Call is hidden until you tap the ticket chip.
+- **Verify mobile UI v2 on phone:** Open https://vertex-core-db.web.app/technician/ — workspace should show only the conversation timeline + bottom bar (text box + Send / Photo-Video / Push-to-Talk). No diagnostics, chronicle, forms, or addendum sections.
 - **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
 
