@@ -8,6 +8,7 @@
   var IDLE_MS = 5 * 60 * 1000;
   var currentShadowPresenceKey = "";
   var presenceStateByKey = {};
+  var _livePresenceIdleUnsub = null;
 
   function payrollKeyFromName(name) {
     return (
@@ -190,7 +191,7 @@
     if (subscribeLivePresenceIdle.wired) return;
     subscribeLivePresenceIdle.wired = true;
     var db = firebase.firestore();
-    VCFirestore.livePresence(db).onSnapshot(
+    _livePresenceIdleUnsub = VCFirestore.livePresence(db).onSnapshot(
       function (snap) {
         presenceStateByKey = {};
         snap.forEach(function (doc) {
@@ -206,6 +207,14 @@
         console.warn("[ShadowMode] live_presence:", e);
       }
     );
+  }
+
+  function unsubscribeLivePresenceIdle() {
+    if (typeof _livePresenceIdleUnsub === "function") {
+      try { _livePresenceIdleUnsub(); } catch (e) {}
+    }
+    _livePresenceIdleUnsub = null;
+    subscribeLivePresenceIdle.wired = false;
   }
 
   function loadTenantUsersIntoSelect() {
@@ -348,6 +357,7 @@
     var badge = document.getElementById("vcShadowOfflineBadge");
     if (badge) badge.classList.add("hidden");
     updateTakeOverButtonState();
+    unsubscribeLivePresenceIdle();
   }
 
   function sendCoachPrompt() {
@@ -477,5 +487,6 @@
     forceRemoteSync: forceRemoteSync,
     takeOverActiveTicket: takeOverActiveTicket,
     payrollKeyFromName: payrollKeyFromName,
+    unsubscribeLivePresenceIdle: unsubscribeLivePresenceIdle,
   };
 })(typeof window !== "undefined" ? window : this);
