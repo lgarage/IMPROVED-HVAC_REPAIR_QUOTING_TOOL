@@ -305,15 +305,16 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
       return true;
     }
 
+    // Record this model's failure for every pattern on the slice
+    for (const pattern of slice.patterns) {
+      updateLookupRow(pattern, model, false);
+    }
+
     if (i < ladder.length - 1) {
       log(`✗ ${model} failed for slice ${slice.id}. Escalating to ${ladder[i + 1]}...`);
     } else {
       log(`✗ ${model} failed for slice ${slice.id}. No more models to try.`);
     }
-  }
-
-  for (const pattern of slice.patterns) {
-    updateLookupRow(pattern, ladder[ladder.length - 1], false);
   }
 
   ss.status = "failed";

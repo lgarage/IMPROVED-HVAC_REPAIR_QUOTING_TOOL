@@ -1,6 +1,10 @@
 /**
  * Smart model selector — reads MODEL_LOOKUP.md and picks the cheapest
  * safe model for a given set of task patterns.
+ *
+ * v2: Tracks verified/unverified status and cheapest-failed model per
+ * pattern so the table learns downward over time instead of staying
+ * stuck on optimistic guesses.
  */
 
 import * as fs from "fs";
@@ -25,7 +29,9 @@ const MODEL_COST_RANK: Record<string, number> = {
 export interface LookupRow {
   pattern: string;
   cheapestOk: string;
+  cheapestFailed: string;
   floor: string;
+  verified: boolean;
   lastVerified: string;
   notes: string;
 }
@@ -38,13 +44,15 @@ export function parseLookupTable(): LookupRow[] {
   for (const line of lines) {
     if (!line.startsWith("|") || line.includes("Pattern") || line.includes("---")) continue;
     const cells = line.split("|").map((c) => c.trim()).filter(Boolean);
-    if (cells.length < 4) continue;
+    if (cells.length < 6) continue;
     rows.push({
       pattern: cells[0],
       cheapestOk: cells[1],
-      floor: cells[2] === "—" || cells[2] === "" ? "" : cells[2],
-      lastVerified: cells[3],
-      notes: cells[4] || "",
+      cheapestFailed: cells[2] === "—" || cells[2] === "" ? "" : cells[2],
+      floor: cells[3] === "—" || cells[3] === "" ? "" : cells[3],
+      verified: cells[4] === "yes",
+      lastVerified: cells[5],
+      notes: cells[6] || "",
     });
   }
   return rows;
@@ -53,12 +61,11 @@ export function parseLookupTable(): LookupRow[] {
 export function selectModel(taskPatterns: string[]): string {
   const table = parseLookupTable();
   let bestModel = "composer-2";
-  let bestRank = 1;
+  let bestRank = 0;
 
   for (const pattern of taskPatterns) {
     const row = table.find((r) => r.pattern === pattern);
     if (!row) {
-      // Unknown pattern — default to Sonnet as safe middle ground
       if (MODEL_COST_RANK["claude-sonnet-4-6"] > bestRank) {
         bestModel = "claude-sonnet-4-6";
         bestRank = MODEL_COST_RANK["claude-sonnet-4-6"];
@@ -66,7 +73,7 @@ export function selectModel(taskPatterns: string[]): string {
       continue;
     }
 
-    // Apply floor first (hard minimum, never lower)
+    // Floor is a hard minimum (Vertex Core safety rules etc.)
     if (row.floor) {
       const floorRank = MODEL_COST_RANK[row.floor] || 2;
       if (floorRank > bestRank) {
@@ -75,7 +82,6 @@ export function selectModel(taskPatterns: string[]): string {
       }
     }
 
-    // Apply cheapest known-good model
     const okRank = MODEL_COST_RANK[row.cheapestOk] || 2;
     if (okRank > bestRank) {
       bestModel = row.cheapestOk;
@@ -99,30 +105,55 @@ export function updateLookupRow(
   for (let i = 0; i < lines.length; i++) {
     if (!lines[i].startsWith("|") || lines[i].includes("Pattern") || lines[i].includes("---")) continue;
     const cells = lines[i].split("|").map((c) => c.trim()).filter(Boolean);
-    if (cells.length < 4 || cells[0] !== pattern) continue;
+    if (cells.length < 6 || cells[0] !== pattern) continue;
 
     found = true;
-    const currentModel = cells[1];
-    const floor = cells[2];
-    const currentRank = MODEL_COST_RANK[currentModel] || 2;
-    const newRank = MODEL_COST_RANK[newModel] || 2;
+    const currentOk = cells[1];
+    const currentFailed = cells[2] === "—" ? "" : cells[2];
+    const isVerified = cells[4] === "yes";
 
-    if (succeeded && newRank < currentRank) {
-      // Cheaper model worked — update to cheaper
-      cells[1] = newModel;
-      cells[3] = today;
-      cells[4] = `Downgraded from ${currentModel} — succeeded`;
-    } else if (succeeded) {
-      // Same or pricier model worked — just update date
-      cells[3] = today;
-    } else {
-      // Failed — bump up to next tier
-      const nextModel = getNextTierUp(newModel);
-      if (nextModel && MODEL_COST_RANK[nextModel] > currentRank) {
-        cells[1] = nextModel;
+    const currentOkRank = MODEL_COST_RANK[currentOk] || 2;
+    const newRank = MODEL_COST_RANK[newModel] || 2;
+    const failedRank = currentFailed ? (MODEL_COST_RANK[currentFailed] || 0) : 0;
+
+    if (succeeded) {
+      if (!isVerified) {
+        if (newRank <= currentOkRank) {
+          // Passed at or below the unverified guess — verify it
+          cells[1] = newModel;
+          cells[4] = "yes";
+          cells[6] = `Verified: ${newModel} passed`;
+        }
+        // If passed at a MORE expensive model (other patterns forced the
+        // ladder up), keep the unverified guess — it might still work at
+        // that cheaper level. Just update the date.
+      } else if (newRank < currentOkRank) {
+        cells[1] = newModel;
+        cells[6] = `Downgraded from ${currentOk} — ${newModel} succeeded`;
       }
-      cells[3] = today;
-      cells[4] = `Bumped from ${newModel} after failure`;
+      cells[5] = today;
+    } else {
+      // ── Failure path ──
+      // Record the most expensive model that failed for this pattern
+      if (!currentFailed || newRank > failedRank) {
+        cells[2] = newModel;
+      }
+
+      if (!isVerified && currentOkRank <= newRank) {
+        // Unverified guess is at or below a model that actually failed.
+        // Ratchet cheapestOk up to one tier above the failure.
+        const next = getNextTierUp(newModel);
+        if (next) {
+          cells[1] = next;
+          cells[6] = `Ratcheted from ${currentOk} — ${newModel} failed`;
+        }
+      } else if (isVerified && newModel === currentOk) {
+        // The exact model that was verified just failed on a different
+        // slice. Mark as unverified so the next pass re-verifies.
+        cells[4] = "no";
+        cells[6] = `De-verified: ${currentOk} failed (may be context-dependent)`;
+      }
+      cells[5] = today;
     }
 
     lines[i] = `| ${cells.join(" | ")} |`;
@@ -130,25 +161,26 @@ export function updateLookupRow(
   }
 
   if (!found) {
-    // New pattern — add row (respect 50 row cap)
     const table = parseLookupTable();
+    const verifiedStr = succeeded ? "yes" : "no";
+    const okModel = succeeded ? newModel : (getNextTierUp(newModel) || newModel);
+    const failedStr = succeeded ? "—" : newModel;
+
     if (table.length >= 50) {
-      // Find oldest row and replace it
       let oldestIdx = -1;
       let oldestDate = "9999-99-99";
       for (let i = 0; i < lines.length; i++) {
         if (!lines[i].startsWith("|") || lines[i].includes("Pattern") || lines[i].includes("---")) continue;
         const cells = lines[i].split("|").map((c) => c.trim()).filter(Boolean);
-        if (cells.length >= 4 && cells[3] < oldestDate) {
-          oldestDate = cells[3];
+        if (cells.length >= 6 && cells[5] < oldestDate) {
+          oldestDate = cells[5];
           oldestIdx = i;
         }
       }
       if (oldestIdx >= 0) {
-        lines[oldestIdx] = `| ${pattern} | ${newModel} | — | ${today} | Auto-added, replaced stale row |`;
+        lines[oldestIdx] = `| ${pattern} | ${okModel} | ${failedStr} | — | ${verifiedStr} | ${today} | Auto-added, replaced stale row |`;
       }
     } else {
-      // Find the last table row and append after it
       let lastTableRow = -1;
       for (let i = 0; i < lines.length; i++) {
         if (lines[i].startsWith("|") && !lines[i].includes("Pattern") && !lines[i].includes("---")) {
@@ -156,7 +188,7 @@ export function updateLookupRow(
         }
       }
       if (lastTableRow >= 0) {
-        const newRow = `| ${pattern} | ${newModel} | — | ${today} | Auto-added |`;
+        const newRow = `| ${pattern} | ${okModel} | ${failedStr} | — | ${verifiedStr} | ${today} | Auto-added |`;
         lines.splice(lastTableRow + 1, 0, newRow);
       }
     }
@@ -176,13 +208,12 @@ function getNextTierUp(model: string): string | null {
 
 /**
  * Build the escalation ladder for a slice: cheapest pick → next tier → next tier.
- * Respects floor constraints from all matched patterns.
+ * Respects floor constraints and cheapestFailed from all matched patterns.
  */
 export function buildEscalationLadder(taskPatterns: string[]): string[] {
   const base = selectModel(taskPatterns);
   const baseRank = MODEL_COST_RANK[base] || 1;
 
-  // Find the hard floor across all patterns
   const table = parseLookupTable();
   let floorRank = 0;
   for (const pattern of taskPatterns) {
@@ -191,16 +222,21 @@ export function buildEscalationLadder(taskPatterns: string[]): string[] {
       const fr = MODEL_COST_RANK[row.floor] || 0;
       if (fr > floorRank) floorRank = fr;
     }
+    // Also respect cheapestFailed as a soft floor — don't start below it
+    if (row?.cheapestFailed) {
+      const cfr = MODEL_COST_RANK[row.cheapestFailed] || 0;
+      if (cfr >= baseRank && cfr > floorRank) {
+        floorRank = cfr;
+      }
+    }
   }
 
   const ladder: string[] = [base];
   const sorted = Object.entries(MODEL_COST_RANK).sort((a, b) => a[1] - b[1]);
 
-  // Add next two tiers above the base
   let added = 0;
   for (const [name, rank] of sorted) {
     if (rank > baseRank && added < 2) {
-      // Never go below floor
       if (rank >= floorRank) {
         ladder.push(name);
         added++;
@@ -208,12 +244,10 @@ export function buildEscalationLadder(taskPatterns: string[]): string[] {
     }
   }
 
-  // If we couldn't add 2 escalation steps (base was already near top), pad with ceiling
   while (ladder.length < 3) {
     ladder.push("claude-opus-4-6");
   }
 
-  // Deduplicate
   return [...new Set(ladder)];
 }
 
