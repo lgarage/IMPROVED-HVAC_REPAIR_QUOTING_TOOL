@@ -86,6 +86,7 @@
   /* ── offline queue ────────────────────────────────────────────── */
 
   var LS_QUEUE_KEY = "vc_teaching_offline_queue";
+  var LS_KNOWLEDGE_CACHE_PREFIX = "vc_teaching_knowledge_cache_";
 
   function loadOfflineQueue() {
     try {
@@ -106,6 +107,36 @@
     var queue = loadOfflineQueue();
     queue.push(doc);
     saveOfflineQueue(queue);
+  }
+
+  function knowledgeCacheKey(scope, keyObj) {
+    var payload = "";
+    try {
+      payload = JSON.stringify(keyObj || {});
+    } catch (e) {
+      payload = String(keyObj || "");
+    }
+    return LS_KNOWLEDGE_CACHE_PREFIX + String(scope || "default") + "_" + payload;
+  }
+
+  function loadKnowledgeCache(scope, keyObj) {
+    try {
+      var raw = localStorage.getItem(knowledgeCacheKey(scope, keyObj));
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveKnowledgeCache(scope, keyObj, items) {
+    try {
+      localStorage.setItem(
+        knowledgeCacheKey(scope, keyObj),
+        JSON.stringify(Array.isArray(items) ? items : [])
+      );
+    } catch (e) { /* quota exceeded */ }
   }
 
   function flushOfflineQueue() {
@@ -238,10 +269,22 @@
     filters = filters || {};
     var tid = getTenantId();
     var db = getDb();
+    var cacheKeyObj = {
+      scope: filters.scope || "",
+      scopeRef: filters.scopeRef || "",
+      tags: Array.isArray(filters.tags) ? filters.tags.slice(0, 50) : [],
+      limit: filters.limit || 20
+    };
+    var cached = loadKnowledgeCache("find", cacheKeyObj);
 
-    if (!tid || !db) return Promise.resolve([]);
+    if (!tid || !db) return Promise.resolve(isOnline() ? [] : cached);
 
-    var ref = db.collection("tenants").doc(tid).collection("knowledge");
+    var ref;
+    try {
+      ref = db.collection("tenants").doc(tid).collection("knowledge");
+    } catch (e) {
+      return Promise.resolve(cached);
+    }
 
     if (filters.scope) {
       ref = ref.where("scope", "==", filters.scope);
@@ -270,9 +313,10 @@
         });
       }
 
+      saveKnowledgeCache("find", cacheKeyObj, results);
       return results;
     }).catch(function () {
-      return [];
+      return isOnline() ? [] : cached;
     });
   }
 
@@ -375,10 +419,23 @@
 
     var tid = getTenantId();
     var db = getDb();
-    if (!tid || !db) return Promise.resolve([]);
+    var relevantKey = {
+      customerName: customerName,
+      locationAddress: locationAddress,
+      equipModel: equipModel,
+      equipBrand: equipBrand,
+      workType: workType
+    };
+    var cached = loadKnowledgeCache("relevant", relevantKey);
+    if (!tid || !db) return Promise.resolve(cached);
 
     var queries = [];
-    var knowledgeRef = db.collection("tenants").doc(tid).collection("knowledge");
+    var knowledgeRef;
+    try {
+      knowledgeRef = db.collection("tenants").doc(tid).collection("knowledge");
+    } catch (e) {
+      return Promise.resolve(cached);
+    }
 
     if (customerName && locationAddress) {
       var siteRef = customerName + "|" + locationAddress;
@@ -451,7 +508,13 @@
         });
       }
 
-      return results;
+      if (results.length) {
+        saveKnowledgeCache("relevant", relevantKey, results);
+        return results;
+      }
+      return isOnline() ? results : cached;
+    }).catch(function () {
+      return cached;
     });
   }
 

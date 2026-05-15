@@ -338,6 +338,18 @@
     return document.getElementById("ct-message-list");
   }
 
+  function getTimelineHeaderElement() {
+    var root = document.getElementById("conversational-timeline");
+    return root ? root.querySelector(".ct-header") : null;
+  }
+
+  function setTimelineOfflineState() {
+    var header = getTimelineHeaderElement();
+    if (!header) return;
+    var isOffline = (typeof navigator !== "undefined" && navigator.onLine === false);
+    header.classList.toggle("ct-header--offline", isOffline);
+  }
+
   function safeText(value) {
     return String(value || "").trim();
   }
@@ -2504,6 +2516,7 @@
     hideFollowUpPrompt();
     seedFromTicket(currentTicketId);
     renderTimeline(currentTicketId);
+    setTimelineOfflineState();
     renderSiteMemory(currentTicketId);
     /* Load workflow checklist from form_templates for this ticket type (Slice 45a) */
     try {
@@ -2871,7 +2884,17 @@
     }
     showSubmitStatus("Uploading…", true);
 
-    var db = firebase.firestore();
+    var db = null;
+    try {
+      db = firebase.firestore();
+    } catch (e) {
+      showSubmitStatus("Firestore unavailable — saved locally only.", false);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit to Office";
+      }
+      return;
+    }
     var ticket = getActiveTicket();
     var ticketId = currentTicketId || "draft";
     var techName = "";
@@ -2893,9 +2916,19 @@
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     };
 
-    var crCol = (typeof VCFirestore !== "undefined" && VCFirestore.completedReports)
-      ? VCFirestore.completedReports(db)
-      : db.collection("completed_reports");
+    var crCol;
+    try {
+      crCol = (typeof VCFirestore !== "undefined" && VCFirestore.completedReports)
+        ? VCFirestore.completedReports(db)
+        : db.collection("completed_reports");
+    } catch (e) {
+      showSubmitStatus("Firestore unavailable — saved locally only.", false);
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit to Office";
+      }
+      return;
+    }
 
     var writes = [];
     writes.push(crCol.add(reportPayload));
@@ -3042,6 +3075,15 @@
     } catch (e) {
       /* older browsers: no-op */
     }
+
+    try {
+      window.addEventListener("online", setTimelineOfflineState);
+      window.addEventListener("offline", setTimelineOfflineState);
+    } catch (e) {
+      /* older browsers: no-op */
+    }
+
+    setTimelineOfflineState();
 
     if (typeof activeTicket !== "undefined" && activeTicket) {
       onWorkspaceOpen(resolveTicketIdFromObject(activeTicket));

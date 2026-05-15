@@ -41,6 +41,8 @@
   var LS_WEIGHTS_KEY = "vc_learning_weights";
   var LS_VOCAB_KEY = "vc_ct_vocab_corrections";
   var LS_TIMELINE_PREFIX = "vc_conversational_timeline_";
+  var LS_UPLOAD_QUEUE_KEY = "vc_learning_upload_queue";
+  var LS_EDITS_CACHE_PREFIX = "vc_learning_dispatcher_edits_";
   var WEIGHT_DECAY = 0.05;
   var WEIGHT_FLOOR = 0.2;
   var REMOVAL_THRESHOLD = 3;
@@ -87,6 +89,78 @@
 
   function safeJsonParse(raw) {
     try { return JSON.parse(raw); } catch (e) { return null; }
+  }
+
+  function isOnline() {
+    return typeof navigator !== "undefined" ? navigator.onLine !== false : true;
+  }
+
+  function loadUploadQueue() {
+    try {
+      var raw = localStorage.getItem(LS_UPLOAD_QUEUE_KEY);
+      if (!raw) return [];
+      var parsed = safeJsonParse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveUploadQueue(queue) {
+    try {
+      localStorage.setItem(LS_UPLOAD_QUEUE_KEY, JSON.stringify(Array.isArray(queue) ? queue : []));
+    } catch (e) { /* quota exceeded */ }
+  }
+
+  function enqueueLearningPayload(payload) {
+    if (!payload || typeof payload !== "object") return;
+    var safePayload = preparePayloadForQueue(payload);
+    var queue = loadUploadQueue();
+    queue.push(safePayload);
+    saveUploadQueue(queue);
+  }
+
+  function preparePayloadForQueue(payload) {
+    var out = {};
+    var key;
+    for (key in payload) {
+      if (Object.prototype.hasOwnProperty.call(payload, key)) out[key] = payload[key];
+    }
+    var createdAtType = typeof out.createdAt;
+    if (
+      out.createdAt == null ||
+      createdAtType === "function" ||
+      (createdAtType === "object" && !(out.createdAt instanceof Date))
+    ) {
+      out.createdAt = out.uploadedAt || new Date().toISOString();
+    }
+    if (out.createdAt instanceof Date) {
+      out.createdAt = out.createdAt.toISOString();
+    }
+    return out;
+  }
+
+  function editsCacheKey(reportDocId) {
+    return LS_EDITS_CACHE_PREFIX + String(reportDocId || "");
+  }
+
+  function loadDispatcherEditsCache(reportDocId) {
+    try {
+      if (!reportDocId) return [];
+      var raw = localStorage.getItem(editsCacheKey(reportDocId));
+      if (!raw) return [];
+      var parsed = safeJsonParse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveDispatcherEditsCache(reportDocId, edits) {
+    try {
+      if (!reportDocId) return;
+      localStorage.setItem(editsCacheKey(reportDocId), JSON.stringify(Array.isArray(edits) ? edits : []));
+    } catch (e) { /* quota exceeded */ }
   }
 
   /* ── vocabulary corrections ───────────────────────────────────── */
@@ -174,31 +248,102 @@
   function fetchDispatcherEdits(reportDocId) {
     if (!reportDocId) return Promise.resolve([]);
     var db = getDb();
-    if (!db) return Promise.resolve([]);
+    var cached = loadDispatcherEditsCache(reportDocId);
+    if (!db) return Promise.resolve(cached);
 
-    var crCol = (typeof VCFirestore !== "undefined" && VCFirestore.completedReports)
-      ? VCFirestore.completedReports(db)
-      : db.collection("completed_reports");
+    var crCol;
+    try {
+      crCol = (typeof VCFirestore !== "undefined" && VCFirestore.completedReports)
+        ? VCFirestore.completedReports(db)
+        : db.collection("completed_reports");
+    } catch (e) {
+      return Promise.resolve(cached);
+    }
 
-    return crCol.doc(reportDocId).collection("review_edits")
-      .orderBy("timestamp", "desc")
-      .limit(200)
-      .get()
-      .then(function (snap) {
-        var edits = [];
-        snap.forEach(function (doc) {
-          var d = doc.data();
-          edits.push({
-            field: d.field || "",
-            original: d.original || "",
-            edited: d.edited || "",
-            editedBy: d.editedBy || "",
-            findingId: d.findingId || ""
+    try {
+      return crCol.doc(reportDocId).collection("review_edits")
+        .orderBy("timestamp", "desc")
+        .limit(200)
+        .get()
+        .then(function (snap) {
+          var edits = [];
+          snap.forEach(function (doc) {
+            var d = doc.data();
+            edits.push({
+              field: d.field || "",
+              original: d.original || "",
+              edited: d.edited || "",
+              editedBy: d.editedBy || "",
+              findingId: d.findingId || ""
+            });
           });
+          saveDispatcherEditsCache(reportDocId, edits);
+          return edits;
+        })
+        .catch(function () { return cached; });
+    } catch (e) {
+      return Promise.resolve(cached);
+    }
+  }
+
+  function uploadPayload(payload) {
+    var db = getDb();
+    var tid = getTenantId();
+    if (!db || !tid || !isOnline()) {
+      enqueueLearningPayload(payload);
+      return Promise.resolve(null);
+    }
+
+    try {
+      return db.collection("tenants").doc(tid)
+        .collection("learning_data")
+        .add(payload)
+        .then(function () { return true; })
+        .catch(function () {
+          enqueueLearningPayload(payload);
+          return null;
         });
-        return edits;
-      })
-      .catch(function () { return []; });
+    } catch (e) {
+      enqueueLearningPayload(payload);
+      return Promise.resolve(null);
+    }
+  }
+
+  function flushQueuedUploads() {
+    if (!isOnline()) return Promise.resolve(0);
+    var db = getDb();
+    var tid = getTenantId();
+    if (!db || !tid) return Promise.resolve(0);
+
+    var queue = loadUploadQueue();
+    if (!queue.length) return Promise.resolve(0);
+
+    var remaining = [];
+    var writes = [];
+
+    for (var i = 0; i < queue.length; i++) {
+      (function (payload) {
+        try {
+          writes.push(
+            db.collection("tenants").doc(tid).collection("learning_data").add(payload)
+              .catch(function () {
+                remaining.push(payload);
+                return null;
+              })
+          );
+        } catch (e) {
+          remaining.push(payload);
+        }
+      })(queue[i]);
+    }
+
+    return Promise.all(writes).then(function () {
+      saveUploadQueue(remaining);
+      return queue.length - remaining.length;
+    }).catch(function () {
+      saveUploadQueue(queue);
+      return 0;
+    });
   }
 
   /* ── inclusion weight management ──────────────────────────────── */
@@ -308,11 +453,6 @@
     var ticketId = options.ticketId || "draft";
     var reportDocId = options.reportDocId || "";
 
-    var db = getDb();
-    var tid = getTenantId();
-
-    if (!db || !tid) return Promise.resolve(null);
-
     var vocabCorrections = collectVocabCorrections();
     var entityConfidences = collectEntityConfidences(ticketId);
     var escalationResults = collectEscalationResults(ticketId);
@@ -320,44 +460,54 @@
     return fetchDispatcherEdits(reportDocId).then(function (dispatcherEdits) {
       adjustWeightsFromEdits(dispatcherEdits);
 
-      var payload = {
-        ticketId: ticketId,
-        technicianName: getTechnicianName(),
-        uploadedAt: new Date().toISOString(),
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        source: "conversational_timeline_compile",
-        buildVersion: window.VC_BUILD || "",
-
-        vocabCorrections: vocabCorrections,
-        vocabCorrectionCount: Object.keys(vocabCorrections).length,
-
-        entityConfidences: entityConfidences,
-        entityConfidenceCount: entityConfidences.length,
-
-        escalationResults: escalationResults,
-        escalationCount: escalationResults.length,
-
-        dispatcherEdits: dispatcherEdits,
-        dispatcherEditCount: dispatcherEdits.length,
-
-        inclusionWeights: getInclusionWeights(),
-
-        sessionStats: buildSessionStats(entityConfidences, escalationResults, vocabCorrections)
-      };
-
-      if (options.compileResult && typeof options.compileResult === "object") {
-        payload.compileResultSummary = options.compileResult.summary || "";
-        payload.findingTypes = extractFindingTypes(options.compileResult);
-      }
-
-      return db.collection("tenants").doc(tid)
-        .collection("learning_data")
-        .add(payload)
-        .then(function () { return true; })
-        .catch(function () { return null; });
+      var payload = buildLearningPayload(
+        options,
+        ticketId,
+        vocabCorrections,
+        entityConfidences,
+        escalationResults,
+        dispatcherEdits
+      );
+      return uploadPayload(payload);
     }).catch(function () {
       return null;
     });
+  }
+
+  function buildLearningPayload(options, ticketId, vocabCorrections, entityConfidences, escalationResults, dispatcherEdits) {
+    var payload = {
+      ticketId: ticketId,
+      technicianName: getTechnicianName(),
+      uploadedAt: new Date().toISOString(),
+      source: "conversational_timeline_compile",
+      buildVersion: window.VC_BUILD || "",
+      vocabCorrections: vocabCorrections,
+      vocabCorrectionCount: Object.keys(vocabCorrections).length,
+      entityConfidences: entityConfidences,
+      entityConfidenceCount: entityConfidences.length,
+      escalationResults: escalationResults,
+      escalationCount: escalationResults.length,
+      dispatcherEdits: dispatcherEdits,
+      dispatcherEditCount: dispatcherEdits.length,
+      inclusionWeights: getInclusionWeights(),
+      sessionStats: buildSessionStats(entityConfidences, escalationResults, vocabCorrections)
+    };
+
+    try {
+      if (typeof firebase !== "undefined" && firebase.firestore && firebase.firestore.FieldValue) {
+        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      }
+    } catch (e) {
+      /* offline-safe fallback below */
+    }
+    if (!payload.createdAt) payload.createdAt = payload.uploadedAt;
+
+    if (options.compileResult && typeof options.compileResult === "object") {
+      payload.compileResultSummary = options.compileResult.summary || "";
+      payload.findingTypes = extractFindingTypes(options.compileResult);
+    }
+
+    return payload;
   }
 
   function buildSessionStats(entityConfidences, escalations, vocabMap) {
@@ -410,6 +560,21 @@
       types.push("equipmentHistoryUpdates");
     }
     return types;
+  }
+
+  function init() {
+    try {
+      window.addEventListener("online", function () {
+        flushQueuedUploads();
+      });
+    } catch (e) {}
+    flushQueuedUploads();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
   }
 
   /* ── exports ──────────────────────────────────────────────────── */

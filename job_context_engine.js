@@ -305,54 +305,72 @@
   function getSiteIntelPromise(db, ticket) {
     var docId = getSiteIntelDocId(ticket);
     if (!docId) return Promise.resolve(null);
-    if (window.VCFirestore && typeof VCFirestore.getSiteIntelDocOnceBridged === "function") {
-      return VCFirestore.getSiteIntelDocOnceBridged(db, docId).then(function (got) {
-        return got && got.exists ? got.data || null : null;
+    try {
+      if (window.VCFirestore && typeof VCFirestore.getSiteIntelDocOnceBridged === "function") {
+        return VCFirestore.getSiteIntelDocOnceBridged(db, docId).then(function (got) {
+          return got && got.exists ? got.data || null : null;
+        });
+      }
+      var ref =
+        window.VCFirestore && typeof VCFirestore.siteIntelligence === "function"
+          ? VCFirestore.siteIntelligence(db).doc(docId)
+          : db.collection("site_intelligence").doc(docId);
+      return ref.get().then(function (snap) {
+        return snap && snap.exists ? snap.data() || null : null;
+      }).catch(function () {
+        return null;
       });
+    } catch (e) {
+      return Promise.resolve(null);
     }
-    var ref =
-      window.VCFirestore && typeof VCFirestore.siteIntelligence === "function"
-        ? VCFirestore.siteIntelligence(db).doc(docId)
-        : db.collection("site_intelligence").doc(docId);
-    return ref.get().then(function (snap) {
-      return snap && snap.exists ? snap.data() || null : null;
-    });
   }
 
   function getEquipmentPromise(db, ticket) {
     var customerId = getCustomerId(ticket);
     var locationId = getLocationId(ticket);
     if (!customerId || !locationId) return Promise.resolve([]);
-    return db
-      .collection("Customers")
-      .doc(customerId)
-      .collection("Locations")
-      .doc(locationId)
-      .collection("Equipment")
-      .get()
-      .then(function (snap) {
-        var rows = [];
-        snap.forEach(function (doc) {
-          rows.push(normalizeEquipmentDoc(doc));
+    try {
+      return db
+        .collection("Customers")
+        .doc(customerId)
+        .collection("Locations")
+        .doc(locationId)
+        .collection("Equipment")
+        .get()
+        .then(function (snap) {
+          var rows = [];
+          snap.forEach(function (doc) {
+            rows.push(normalizeEquipmentDoc(doc));
+          });
+          return rows;
+        })
+        .catch(function () {
+          return [];
         });
-        return rows;
-      });
+    } catch (e) {
+      return Promise.resolve([]);
+    }
   }
 
   function getReportsPromise(db, ticket) {
     var customerName = safeTrim(ticket && ticket.customerName);
     var targetAddress = safeTrim(ticket && ticket.locationAddress).replace(/^UNKNOWN\s*-\s*/i, "");
     if (!customerName) return Promise.resolve([]);
-    var query =
-      window.VCFirestore && typeof VCFirestore.queryCompletedReportsWhereMerged === "function"
-        ? VCFirestore.queryCompletedReportsWhereMerged(db, "customerName", "==", customerName, 30)
-        : db.collection("completed_reports").where("customerName", "==", customerName).limit(30).get().then(function (snap) {
-            var rows = [];
-            snap.forEach(function (doc) {
-              rows.push({ id: doc.id, data: doc.data() || {} });
+    var query;
+    try {
+      query =
+        window.VCFirestore && typeof VCFirestore.queryCompletedReportsWhereMerged === "function"
+          ? VCFirestore.queryCompletedReportsWhereMerged(db, "customerName", "==", customerName, 30)
+          : db.collection("completed_reports").where("customerName", "==", customerName).limit(30).get().then(function (snap) {
+              var rows = [];
+              snap.forEach(function (doc) {
+                rows.push({ id: doc.id, data: doc.data() || {} });
+              });
+              return rows;
             });
-            return rows;
-          });
+    } catch (e) {
+      return Promise.resolve([]);
+    }
 
     return Promise.resolve(query).then(function (rows) {
       var filtered = [];
@@ -367,6 +385,8 @@
         return b.timestampMs - a.timestampMs;
       });
       return filtered.slice(0, 10);
+    }).catch(function () {
+      return [];
     });
   }
 

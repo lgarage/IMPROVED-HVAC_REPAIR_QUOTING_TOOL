@@ -296,9 +296,16 @@
     try { return JSON.parse(t); } catch (e) { return null; }
   }
 
+  function isOnline() {
+    return typeof navigator !== "undefined" ? navigator.onLine !== false : true;
+  }
+
   function escalateToCloud(text) {
     var source = safeText(text);
     if (!source) {
+      return Promise.resolve(null);
+    }
+    if (!isOnline()) {
       return Promise.resolve(null);
     }
 

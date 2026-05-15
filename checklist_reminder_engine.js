@@ -32,6 +32,7 @@
   "use strict";
 
   var LS_PREFIX = "vc_checklist_state_";
+  var LS_WORKFLOW_CACHE_PREFIX = "vc_checklist_workflow_";
   var MAX_REMINDERS_PER_SWITCH = 2; /* cap gentle follow-ups to avoid overwhelming */
 
   /* current loaded workflow for this job session */
@@ -60,6 +61,30 @@
   function saveState(ticketId, state) {
     try {
       localStorage.setItem(storageKey(ticketId), JSON.stringify(state || {}));
+    } catch (e) { /* quota exceeded — degrade silently */ }
+  }
+
+  function workflowCacheKey(typeKey) {
+    return LS_WORKFLOW_CACHE_PREFIX + String(typeKey || "").trim().toLowerCase();
+  }
+
+  function loadWorkflowCache(typeKey) {
+    try {
+      var raw = localStorage.getItem(workflowCacheKey(typeKey));
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return null;
+      if (!Array.isArray(parsed.items)) return null;
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveWorkflowCache(typeKey, workflow) {
+    try {
+      if (!workflow) return;
+      localStorage.setItem(workflowCacheKey(typeKey), JSON.stringify(workflow));
     } catch (e) { /* quota exceeded — degrade silently */ }
   }
 
@@ -113,44 +138,52 @@
       return Promise.resolve(_workflowCache[typeKey]);
     }
 
+    var cachedWorkflow = loadWorkflowCache(typeKey);
+
     var db = getDb();
     if (!db) {
-      _workflowCache[typeKey] = null;
-      return Promise.resolve(null);
+      _workflowCache[typeKey] = cachedWorkflow;
+      return Promise.resolve(cachedWorkflow);
     }
 
-    return db
-      .collection("form_templates")
-      .where("active", "==", true)
-      .get()
-      .then(function (snap) {
-        var best = null;
-        snap.forEach(function (doc) {
-          var data = doc.data() || {};
-          var kw = String(data.targetKeyword || "").trim().toLowerCase();
-          if (!kw) return;
-          /* substring match in either direction; prefer the most specific (longest) keyword */
-          var matches = typeKey.indexOf(kw) !== -1 || kw.indexOf(typeKey) !== -1;
-          if (!matches) return;
-          if (!best || kw.length > best._kwLen) {
-            best = {
-              templateId: doc.id,
-              templateName: String(data.templateName || doc.id),
-              items: extractChecklistItems(data),
-              _kwLen: kw.length
-            };
-          }
+    try {
+      return db
+        .collection("form_templates")
+        .where("active", "==", true)
+        .get()
+        .then(function (snap) {
+          var best = null;
+          snap.forEach(function (doc) {
+            var data = doc.data() || {};
+            var kw = String(data.targetKeyword || "").trim().toLowerCase();
+            if (!kw) return;
+            /* substring match in either direction; prefer the most specific (longest) keyword */
+            var matches = typeKey.indexOf(kw) !== -1 || kw.indexOf(typeKey) !== -1;
+            if (!matches) return;
+            if (!best || kw.length > best._kwLen) {
+              best = {
+                templateId: doc.id,
+                templateName: String(data.templateName || doc.id),
+                items: extractChecklistItems(data),
+                _kwLen: kw.length
+              };
+            }
+          });
+          var result = best
+            ? { templateId: best.templateId, templateName: best.templateName, items: best.items }
+            : null;
+          _workflowCache[typeKey] = result;
+          if (result) saveWorkflowCache(typeKey, result);
+          return result || cachedWorkflow;
+        })
+        .catch(function () {
+          _workflowCache[typeKey] = cachedWorkflow;
+          return cachedWorkflow;
         });
-        var result = best
-          ? { templateId: best.templateId, templateName: best.templateName, items: best.items }
-          : null;
-        _workflowCache[typeKey] = result;
-        return result;
-      })
-      .catch(function () {
-        _workflowCache[typeKey] = null;
-        return null;
-      });
+    } catch (e) {
+      _workflowCache[typeKey] = cachedWorkflow;
+      return Promise.resolve(cachedWorkflow);
+    }
   }
 
   /* ── missing items check ──────────────────────────────────────── */
