@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **Field app mobile UI v8** (`VC_BUILD: Phase60-MobileUIv8-2026-05-15`). Root-fixed auto-scroll: `#screen-workspace.active` changed from `min-height` to `height` (bounded flex chain) + removed `scroll-behavior: smooth` (iOS drop) + `scrollIntoView` fallback. `conversational_timeline.js?v=17`. Previous: v7 (same day).
+- **Last shipped (2026-05-15):** **Remove "Which unit?" timeline nudge** (`VC_BUILD: Phase60-TimelineNoWhichUnit-2026-05-15`). Medium-confidence replies without equipment now say **Got it.** only; dashed follow-up stub never shown; CSS removed. `conversational_timeline.js?v=18`. Previous: mobile UI v8 (auto-scroll fix).
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,7 +18,8 @@ None (59b regression deployed — verify on phone).
 
 ## Immediate Next Step
 
-- **Verify mobile UI v8:** Long chat should jump to the newest bubble after you send, after STT, and after Vertex replies; Compile/Sync should still work after many messages. https://vertex-core-db.web.app/technician/
+- **Verify timeline:** No dashed **Which unit?** box or that phrase in Vertex bubbles when messages lack a unit reference; escalation may still show **What were you working on?** (Gemini low-confidence path). Hard-reload (`conversational_timeline.js?v=18`).
+- **Verify mobile UI v8:** Scroll-to-newest on long chats; Compile/Sync after many messages. https://vertex-core-db.web.app/technician/
 - **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
 

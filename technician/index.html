@@ -1286,100 +1286,6 @@ body.vc-override-active #vcOfficeOverrideBanner {
   min-width: 0;
 }
 
-/* "Which unit?" follow-up prompt (Slice 41d) */
-.ct-followup-prompt {
-  display: none;
-  align-items: center;
-  gap: 8px;
-  margin: 0 12px 8px;
-  padding: 7px 12px;
-  border-radius: 8px;
-  background: rgba(148, 163, 184, 0.1);
-  border: 1px dashed rgba(148, 163, 184, 0.28);
-}
-
-.ct-followup-prompt__text {
-  flex: 1;
-  font-size: 12px;
-  color: #9fb2c8;
-  font-style: italic;
-}
-
-.ct-followup-prompt__dismiss {
-  background: none;
-  border: none;
-  color: #9fb2c8;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 2px 6px;
-  line-height: 1;
-  opacity: 0.65;
-  -webkit-tap-highlight-color: transparent;
-  min-width: 28px;
-  min-height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.ct-followup-prompt__dismiss:hover,
-.ct-followup-prompt__dismiss:focus {
-  opacity: 1;
-  outline: none;
-}
-
-/* Slice 44a: follow-up prompt layout with quick replies */
-.ct-followup-prompt {
-  flex-direction: column !important;
-  gap: 6px !important;
-}
-
-.ct-followup-prompt__top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
-
-.ct-followup-prompt__replies {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.ct-followup-reply {
-  padding: 5px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 212, 255, 0.45);
-  background: rgba(0, 212, 255, 0.1);
-  color: #00d4ff;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  min-height: 30px;
-  min-width: 44px;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.ct-followup-reply:active,
-.ct-followup-reply:hover {
-  background: rgba(0, 212, 255, 0.22);
-  border-color: rgba(0, 212, 255, 0.75);
-}
-
-.ct-followup-reply--skip {
-  border-color: rgba(148, 163, 184, 0.35);
-  background: rgba(148, 163, 184, 0.08);
-  color: #9fb2c8;
-}
-
-.ct-followup-reply--skip:active,
-.ct-followup-reply--skip:hover {
-  background: rgba(148, 163, 184, 0.18);
-  border-color: rgba(148, 163, 184, 0.6);
-}
-
 /* Slice 44a: settings gear icon in timeline header */
 #ct-settings-gear {
   display: flex;
@@ -7004,7 +6910,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase60-MobileUIv8-2026-05-15";
+window.VC_BUILD = "Phase60-TimelineNoWhichUnit-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -12008,7 +11914,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=2"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
-    <script src="../conversational_timeline.js?v=17"></script>
+    <script src="../conversational_timeline.js?v=18"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');

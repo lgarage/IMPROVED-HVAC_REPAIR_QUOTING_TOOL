@@ -23,7 +23,7 @@
  *   - Equipment regex: RTU, AHU, Unit, Chiller, VAV, FCU, HP, MAU, EF.
  *   - 300 ms delay before system response appears (natural pacing).
  *   - System bubbles show a "V" monogram icon in a circle.
- *   - Follow-up stub: "Which unit?" if last 3 entries lack equipment refs.
+ *   - Follow-up stub (equipment nudge UI) permanently disabled — no dashed prompt.
  * Slice 42b: Active equipment context tracking.
  *   - #ct-active-equipment: sticky chip showing current active equipment.
  *   - processEntry calls JobContextEngine.setActiveEquipment() on equipment match.
@@ -1239,7 +1239,7 @@
     if (!hasEquipment && match) {
       return "Got it. " + match[0] + ".";
     }
-    if (!hasEquipment) return "Which unit?";
+    if (!hasEquipment) return "Got it.";
     if (hasPart && !hasAmps && !hasTemp) return "Reading?";
     if (match) return "Got it. " + match[0] + ".";
     return "Got it.";
@@ -1452,25 +1452,9 @@
     stopFollowUpListening();
   }
 
-  function checkFollowUpPrompt(ticketId) {
-    var entries = loadEntries(ticketId);
-    /* Only consider tech text entries (not media, not seed context) */
-    var techText = entries.filter(function (e) {
-      return e && e.role === "tech" && !(e.meta && (e.meta.seed || e.meta.mediaType));
-    });
-    var last3 = techText.slice(-3);
-    if (!last3.length) {
-      hideFollowUpPrompt();
-      return;
-    }
-    var anyEquipment = last3.some(function (e) {
-      return EQUIPMENT_REGEX.test(safeText(e.text));
-    });
-    if (anyEquipment) {
-      hideFollowUpPrompt();
-    } else {
-      showFollowUpPrompt();
-    }
+  function checkFollowUpPrompt(/* ticketId */) {
+    /* Product: never show "Which unit?" dashed prompt or auto-nudge UI. */
+    hideFollowUpPrompt();
   }
 
   /* ── active equipment chip (Slice 42b) ───────────────────────── */
