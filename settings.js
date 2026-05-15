@@ -611,10 +611,14 @@ function syncTechnicianRosterToFirestore() {
             profiles: techProfiles,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
+        var batch = db.batch();
         if (typeof VCFirestore !== 'undefined') {
-            VCFirestore.rosterDoc(db).set(payload, { merge: true });
+            batch.set(VCFirestore.rosterDoc(db), payload, { merge: true });
         }
-        db.collection('app_config').doc('technicians').set(payload, { merge: true });
+        batch.set(db.collection('app_config').doc('technicians'), payload, { merge: true });
+        batch.commit().catch(function (err) {
+            console.error('syncTechnicianRosterToFirestore batch', err);
+        });
     } catch (e) {
         console.error('syncTechnicianRosterToFirestore', e);
     }
@@ -629,10 +633,14 @@ function syncOnCallStateToFirestore() {
             manualOnCallTech: onCallState.manualOnCallTech || "",
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
+        var batch = db.batch();
         if (typeof VCFirestore !== 'undefined') {
-            VCFirestore.onCallStateDoc(db).set(payload, { merge: true });
+            batch.set(VCFirestore.onCallStateDoc(db), payload, { merge: true });
         }
-        db.collection('app_config').doc('onCallState').set(payload, { merge: true });
+        batch.set(db.collection('app_config').doc('onCallState'), payload, { merge: true });
+        batch.commit().catch(function (err) {
+            console.error('syncOnCallStateToFirestore batch', err);
+        });
     } catch (e) {
         console.error('syncOnCallStateToFirestore', e);
     }
