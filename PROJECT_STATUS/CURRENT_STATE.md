@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 41 — Conversational Field Capture (New Field Tech UX). Planning shipped; Slice 41a next.
-- **Last shipped (2026-05-14):** Workbench paused + documented (`PAUSE_NOTES.md`); README corrected (port, UI description). Vertex next: Phase 41a (conversational timeline UI).
-- **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume; last sandbox (invoice fixes, confidence 100%) is ready to Review/Merge when wanted.
+- **Active Phase:** Phase 41 — Conversational Field Capture (New Field Tech UX). SDK build runner v2.0 ready; 28 slices defined (41a–57a). Slice 49a needs retry (validator fixed).
+- **Last shipped (2026-05-14):** Build runner v2.0 (`tools/build_runner.ts`): S-to-stop hotkey, auto-retry failed slices, time remaining ticker, version display, loadState init for new slices. Model selector fix (correct SDK model IDs). Validator dynamic `htmlTarget`. 10 new slices (54a–57a). `job_context_engine.js` siteAccessNotes + unresolvedIssues (from slice 51a). Commit `6d7d091`.
+- **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
 
@@ -18,9 +18,9 @@ None.
 
 ## Immediate Next Step
 
-- 📋 See `PROJECT_STATUS/NEW_FIELDTECH_UX_PLAN.md` for full slice detail.
-- **Next slice:** Phase 41a — Timeline container + message rendering (new `conversational_timeline.js`, `technician/index.html` container + CSS). Re-gate per §6B1.
-- Phase 40 (Field Chronicle) Phase 1 remains shipped; future slices (Gemini compile, Firestore persistence) deferred — may fold into Phase 48 (Compile Notes) per plan.
+- Run `vertex` in `tools/` CLI → `/a` to start automated slice build. Slice 49a will auto-retry first (was failed, now reset).
+- 📋 See `PROJECT_STATUS/NEW_FIELDTECH_UX_PLAN.md` for full slice detail (Phases 41–57).
+- Press **S** during execution to gracefully stop after the current slice finishes.
 - Migration carry-over still applies (roster, optional data import).
 
 Smoke-tests carried over (non-blocking): Phase 34e Field Access Notes on iPhone; Phase 33 Field-Add Equipment OCR on Vision Hub.
