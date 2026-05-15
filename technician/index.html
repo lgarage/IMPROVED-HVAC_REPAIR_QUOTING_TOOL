@@ -6225,8 +6225,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
     Office Override Mode — interactive Field App; edits sync to Firestore for the assigned technician.
   </div>
   <div id="workspaceHistoricalBanner" class="workspace-historical-banner hidden" role="status">
-    <span id="workspaceHistoricalBannerText" class="workspace-historical-banner__text">⚠️ Historical Record: Viewing Read-Only. Use Addendum section below for updates.</span>
-    <button type="button" id="workspaceHistoricalAddUpdateBtn" class="workspace-historical-banner__cta" hidden>✏️ Add update to this job</button>
+    <span id="workspaceHistoricalBannerText" class="workspace-historical-banner__text">⚠️ Historical Record: Viewing Read-Only. Use the timeline below to add notes.</span>
   </div>
 
   <div id="vcLiteReadonlyWorkspace" class="vc-lite-readonly-workspace hidden" aria-label="Read-only job overview">
@@ -8320,8 +8319,6 @@ function applyWorkspaceHistoricalMode(isHistorical) {
   const ws = document.getElementById('screen-workspace');
   const banner = document.getElementById('workspaceHistoricalBanner');
   const bannerText = document.getElementById('workspaceHistoricalBannerText');
-  const addUpdateBtn = document.getElementById('workspaceHistoricalAddUpdateBtn');
-  const addSec = document.getElementById('workspaceAddendumSection');
   const gen = document.getElementById('generate');
   const syncBtn = document.getElementById('reportPreviewSyncBtn');
   if (ws) ws.classList.toggle('is-historical-job', !!isHistorical);
@@ -8330,48 +8327,17 @@ function applyWorkspaceHistoricalMode(isHistorical) {
     if (isHistorical && bannerText) {
       if (window.VC_OFFICE_OVERRIDE === true) {
         bannerText.textContent =
-          '⚠️ Historical record: original report fields stay locked. You can type internal notes below; use ✍️ Insert Office Note to stamp office additions. Use Addendum for formal supplemental updates.';
+          '⚠️ Historical record: original report fields stay locked. You can add notes in the timeline below.';
       } else {
         bannerText.textContent =
-          '⚠️ Historical Record: Viewing Read-Only. Tap "Add update to this job" to add a supplemental note or photo.';
+          '⚠️ Historical Record: Viewing Read-Only. Use the timeline below to add notes.';
       }
     }
   }
-  if (addUpdateBtn) {
-    /* Hide the CTA in Office Override mode (dispatcher already has full inline editing) and on lite seats. */
-    const showCta = !!isHistorical && window.VC_OFFICE_OVERRIDE !== true;
-    addUpdateBtn.hidden = !showCta;
-    if (showCta && !addUpdateBtn.dataset.vcWired) {
-      addUpdateBtn.dataset.vcWired = '1';
-      addUpdateBtn.addEventListener('click', function () {
-        const target = document.getElementById('workspaceAddendumSection');
-        const notes = document.getElementById('addendumSupplementalNotes');
-        if (!target) return;
-        try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { target.scrollIntoView(); }
-        target.classList.remove('is-flashing');
-        /* Re-trigger the keyframe by reading layout once. */
-        void target.offsetWidth;
-        target.classList.add('is-flashing');
-        setTimeout(function () { target.classList.remove('is-flashing'); }, 3400);
-        if (notes) {
-          try { notes.focus({ preventScroll: true }); } catch (e) { notes.focus(); }
-        }
-      });
-    }
-  }
-  if (addSec) addSec.classList.toggle('hidden', !isHistorical);
   if (gen) gen.disabled = !!isHistorical;
   if (syncBtn) syncBtn.disabled = !!isHistorical;
   if (isHistorical && typeof window.lockWorkspaceControls === 'function') {
     window.lockWorkspaceControls();
-  }
-  if (!isHistorical) {
-    const notes = document.getElementById('addendumSupplementalNotes');
-    const files = document.getElementById('addendumFilesInput');
-    const st = document.getElementById('addendumSaveStatus');
-    if (notes) notes.value = '';
-    if (files) files.value = '';
-    if (st) st.textContent = '';
   }
 }
 
@@ -8789,7 +8755,7 @@ async function onWorkspaceImagePasteCapture(e) {
   const ticketId = document.getElementById('ticketSelector') && document.getElementById('ticketSelector').value;
   if (!ticketId || !activeTicket || activeTicket.id !== ticketId) return;
   if (isTicketDateHistorical(activeTicket)) {
-    showMapNavToast('Historical record: use Addendum below to attach files.', 'error');
+    showMapNavToast('Historical record: use the timeline to add notes.', 'error');
     return;
   }
   if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
@@ -10679,39 +10645,8 @@ function validateJobStatusUpdated() {
   return { ok: true };
 }
 
-/** When final status is "Needs Repair Quote", parts + labor for the quote must be filled (Service Call §3). */
+/** Form sections removed — quote validation now always passes; parts/labor captured via timeline. */
 function validateNeedsRepairQuote() {
-  const status = document.getElementById("finalJobStatus").value;
-  if (status !== "Needs Repair Quote") return { ok: true };
-  if (currentMode !== "SERVICE") {
-    currentMode = "SERVICE";
-    applyMode();
-    if (typeof syncWorkspaceReasonBanner === "function") syncWorkspaceReasonBanner();
-    const accParts = document.getElementById("acc-parts-svc");
-    if (accParts) accParts.classList.add("open");
-    const wsInline = document.getElementById("wsJobStatusInline");
-    if (wsInline) try { wsInline.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) {}
-    return {
-      ok: false,
-      message: "Switched to Service Call so you can enter the repair quote. Fill in section 3 — Parts needed for repair quote and Labor for repair quote — then tap Complete & Sync again."
-    };
-  }
-  const qp = document.getElementById("quoteParts").value;
-  const ql = document.getElementById("quoteLabor").value;
-  const partsMissing = isMissingQuotePartOrLabor(qp);
-  const laborMissing = isMissingQuotePartOrLabor(ql);
-  if (partsMissing && laborMissing) {
-    return {
-      ok: false,
-      message: "Needs Repair Quote: enter both parts needed for the quote and labor hours (section 3 — Parts & Quote Info) before syncing."
-    };
-  }
-  if (partsMissing) {
-    return { ok: false, message: "Needs Repair Quote: list parts needed for the repair quote (section 3)." };
-  }
-  if (laborMissing) {
-    return { ok: false, message: "Needs Repair Quote: enter labor for the repair quote, e.g. hours (section 3)." };
-  }
   return { ok: true };
 }
 

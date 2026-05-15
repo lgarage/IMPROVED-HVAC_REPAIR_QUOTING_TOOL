@@ -617,14 +617,15 @@
     _isRecording = active;
     var btn = document.getElementById("ct-talk-btn");
     if (!btn) return;
+    var indicator = btn.querySelector(".ct-talk-indicator");
     if (active) {
       btn.classList.add("ct-recording");
       btn.setAttribute("aria-pressed", "true");
-      btn.textContent = "🔴";
+      if (indicator) { indicator.style.background = "#ff3c3c"; }
     } else {
       btn.classList.remove("ct-recording");
       btn.setAttribute("aria-pressed", "false");
-      btn.textContent = "🎙️";
+      if (indicator) { indicator.style.background = ""; }
     }
   }
 
@@ -997,12 +998,12 @@
     if (active) {
       btn.classList.add("ct-recording");
       btn.setAttribute("aria-pressed", "true");
-      btn.textContent = "⏹️";
+      btn.innerHTML = "⏹️ Recording…";
       btn.title = "Release to stop recording";
     } else {
       btn.classList.remove("ct-recording");
       btn.setAttribute("aria-pressed", "false");
-      btn.textContent = "📷";
+      btn.innerHTML = "📷 Photo / Video";
       btn.title = "Tap for photo · Hold for video";
     }
   }
