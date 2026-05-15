@@ -20,6 +20,10 @@ INVARIANTS (must not break):
 - IIFE pattern for all new JS modules (match existing style like field_chronicle.js, equipment_hub.js).
 `.trim();
 
+  const reviewChecklistBlock = slice.riskLevel === "review" && slice.reviewChecklist && slice.reviewChecklist.length > 0
+    ? `\n## What the reviewer will verify before pushing\nThese are the exact steps that will be checked on the preview URL. Make sure your implementation satisfies all of them:\n${slice.reviewChecklist.map((item, i) => `${i + 1}. ${item}`).join("\n")}\n`
+    : "";
+
   const commitInstructions = `
 AFTER IMPLEMENTATION:
 1. Bump VC_BUILD in technician/index.html to "${getVcBuild(slice)}".
@@ -44,7 +48,7 @@ ${slice.scope}
 
 ## Out of Scope
 ${slice.outOfScope}
-
+${reviewChecklistBlock}
 ## Files to Create
 ${slice.filesToCreate.length > 0 ? slice.filesToCreate.map((f) => `- ${f} (NEW)`).join("\n") : "None"}
 

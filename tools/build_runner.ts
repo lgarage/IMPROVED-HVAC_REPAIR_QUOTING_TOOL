@@ -308,6 +308,15 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
         }
       } else {
         log(`Committed but NOT pushed (review-required slice).`);
+        if (slice.reviewChecklist && slice.reviewChecklist.length > 0) {
+          const previewLine = ss.previewUrl ? `  │  Preview: ${ss.previewUrl}` : "";
+          console.log(`\n  ┌── Verify before pushing: ${slice.id} — ${slice.title}`);
+          slice.reviewChecklist.forEach((item, i) => {
+            console.log(`  │  ${i + 1}. ${item}`);
+          });
+          if (previewLine) console.log(previewLine);
+          console.log(`  └── Run: vertex> /push ${slice.id}  (when satisfied)\n`);
+        }
       }
 
       ss.status = "passed";
