@@ -1,5 +1,5 @@
 /**
- * Conversational Timeline — Slice 48a.
+ * Conversational Timeline — Slice 50a.
  *
  * Slice 41a: localStorage-only timeline, bubble layout, workspace integration.
  * Slice 41b: Hold-to-Talk action bar + live Web Speech API STT.
@@ -91,6 +91,11 @@
  *   - Copy Summary button for clipboard. Submit to Office writes to Firestore:
  *     completed_reports/{autoId}, equipment work_history subcollection,
  *     site_intelligence unresolved issues flag.
+ *
+ * Slice 50a: Post-job learning upload.
+ *   - submitCompileToOffice success path calls LearningSync.uploadLearningData()
+ *     to silently upload session learning data (vocab corrections, confidence
+ *     scores, escalation results, dispatcher edits) to Firestore.
  *
  * Exports: startListening, stopListening, capturePhoto, captureVideo,
  *          processEntry, generateResponse, handleFollowUpResponse,
@@ -2447,12 +2452,23 @@
       }
     }
 
-    Promise.all(writes).then(function () {
+    Promise.all(writes).then(function (results) {
       showSubmitStatus("Submitted to office ✓", true);
       if (submitBtn) {
         submitBtn.textContent = "Submitted ✓";
         submitBtn.disabled = true;
       }
+      /* Slice 50a: passive learning upload after successful submission */
+      try {
+        if (window.LearningSync && typeof window.LearningSync.uploadLearningData === "function") {
+          var reportId = (results && results[0] && results[0].id) ? results[0].id : "";
+          window.LearningSync.uploadLearningData({
+            ticketId: ticketId,
+            reportDocId: reportId,
+            compileResult: _lastCompileResult
+          });
+        }
+      } catch (lsErr) { /* degrade silently — learning sync is non-critical */ }
     }).catch(function (err) {
       showSubmitStatus("Submit failed: " + (err && err.message ? err.message : "Unknown error"), false);
       if (submitBtn) {
