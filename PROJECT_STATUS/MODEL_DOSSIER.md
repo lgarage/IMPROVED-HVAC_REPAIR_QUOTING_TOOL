@@ -19,13 +19,13 @@ _Fast lookup before §6B — use § Workspace enabled models for full alternates
 | Archetype | Recommended model | Notes |
 |-----------|------------------|-------|
 | T0 (exact replace, version bump) | **GPT-5.4 Nano** / **GPT-5.4 Mini** | Rotate between to find cheapest safe alternative |
-| T1 mechanical (multi-step edits) | **Haiku 4.5** / **Gemini 3 Flash** | Stronger reasoning than Composer 2; skip pure-reasoning tasks |
+| T1 mechanical (multi-step edits) | **Gemini 3 Flash** / **GPT-5.4 Mini** | Stronger reasoning than Composer 2; skip pure-reasoning tasks |
 | T1 nuanced / T2 | **Sonnet 4.6** | Default daily implementation; Kimi K2.5 as experimental alt |
 | T3 code-heavy multi-file | **Codex 5.3** | Prefer over Opus for pure-code T3 |
 | T3 Vertex Core / T3+ / UNCERTAIN | **Opus 4.6** | Current ceiling — Opus 4.7 disabled 2026-05-07 |
-| T4 read-only / tour | **Haiku 4.5** / **Gemini 3 Flash** | Good reasoning; skip if exhaustive deep-dive needed |
+| T4 read-only / tour | **Gemini 3 Flash** / **GPT-5 Mini** | Good reasoning; skip if exhaustive deep-dive needed |
 
-_Last verified: 2026-05-15. **IMPORTANT:** Composer 2 reasoning weakness (see outcome log row 2026-05-15 auto-scroll) makes it a net time-waster despite speed. Prefer Haiku 4.5 / Gemini 3 Flash / GPT-5 Mini for all T0–T1. Full table: § Default "switch to" before work._
+_Last verified: 2026-05-15. **IMPORTANT:** Composer 2 reasoning weakness (see outcome log row 2026-05-15 auto-scroll) makes it a net time-waster despite speed. Prefer GPT-5.4 Nano / GPT-5.4 Mini / Gemini 3 Flash / GPT-5 Mini for all T0–T1. Full table: § Default "switch to" before work._
 
 → **Outcome log** (calibration data): see § Outcome log (newest first) below.
 
@@ -86,6 +86,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-15 | Field app: header spacing polish — tightened `technician/index.html` top shell padding, reduced customer/site banner gap, and centered the tech badge so the Schedule row sits closer to `PLANET FITNESS` without crowding. | LOW | T1 | Fast | 82% | 90% | could_use_smaller | ok | Cursor: **GPT-5.4 Mini** — first fast-tier rotation check; pure CSS spacing with no JS or Firestore. |
 | 2026-05-15 | Field app: Remove "Which unit?" nudge — `generateResponse` (medium conf, no equipment entity) → "Got it." not "Which unit?"; `checkFollowUpPrompt` no-op (`hideFollowUpPrompt` only); removed `.ct-followup-prompt*` CSS from `technician/index.html`. `VC_BUILD: Phase60-TimelineNoWhichUnit-2026-05-15`, `conversational_timeline.js?v=18`. | LOW | T1 | Fast | 85% | 92% | ok | ok | Cursor: **Composer 2** — cluster (c) small UI removal / behavior kill switch; dead `createFollowUpEl` HTML string still mentions Which unit but is never mounted. |
 | 2026-05-15 | Field app: Mobile UI v8 — root-fix auto-scroll. `#screen-workspace.active`: `min-height` → `height` (bounded flex chain so `#ct-message-list` actually scrolls). Removed `scroll-behavior: smooth` from `#ct-message-list` (iOS drops `scrollTop` assignments when smooth is active). Added `scrollIntoView({block:"nearest"})` fallback on last stream child. `VC_BUILD: Phase60-MobileUIv8-2026-05-15`, `conversational_timeline.js?v=17`. | LOW | T1 | Balanced | 95% | 96% | ok | ok | Cursor: **Sonnet 4.6** (user moved after Composer 2 missed root cause). Root cause was CSS not JS — `min-height` allows workspace to grow infinitely; `#ct-message-list` was never bounded; `scrollTop = scrollHeight` was a no-op. Lesson: auto-scroll failures in flex layouts → check `height` vs `min-height` on root flex container first; `scroll-behavior: smooth` also silently drops `scrollTop` on iOS. |
 | 2026-05-15 | Field app: Mobile UI v7 — timeline auto-scroll + fix Compile/Sync survival. `#ct-message-stream` inner container; `renderTimeline` sets `innerHTML` on stream only (Compile/Sync siblings preserved). `scrollToBottom`: immediate + double `requestAnimationFrame` + 80ms retry for iOS layout. Hints/draft/save-prompt append to stream. `VC_BUILD: Phase60-MobileUIv7-2026-05-15`, `conversational_timeline.js?v=16`. | LOW | T1 | Balanced | 93% | 94% | could_use_smaller | **failed** | Cursor: **Composer 2** (user proceeded after gate). **COMPOSER 2 FAILURE — auto-scroll did not work after ship.** Composer 2 only patched the JS layer (`scrollToBottom` timing + `rAF` + `#ct-message-stream` target) — it **never inspected the CSS flex chain** and missed that `#screen-workspace.active` used `min-height` (unbounded) instead of `height` (bounded), making `#ct-message-list` unable to scroll at all. `scrollTop = scrollHeight` was a no-op because `scrollHeight === clientHeight` — the container was growing with its content rather than constraining it. **Lesson: Composer 2 treats scroll bugs as JS problems; it does not reason about whether the scrollable container is actually bounded by its CSS ancestors.** Any auto-scroll / sticky-input failure where "the JS looks right" must be escalated to Sonnet 4.6 or higher to audit the full CSS flex chain. Next similar "scroll not working despite correct JS" → **Sonnet 4.6 minimum**. |
@@ -176,17 +177,17 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 
 **Last verified:** 2026-05-15 (Cursor **Settings → Models**).
 
-> **2026-05-15 model expansion:** User enabled **Haiku 4.5**, **GPT-5.4 Mini**, **GPT-5.4 Nano**, **Gemini 3 Flash**, **GPT-5 Mini**, **Kimi K2.5**. Rationale: Composer 2's reasoning weakness (see outcome log 2026-05-15 auto-scroll failure) is a net time-waster. New fast-tier models offer better reasoning for T0–T1. Build outcome log signal by rotating between them on low-risk tasks. Kimi K2.5 is experimental — test at T2 first before adding to regular rotation.
+> **2026-05-15 model expansion:** User enabled **GPT-5.4 Mini**, **GPT-5.4 Nano**, **Gemini 3 Flash**, **GPT-5 Mini**, **Kimi K2.5**. Rationale: Composer 2's reasoning weakness (see outcome log 2026-05-15 auto-scroll failure) is a net time-waster. New fast-tier models offer better reasoning for T0–T1. Build outcome log signal by rotating between them on low-risk tasks. Kimi K2.5 is experimental — test at T2 first before adding to regular rotation.
 >
-> **Composer 2 advisory:** Still in rotation for pure mechanical edits (one-liner, exact string replace, version bump). **Do not** use for bugs, styling decisions, or any task requiring code reasoning or cross-file judgment. When in doubt between Composer 2 and alternatives, **pick Haiku 4.5** or **Gemini 3 Flash**.
+> **Composer 2 advisory:** Still in rotation for pure mechanical edits (one-liner, exact string replace, version bump). **Do not** use for bugs, styling decisions, or any task requiring code reasoning or cross-file judgment. When in doubt between Composer 2 and alternatives, **pick Gemini 3 Flash** or **GPT-5.4 Mini**.
 
 ### Agent rule
 
 - For **§6B** `Recommended model:` and the **§6B1** gate **(A)** paragraph, pick **one** name from **§ Currently enabled** below (exact picker spelling).
 - Recommend the **cheapest enabled model that still meets** the task's minimum tier (see **§ Default "switch to" before work**).
-- **Do not** recommend **Premium** as the model — it is a **plan/suite** label in the list, not a replaceable capability pick. Choose **Haiku 4.5**, **Sonnet 4.6**, **Codex 5.3**, **Opus 4.6**, etc.
+- **Do not** recommend **Premium** as the model — it is a **plan/suite** label in the list, not a replaceable capability pick. Choose **GPT-5.4 Mini**, **Sonnet 4.6**, **Codex 5.3**, **Opus 4.6**, etc.
 - **Opus 4.7 is disabled.** Do not recommend it. Use **Opus 4.6** anywhere Opus 4.7 was previously the recommendation.
-- **Composer 2 demotion (2026-05-15):** Moved from default T0–T1 to fallback only due to documented reasoning gaps. Use **Haiku 4.5**, **Gemini 3 Flash**, **GPT-5.4 Nano** first.
+- **Composer 2 demotion (2026-05-15):** Moved from default T0–T1 to fallback only due to documented reasoning gaps. Use **GPT-5.4 Nano**, **GPT-5.4 Mini**, **Gemini 3 Flash**, **GPT-5 Mini** first.
 
 ### Currently enabled
 
@@ -194,7 +195,6 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 |-------------|----------------------|--------|
 | **GPT-5.4 Nano** | Fast | **T0 first choice** — pure mechanical edits; rotate with Mini to find sweet spot |
 | **GPT-5.4 Mini** | Fast | **T0–T1 alternate** — slightly stronger reasoning than Nano |
-| **Haiku 4.5** | Fast | **T1 first choice** — noticeably better reasoning than Composer 2; stronger at instruction-following |
 | **Gemini 3 Flash** | Fast | **T1 alternate** — reliable code edits, strong at following constraints |
 | **GPT-5 Mini** | Fast | **Experimental T1 alt** — newer GPT-5 base, likely stronger than Sonnet 4.6 on some tasks; build signal before promoting |
 | **Composer 2** | Fast | **Fallback for pure mechanical** — speed advantage offset by reasoning weakness (see auto-scroll outcome row). Use only when task is 100% explicit (exact replace, version bump). |
@@ -205,6 +205,7 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 | **Codex 5.3** | Strong | **Prefer** for code-heavy T3 multi-file work |
 | **Opus 4.6** | Strong | **Current ceiling** for T3+ / UNCERTAIN / Vertex Core. Replacing Opus 4.7. Tracking performance — see outcome log. |
 | **Kimi K2.5** | **Experimental** | Enabled for testing at T2 level. Benchmarks suggest MoE may rival Sonnet on some tasks. **Do not** add to T0–T1 until outcome log has ≥2 rows. |
+| ~~**Haiku 4.5**~~ | *(disabled)* | Removed from rotation after the dossier rewrite truncation incident; do not re-enable for fast-tier work until it has a clean success record on T2+ tasks. |
 | ~~**Opus 4.7**~~ | *(disabled)* | Disabled 2026-05-07 — too expensive. Re-enable if outcome log shows Opus 4.6 `needed_bigger` on T3+ tasks. |
 | **Premium** | *(not a model)* | Ignore for recommendations — pick a concrete model above |
 
@@ -214,11 +215,11 @@ Use this table for **§6B1 (A)** ("switch to **X** because …"). Offer **one** 
 
 | Archetype | Recommended model (switch to this first) | Enabled alternates |
 |-----------|------------------------------------------|--------------------|
-| **T0** (exact replace, 1-line) | **GPT-5.4 Nano** | GPT-5.4 Mini, Haiku 4.5 |
-| **T1** (mechanical, multi-step) | **Haiku 4.5** | Gemini 3 Flash, GPT-5 Mini |
-| **T1** (nuanced single file) | **Haiku 4.5** | Sonnet 4.6, GPT-5 Mini |
+| **T0** (exact replace, 1-line) | **GPT-5.4 Nano** | GPT-5.4 Mini, Gemini 3 Flash |
+| **T1** (mechanical, multi-step) | **GPT-5.4 Mini** | Gemini 3 Flash, GPT-5 Mini |
+| **T1** (nuanced single file) | **Gemini 3 Flash** | Sonnet 4.6, GPT-5 Mini |
 | **T2** | **Sonnet 4.6** | Kimi K2.5 (experimental) |
-| **T4** (read-only / tour) | **Haiku 4.5** | Gemini 3 Flash |
+| **T4** (read-only / tour) | **Gemini 3 Flash** | GPT-5 Mini |
 | **T3** (implementation / code-heavy) | **Codex 5.3** | GPT-5.5, Opus 4.6, GPT-5.4, GPT-5.2 |
 | **T3 Vertex Core** (tenant, Firestore writes, field critical path, Office Override) | **Opus 4.6** | Codex 5.3, GPT-5.5 |
 | **T3+ / UNCERTAIN** | **Opus 4.6** | GPT-5.5, Codex 5.3 |
@@ -254,7 +255,7 @@ If `.cursorrules` says **HIGH / UNCERTAIN → stop and escalate**, that **overri
 
 ## Changelog
 
-- **2026-05-15:** **Fast-tier expansion & Composer 2 demotion**. Added Haiku 4.5, GPT-5.4 Nano/Mini, Gemini 3 Flash, GPT-5 Mini, Kimi K2.5. Reasoning: Composer 2 failure on 2026-05-15 auto-scroll task (CSS reasoning gap) marked as net time-waster despite speed. New models offer better T0–T1 reasoning for cheaper cost than Sonnet 4.6. Tier quick card updated; "switch to" table rebuilt around rotation strategy. Kimi K2.5 experimental at T2 only until signal builds. Outcome log row added to document Composer 2 weakness.
+- **2026-05-15:** **Fast-tier expansion & Composer 2 demotion**. Added GPT-5.4 Nano/Mini, Gemini 3 Flash, GPT-5 Mini, Kimi K2.5. Haiku 4.5 was tried, then removed from rotation after the dossier rewrite truncation incident. Reasoning: Composer 2 failure on 2026-05-15 auto-scroll task (CSS reasoning gap) marked as net time-waster despite speed. New models offer better T0–T1 reasoning for cheaper cost than Sonnet 4.6. Tier quick card updated; "switch to" table rebuilt around rotation strategy. Kimi K2.5 experimental at T2 only until signal builds. Outcome log row added to document Composer 2 weakness.
 - **2026-05-07:** **Opus 4.7 disabled** (cost). Opus 4.6 is new Strong ceiling for T3+/UNCERTAIN/Vertex Core. All "switch to" table entries updated. Tracking Opus 4.6 via outcome log.
 - **2026-05-02:** **Strict §6B1 flow** in `.cursorrules` §6B1 (steps 0–4, mandatory **(A)(B)(C)**); `.cursor/rules/model-selection.mdc` aligned; dossier cross-refs updated.
 - **2026-05-02:** **North star** reframed — agent notebook, **task-type** logging (not every task), **continuous improvement** / apply learned rows; §6H softened to match.

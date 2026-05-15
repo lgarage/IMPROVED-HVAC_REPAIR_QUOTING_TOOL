@@ -62,7 +62,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px 10px;
+  padding: 10px 16px 8px;
 }
 .app-header-row img { max-height: 40px; flex-shrink: 0; }
 .app-header-row img#vcBrandLogo {
@@ -74,7 +74,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
+  gap: 4px;
   flex: 0 0 auto;
   min-width: 0;
   overflow: visible;
@@ -372,7 +372,7 @@ body.vc-override-pending .vc-office-override-global-strip {
   font-weight: 800;
   color: #c89b53;
   background: #fdfaf2;
-  padding: 5px 10px;
+  padding: 4px 10px;
   border-radius: 12px;
   border: 1px solid #fad7a1;
   flex: 0 1 auto;
@@ -382,6 +382,10 @@ body.vc-override-pending .vc-office-override-global-strip {
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: right;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
 }
 /* Shadow viewer (dispatcher iframe): searchable tech switcher — Twin Pillar orange accent */
 .vc-shadow-tech-selector {
@@ -560,7 +564,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 /* Workspace: flex column fills viewport below shell so only #ct-message-list scrolls; composer is fixed. */
 #screen-workspace.screen {
   /* Pull customer/site banner closer to the sticky Schedule nav—avoid double vertical padding vs .screen */
-  padding-top: 8px;
+  padding-top: 4px;
   padding-bottom: 0;
 }
 #screen-workspace.screen.active {
@@ -3032,7 +3036,7 @@ body.vc-override-active #vcOfficeOverrideBanner {
 .dictation-site-nav {
   background: #0f172a;
   color: #94a3b8;
-  padding: 10px 14px 12px;
+  padding: 8px 14px 10px;
   border-bottom: 2px solid #0ea5e9;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
@@ -3046,7 +3050,7 @@ body.vc-override-active #vcOfficeOverrideBanner {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .dictation-site-nav .ws-customer-row .ws-customer { margin-bottom: 0; flex: 1; min-width: 0; }
 .dictation-site-nav .ws-customer { font-size: 20px; font-weight: 800; margin-bottom: 6px; color: #f1f5f9; }
