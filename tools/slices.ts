@@ -754,4 +754,314 @@ Pure UX polish — no data model change, no new Firestore paths.`,
     outOfScope: "Auto-save. Undo. New fields in ticket details.",
     cacheBusts: ["service_call.js?v=71"],
   },
+
+  // ═══════════════════════════════════════════════════════════
+  //  Phase 58: KI-002 Hygiene Leftovers
+  //  All items from ROADMAP.md → Minor Tweaks & Polish
+  // ═══════════════════════════════════════════════════════════
+
+  {
+    id: "58a",
+    phase: 58,
+    title: "B5 — report_builder.css duplicate load consolidation",
+    dependsOn: [],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    htmlTarget: "index.html",
+    filesToCreate: [],
+    filesToModify: ["dispatcher/js/report_builder.js"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Fix KI-002 B5: dispatcher/js/report_builder.js dynamically loads report_builder.css?v=1
+(see lines ~138-140, in a function that builds a URL to the CSS file) while index.html line ~20
+already loads <link rel="stylesheet" href="dispatcher/css/report_builder.css?v=4">.
+The JS-loaded version is stale (v=1 vs v=4) and causes a redundant network request.
+Fix: in report_builder.js, remove or skip the dynamic CSS load if the stylesheet is already
+present in the document. Check document.querySelector('link[href*="report_builder.css"]') —
+if it exists, skip the dynamic injection. If it doesn't exist (e.g. the report builder runs
+in a standalone context), keep the dynamic load but bump the version to match (?v=4).
+Do NOT modify index.html — only change report_builder.js.
+Bump the cache-bust version on the script tag for report_builder.js in index.html if one exists.`,
+    outOfScope: "Changing report_builder.css content. Modifying the report builder UI. Any Firestore changes.",
+    cacheBusts: [],
+  },
+  {
+    id: "58b",
+    phase: 58,
+    title: "C1 — shadow_mode.js subscriber refcount + unsubscribe",
+    dependsOn: [],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "review",
+    htmlTarget: "index.html",
+    filesToCreate: [],
+    filesToModify: ["dispatcher/js/shadow_mode.js"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Fix KI-002 C1: dispatcher/js/shadow_mode.js subscribeLivePresenceIdle() (line ~187)
+creates an onSnapshot listener on the live_presence collection but never stores the unsubscribe
+function. Multiple consumers call it (shadow modal, take-over button, syncDispatcherTicketIdToActiveTech)
+but the .wired flag means only one listener is created.
+Fix:
+1. Store the unsubscribe function returned by onSnapshot in a module-level variable
+   (e.g. _livePresenceIdleUnsub).
+2. Add an unsubscribeLivePresenceIdle() function that calls the unsub and resets the .wired flag.
+3. Call unsubscribeLivePresenceIdle() when the shadow modal is closed or when the user navigates
+   away from views that need live presence data.
+4. This is a memory/connection leak fix — the listener currently persists for the lifetime of the page
+   even when shadow mode is not in use.
+Do NOT change the behavior of the listener callback — only add proper lifecycle management.
+Bump cache-bust on the shadow_mode.js script tag in index.html.`,
+    outOfScope: "Changing shadow mode behavior. Adding new shadow features. Firestore write changes.",
+    cacheBusts: ["dispatcher/js/shadow_mode.js"],
+  },
+  {
+    id: "58c",
+    phase: 58,
+    title: "C2 — field_forms.js listener cleanup on tab leave",
+    dependsOn: [],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["field_forms.js"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Fix KI-002 C2: field_forms.js (lines ~496-510) creates an onSnapshot listener on
+the form_templates Firestore collection but does not store the unsubscribe function.
+Fix:
+1. Store the unsubscribe function returned by db.collection("form_templates").onSnapshot(...)
+   in a module-level variable (e.g. _formTemplatesUnsub).
+2. When the tech navigates away from the forms tab/screen (look for existing switchScreen or
+   tab-leave logic in field_forms.js or technician/index.html), call _formTemplatesUnsub()
+   to release the Firestore listener.
+3. Re-subscribe when the forms tab is opened again (the existing .wired flag pattern or similar
+   should handle re-initialization).
+This prevents an orphaned Firestore listener from consuming reads when forms are not in use.
+Do NOT change the form_templates data handling logic — only add lifecycle cleanup.
+Bump field_forms.js cache-bust version in technician/index.html.`,
+    outOfScope: "Changing form template rendering. Adding new form features. Modifying form_templates writes.",
+    cacheBusts: ["field_forms.js"],
+  },
+  {
+    id: "58d",
+    phase: 58,
+    title: "E1 — Normalize internal_comms type on write",
+    dependsOn: [],
+    patterns: ["Firestore write path (new collection/doc)"],
+    riskLevel: "review",
+    htmlTarget: "index.html",
+    filesToCreate: [],
+    filesToModify: ["dispatcher/js/activity_feed.js"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Fix KI-002 E1: dispatcher/js/activity_feed.js normalizeInternal function (lines ~44-55)
+should normalize internal_comms to a single canonical type on every write.
+Currently, internal_comms documents can have inconsistent type fields (e.g. "note", "notes",
+"internal", "inter-office") depending on which code path created them.
+Fix:
+1. In the normalizeInternal function, ensure every internal_comms document written has a
+   consistent type field. Pick one canonical value: type: "internal_comms".
+2. Before writing, map any variant types to the canonical value:
+   - "note" → "internal_comms"
+   - "notes" → "internal_comms"
+   - "internal" → "internal_comms"
+   - "inter-office" → "internal_comms"
+   - "interOffice" → "internal_comms"
+3. Read the full normalizeInternal function and any callers to understand the current flow
+   before making changes.
+This is a data normalization fix — do NOT change what data is written, only ensure the type
+field is consistently "internal_comms".
+Bump activity_feed.js cache-bust version in index.html.`,
+    outOfScope: "Migrating existing documents. Changing the activity feed UI. Adding new comms types.",
+    cacheBusts: ["dispatcher/js/activity_feed.js"],
+  },
+  {
+    id: "58e",
+    phase: 58,
+    title: "E3 — WriteBatch for roster + on-call dual writes",
+    dependsOn: [],
+    patterns: ["Firestore write path (new collection/doc)"],
+    riskLevel: "review",
+    htmlTarget: "index.html",
+    filesToCreate: [],
+    filesToModify: ["settings.js"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Fix KI-002 E3: settings.js (lines ~614-617 and ~632-635) performs two sequential
+Firestore writes (roster + on_call_state) that should succeed atomically.
+Currently, if the first write succeeds but the second fails, the data is left in an
+inconsistent state.
+Fix:
+1. Find the two locations in settings.js where roster and on-call data are saved together.
+2. Replace the sequential .set() or .update() calls with a Firestore WriteBatch:
+   var batch = firebase.firestore().batch();
+   batch.set(rosterRef, rosterData, { merge: true });
+   batch.set(onCallRef, onCallData, { merge: true });
+   await batch.commit();
+3. Keep the same error handling — if batch.commit() fails, surface the error the same way
+   the current code does (look for existing .catch or try/catch patterns).
+4. Read the surrounding code carefully to understand the exact refs and data shapes before
+   modifying. The roster doc path is typically tenants/{tid}/roster/{techId} and on_call
+   is tenants/{tid}/on_call_state/{docId}.
+Do NOT change what data is written — only wrap existing writes in a batch.
+Bump settings.js cache-bust version in index.html.`,
+    outOfScope: "Changing roster data shape. Adding new settings features. UI changes.",
+    cacheBusts: ["settings.js"],
+  },
+  {
+    id: "58f",
+    phase: 58,
+    title: "E4 — Remove redundant syncSingleServiceCallToCloud",
+    dependsOn: [],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    htmlTarget: "index.html",
+    filesToCreate: [],
+    filesToModify: ["dispatcher/js/ai_report_reviewer.js"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Fix KI-002 E4: dispatcher/js/ai_report_reviewer.js (lines ~563-583) calls
+syncSingleServiceCallToCloud(localRow) after calling setServiceCallMerged(memo).
+The syncSingleServiceCallToCloud call is redundant because setServiceCallMerged already
+writes the data to Firestore via the bridge (VCFirestore.setServiceCallMerged).
+Fix:
+1. Find the code block around lines 563-583 in ai_report_reviewer.js.
+2. Remove or comment out the syncSingleServiceCallToCloud(localRow) call that follows
+   the setServiceCallMerged(memo) call.
+3. Verify by reading setServiceCallMerged in shared/firebase_logic.js to confirm it
+   already writes to both the tenant-scoped and root-level service_calls paths.
+4. If setServiceCallMerged does NOT write to both paths, keep the sync call and add a
+   comment explaining why it's needed.
+This removes a redundant Firestore write that doubles the write cost for AI-reviewed reports.
+Bump ai_report_reviewer.js cache-bust version in index.html.`,
+    outOfScope: "Changing AI report reviewer logic. Modifying setServiceCallMerged. UI changes.",
+    cacheBusts: ["dispatcher/js/ai_report_reviewer.js"],
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  //  Phase 59: Security Hardening
+  // ═══════════════════════════════════════════════════════════
+
+  {
+    id: "59a",
+    phase: 59,
+    title: "C4 — postMessage origin validation on all receivers",
+    dependsOn: [],
+    patterns: ["Cross-module wiring (3+ files)"],
+    riskLevel: "review",
+    filesToCreate: [],
+    filesToModify: ["technician/js/workspace_ui.js", "technician/index.html", "dispatcher/js/shadow_mode.js"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Fix KI-002 C4 (SECURITY): Three postMessage receivers accept messages without
+validating event.origin. Any iframe or window could inject messages that the app trusts.
+Fix all three receivers:
+
+1. technician/js/workspace_ui.js (~line 807): window.addEventListener("message", handler)
+   that listens for VC_OFFICE_OVERRIDE messages. Add at the top of the handler:
+   if (event.origin !== window.location.origin) return;
+
+2. technician/index.html (~line 7672): window.addEventListener("message", handler)
+   that listens for vc_shadow_parent_roster messages. Add at the top of the handler:
+   if (event.origin !== window.location.origin) return;
+
+3. dispatcher/js/shadow_mode.js (~line 411): window.addEventListener("message", handler)
+   that listens for vc_shadow_tech_changed messages. Add at the top of the handler:
+   if (event.origin !== window.location.origin) return;
+
+IMPORTANT: The origin check must use window.location.origin (not a hardcoded URL) because
+the app runs on multiple domains (localhost, Firebase Hosting preview channels, production).
+The check ensures only same-origin iframes (like the Shadow Mode iframe) can send messages.
+Bump cache-bust versions on workspace_ui.js and shadow_mode.js.`,
+    outOfScope: "Adding CSP headers. Changing postMessage data formats. Adding new message types.",
+    cacheBusts: ["technician/js/workspace_ui.js", "dispatcher/js/shadow_mode.js"],
+  },
+  {
+    id: "59b",
+    phase: 59,
+    title: "Firestore rules — tighten open paths to require auth",
+    dependsOn: [],
+    patterns: ["Firestore write path (new collection/doc)"],
+    riskLevel: "review",
+    filesToCreate: [],
+    filesToModify: ["firestore.rules"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `SECURITY: Tighten Firestore rules from 'allow read, write: if true' to require
+Firebase Auth on all tenant-scoped and data paths.
+In firestore.rules, replace 'if true' with 'if request.auth != null' on these paths:
+- tenants/{tid}/service_calls/{document=**}
+- tenants/{tid}/site_intelligence/{document=**}
+- tenants/{tid}/live_presence/{document=**}
+- tenants/{tid}/imported_equipment/{document=**}
+- tenants/{tid}/imported_equipment_photos/{document=**}
+- tenants/{tid}/labor_logs/{document=**}
+- tenants/{tid}/roster/{document=**}
+- tenants/{tid}/field_quotes/{document=**}
+- tenants/{tid}/pm_records/{document=**}
+- tenants/{tid}/field_form_submissions/{document=**}
+- tenants/{tid}/on_call_state/{document=**}
+- tenants/{tid}/completed_reports/{docId}
+- tenants/{tid}/sandbox/{document=**}
+- service_calls/{document=**}
+- site_intelligence/{document=**}
+- completed_reports/{document=**}
+- Customers/{document=**}
+- customers/{document=**}
+- customers/{cid}/sites/{sid}/assets/{document=**}
+- ParentCompanies/{document=**}
+- MappedLocations/{document=**}
+- invoices/{document=**}
+- metadata/{document=**}
+
+KEEP 'if true' (public read needed) on:
+- tenants/{tid}/config/entitlements — read: if true (non-sensitive config, already has admin-gated write)
+- app_config/{document=**} — read: if true (public config like technician roster)
+- form_templates/{document=**} — read: if true (public form definitions)
+
+KEEP 'if true' on portal_tokens:
+- tenants/{tid}/portal_tokens/{document=**} — read: if true (customer portal uses unauthenticated links)
+  But tighten write to: if request.auth != null
+
+For the paths that keep 'if true' read, split into separate read/write rules:
+  allow read: if true;
+  allow write: if request.auth != null;
+
+DO NOT run 'firebase deploy' — commit only. Add a comment at the top of firestore.rules
+noting the date of the security tightening and that manual deploy is required.`,
+    outOfScope: "Role-based access control (admin vs tech). Per-field validation rules. Storage rules. Deploying rules.",
+    cacheBusts: [],
+  },
+  {
+    id: "59c",
+    phase: 59,
+    title: "Storage rules — verify new upload paths from Phases 41-57",
+    dependsOn: [],
+    patterns: ["Firestore write path (new collection/doc)"],
+    riskLevel: "review",
+    filesToCreate: [],
+    filesToModify: ["storage.rules"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `SECURITY: Audit storage.rules against all ref.put() / ref.child() call sites
+to ensure new upload paths from Phases 41-57 are covered by explicit prefix rules.
+Steps:
+1. Grep the entire codebase for firebase.storage().ref().child( and ref.put( and storageRef
+   to find ALL Storage upload paths currently in use.
+2. Read storage.rules to see which prefixes are explicitly allowed.
+3. For any upload path NOT covered by an existing prefix rule, add a new match block:
+   match /new_prefix/{allPaths=**} {
+     allow read: if request.auth != null;
+     allow write: if request.auth != null
+                  && request.resource.size < 10 * 1024 * 1024;
+   }
+4. Specifically check for:
+   - field_evidence/{ticketId}/ (from conversational_timeline.js media capture, Phase 41c)
+   - Any paths used by offline_storage_outbox.js (Phase 56a)
+   - Any paths used by teaching_layer.js (Phase 52a) for knowledge media
+5. Ensure NO catch-all rule exists that allows writes to arbitrary paths.
+6. Keep the 10MB file size limit on all write rules.
+DO NOT deploy — commit only. Add a comment in storage.rules noting the audit date.`,
+    outOfScope: "Firestore rules (that's 59b). Adding CDN or image compression. Changing upload logic in JS files.",
+    cacheBusts: [],
+  },
 ];
