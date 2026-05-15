@@ -13,9 +13,12 @@ import * as path from "path";
 import * as readline from "readline";
 import { execSync } from "child_process";
 import { SLICES, type Slice } from "./slices";
+import { ARCHIVED_SLICES } from "./slices_archive";
 import { selectModel, updateLookupRow, buildEscalationLadder, MODEL_COST_RANK } from "./model_selector";
 import { validateSlice } from "./validator";
 import { buildPrompt } from "./prompt_builder";
+
+const MAX_ACTIVE_SLICES = 20;
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const STATE_FILE = path.join(__dirname, ".build_state.json");
@@ -106,6 +109,18 @@ function loadState(): BuildState {
     if (ss.status === "running") {
       ss.status = ss.attempts > 0 ? "failed" : "pending";
     }
+  }
+  // Strip archived slices — they're done and don't need to be tracked
+  const archivedIds = new Set(ARCHIVED_SLICES.map((s) => s.id));
+  let stripped = 0;
+  for (const id of Object.keys(state.slices)) {
+    if (archivedIds.has(id)) {
+      delete state.slices[id];
+      stripped++;
+    }
+  }
+  if (stripped > 0) {
+    saveState(state);
   }
   return state;
 }
@@ -328,6 +343,89 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
   return false;
 }
 
+// ─── Auto-Archive Routine ───
+
+/**
+ * Extracts the full object literal for a slice from slices.ts text.
+ * Matches by id field; grabs from opening { to closing },
+ */
+function extractSliceObjectText(slicesTsText: string, sliceId: string): string | null {
+  // Match the opening of a slice object by its id field
+  const idPattern = new RegExp(
+    `(\\{[^{}]*id:\\s*["']${sliceId}["'][\\s\\S]*?)(?=\\n  \\{\\n|\\n\\];)`,
+    "m"
+  );
+  const match = idPattern.exec(slicesTsText);
+  if (!match) return null;
+  // Ensure we have a properly closed object by counting braces
+  let text = match[1];
+  let depth = 0;
+  let end = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") {
+      depth--;
+      if (depth === 0) { end = i; break; }
+    }
+  }
+  if (end === -1) return null;
+  return text.slice(0, end + 1).trim();
+}
+
+async function runArchiveRoutine(state: BuildState, force = false): Promise<number> {
+  const slicesTsPath = path.join(__dirname, "slices.ts");
+  const archiveTsPath = path.join(__dirname, "slices_archive.ts");
+
+  if (!force && SLICES.length <= MAX_ACTIVE_SLICES) return 0;
+
+  // Find all passed slices in build_state that are still in slices.ts
+  const activeIds = new Set(SLICES.map((s) => s.id));
+  const passedInActive = SLICES.filter((s) => state.slices[s.id]?.status === "passed");
+
+  if (passedInActive.length === 0) return 0;
+
+  const slicesTsText = fs.readFileSync(slicesTsPath, "utf-8");
+  let archiveTsText = fs.readFileSync(archiveTsPath, "utf-8");
+
+  const extractedObjects: string[] = [];
+  let newSlicesTsText = slicesTsText;
+
+  for (const slice of passedInActive) {
+    const objText = extractSliceObjectText(slicesTsText, slice.id);
+    if (!objText) {
+      log(`  ⚠ Could not extract object for slice ${slice.id} — skipping`);
+      continue;
+    }
+    extractedObjects.push(`  ${objText},`);
+    // Remove the object (plus surrounding whitespace/comma) from slices.ts
+    newSlicesTsText = newSlicesTsText.replace(objText + ",", "").replace(objText, "");
+  }
+
+  if (extractedObjects.length === 0) return 0;
+
+  // Append extracted objects into ARCHIVED_SLICES array in slices_archive.ts
+  archiveTsText = archiveTsText.replace(
+    /(\];)\s*$/,
+    extractedObjects.join("\n") + "\n];"
+  );
+
+  // Remove entries from build_state.json
+  for (const slice of passedInActive) {
+    delete state.slices[slice.id];
+  }
+
+  // Write files
+  fs.writeFileSync(slicesTsPath, newSlicesTsText.replace(/\n{3,}/g, "\n\n"));
+  fs.writeFileSync(archiveTsPath, archiveTsText);
+  saveState(state);
+
+  const msg = force
+    ? `Archived ${extractedObjects.length} passed slices (/archive command)`
+    : `Auto-archived ${extractedObjects.length} passed slices (SLICES had ${SLICES.length} > MAX_ACTIVE_SLICES=${MAX_ACTIVE_SLICES})`;
+  log(msg);
+  return extractedObjects.length;
+}
+
 // ═══════════════════════════════════════════════════════════
 //  SLASH COMMANDS
 // ═══════════════════════════════════════════════════════════
@@ -374,6 +472,7 @@ const commands: SlashCommand[] = [
       const failed = SLICES.filter((s) => state.slices[s.id]?.status === "failed").length;
       const pending = SLICES.length - passed - failed;
       console.log(`\n  Total: ${passed} passed, ${failed} failed, ${pending} pending`);
+      console.log(`  ${ARCHIVED_SLICES.length} archived (see slices_archive.ts)`);
       if (state.lastRun) console.log(`  Last run: ${state.lastRun}`);
       console.log();
     },
@@ -415,6 +514,12 @@ const commands: SlashCommand[] = [
   │  • Dependency order is enforced.                         │
   └──────────────────────────────────────────────────────────┘
 `);
+      // Auto-archive at start if SLICES is bloated
+      if (SLICES.length > MAX_ACTIVE_SLICES) {
+        console.log(`  ♻  SLICES.length (${SLICES.length}) > MAX_ACTIVE_SLICES (${MAX_ACTIVE_SLICES}) — running auto-archive...`);
+        await runArchiveRoutine(state);
+      }
+
       enableStopHotkey();
       let next = getNextSlice(state);
       let count = 0;
@@ -451,6 +556,10 @@ const commands: SlashCommand[] = [
       stopAfterCurrent = false;
       if (!next) {
         console.log(`\n  All done! ${count} slices completed.\n`);
+      }
+      // Auto-archive at end in case the run pushed count over the threshold
+      if (SLICES.length > MAX_ACTIVE_SLICES) {
+        await runArchiveRoutine(state);
       }
     },
   },
@@ -731,6 +840,21 @@ const commands: SlashCommand[] = [
     },
   },
   {
+    name: "/archive",
+    alias: [],
+    args: "",
+    description: "Force-archive all passed slices from slices.ts → slices_archive.ts",
+    handler: async (_args, state) => {
+      console.log("\n  Running archive routine (forced)...\n");
+      const n = await runArchiveRoutine(state, true);
+      if (n === 0) {
+        console.log("  Nothing to archive — no passed slices in the active SLICES array.\n");
+      } else {
+        console.log(`  Archived ${n} slice(s). Restart the runner to reload slices.\n`);
+      }
+    },
+  },
+  {
     name: "/quit",
     alias: ["/q", "/exit"],
     args: "",
@@ -750,7 +874,7 @@ function printHelp(): void {
     "Build": commands.filter((c) => ["/next", "/all", "/run"].includes(c.name)),
     "Info": commands.filter((c) => ["/status", "/plan", "/inspect", "/preview", "/errors", "/log"].includes(c.name)),
     "Cost": commands.filter((c) => ["/cost", "/models"].includes(c.name)),
-    "Manage": commands.filter((c) => ["/reset", "/push", "/preflight"].includes(c.name)),
+    "Manage": commands.filter((c) => ["/reset", "/push", "/preflight", "/archive"].includes(c.name)),
     "Other": commands.filter((c) => ["/help", "/stop", "/quit"].includes(c.name)),
   };
 
