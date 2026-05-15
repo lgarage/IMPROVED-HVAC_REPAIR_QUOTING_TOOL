@@ -1215,6 +1215,12 @@ body.vc-override-active #vcOfficeOverrideBanner {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
+/* Inner column: only this region is replaced by renderTimeline (Compile/Sync stay as siblings). */
+.ct-message-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 /* Reserve space so last bubbles clear the fixed composer dock (util-row + input row ≈ 106px). */
 #screen-workspace.screen.active #ct-message-list {
   padding-bottom: calc(16px + 106px + env(safe-area-inset-bottom, 0px));
@@ -6348,8 +6354,10 @@ button#techDisplayLabel:active { opacity: 0.75; }
     <div id="ct-site-memory" class="ct-site-memory" hidden aria-label="Site operational memory"></div>
     <div id="ct-knowledge-panel" class="ct-knowledge-panel" hidden aria-label="Knowledge tips"></div>
     <div id="ct-message-list" aria-live="polite" role="log" aria-label="Conversation messages">
-      <p class="ct-empty">Open a ticket to load its conversation timeline.</p>
-      <!-- Compile Notes + Sync Ticket scroll with the conversation -->
+      <div id="ct-message-stream" class="ct-message-stream">
+        <p class="ct-empty">Open a ticket to load its conversation timeline.</p>
+      </div>
+      <!-- Compile Notes + Sync Ticket scroll with the conversation (below bubbles) -->
       <div id="ct-post-chat-actions" class="ct-post-chat-actions">
         <button
           id="ct-compile-btn"
@@ -6994,7 +7002,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase60-MobileUIv6-2026-05-15";
+window.VC_BUILD = "Phase60-MobileUIv7-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -11998,7 +12006,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=2"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
-    <script src="../conversational_timeline.js?v=15"></script>
+    <script src="../conversational_timeline.js?v=16"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');

@@ -338,6 +338,11 @@
     return document.getElementById("ct-message-list");
   }
 
+  /** Bubbles-only region; Compile/Sync remain siblings inside #ct-message-list. */
+  function getMessageStreamEl() {
+    return document.getElementById("ct-message-stream");
+  }
+
   function getTimelineHeaderElement() {
     var root = document.getElementById("conversational-timeline");
     return root ? root.querySelector(".ct-header") : null;
@@ -429,7 +434,21 @@
   function scrollToBottom() {
     var list = getListElement();
     if (!list) return;
-    list.scrollTop = list.scrollHeight;
+    function run() {
+      try {
+        list.scrollTop = list.scrollHeight;
+      } catch (e) { /* no-op */ }
+    }
+    run();
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(run);
+      });
+    } else {
+      setTimeout(run, 0);
+    }
+    /* Second tick for iOS / deferred layout after innerHTML or images */
+    setTimeout(run, 80);
   }
 
   function formatFileSize(bytes) {
@@ -496,12 +515,15 @@
   function renderTimeline(ticketId) {
     var id = normalizeTicketId(ticketId);
     var list = getListElement();
-    if (!list) return;
+    var stream = getMessageStreamEl();
+    if (!list || !stream) return;
     currentTicketId = id;
     var entries = loadEntries(id);
 
     if (!entries.length) {
-      list.innerHTML = '<p class="ct-empty">No messages yet. Additions are persisted per ticket.</p>';
+      stream.innerHTML = '<p class="ct-empty">No messages yet. Additions are persisted per ticket.</p>';
+      scrollToBottom();
+      updateCompileBtnVisibility();
       return;
     }
 
@@ -540,7 +562,7 @@
         }
       }
     }
-    list.innerHTML = html;
+    stream.innerHTML = html;
     scrollToBottom();
     updateCompileBtnVisibility();
   }
@@ -591,16 +613,17 @@
 
   function showDraftBubble(text) {
     var list = getListElement();
-    if (!list) return;
+    var stream = getMessageStreamEl();
+    if (!list || !stream) return;
 
     /* Remove "no messages" placeholder if present */
-    var placeholder = list.querySelector(".ct-empty");
+    var placeholder = stream.querySelector(".ct-empty");
     if (placeholder) placeholder.remove();
 
     if (!_draftEl) {
       _draftEl = document.createElement("div");
       _draftEl.className = "ct-message ct-message--tech ct-message--draft";
-      list.appendChild(_draftEl);
+      stream.appendChild(_draftEl);
     }
     _draftEl.textContent = text || "…";
     scrollToBottom();
@@ -630,12 +653,12 @@
   }
 
   function showPermissionDeniedHint() {
-    var list = getListElement();
-    if (!list) return;
+    var stream = getMessageStreamEl();
+    if (!stream) return;
     var hint = document.createElement("p");
     hint.className = "ct-empty";
     hint.textContent = "Microphone access denied — use the text field to add notes.";
-    list.appendChild(hint);
+    stream.appendChild(hint);
     scrollToBottom();
   }
 
@@ -699,9 +722,9 @@
         addEntry(finalText, "tech", currentTicketId);
       } else if (loadEntries(currentTicketId).length === 0) {
         /* restore placeholder if no entries and nothing captured */
-        var list = getListElement();
-        if (list && !list.querySelector(".ct-message")) {
-          list.innerHTML = '<p class="ct-empty">No messages yet. Additions are persisted per ticket.</p>';
+        var stream = getMessageStreamEl();
+        if (stream && !stream.querySelector(".ct-message")) {
+          stream.innerHTML = '<p class="ct-empty">No messages yet. Additions are persisted per ticket.</p>';
         }
       }
     };
@@ -1144,12 +1167,12 @@
       _isVideoRecording = false;
       setMediaBtnVideoState(false);
       _mediaRecorder = null;
-      var list = getListElement();
-      if (list) {
+      var stream = getMessageStreamEl();
+      if (stream) {
         var hint = document.createElement("p");
         hint.className = "ct-empty";
         hint.textContent = "Camera access denied — cannot record video.";
-        list.appendChild(hint);
+        stream.appendChild(hint);
         scrollToBottom();
       }
     });
@@ -2173,8 +2196,8 @@
    * showSavePrompt — after a cloud answer, offers to save it.
    */
   function showSavePrompt(question, answer) {
-    var list = getListElement();
-    if (!list) return;
+    var stream = getMessageStreamEl();
+    if (!stream) return;
 
     var promptEl = document.createElement("div");
     promptEl.className = "ct-message ct-message--system ct-ask-save-prompt";
@@ -2189,7 +2212,7 @@
         '</div>' +
       '</div>';
 
-    list.appendChild(promptEl);
+    stream.appendChild(promptEl);
     scrollToBottom();
 
     var btns = promptEl.querySelectorAll(".ct-ask-save-btn");
