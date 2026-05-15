@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 41 — Conversational Field Capture (New Field Tech UX). SDK build runner v2.0 ready; 28 slices defined (41a–57a). Slice 49a needs retry (validator fixed).
-- **Last shipped (2026-05-14):** Build runner v2.0 (`tools/build_runner.ts`): S-to-stop hotkey, auto-retry failed slices, time remaining ticker, version display, loadState init for new slices. Model selector fix (correct SDK model IDs). Validator dynamic `htmlTarget`. 10 new slices (54a–57a). `job_context_engine.js` siteAccessNotes + unresolvedIssues (from slice 51a). Commit `6d7d091`.
+- **Last shipped (2026-05-14):** Build runner v2.1 (`tools/build_runner.ts`): fixed stale "running" slices not resetting on startup (caused "0 slices completed"), fixed `/q` and all commands dying after `/a` (readline listener destroyed by hotkey cleanup). Commit `b3bd428`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
