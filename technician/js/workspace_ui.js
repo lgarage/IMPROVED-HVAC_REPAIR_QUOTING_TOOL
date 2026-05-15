@@ -805,6 +805,7 @@
   }
 
   window.addEventListener("message", function (event) {
+    if (event.origin !== window.location.origin) return;
     var d = event.data;
     if (!d || d.type !== "VC_OFFICE_OVERRIDE") return;
     handleOfficeOverride(!!d.active);

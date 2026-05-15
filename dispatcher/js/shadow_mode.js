@@ -419,6 +419,7 @@
     if (wireShadowIframeTechSync.wired) return;
     wireShadowIframeTechSync.wired = true;
     window.addEventListener("message", function (ev) {
+      if (ev.origin !== window.location.origin) return;
       var d = ev.data;
       if (!d || d.type !== "vc_shadow_tech_changed") return;
       var sel = document.getElementById("vcShadowUserSelect");

@@ -7194,7 +7194,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase58-Slice58f-2026-05-15";
+window.VC_BUILD = "Phase59-Slice59a-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -7670,6 +7670,7 @@ function wireShadowParentRosterListener() {
   if (vcShadowParentRosterWired) return;
   vcShadowParentRosterWired = true;
   window.addEventListener("message", function (ev) {
+    if (ev.origin !== window.location.origin) return;
     const d = ev.data;
     if (!d || d.type !== "vc_shadow_parent_roster") return;
     if (!Array.isArray(d.names)) return;
@@ -12542,7 +12543,7 @@ window.onload = async function(){
     <script src="../equipment_smart_select.js?v=2"></script>
     <script src="js/ufx_adapter.js?v=1"></script>
     <script src="js/data_provider.js?v=1"></script>
-    <script src="js/workspace_ui.js?v=13"></script>
+    <script src="js/workspace_ui.js?v=14"></script>
     <script src="js/location_manager.js?v=1"></script>
     <script src="../dictation_hub.js?v=17"></script>
     <script src="../equipment_hub.js?v=15"></script>
@@ -12765,8 +12766,8 @@ window.onload = async function(){
             window.LearningSync && typeof window.LearningSync.getInclusionWeights === "function");
 
       /* ── 8. Build stamp ──────────────────────────────────────────────── */
-      check("VC_BUILD is Phase58-Slice58f-2026-05-15",
-            window.VC_BUILD === "Phase58-Slice58f-2026-05-15");
+      check("VC_BUILD is Phase59-Slice59a-2026-05-15",
+            window.VC_BUILD === "Phase59-Slice59a-2026-05-15");
 
       /* ── 9. VCStorageOutbox (Slice 56a — offline photo outbox) ───────── */
       check("VCStorageOutbox.enqueue is function",
