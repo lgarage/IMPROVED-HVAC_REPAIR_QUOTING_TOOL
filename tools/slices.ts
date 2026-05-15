@@ -1064,4 +1064,72 @@ DO NOT deploy — commit only. Add a comment in storage.rules noting the audit d
     outOfScope: "Firestore rules (that's 59b). Adding CDN or image compression. Changing upload logic in JS files.",
     cacheBusts: [],
   },
+
+  // ═══════════════════════════════════════════════════════════
+  //  Phase 60: Memory & Archive Hygiene
+  // ═══════════════════════════════════════════════════════════
+
+  {
+    id: "60a",
+    phase: 60,
+    title: "Archive passed slices + dossier overflow + build state cleanup",
+    dependsOn: [],
+    patterns: ["Cross-module wiring (3+ files)"],
+    riskLevel: "review",
+    filesToCreate: ["tools/slices_archive.ts", "PROJECT_STATUS/MODEL_DOSSIER_ARCHIVE.md"],
+    filesToModify: ["tools/slices.ts", "tools/build_runner.ts", "PROJECT_STATUS/MODEL_DOSSIER.md"],
+    expectedIds: [],
+    expectedExports: { "tools/slices_archive.ts": ["ARCHIVED_SLICES"] },
+    scope: `Memory hygiene: move completed data to archive files so hot files stay small and fast.
+Three changes:
+
+1. SLICE ARCHIVE (tools/slices_archive.ts):
+   - Create new file: tools/slices_archive.ts
+   - Export const ARCHIVED_SLICES: Slice[] (import the Slice interface from ./slices).
+   - Move ALL slices from tools/slices.ts whose id is in the set of passed slices in
+     tools/.build_state.json (status === "passed") INTO slices_archive.ts.
+   - Keep ONLY pending/failed slices in the main SLICES array in slices.ts.
+   - IMPORTANT: Read .build_state.json to determine which slices have passed.
+     Currently passed slices are: 41a through 57a (all 28 of them).
+     Slices 58a-60a are new/pending — keep those in slices.ts.
+   - The interface definition and all imports stay in slices.ts.
+   - Add a comment at the top of slices_archive.ts:
+     "// Passed slices archived from slices.ts. Import and search if you need
+     //  dependency or scope info for a completed slice."
+
+2. BUILD RUNNER UPDATE (tools/build_runner.ts):
+   - In loadState(), after initializing new slices from SLICES, also import ARCHIVED_SLICES
+     from './slices_archive' and strip any entries in state.slices whose id exists in
+     ARCHIVED_SLICES (they are done — no need to track in .build_state.json).
+   - After stripping, saveState() so the .build_state.json shrinks immediately on next run.
+   - Add a new /archive command to the REPL that:
+     (a) reads .build_state.json for all slices with status "passed"
+     (b) moves their definitions from slices.ts → slices_archive.ts (appends to ARCHIVED_SLICES array)
+     (c) removes their entries from .build_state.json
+     (d) logs how many slices were archived
+     This lets the user manually trigger archival after reviewing passed slices.
+   - The /status command should show archived count: "N archived (see slices_archive.ts)"
+
+3. DOSSIER OUTCOME LOG OVERFLOW (PROJECT_STATUS/MODEL_DOSSIER_ARCHIVE.md):
+   - Create new file: PROJECT_STATUS/MODEL_DOSSIER_ARCHIVE.md with header:
+     "# Model Dossier — Archived Outcome Log Rows"
+     "Overflow rows from MODEL_DOSSIER.md § Task outcome log. Newest first within each batch."
+     Then a blank table with the same columns as the dossier outcome log.
+   - In PROJECT_STATUS/MODEL_DOSSIER.md, count the rows in § Outcome log (newest first).
+     If there are more than 30 rows, move the OLDEST rows (beyond the newest 30) into
+     MODEL_DOSSIER_ARCHIVE.md. Leave the 30 most recent in the dossier.
+   - Under the dossier § Retention subsection, add a line:
+     "Older rows: see MODEL_DOSSIER_ARCHIVE.md (archived up to YYYY-MM-DD)."
+     with the date of the oldest moved row.
+
+VERIFICATION: After changes, confirm:
+- tools/slices.ts has ONLY pending/failed slice definitions (58a-60a range)
+- tools/slices_archive.ts has all 28 passed slice definitions (41a-57a)
+- tools/slices_archive.ts compiles (run: npx tsc --noEmit slices_archive.ts from tools/)
+- PROJECT_STATUS/MODEL_DOSSIER_ARCHIVE.md exists and has the overflow rows
+- PROJECT_STATUS/MODEL_DOSSIER.md outcome log has ≤30 rows
+- tools/build_runner.ts compiles (run: npx tsc --noEmit build_runner.ts from tools/)`,
+    outOfScope: "Changing slice behavior or runner logic beyond archival. App code changes. MODEL_LOOKUP.md pruning (future). Deleting .build_state.json entries for active slices.",
+    cacheBusts: [],
+  },
 ];
