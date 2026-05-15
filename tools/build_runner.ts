@@ -20,18 +20,19 @@ import { buildPrompt } from "./prompt_builder";
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const STATE_FILE = path.join(__dirname, ".build_state.json");
 const LOG_FILE = path.join(__dirname, "build_log.txt");
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 
 let stopAfterCurrent = false;
 let currentSliceStart = 0;
 let currentSliceId = "";
 let recentSliceDurations: number[] = [];
+let hotkeyHandler: ((key: Buffer) => void) | null = null;
 
 function enableStopHotkey(): void {
   if (!process.stdin.isTTY) return;
   process.stdin.setRawMode(true);
   process.stdin.resume();
-  process.stdin.on("data", (key: Buffer) => {
+  hotkeyHandler = (key: Buffer) => {
     const ch = key.toString();
     if (ch === "s" || ch === "S") {
       if (!stopAfterCurrent) {
@@ -59,13 +60,17 @@ function enableStopHotkey(): void {
       console.log("\n  Force quit.\n");
       process.exit(1);
     }
-  });
+  };
+  process.stdin.on("data", hotkeyHandler);
 }
 
 function disableStopHotkey(): void {
   if (!process.stdin.isTTY) return;
+  if (hotkeyHandler) {
+    process.stdin.removeListener("data", hotkeyHandler);
+    hotkeyHandler = null;
+  }
   process.stdin.setRawMode(false);
-  process.stdin.removeAllListeners("data");
 }
 
 // ─── State Management ───
@@ -94,6 +99,12 @@ function loadState(): BuildState {
   for (const s of SLICES) {
     if (!state.slices[s.id]) {
       state.slices[s.id] = { status: "pending", attempts: 0 };
+    }
+  }
+  // Reset stale "running" slices from a previous crashed session
+  for (const [id, ss] of Object.entries(state.slices)) {
+    if (ss.status === "running") {
+      ss.status = ss.attempts > 0 ? "failed" : "pending";
     }
   }
   return state;
