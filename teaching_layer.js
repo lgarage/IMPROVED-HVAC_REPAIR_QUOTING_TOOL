@@ -276,6 +276,66 @@
     });
   }
 
+  /* ── hierarchical knowledge lookup (Slice 53a) ────────────────── */
+
+  /**
+   * lookupKnowledge — exported.
+   *
+   * Searches the knowledge collection for entries whose text contains any
+   * significant words from the question.  Scope can be narrowed to
+   * "company", "site", "equipment", or "model".  Returns the best-matching
+   * doc (if any) or null.
+   *
+   * @param {string} question - The tech's free-form question
+   * @param {Object} [opts]
+   * @param {string} [opts.scope] - Limit to a specific scope level
+   * @param {string} [opts.scopeRef] - Limit to a specific scope reference
+   * @param {number} [opts.limit] - Max candidates to evaluate (default 30)
+   * @returns {Promise<Object|null>} Best matching knowledge doc, or null
+   */
+  function lookupKnowledge(question, opts) {
+    opts = opts || {};
+    var q = String(question || "").trim().toLowerCase();
+    if (!q) return Promise.resolve(null);
+
+    var filters = {};
+    if (opts.scope) filters.scope = opts.scope;
+    if (opts.scopeRef) filters.scopeRef = opts.scopeRef;
+    filters.limit = opts.limit || 30;
+
+    return findTeaching(filters).then(function (docs) {
+      if (!docs || !docs.length) return null;
+
+      var stopWords = ["the","a","an","is","are","was","were","it","i","we",
+        "they","he","she","and","or","to","of","in","on","for","at","by",
+        "how","do","does","did","can","what","where","when","why","this",
+        "that","with","not","no","you","my","be","has","have","had"];
+      var words = q.split(/\s+/).filter(function (w) {
+        return w.length > 2 && stopWords.indexOf(w) === -1;
+      });
+      if (!words.length) return docs[0] || null;
+
+      var best = null;
+      var bestScore = 0;
+      for (var i = 0; i < docs.length; i++) {
+        var docText = String(docs[i].text || "").toLowerCase();
+        var tagText = (docs[i].tags || []).join(" ").toLowerCase();
+        var combined = docText + " " + tagText;
+        var score = 0;
+        for (var j = 0; j < words.length; j++) {
+          if (combined.indexOf(words[j]) !== -1) score++;
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          best = docs[i];
+        }
+      }
+      return bestScore > 0 ? best : null;
+    }).catch(function () {
+      return null;
+    });
+  }
+
   /* ── contextual surfacing ─────────────────────────────────────── */
 
   /**
@@ -805,6 +865,7 @@
   window.TeachingLayer = {
     saveTeaching: saveTeaching,
     findTeaching: findTeaching,
+    lookupKnowledge: lookupKnowledge,
     getRelevantKnowledge: getRelevantKnowledge,
     onWorkspaceOpen: onWorkspaceOpen
   };

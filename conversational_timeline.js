@@ -109,6 +109,15 @@
  *   - Tap the panel header to collapse / expand; state persists per session.
  *   - onWorkspaceOpen calls renderSiteMemory() after renderTimeline().
  *
+ * Slice 53a: Hierarchical knowledge retrieval.
+ *   - #ct-ask-btn: "❓ Ask" button in the action bar.
+ *   - Tech types or speaks a question; lookup ladder runs (6 levels):
+ *       1. Current job timeline entries  2. Site notes
+ *       3. Equipment history             4. Company-wide knowledge
+ *       5. Uploaded manuals (stub)       6. Cloud Gemini lookup
+ *   - Cloud answer offers save prompt: company knowledge or site note.
+ *   - System bubble displays answer with source badge.
+ *
  * Exports: startListening, stopListening, capturePhoto, captureVideo,
  *          processEntry, generateResponse, handleFollowUpResponse,
  *          editEntry, handleCorrection, tagMedia, compileNotes.
@@ -1907,6 +1916,361 @@
     return targetEntry;
   }
 
+  /* ── Slice 53a: Hierarchical knowledge retrieval ────────────────── */
+
+  /**
+   * searchTimelineEntries — Level 1 of the lookup ladder.
+   * Searches the current ticket's timeline entries for keywords.
+   */
+  function searchTimelineEntries(question, ticketId) {
+    var id = normalizeTicketId(ticketId);
+    var entries = loadEntries(id);
+    if (!entries.length) return null;
+    var q = String(question || "").toLowerCase();
+    var words = q.split(/\s+/).filter(function (w) { return w.length > 2; });
+    if (!words.length) return null;
+
+    var bestEntry = null;
+    var bestScore = 0;
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      if (!e || !e.text) continue;
+      var txt = e.text.toLowerCase();
+      var score = 0;
+      for (var j = 0; j < words.length; j++) {
+        if (txt.indexOf(words[j]) !== -1) score++;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestEntry = e;
+      }
+    }
+    return bestScore > 0 ? bestEntry : null;
+  }
+
+  /**
+   * askCloudGemini — Level 6 of the lookup ladder.
+   * Sends the question + job context to Gemini for a free-form answer.
+   */
+  function askCloudGemini(question) {
+    if (typeof getGeminiApiKey !== "function") {
+      return Promise.reject(new Error("Gemini API key not available"));
+    }
+    return getGeminiApiKey().then(function (key) {
+      if (!key) throw new Error("No Gemini API key configured");
+
+      var ticket = getActiveTicket();
+      var contextLines = [];
+      if (ticket) {
+        if (ticket.customerName) contextLines.push("Customer: " + ticket.customerName);
+        if (ticket.locationAddress || ticket.address) contextLines.push("Site: " + (ticket.locationAddress || ticket.address));
+        if (ticket.issue) contextLines.push("Issue: " + ticket.issue);
+      }
+      var activeEquip = "";
+      try {
+        if (window.JobContextEngine && typeof window.JobContextEngine.getActiveEquipment === "function") {
+          activeEquip = window.JobContextEngine.getActiveEquipment() || "";
+        }
+      } catch (e) {}
+      if (activeEquip) contextLines.push("Active equipment: " + activeEquip);
+
+      var prompt = "You are a knowledgeable HVAC field service assistant. " +
+        "A technician is on-site and has a question. Provide a concise, practical answer.\n\n";
+      if (contextLines.length) {
+        prompt += "JOB CONTEXT:\n" + contextLines.join("\n") + "\n\n";
+      }
+      prompt += "QUESTION: " + question + "\n\nAnswer concisely (1-3 sentences):";
+
+      var url =
+        "https://generativelanguage.googleapis.com/v1beta/models/" +
+        getGeminiModel() +
+        ":generateContent?key=" +
+        encodeURIComponent(key);
+
+      var body = {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 512
+        }
+      };
+
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).then(function (resp) {
+        if (!resp.ok) throw new Error("Gemini API error: " + resp.status);
+        return resp.json();
+      }).then(function (data) {
+        var part =
+          data.candidates &&
+          data.candidates[0] &&
+          data.candidates[0].content &&
+          data.candidates[0].content.parts &&
+          data.candidates[0].content.parts[0];
+        return (part && part.text) ? String(part.text).trim() : "";
+      });
+    });
+  }
+
+  /**
+   * runLookupLadder — executes the 6-level hierarchical search.
+   * Returns Promise<{ answer, source, sourceBadge }>.
+   */
+  function runLookupLadder(question) {
+    var q = String(question || "").trim();
+    if (!q) return Promise.resolve({ answer: "", source: "none", sourceBadge: "" });
+
+    /* Level 1: Current job timeline entries */
+    var timelineHit = searchTimelineEntries(q, currentTicketId);
+    if (timelineHit) {
+      return Promise.resolve({
+        answer: timelineHit.text,
+        source: "timeline",
+        sourceBadge: "\uD83D\uDCDD Job notes"
+      });
+    }
+
+    /* Level 2: Site notes */
+    try {
+      if (window.JobContextEngine && typeof window.JobContextEngine.searchSiteNotes === "function") {
+        var siteResult = window.JobContextEngine.searchSiteNotes(q, currentTicketId);
+        if (siteResult && siteResult.found) {
+          return Promise.resolve({
+            answer: siteResult.text,
+            source: "site_notes",
+            sourceBadge: "\uD83D\uDCD6 Site notes"
+          });
+        }
+      }
+    } catch (e) {}
+
+    /* Level 3: Equipment history */
+    try {
+      if (window.JobContextEngine && typeof window.JobContextEngine.searchEquipmentHistory === "function") {
+        var equipResult = window.JobContextEngine.searchEquipmentHistory(q, currentTicketId);
+        if (equipResult && equipResult.found) {
+          return Promise.resolve({
+            answer: equipResult.text,
+            source: "equipment_history",
+            sourceBadge: "\uD83D\uDD27 Equipment"
+          });
+        }
+      }
+    } catch (e) {}
+
+    /* Level 4: Company-wide knowledge (TeachingLayer) */
+    var companyPromise;
+    try {
+      if (window.TeachingLayer && typeof window.TeachingLayer.lookupKnowledge === "function") {
+        companyPromise = window.TeachingLayer.lookupKnowledge(q, { scope: "company" });
+      } else {
+        companyPromise = Promise.resolve(null);
+      }
+    } catch (e) {
+      companyPromise = Promise.resolve(null);
+    }
+
+    return companyPromise.then(function (companyDoc) {
+      if (companyDoc && companyDoc.text) {
+        return {
+          answer: companyDoc.text,
+          source: "company",
+          sourceBadge: "\uD83C\uDFE2 Company"
+        };
+      }
+
+      /* Level 5: Uploaded manuals — stub */
+      /* Future: search uploaded manuals here */
+
+      /* Level 6: Cloud lookup via Gemini */
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        return {
+          answer: "No answer found offline. Try again when connected.",
+          source: "offline",
+          sourceBadge: "\u26A0\uFE0F Offline"
+        };
+      }
+
+      return askCloudGemini(q).then(function (cloudAnswer) {
+        if (cloudAnswer) {
+          return {
+            answer: cloudAnswer,
+            source: "cloud",
+            sourceBadge: "\u2601\uFE0F Cloud"
+          };
+        }
+        return { answer: "No answer found.", source: "none", sourceBadge: "" };
+      }).catch(function () {
+        return { answer: "Cloud lookup failed. Try again later.", source: "error", sourceBadge: "\u26A0\uFE0F Error" };
+      });
+    });
+  }
+
+  /**
+   * saveAnswerAsKnowledge — writes a cloud-sourced answer to the knowledge
+   * collection as company-wide knowledge.
+   */
+  function saveAnswerAsKnowledge(question, answer) {
+    if (!window.TeachingLayer || typeof window.TeachingLayer.saveTeaching !== "function") {
+      return Promise.resolve(null);
+    }
+    return window.TeachingLayer.saveTeaching({
+      scope: "company",
+      scopeRef: "",
+      text: "Q: " + question + "\nA: " + answer,
+      tags: ["auto-saved", "cloud-answer"],
+      mediaUrls: []
+    });
+  }
+
+  /**
+   * saveAnswerAsSiteNote — writes a cloud-sourced answer to site_intelligence.
+   */
+  function saveAnswerAsSiteNote(question, answer) {
+    try {
+      if (!window.firebase || !window.firebase.firestore) return Promise.resolve(null);
+      var db = window.firebase.firestore();
+      if (!db) return Promise.resolve(null);
+
+      var ticket = getActiveTicket();
+      if (!ticket || !ticket.customerName) return Promise.resolve(null);
+
+      var custName = String(ticket.customerName || "").replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+      var addr = String(ticket.address || ticket.locationAddress || "").replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+      var siteDocId = custName && addr ? custName + "__" + addr : "";
+      if (!siteDocId) return Promise.resolve(null);
+
+      var siCol = (typeof VCFirestore !== "undefined" && VCFirestore.siteIntelligence)
+        ? VCFirestore.siteIntelligence(db)
+        : db.collection("site_intelligence");
+
+      return siCol.doc(siteDocId).set({
+        notes: "Q: " + question + "\nA: " + answer,
+        lastUpdated: new Date().toISOString(),
+        lastUpdatedBy: getTechnicianName()
+      }, { merge: true });
+    } catch (e) {
+      return Promise.resolve(null);
+    }
+  }
+
+  /**
+   * showSavePrompt — after a cloud answer, offers to save it.
+   */
+  function showSavePrompt(question, answer) {
+    var list = getListElement();
+    if (!list) return;
+
+    var promptEl = document.createElement("div");
+    promptEl.className = "ct-message ct-message--system ct-ask-save-prompt";
+    promptEl.innerHTML =
+      '<div class="ct-vertex-icon" aria-hidden="true">V</div>' +
+      '<div class="ct-msg-content">' +
+        '<span class="ct-message__body">Save this answer for future reference?</span>' +
+        '<div class="ct-ask-save-btns">' +
+          '<button type="button" class="ct-ask-save-btn ct-ask-save-btn--company" data-save="company">\uD83C\uDFE2 Company knowledge</button>' +
+          '<button type="button" class="ct-ask-save-btn ct-ask-save-btn--site" data-save="site">\uD83D\uDCD6 Site note</button>' +
+          '<button type="button" class="ct-ask-save-btn ct-ask-save-btn--dismiss" data-save="dismiss">\u2715 Skip</button>' +
+        '</div>' +
+      '</div>';
+
+    list.appendChild(promptEl);
+    scrollToBottom();
+
+    var btns = promptEl.querySelectorAll(".ct-ask-save-btn");
+    for (var i = 0; i < btns.length; i++) {
+      (function (btn) {
+        btn.addEventListener("click", function () {
+          var action = btn.getAttribute("data-save");
+          if (promptEl.parentNode) promptEl.parentNode.removeChild(promptEl);
+
+          if (action === "company") {
+            saveAnswerAsKnowledge(question, answer).then(function () {
+              addEntry("\uD83C\uDFE2 Saved as company knowledge.", "system", currentTicketId);
+            }).catch(function () {
+              addEntry("\u26A0\uFE0F Failed to save. Queued offline.", "system", currentTicketId);
+            });
+          } else if (action === "site") {
+            saveAnswerAsSiteNote(question, answer).then(function () {
+              addEntry("\uD83D\uDCD6 Saved as site note.", "system", currentTicketId);
+            }).catch(function () {
+              addEntry("\u26A0\uFE0F Failed to save. Try again later.", "system", currentTicketId);
+            });
+          }
+        });
+      })(btns[i]);
+    }
+  }
+
+  /**
+   * handleAskQuestion — wired to the Ask button.
+   * Reads from the text input, runs the lookup ladder, displays result.
+   */
+  function handleAskQuestion() {
+    var input = document.getElementById("ct-type-input");
+    var question = input ? input.value.trim() : "";
+    if (!question) {
+      if (input) {
+        input.placeholder = "Type your question first…";
+        input.focus();
+      }
+      return;
+    }
+
+    input.value = "";
+    addEntry("\u2753 " + question, "tech", currentTicketId, { askQuestion: true });
+
+    var askBtn = document.getElementById("ct-ask-btn");
+    if (askBtn) {
+      askBtn.disabled = true;
+      askBtn.textContent = "\u23F3";
+    }
+
+    runLookupLadder(question).then(function (result) {
+      if (askBtn) {
+        askBtn.disabled = false;
+        askBtn.textContent = "\u2753";
+      }
+
+      if (!result || !result.answer) {
+        addEntry("No answer found.", "system", currentTicketId);
+        return;
+      }
+
+      var badge = result.sourceBadge ? result.sourceBadge + " " : "";
+      addEntry(badge + result.answer, "system", currentTicketId, {
+        askSource: result.source,
+        askSourceBadge: result.sourceBadge
+      });
+
+      if (result.source === "cloud") {
+        showSavePrompt(question, result.answer);
+      }
+    }).catch(function () {
+      if (askBtn) {
+        askBtn.disabled = false;
+        askBtn.textContent = "\u2753";
+      }
+      addEntry("\u26A0\uFE0F Lookup failed. Try again.", "system", currentTicketId);
+    });
+  }
+
+  /**
+   * wireAskBtn — binds the #ct-ask-btn click handler.
+   */
+  function wireAskBtn() {
+    var btn = document.getElementById("ct-ask-btn");
+    if (!btn) return;
+    if (btn.dataset.vcWired === "1") return;
+    btn.dataset.vcWired = "1";
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      handleAskQuestion();
+    });
+  }
+
   /* ── action bar wiring ────────────────────────────────────────── */
 
   function wireActionBar() {
@@ -2645,6 +3009,7 @@
 
     injectEditStyles();
     wireActionBar();
+    wireAskBtn();
     wireEquipmentChip();
     wireSettingsGear();
     wireTimelineEditing();

@@ -681,6 +681,66 @@
     return Array.isArray(ctx.unresolvedIssues) ? ctx.unresolvedIssues.slice() : [];
   }
 
+  /* ── Slice 53a: text search helpers for hierarchical knowledge lookup ── */
+
+  /**
+   * searchSiteNotes — searches cached siteNotes for keywords from a question.
+   * Returns { found: bool, text: string, source: "site_notes" }.
+   */
+  function searchSiteNotes(question, ticketId) {
+    var ctx = getContext(ticketId);
+    var notes = safeTrim(ctx.siteNotes || "");
+    if (!notes) return { found: false, text: "", source: "site_notes" };
+    var q = String(question || "").toLowerCase();
+    var words = q.split(/\s+/).filter(function (w) { return w.length > 2; });
+    if (!words.length) return { found: false, text: "", source: "site_notes" };
+    var notesLower = notes.toLowerCase();
+    var hits = 0;
+    for (var i = 0; i < words.length; i++) {
+      if (notesLower.indexOf(words[i]) !== -1) hits++;
+    }
+    if (hits > 0) {
+      return { found: true, text: notes, source: "site_notes" };
+    }
+    return { found: false, text: "", source: "site_notes" };
+  }
+
+  /**
+   * searchEquipmentHistory — searches cached equipment work_history and notes
+   * for keywords from a question.
+   * Returns { found: bool, text: string, equipment: string, source: "equipment_history" }.
+   */
+  function searchEquipmentHistory(question, ticketId) {
+    var ctx = getContext(ticketId);
+    var equipment = Array.isArray(ctx.equipment) ? ctx.equipment : [];
+    if (!equipment.length) return { found: false, text: "", equipment: "", source: "equipment_history" };
+    var q = String(question || "").toLowerCase();
+    var words = q.split(/\s+/).filter(function (w) { return w.length > 2; });
+    if (!words.length) return { found: false, text: "", equipment: "", source: "equipment_history" };
+
+    for (var i = 0; i < equipment.length; i++) {
+      var eq = equipment[i];
+      if (!eq) continue;
+      var searchable = [
+        eq.unitTag || "",
+        eq.brand || "",
+        eq.model || "",
+        eq.notes || ""
+      ].join(" ").toLowerCase();
+      var hits = 0;
+      for (var j = 0; j < words.length; j++) {
+        if (searchable.indexOf(words[j]) !== -1) hits++;
+      }
+      if (hits > 0) {
+        var summary = (eq.unitTag || "Equipment") +
+          (eq.brand ? " (" + eq.brand + (eq.model ? " " + eq.model : "") + ")" : "") +
+          (eq.notes ? " — " + eq.notes : "");
+        return { found: true, text: summary, equipment: eq.unitTag || eq.id || "", source: "equipment_history" };
+      }
+    }
+    return { found: false, text: "", equipment: "", source: "equipment_history" };
+  }
+
   window.VCJobContext = cloneContext(EMPTY_CONTEXT);
   window.JobContextEngine = {
     preloadContext: preloadContext,
@@ -693,5 +753,7 @@
     resolveEquipmentDocId: resolveEquipmentDocId,
     getSiteMemory: getSiteMemory,
     getUnresolvedIssues: getUnresolvedIssues,
+    searchSiteNotes: searchSiteNotes,
+    searchEquipmentHistory: searchEquipmentHistory,
   };
 })();
