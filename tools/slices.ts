@@ -769,7 +769,7 @@ Pure UX polish — no data model change, no new Firestore paths.`,
     riskLevel: "safe",
     htmlTarget: "index.html",
     filesToCreate: [],
-    filesToModify: ["dispatcher/js/report_builder.js"],
+    filesToModify: ["dispatcher/js/report_builder.js", "index.html"],
     expectedIds: [],
     expectedExports: {},
     scope: `Fix KI-002 B5: dispatcher/js/report_builder.js dynamically loads report_builder.css?v=1
@@ -780,10 +780,10 @@ Fix: in report_builder.js, remove or skip the dynamic CSS load if the stylesheet
 present in the document. Check document.querySelector('link[href*="report_builder.css"]') —
 if it exists, skip the dynamic injection. If it doesn't exist (e.g. the report builder runs
 in a standalone context), keep the dynamic load but bump the version to match (?v=4).
-Do NOT modify index.html — only change report_builder.js.
-Bump the cache-bust version on the script tag for report_builder.js in index.html if one exists.`,
+In index.html, bump the cache-bust version on the script tag for report_builder.js (if one exists)
+so browsers pick up the changed JS.`,
     outOfScope: "Changing report_builder.css content. Modifying the report builder UI. Any Firestore changes.",
-    cacheBusts: [],
+    cacheBusts: ["dispatcher/js/report_builder.js"],
   },
   {
     id: "58b",
