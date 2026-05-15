@@ -134,10 +134,18 @@
   var RPT_PALETTE = ["#0ea5e9", "#c89b53", "#475569", "#0ea5e9", "#ea580c"];
 
   function reportCssHref() {
+    // If the stylesheet is already present in the main document, reuse its
+    // resolved href so the popup shares the browser's cache entry and avoids
+    // a redundant network request for the stale ?v=1 copy.
     try {
-      return new URL("dispatcher/css/report_builder.css?v=1", global.location.href).href;
+      var existing = document.querySelector('link[href*="report_builder.css"]');
+      if (existing && existing.href) return existing.href;
+    } catch (e) {}
+    // Standalone context: build the URL with the current version.
+    try {
+      return new URL("dispatcher/css/report_builder.css?v=4", global.location.href).href;
     } catch (e) {
-      return "dispatcher/css/report_builder.css?v=1";
+      return "dispatcher/css/report_builder.css?v=4";
     }
   }
 
