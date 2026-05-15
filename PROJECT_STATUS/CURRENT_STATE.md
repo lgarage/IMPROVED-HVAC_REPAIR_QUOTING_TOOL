@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **Field app mobile UI v3** (`VC_BUILD: Phase60-MobileUIv3-2026-05-15`). Chat window redesigned to ChatGPT-style minimal: removed container border/gradient/header; single-row pill input with `+` (attach), text field, voice indicator, send arrow; message bubbles simplified (no borders, muted colors); compile button de-emphasized. Previous: v2 (workspace strip + bottom bar, same session).
+- **Last shipped (2026-05-15):** **Field app mobile UI v4** (`VC_BUILD: Phase60-MobileUIv4-2026-05-15`). Header: removed FIELD APP logo/text; Schedule pill moved into header row beside user chip (fills remaining width). Footer: green "Complete & Sync Ticket" FAB removed; "Message Vertex…" bar stays sticky. New inline action row between last message and input bar: `[📋 Compile Notes] [Sync Ticket]` — Compile shows after ≥3 tech entries, Sync always visible, both disabled on historical jobs. Previous: v3 (ChatGPT-style chat redesign, same session).
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,7 +18,7 @@ None (59b regression deployed — verify on phone).
 
 ## Immediate Next Step
 
-- **Verify mobile UI v3 on phone:** Open https://vertex-core-db.web.app/technician/ — chat should look like ChatGPT: no box border, single pill-shaped input bar with `+` / text / voice dot / send arrow. Messages are borderless rounded bubbles on dark background.
+- **Verify mobile UI v4 on phone:** Open https://vertex-core-db.web.app/technician/ — header row should show `[DAN DAY] [📋 Schedule ————→]` (no FIELD APP text); no green FAB at bottom; timeline ends with `[📋 Compile Notes] [Sync Ticket]` above the sticky input bar.
 - **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
 
