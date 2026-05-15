@@ -1102,12 +1102,26 @@ Three changes:
      from './slices_archive' and strip any entries in state.slices whose id exists in
      ARCHIVED_SLICES (they are done — no need to track in .build_state.json).
    - After stripping, saveState() so the .build_state.json shrinks immediately on next run.
-   - Add a new /archive command to the REPL that:
-     (a) reads .build_state.json for all slices with status "passed"
-     (b) moves their definitions from slices.ts → slices_archive.ts (appends to ARCHIVED_SLICES array)
-     (c) removes their entries from .build_state.json
-     (d) logs how many slices were archived
-     This lets the user manually trigger archival after reviewing passed slices.
+
+   AUTO-ARCHIVE TRIGGER (critical — prevents bloat):
+   - Add a constant MAX_ACTIVE_SLICES = 20.
+   - At the START of the /a (automated run) command, BEFORE processing any slices, check:
+     if SLICES.length > MAX_ACTIVE_SLICES, run the archive routine automatically.
+   - The auto-archive routine:
+     (a) Reads .build_state.json for all slices with status "passed"
+     (b) Reads tools/slices.ts as a text file
+     (c) For each passed slice: extracts its full object literal from the SLICES array in
+         slices.ts (match by id field, grab everything from the opening { to the closing },)
+     (d) Appends those object literals to the ARCHIVED_SLICES array in slices_archive.ts
+     (e) Removes those object literals from slices.ts
+     (f) Removes their entries from .build_state.json
+     (g) Logs: "Auto-archived N passed slices (SLICES had M > MAX_ACTIVE_SLICES=20)"
+   - This means the user never has to think about archival — it just happens.
+   - Also run the same check at the END of /a after all slices finish (in case the run
+     itself pushed the count over the threshold).
+
+   MANUAL /archive COMMAND:
+   - Add a /archive command to the REPL that forces the same routine regardless of count.
    - The /status command should show archived count: "N archived (see slices_archive.ts)"
 
 3. DOSSIER OUTCOME LOG OVERFLOW (PROJECT_STATUS/MODEL_DOSSIER_ARCHIVE.md):
