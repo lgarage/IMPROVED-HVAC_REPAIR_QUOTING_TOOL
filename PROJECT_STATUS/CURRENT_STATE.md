@@ -6,23 +6,21 @@
 
 ## Snapshot
 
-- **Active Phase:** Phases 41–57 — Conversational Field Capture (New Field Tech UX) — **ALL 28 slices passed** (41a–57a). SDK build runner v2.1 completed full automated run.
-- **Last shipped (2026-05-14):** All 28 slices built, validated, deployed to Firebase preview channels, committed, and pushed via SDK build runner. Includes: timeline UI, hold-to-talk STT, media capture, context preload, HVAC vocabulary, confidence-based cloud escalation, voice responses, checklist reminders, editable entries, auto-tagged media, compile notes, dispatcher review workflow, post-job learning, site notes, knowledge capture, hierarchical retrieval, integration smoke test, offline graceful degradation, VC_BUILD consolidation, Firebase Hosting deploy, Firestore rules for new collections, auth/roster verification, offline photo outbox (KI-004), SW cache hygiene, dispatcher ticket Save button. Commit `37e6c05`.
+- **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
+- **Last shipped (2026-05-15):** **HOTFIX — Slice 59b Firestore rules revert.** 59b tightened all data paths to `request.auth != null`, but field techs have no Firebase Auth (roster pick from localStorage). Broke presence heartbeat + schedule subscription + all field writes. Reverted ALL data/tenant paths to `if true`; admin locks (Slice 1) preserved. Deployed `firebase deploy --only firestore:rules` at ~4:20 PM.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
 
 ## Active Blocker
 
-None.
+None (59b regression deployed — verify on phone).
 
 ## Immediate Next Step
 
-- **Review the "review" slices** on-device: 42a, 43b, 45a, 47a, 48a, 49a, 50a, 52a, 53a, 54c, 55a, 55b, 56a (committed but tagged for manual review — all passed validator but touch Firestore writes, Gemini prompts, or cross-module wiring).
-- Smoke-test the full conversational field capture flow on iPhone (timeline → hold-to-talk → media → compile notes → dispatcher review).
-- Migration carry-over still applies (roster, optional data import).
-
-Smoke-tests carried over (non-blocking): Phase 34e Field Access Notes on iPhone; Phase 33 Field-Add Equipment OCR on Vision Hub.
+- **Verify hotfix on phone:** Open https://vertex-core-db.web.app/technician/ — "presence offline" badge should be gone, schedule should load.
+- **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a (preview URLs in session).
+- **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 

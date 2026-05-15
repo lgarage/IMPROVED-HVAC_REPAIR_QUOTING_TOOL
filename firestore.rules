@@ -3,18 +3,19 @@ rules_version = '2';
 // ============================================================
 // Vertex Core — Firestore Security Rules
 // Slice 1 (Per-User Feature Toggles foundation) — 2026-05-06
-// Slice 59b — Security tightening: all data paths now require
-//   Firebase Auth (request.auth != null). — 2026-05-15
-//   ⚠️  Manual deploy required: firebase deploy --only firestore:rules
+// Slice 59b — Security tightening: REVERTED 2026-05-15.
+//   Field techs do NOT use Firebase Auth (roster pick from localStorage).
+//   59b gated all tenant/data paths on request.auth != null, breaking the
+//   tech app (presence offline, schedule subscription denied).
+//   All field-tech-accessible paths restored to if true pending
+//   implementation of anonymous-auth or custom-token flow.
 // ============================================================
 //
 // v1 STRATEGY (Slice 1): lock down admin surfaces only.
-// v2 STRATEGY (Slice 59b): require Firebase Auth on ALL tenant-
-// scoped and data paths. Public read preserved only for:
-//   • tenants/{tid}/config/entitlements  (non-sensitive config)
-//   • app_config/{document=**}           (public technician roster)
-//   • form_templates/{document=**}       (public form definitions)
-//   • tenants/{tid}/portal_tokens/...    (read — unauthenticated portal)
+// v2 STRATEGY (post-59b revert): admin locks (Slice 1) remain;
+// all data/tenant paths stay open (if true) because the field
+// tech app has no Firebase Auth identity today. A future slice
+// will add anonymous auth or custom tokens before re-tightening.
 //
 // Locked admin surfaces (unchanged from Slice 1):
 //   • tenants/{tid}/config/entitlements          (write = admin)
@@ -128,89 +129,90 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // Auth-gated paths (Slice 59b — tightened from open to require
-    // Firebase Auth). Public-read exceptions noted inline.
+    // Data paths — open (if true). Field tech app has NO Firebase
+    // Auth identity; all reads/writes are unauthenticated.
+    // 59b attempted request.auth != null here; reverted 2026-05-15
+    // because it broke presence, schedule, and all field writes.
+    // Re-tighten ONLY after implementing anon-auth / custom tokens.
     // ============================================================
 
     // ----- Tenant subcollections ----------------------------
     match /tenants/{tid}/service_calls/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /tenants/{tid}/site_intelligence/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /tenants/{tid}/live_presence/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /tenants/{tid}/imported_equipment/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /tenants/{tid}/imported_equipment_photos/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /tenants/{tid}/labor_logs/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
-    // portal_tokens: public read (unauthenticated customer portal links)
     match /tenants/{tid}/portal_tokens/{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read, write: if true;
     }
     match /tenants/{tid}/roster/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /tenants/{tid}/field_quotes/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /tenants/{tid}/pm_records/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /tenants/{tid}/field_form_submissions/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /tenants/{tid}/on_call_state/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /tenants/{tid}/completed_reports/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /tenants/{tid}/sandbox/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
 
     // ----- Root legacy bridge collections (TWIN_PILLARS) -----
     // Lazy-migration bridge per ADR-003.
     match /service_calls/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /site_intelligence/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /completed_reports/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
 
     // ----- Root legacy paths still accessed today -----------
     match /Customers/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /customers/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /customers/{cid}/sites/{sid}/assets/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /ParentCompanies/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /MappedLocations/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /invoices/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /metadata/{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     // form_templates: public read (form definitions used by field app)
     match /form_templates/{document=**} {
