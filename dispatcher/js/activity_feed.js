@@ -41,8 +41,25 @@
     return "Office";
   }
 
+  var INTERNAL_COMMS_TYPE_VARIANTS = [
+    "note", "notes", "internal", "inter-office", "interOffice"
+  ];
+
+  function normalizeInternalType(typeVal) {
+    if (!typeVal) return "internal_comms";
+    var t = String(typeVal).trim();
+    if (t === "internal_comms") return "internal_comms";
+    for (var i = 0; i < INTERNAL_COMMS_TYPE_VARIANTS.length; i++) {
+      if (t === INTERNAL_COMMS_TYPE_VARIANTS[i]) return "internal_comms";
+    }
+    return t;
+  }
+
   function normalizeInternal(data) {
     if (!data) return "";
+    if (data.type && normalizeInternalType(data.type) === "internal_comms") {
+      data.type = "internal_comms";
+    }
     var ic = data.internal_comms;
     if (Array.isArray(ic)) {
       return ic
@@ -325,6 +342,7 @@
         var payload = {
           internal_comms: next,
           internal_comms_updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          type: normalizeInternalType(got && got.data ? got.data.type : "internal_comms"),
         };
         if (typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged) {
           return VCFirestore.setServiceCallMerged(_db, tid, payload, true);
