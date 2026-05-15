@@ -97,6 +97,18 @@
  *     to silently upload session learning data (vocab corrections, confidence
  *     scores, escalation results, dispatcher edits) to Firestore.
  *
+ * Slice 51a: Extended site notes + operational memory.
+ *   - #ct-site-memory: collapsible panel at the top of the timeline showing:
+ *       ⚠️ Unresolved from last visit (unresolvedIssues from site_intelligence)
+ *       🔄 Recurring (equipment with ≥2 completed_report entries at this site)
+ *       📝 Site notes (access codes, parking, ladder info, inter-office notes)
+ *       💬 Previous quotes (open quotes from the active ticket)
+ *   - renderSiteMemory(ticketId): reads getSiteMemory() from JobContextEngine
+ *     — fully local, no additional Firestore reads beyond the 42a preload.
+ *   - Panel is hidden when all sections are empty (fresh site with no history).
+ *   - Tap the panel header to collapse / expand; state persists per session.
+ *   - onWorkspaceOpen calls renderSiteMemory() after renderTimeline().
+ *
  * Exports: startListening, stopListening, capturePhoto, captureVideo,
  *          processEntry, generateResponse, handleFollowUpResponse,
  *          editEntry, handleCorrection, tagMedia, compileNotes.
@@ -2007,13 +2019,128 @@
 
   /* ── workspace integration ────────────────────────────────────── */
 
+  /* ── Site Memory Panel (Slice 51a) ────────────────────────────── */
+
+  var _siteMemoryCollapsed = false;
+
+  function escapeHtmlAttr(str) {
+    return escapeHtml(str).replace(/"/g, "&quot;");
+  }
+
+  function renderSiteMemory(ticketId) {
+    var panel = document.getElementById("ct-site-memory");
+    if (!panel) return;
+
+    var memory = null;
+    try {
+      if (
+        window.JobContextEngine &&
+        typeof window.JobContextEngine.getSiteMemory === "function"
+      ) {
+        memory = window.JobContextEngine.getSiteMemory(ticketId || currentTicketId);
+      }
+    } catch (e) { /* degrade silently */ }
+
+    if (!memory) {
+      panel.hidden = true;
+      return;
+    }
+
+    var unresolved = memory.unresolvedIssues || [];
+    var recurring = memory.recurringFailures || [];
+    var siteNotes = memory.siteNotes || "";
+    var quotes = memory.quotes || [];
+
+    var hasContent = unresolved.length > 0 || recurring.length > 0 || siteNotes || quotes.length > 0;
+    if (!hasContent) {
+      panel.hidden = true;
+      return;
+    }
+
+    panel.hidden = false;
+
+    var bodyHtml = "";
+
+    if (unresolved.length) {
+      bodyHtml += '<div class="ct-sm-section">';
+      bodyHtml += '<p class="ct-sm-section-label">⚠️ Unresolved from last visit</p>';
+      bodyHtml += '<ul class="ct-sm-list">';
+      for (var i = 0; i < unresolved.length; i++) {
+        var ui = unresolved[i];
+        var sev = ui.severity ? ' <span class="ct-sm-sev ct-sm-sev--' + escapeHtmlAttr(ui.severity) + '">' + escapeHtml(ui.severity.toUpperCase()) + "</span>" : "";
+        bodyHtml += "<li>" + escapeHtml(ui.issue || "") + sev;
+        if (ui.notes) bodyHtml += ' <span class="ct-sm-note">' + escapeHtml(ui.notes) + "</span>";
+        bodyHtml += "</li>";
+      }
+      bodyHtml += "</ul></div>";
+    }
+
+    if (recurring.length) {
+      bodyHtml += '<div class="ct-sm-section">';
+      bodyHtml += '<p class="ct-sm-section-label">🔄 Recurring</p>';
+      bodyHtml += '<ul class="ct-sm-list">';
+      for (var j = 0; j < recurring.length; j++) {
+        var rf = recurring[j];
+        bodyHtml += "<li><strong>" + escapeHtml(rf.equipment || "") + "</strong>";
+        bodyHtml += ' <span class="ct-sm-count">×' + (rf.count || 2) + " visits</span>";
+        if (rf.sample) bodyHtml += ' <span class="ct-sm-note">' + escapeHtml(rf.sample) + "</span>";
+        bodyHtml += "</li>";
+      }
+      bodyHtml += "</ul></div>";
+    }
+
+    if (siteNotes) {
+      bodyHtml += '<div class="ct-sm-section">';
+      bodyHtml += '<p class="ct-sm-section-label">📝 Site notes</p>';
+      bodyHtml += '<p class="ct-sm-notes">' + escapeHtml(siteNotes) + "</p>";
+      bodyHtml += "</div>";
+    }
+
+    if (quotes.length) {
+      bodyHtml += '<div class="ct-sm-section">';
+      bodyHtml += '<p class="ct-sm-section-label">💬 Previous quotes</p>';
+      bodyHtml += '<ul class="ct-sm-list">';
+      for (var k = 0; k < quotes.length; k++) {
+        var q = quotes[k];
+        if (!q) continue;
+        var qLabel = q.quoteNum ? "Quote #" + q.quoteNum : (q.id ? q.id : "Quote");
+        var qStatus = q.status ? ' <span class="ct-sm-status">' + escapeHtml(q.status) + "</span>" : "";
+        bodyHtml += "<li><strong>" + escapeHtml(qLabel) + "</strong>" + qStatus;
+        if (q.text) bodyHtml += " — " + escapeHtml(q.text.slice(0, 120) + (q.text.length > 120 ? "…" : ""));
+        if (q.total != null) bodyHtml += ' <span class="ct-sm-total">$' + escapeHtml(String(q.total)) + "</span>";
+        bodyHtml += "</li>";
+      }
+      bodyHtml += "</ul></div>";
+    }
+
+    var collapseClass = _siteMemoryCollapsed ? " ct-sm--collapsed" : "";
+    var chevron = _siteMemoryCollapsed ? "›" : "⌄";
+    panel.className = "ct-site-memory" + collapseClass;
+    panel.innerHTML =
+      '<button class="ct-sm-header" type="button" aria-expanded="' + (!_siteMemoryCollapsed) + '" aria-controls="ct-sm-body">' +
+        '<span class="ct-sm-title">Site Memory</span>' +
+        '<span class="ct-sm-chevron" aria-hidden="true">' + chevron + "</span>" +
+      "</button>" +
+      '<div id="ct-sm-body" class="ct-sm-body">' + bodyHtml + "</div>";
+
+    var headerBtn = panel.querySelector(".ct-sm-header");
+    if (headerBtn) {
+      headerBtn.addEventListener("click", function () {
+        _siteMemoryCollapsed = !_siteMemoryCollapsed;
+        renderSiteMemory(ticketId || currentTicketId);
+      });
+    }
+  }
+
   function onWorkspaceOpen(ticketId) {
     currentTicketId = normalizeTicketId(ticketId || resolveTicketIdFromObject(getActiveTicket()));
     /* Reset follow-up dismiss state per ticket open */
     _followUpDismissed = false;
+    _siteMemoryCollapsed = false;
     hideFollowUpPrompt();
     seedFromTicket(currentTicketId);
     renderTimeline(currentTicketId);
+    renderSiteMemory(currentTicketId);
     /* Load workflow checklist from form_templates for this ticket type (Slice 45a) */
     try {
       var ticket = getActiveTicket();
@@ -2516,6 +2643,17 @@
     wireTimelineEditing();
     wireCompileBtn();
     wireCompileModal();
+
+    try {
+      window.addEventListener("vc:contextUpdated", function (e) {
+        var updatedTid = e && e.detail && e.detail.ticketId ? e.detail.ticketId : "";
+        if (!updatedTid || updatedTid === currentTicketId) {
+          renderSiteMemory(currentTicketId);
+        }
+      });
+    } catch (e) {
+      /* older browsers: no-op */
+    }
 
     try {
       window.addEventListener("vc:workspaceOpened", function () {

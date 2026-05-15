@@ -7,6 +7,7 @@
     siteNotes: "",
     siteAccessNotes: "",
     unresolvedIssues: [],
+    recurringFailures: [],
     equipment: [],
     recentReports: [],
     techNotes: "",
@@ -39,6 +40,7 @@
       siteNotes: safeTrim(src.siteNotes),
       siteAccessNotes: safeTrim(src.siteAccessNotes || ""),
       unresolvedIssues: Array.isArray(src.unresolvedIssues) ? src.unresolvedIssues.slice() : [],
+      recurringFailures: Array.isArray(src.recurringFailures) ? src.recurringFailures.slice() : [],
       equipment: Array.isArray(src.equipment) ? src.equipment.slice() : [],
       recentReports: Array.isArray(src.recentReports) ? src.recentReports.slice() : [],
       techNotes: safeTrim(src.techNotes),
@@ -368,6 +370,69 @@
     });
   }
 
+  function normalizeUnresolvedIssues(siteIntelData) {
+    if (!siteIntelData) return [];
+    var arr = siteIntelData.unresolvedIssues || siteIntelData.unresolved_issues;
+    if (!Array.isArray(arr) || !arr.length) return [];
+    var out = [];
+    for (var i = 0; i < arr.length; i++) {
+      var item = arr[i];
+      if (!item) continue;
+      if (typeof item === "string") {
+        var text = safeTrim(item);
+        if (text) out.push({ issue: text, severity: "", notes: "" });
+      } else if (typeof item === "object") {
+        var issue = safeTrim(item.issue || item.description || item.text || "");
+        if (issue) {
+          out.push({
+            issue: issue,
+            severity: safeTrim(item.severity || ""),
+            notes: safeTrim(item.notes || ""),
+          });
+        }
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Slice 51a: Infer recurring failures from completed_reports loaded during
+   * the 42a preload.  Groups by linkedEquipmentId; any equipment appearing in
+   * ≥2 separate reports is flagged as a recurring failure.  No extra Firestore
+   * reads required — data is already in the cached context.
+   */
+  function computeRecurringFailures(reports) {
+    if (!Array.isArray(reports) || !reports.length) return [];
+    var counts = {};
+    var samples = {};
+    for (var i = 0; i < reports.length; i++) {
+      var r = reports[i];
+      if (!r) continue;
+      var key = safeTrim(r.linkedEquipmentId || "");
+      if (!key) continue;
+      counts[key] = (counts[key] || 0) + 1;
+      if (!samples[key]) {
+        /* Keep the shortest meaningful snippet from the first report text */
+        var snippet = safeTrim(r.reportText || "");
+        if (snippet.length > 160) snippet = snippet.slice(0, 157) + "…";
+        samples[key] = snippet;
+      }
+    }
+    var recurring = [];
+    for (var equip in counts) {
+      if (counts[equip] >= 2) {
+        recurring.push({
+          equipment: equip,
+          count: counts[equip],
+          sample: samples[equip] || "",
+        });
+      }
+    }
+    /* Most frequent first */
+    recurring.sort(function (a, b) { return b.count - a.count; });
+    return recurring;
+  }
+
   function buildContext(ticket, payload) {
     var siteIntelData = payload && payload.siteIntelData ? payload.siteIntelData : null;
     var equipment = payload && Array.isArray(payload.equipment) ? payload.equipment : [];
@@ -375,6 +440,11 @@
     var quotes = extractQuotes(ticket);
     return {
       siteNotes: normalizeSiteNotes(siteIntelData),
+      siteAccessNotes: safeTrim(
+        (siteIntelData && (siteIntelData.fieldAccessNotes || siteIntelData.accessNotes)) || ""
+      ),
+      unresolvedIssues: normalizeUnresolvedIssues(siteIntelData),
+      recurringFailures: computeRecurringFailures(reports),
       equipment: equipment,
       recentReports: reports,
       techNotes: combineNotes([
@@ -393,6 +463,14 @@
     currentContext.activeEquipment = _activeEquipment;
     window.VCJobContext = cloneContext(currentContext);
     window.VCJobContext.activeEquipment = _activeEquipment;
+    /* Notify listeners (e.g. Site Memory panel) that context is available. */
+    try {
+      window.dispatchEvent(
+        new CustomEvent("vc:contextUpdated", {
+          detail: { ticketId: currentTicketId },
+        })
+      );
+    } catch (e) { /* older browsers — no-op */ }
     return window.VCJobContext;
   }
 
@@ -572,6 +650,37 @@
     } catch (e) { /* no-op */ }
   }
 
+  /**
+   * Slice 51a: getSiteMemory — returns a summary object aggregating all
+   * operational memory for the current (or specified) ticket's site:
+   *   unresolvedIssues  — issues flagged as unresolved from site_intelligence
+   *   recurringFailures — equipment found in ≥2 completed_reports for this site
+   *   siteNotes         — combined site notes (access codes, inter-office, etc.)
+   *   siteAccessNotes   — field access notes only (parking, ladder, codes)
+   *   quotes            — previous quotes attached to the active ticket
+   *
+   * Data is served entirely from the cached context — no Firestore reads.
+   */
+  function getSiteMemory(ticketId) {
+    var ctx = getContext(ticketId);
+    return {
+      unresolvedIssues: Array.isArray(ctx.unresolvedIssues) ? ctx.unresolvedIssues.slice() : [],
+      recurringFailures: Array.isArray(ctx.recurringFailures) ? ctx.recurringFailures.slice() : [],
+      siteNotes: safeTrim(ctx.siteNotes || ""),
+      siteAccessNotes: safeTrim(ctx.siteAccessNotes || ""),
+      quotes: Array.isArray(ctx.quotes) ? ctx.quotes.slice() : [],
+    };
+  }
+
+  /**
+   * Slice 51a: getUnresolvedIssues — convenience accessor returning only the
+   * unresolved-issues array from cached context.
+   */
+  function getUnresolvedIssues(ticketId) {
+    var ctx = getContext(ticketId);
+    return Array.isArray(ctx.unresolvedIssues) ? ctx.unresolvedIssues.slice() : [];
+  }
+
   window.VCJobContext = cloneContext(EMPTY_CONTEXT);
   window.JobContextEngine = {
     preloadContext: preloadContext,
@@ -582,5 +691,7 @@
     getChecklistState: getChecklistState,
     markChecklistItem: markChecklistItem,
     resolveEquipmentDocId: resolveEquipmentDocId,
+    getSiteMemory: getSiteMemory,
+    getUnresolvedIssues: getUnresolvedIssues,
   };
 })();

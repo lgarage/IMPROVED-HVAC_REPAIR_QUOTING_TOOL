@@ -1633,6 +1633,142 @@ body.vc-override-active #vcOfficeOverrideBanner {
   50%       { border-color: rgba(0, 212, 255, 0.12); }
 }
 
+/* --- SITE MEMORY PANEL (Slice 51a) --- */
+
+.ct-site-memory {
+  margin: 0 0 2px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.18);
+  background: linear-gradient(180deg, rgba(0, 30, 46, 0.55) 0%, rgba(15, 17, 32, 0.55) 100%);
+}
+
+.ct-sm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #a0d8ef;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+}
+
+.ct-sm-header:active {
+  background: rgba(0, 212, 255, 0.06);
+}
+
+.ct-sm-title {
+  opacity: 0.85;
+}
+
+.ct-sm-chevron {
+  font-size: 16px;
+  color: #00d4ff;
+  opacity: 0.7;
+  line-height: 1;
+  transition: transform 0.2s;
+}
+
+.ct-site-memory--collapsed .ct-sm-chevron {
+  transform: rotate(-90deg);
+}
+
+.ct-sm-body {
+  padding: 0 14px 10px;
+  overflow: hidden;
+}
+
+.ct-site-memory--collapsed .ct-sm-body {
+  display: none;
+}
+
+.ct-sm-section {
+  margin-bottom: 8px;
+}
+
+.ct-sm-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #00d4ff;
+  opacity: 0.8;
+  margin: 0 0 4px;
+  letter-spacing: 0.03em;
+}
+
+.ct-sm-list {
+  margin: 0;
+  padding: 0 0 0 16px;
+  list-style: disc;
+  color: #c8eaf8;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.ct-sm-list li {
+  margin-bottom: 3px;
+}
+
+.ct-sm-notes {
+  margin: 0;
+  color: #c8eaf8;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ct-sm-sev {
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.ct-sm-sev--high   { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+.ct-sm-sev--medium { background: rgba(251, 191, 36, 0.25); color: #fde68a; }
+.ct-sm-sev--low    { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+
+.ct-sm-note {
+  display: block;
+  color: rgba(200, 234, 248, 0.6);
+  font-size: 11px;
+  font-style: italic;
+  margin-top: 1px;
+}
+
+.ct-sm-count {
+  font-size: 10px;
+  color: #fde68a;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.ct-sm-status {
+  font-size: 10px;
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-left: 4px;
+  background: rgba(0, 212, 255, 0.12);
+  color: #67e8f9;
+  vertical-align: middle;
+}
+
+.ct-sm-total {
+  font-size: 11px;
+  color: #34d399;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
 /* --- COMPILE NOTES button + modal (Slice 48a) --- */
 
 .ct-compile-btn {
@@ -5715,6 +5851,8 @@ button#techDisplayLabel:active { opacity: 0.75; }
         title="Timeline settings"
       >⚙️</button>
     </div>
+    <!-- Slice 51a: Site Memory panel — populated by renderSiteMemory() in conversational_timeline.js -->
+    <div id="ct-site-memory" class="ct-site-memory" hidden aria-label="Site operational memory"></div>
     <div id="ct-message-list" aria-live="polite" role="log" aria-label="Conversation messages">
       <p class="ct-empty">Open a ticket to load its conversation timeline.</p>
     </div>
@@ -6547,7 +6685,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase50-Slice50a-2026-05-15";
+window.VC_BUILD = "Phase51-Slice51a-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -11639,11 +11777,11 @@ window.onload = async function(){
     <script src="../unit_work_parser.js?v=10"></script>
     <script src="../field_forms.js?v=3"></script>
     <script src="../field_chronicle.js?v=1"></script>
-    <script src="../job_context_engine.js?v=3"></script>
+    <script src="../job_context_engine.js?v=4"></script>
     <script src="../edge_intent_engine.js?v=2"></script>
     <script src="../checklist_reminder_engine.js?v=1"></script>
     <script src="../learning_sync.js?v=1"></script>
-    <script src="../conversational_timeline.js?v=12"></script>
+    <script src="../conversational_timeline.js?v=13"></script>
     <script src="../tech_job_history.js?v=2"></script>
     <script>
       if (typeof initGlobalSiteDirectory === "function") initGlobalSiteDirectory();
