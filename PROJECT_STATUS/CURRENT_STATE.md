@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **HOTFIX — Slice 59b Firestore rules revert.** 59b tightened all data paths to `request.auth != null`, but field techs have no Firebase Auth (roster pick from localStorage). Broke presence heartbeat + schedule subscription + all field writes. Reverted ALL data/tenant paths to `if true`; admin locks (Slice 1) preserved. Deployed `firebase deploy --only firestore:rules` at ~4:20 PM.
+- **Last shipped (2026-05-15):** **Field app mobile UI v1** (`VC_BUILD: Phase60-MobileUIv1-2026-05-15`). Removed FIELD APP logo from header; moved 📋 Schedule button inline beside DAN DAY badge; Reason for Call panel now hidden by default — tap the job number chip (SC-1002) to toggle it. Previous last shipped: HOTFIX 59b rules revert (earlier today).
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,8 +18,8 @@ None (59b regression deployed — verify on phone).
 
 ## Immediate Next Step
 
-- **Verify hotfix on phone:** Open https://vertex-core-db.web.app/technician/ — "presence offline" badge should be gone, schedule should load.
-- **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a (preview URLs in session).
+- **Verify mobile UI on phone:** Open https://vertex-core-db.web.app/technician/ — header should show just DAN DAY + Schedule chip (no FIELD APP text); open a job and confirm Reason for Call is hidden until you tap the ticket chip.
+- **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
