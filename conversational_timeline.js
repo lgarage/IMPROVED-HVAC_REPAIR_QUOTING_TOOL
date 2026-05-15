@@ -521,6 +521,7 @@
     var entries = loadEntries(id);
 
     if (!entries.length) {
+      /* Never set list.innerHTML — #ct-post-chat-actions is a sibling of this stream. */
       stream.innerHTML = '<p class="ct-empty">No messages yet. Additions are persisted per ticket.</p>';
       scrollToBottom();
       updateCompileBtnVisibility();
@@ -562,6 +563,7 @@
         }
       }
     }
+    /* Bubbles only — preserves #ct-compile-btn / #ct-sync-btn outside this node (Mobile UI v7). */
     stream.innerHTML = html;
     scrollToBottom();
     updateCompileBtnVisibility();
