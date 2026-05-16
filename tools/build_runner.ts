@@ -1033,7 +1033,8 @@ const commands: SlashCommand[] = [
       }
 
       if (tests.length > 0) {
-        console.log(`  TEST CHECKLIST:\n`);
+        console.log(`\n  ${"─".repeat(58)}`);
+        console.log(`  TEST CHECKLIST\n`);
         tests.forEach((t, i) => {
           console.log(`    ${i + 1}. ${t}`);
         });
