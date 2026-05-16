@@ -599,6 +599,8 @@
     /* Vertex system response fires only for tech-authored entries */
     if (entry.role === "tech") {
       processEntry(entry, id);
+      /* Schedule a background compile 45 s after the last entry burst */
+      if (id === currentTicketId) scheduleDebounceCompile();
     }
     return entry;
   }
@@ -2677,10 +2679,14 @@
   /* ── Compile Notes (Slice 48a) ─────────────────────────────────── */
 
   var COMPILE_MIN_ENTRIES = 3;
-  var COMPILE_BG_INTERVAL_MS = 5 * 60 * 1000; /* 5 minutes */
+  var COMPILE_BG_INTERVAL_MS = 5 * 60 * 1000; /* 5 minutes — safety-net sweep */
+  var COMPILE_DEBOUNCE_MS    = 45 * 1000;      /* 45 s quiet period after last entry */
+  var COMPILE_DELTA_MAX_TOKENS = 2048;         /* delta calls need far less output */
+  var COMPILE_FULL_MAX_TOKENS  = 8192;         /* full / first compile needs room */
 
   /* Rolling background compile state */
   var _bgCompileTimer = null;
+  var _bgDebounceTimer = null;
   var _lastCompiledIndex = 0;   /* number of entries already compiled */
   var _compiledResult = null;   /* merged JSON result so far */
   var _compiledDisplayText = null; /* formatted display string */
@@ -2691,6 +2697,16 @@
     _compiledResult = null;
     _compiledDisplayText = null;
     _isCompiling = false;
+    if (_bgDebounceTimer) { clearTimeout(_bgDebounceTimer); _bgDebounceTimer = null; }
+  }
+
+  function scheduleDebounceCompile() {
+    if (!isJobActiveForCompile()) return;
+    if (_bgDebounceTimer) clearTimeout(_bgDebounceTimer);
+    _bgDebounceTimer = setTimeout(function () {
+      _bgDebounceTimer = null;
+      try { backgroundCompile(); } catch (e) { /* degrade silently */ }
+    }, COMPILE_DEBOUNCE_MS);
   }
 
   var COMPILE_INACTIVE_STATUSES = ["Completed", "Needs Repair Quote", "Parts on Order"];
@@ -2713,6 +2729,10 @@
     if (_bgCompileTimer) {
       clearInterval(_bgCompileTimer);
       _bgCompileTimer = null;
+    }
+    if (_bgDebounceTimer) {
+      clearTimeout(_bgDebounceTimer);
+      _bgDebounceTimer = null;
     }
   }
 
@@ -2851,7 +2871,8 @@
       ? buildDeltaCompilePrompt(newEntries, _compiledResult, context)
       : buildCompilePrompt(context);
 
-    callGeminiCompile(prompt).then(function (result) {
+    var tokenBudget = _compiledResult ? COMPILE_DELTA_MAX_TOKENS : COMPILE_FULL_MAX_TOKENS;
+    callGeminiCompile(prompt, tokenBudget).then(function (result) {
       _compiledResult = mergeCompileResults(_compiledResult, result);
       _compiledDisplayText = formatCompileResultForDisplay(_compiledResult);
       _lastCompiledIndex = snapshotIndex;
@@ -2938,7 +2959,7 @@
     try { return JSON.parse(t); } catch (e) { return null; }
   }
 
-  function callGeminiCompile(prompt) {
+  function callGeminiCompile(prompt, maxTokens) {
     if (typeof getGeminiApiKey !== "function") {
       return Promise.reject(new Error("Gemini API key not available"));
     }
@@ -2954,7 +2975,7 @@
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.2,
-          maxOutputTokens: 8192,
+          maxOutputTokens: maxTokens || COMPILE_FULL_MAX_TOKENS,
           responseMimeType: "application/json"
         }
       };
