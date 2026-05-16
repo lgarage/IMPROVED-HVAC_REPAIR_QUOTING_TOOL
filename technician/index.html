@@ -1558,6 +1558,130 @@ body.vc-override-active #vcOfficeOverrideBanner {
   color: #fb923c;
 }
 
+/* ── Media Capture Preview Overlay (photo approve/reject + video viewfinder) ── */
+.ct-media-capture-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9200;
+  background: rgba(0, 0, 0, 0.93);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.ct-media-capture-overlay[hidden] { display: none !important; }
+
+.ct-capture-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 440px;
+}
+
+.ct-capture-label {
+  color: #e5e7eb;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  margin: 0;
+  text-align: center;
+}
+
+.ct-capture-img {
+  width: 100%;
+  max-height: 56vh;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: #111;
+}
+
+.ct-capture-video {
+  width: 100%;
+  max-height: 56vh;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 2px solid rgba(239, 68, 68, 0.45);
+  background: #000;
+  display: block;
+}
+
+.ct-capture-spinner {
+  width: 46px;
+  height: 46px;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: #fb923c;
+  border-radius: 50%;
+  animation: ct-capture-spin 0.75s linear infinite;
+  margin: 36px auto;
+}
+@keyframes ct-capture-spin { to { transform: rotate(360deg); } }
+
+.ct-capture-rec-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #f87171;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.ct-capture-rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: ct-rec-pulse 1.2s ease-in-out infinite;
+}
+@keyframes ct-rec-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.22; }
+}
+
+.ct-capture-actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  justify-content: center;
+}
+
+.ct-capture-btn {
+  flex: 1;
+  max-width: 165px;
+  padding: 13px 0;
+  border: none;
+  border-radius: 30px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, transform 0.1s;
+}
+.ct-capture-btn:active { transform: scale(0.95); }
+
+.ct-capture-approve {
+  background: #16a34a;
+  color: #fff;
+}
+.ct-capture-approve:hover { background: #15803d; }
+
+.ct-capture-reject {
+  background: #374151;
+  color: #d1d5db;
+}
+.ct-capture-reject:hover { background: #4b5563; }
+
+.ct-capture-stop {
+  background: #dc2626;
+  color: #fff;
+  max-width: 220px;
+}
+.ct-capture-stop:hover { background: #b91c1c; }
+
 /* --- MEDIA TIMELINE ENTRIES (slice 41c) --- */
 
 .ct-media-entry {
@@ -6457,6 +6581,36 @@ button#techDisplayLabel:active { opacity: 0.75; }
 
   <!-- #generate kept hidden for JS compatibility; ct-sync-btn in timeline is the visible trigger -->
   <button id="generate" type="button" style="display:none" aria-hidden="true">Complete &amp; Sync Ticket</button>
+
+  <!-- Photo Capture Preview Overlay — approve/reject after instant snap -->
+  <div id="ct-photo-preview-overlay" class="ct-media-capture-overlay" hidden
+       role="dialog" aria-modal="true" aria-label="Photo preview">
+    <div class="ct-capture-modal">
+      <p id="ct-photo-preview-label" class="ct-capture-label">📷 Opening camera&hellip;</p>
+      <div id="ct-photo-capture-spinner" class="ct-capture-spinner" aria-hidden="true"></div>
+      <img id="ct-photo-preview-img" class="ct-capture-img" alt="Captured photo" style="display:none" />
+      <div id="ct-photo-preview-actions" class="ct-capture-actions" style="display:none">
+        <button id="ct-photo-reject-btn"  type="button" class="ct-capture-btn ct-capture-reject">&#x2715; Reject</button>
+        <button id="ct-photo-approve-btn" type="button" class="ct-capture-btn ct-capture-approve">&#x2713; Approve</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Video Viewfinder Overlay — live camera preview while recording -->
+  <div id="ct-video-viewfinder-overlay" class="ct-media-capture-overlay" hidden
+       role="dialog" aria-modal="true" aria-label="Video recording">
+    <div class="ct-capture-modal">
+      <div class="ct-capture-rec-badge">
+        <span class="ct-capture-rec-dot" aria-hidden="true"></span>
+        <span>REC</span>
+      </div>
+      <video id="ct-video-viewfinder-el" class="ct-capture-video"
+             autoplay playsinline muted></video>
+      <div class="ct-capture-actions">
+        <button id="ct-video-stop-btn" type="button" class="ct-capture-btn ct-capture-stop">&#x23F9; Stop &amp; Save</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="tagOcrModal" class="report-preview-modal hidden" role="dialog" aria-modal="true" aria-labelledby="tagOcrModalTitle">
@@ -6910,7 +7064,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase60-Gemini20Flash-2026-05-15";
+window.VC_BUILD = "Phase60-MediaCapturePreview-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -11914,7 +12068,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=2"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
-    <script src="../conversational_timeline.js?v=19"></script>
+    <script src="../conversational_timeline.js?v=20"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');

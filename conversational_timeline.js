@@ -773,6 +773,9 @@
   var _mediaRecorder = null;
   var _mediaChunks = [];
   var _isVideoRecording = false;
+  var _pendingPhotoFile    = null;
+  var _pendingPhotoDataUrl = null;
+  var _viewfinderStream    = null;
 
   function getTechnicianName() {
     try {
@@ -1046,14 +1049,134 @@
     if (!_isVideoRecording && !_mediaRecorder) return;
     _isVideoRecording = false;
     setMediaBtnVideoState(false);
+    dismissVideoViewfinder();
     if (_mediaRecorder) {
       try { _mediaRecorder.stop(); } catch (e) { _mediaRecorder = null; }
     }
   }
 
+  function showVideoViewfinder(stream) {
+    _viewfinderStream = stream;
+    var overlay = document.getElementById("ct-video-viewfinder-overlay");
+    var vidEl   = document.getElementById("ct-video-viewfinder-el");
+    if (!overlay || !vidEl) return;
+    vidEl.srcObject = stream;
+    vidEl.play().catch(function () {});
+    overlay.hidden = false;
+  }
+
+  function dismissVideoViewfinder() {
+    var overlay = document.getElementById("ct-video-viewfinder-overlay");
+    var vidEl   = document.getElementById("ct-video-viewfinder-el");
+    if (vidEl) {
+      try { vidEl.pause(); } catch (e) {}
+      vidEl.srcObject = null;
+    }
+    if (overlay) overlay.hidden = true;
+    _viewfinderStream = null;
+  }
+
+  /**
+   * capturePhotoInstant — tap handler.
+   * Uses getUserMedia to snap a single frame instantly, then shows an
+   * approve/reject preview overlay. Falls back to the native file picker
+   * if getUserMedia is unavailable or denied.
+   */
+  function capturePhotoInstant() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      capturePhoto();
+      return;
+    }
+
+    var overlay  = document.getElementById("ct-photo-preview-overlay");
+    var spinner  = document.getElementById("ct-photo-capture-spinner");
+    var img      = document.getElementById("ct-photo-preview-img");
+    var actions  = document.getElementById("ct-photo-preview-actions");
+    var label    = document.getElementById("ct-photo-preview-label");
+
+    if (!overlay) { capturePhoto(); return; }
+
+    /* Reset overlay to loading state */
+    img.style.display     = "none";
+    actions.style.display = "none";
+    spinner.style.display = "block";
+    label.textContent     = "📷 Opening camera\u2026";
+    overlay.hidden        = false;
+
+    _pendingPhotoFile    = null;
+    _pendingPhotoDataUrl = null;
+
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    }).then(function (stream) {
+      var vid = document.createElement("video");
+      vid.srcObject = stream;
+      vid.setAttribute("playsinline", "");
+      vid.muted = true;
+
+      function doCapture() {
+        var canvas = document.createElement("canvas");
+        canvas.width  = vid.videoWidth  || 1280;
+        canvas.height = vid.videoHeight || 720;
+        canvas.getContext("2d").drawImage(vid, 0, 0);
+
+        /* Stop the camera stream immediately after capture */
+        stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+        vid.srcObject = null;
+
+        var dataUrl = canvas.toDataURL("image/jpeg", 0.88);
+        _pendingPhotoDataUrl = dataUrl;
+
+        /* Build a File object from the data URL */
+        try {
+          var raw   = atob(dataUrl.split(",")[1]);
+          var bytes = new Uint8Array(raw.length);
+          for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+          var blob  = new Blob([bytes], { type: "image/jpeg" });
+          var ts    = new Date().toISOString().replace(/[:.]/g, "-");
+          _pendingPhotoFile = new File([blob], "photo_" + ts + ".jpg", { type: "image/jpeg" });
+        } catch (e) {
+          /* Safari <14.1 File constructor fallback */
+          var raw2   = atob(dataUrl.split(",")[1]);
+          var bytes2 = new Uint8Array(raw2.length);
+          for (var j = 0; j < raw2.length; j++) bytes2[j] = raw2.charCodeAt(j);
+          _pendingPhotoFile = new Blob([bytes2], { type: "image/jpeg" });
+          _pendingPhotoFile.name = "photo_" + new Date().toISOString().replace(/[:.]/g, "-") + ".jpg";
+        }
+
+        /* Reveal the captured image and approve/reject buttons */
+        spinner.style.display = "none";
+        img.src               = dataUrl;
+        img.style.display     = "block";
+        actions.style.display = "flex";
+        label.textContent     = "📷 Use this photo?";
+      }
+
+      var _canPlayFired = false;
+      vid.addEventListener("canplay", function onCanPlay() {
+        if (_canPlayFired) return;
+        _canPlayFired = true;
+        vid.removeEventListener("canplay", onCanPlay);
+        /* Short pause so the sensor can properly expose the first frame */
+        setTimeout(doCapture, 250);
+      });
+
+      vid.play().catch(function () {
+        stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
+        overlay.hidden = true;
+        capturePhoto();
+      });
+    }).catch(function () {
+      overlay.hidden = true;
+      capturePhoto();
+    });
+  }
+
   /**
    * capturePhoto — exported.
    * Opens the native media picker (no capture attribute → iOS shows full picker).
+   * Used as a fallback when getUserMedia is unavailable.
    */
   function capturePhoto() {
     var input = document.createElement("input");
@@ -1139,6 +1262,7 @@
         stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) { /* no-op */ } });
         _isVideoRecording = false;
         setMediaBtnVideoState(false);
+        dismissVideoViewfinder();
 
         if (!_mediaChunks.length) { _mediaRecorder = null; return; }
 
@@ -1169,14 +1293,17 @@
         stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) { /* no-op */ } });
         _isVideoRecording = false;
         setMediaBtnVideoState(false);
+        dismissVideoViewfinder();
         _mediaRecorder = null;
       };
 
       _mediaRecorder.start();
+      showVideoViewfinder(stream);
 
     }).catch(function () {
       _isVideoRecording = false;
       setMediaBtnVideoState(false);
+      dismissVideoViewfinder();
       _mediaRecorder = null;
       var stream = getMessageStreamEl();
       if (stream) {
@@ -2387,7 +2514,7 @@
         if (_isVideoRecording) {
           stopVideoCapture();
         } else if (elapsed < 500) {
-          capturePhoto();
+          capturePhotoInstant();
         }
       }
 
@@ -2409,6 +2536,41 @@
         mediaBtn.addEventListener("touchend", onMediaBtnUp, { passive: false });
         mediaBtn.addEventListener("touchcancel", onMediaBtnCancel);
       }
+    }
+
+    /* ── Photo preview overlay buttons ──────────────────────────────── */
+    var photoApproveBtn = document.getElementById("ct-photo-approve-btn");
+    if (photoApproveBtn) {
+      photoApproveBtn.addEventListener("click", function () {
+        if (!_pendingPhotoFile || !_pendingPhotoDataUrl) {
+          var ov = document.getElementById("ct-photo-preview-overlay");
+          if (ov) ov.hidden = true;
+          return;
+        }
+        addMediaEntry(_pendingPhotoFile, "photo", _pendingPhotoDataUrl, currentTicketId);
+        _pendingPhotoFile    = null;
+        _pendingPhotoDataUrl = null;
+        var ov = document.getElementById("ct-photo-preview-overlay");
+        if (ov) ov.hidden = true;
+      });
+    }
+
+    var photoRejectBtn = document.getElementById("ct-photo-reject-btn");
+    if (photoRejectBtn) {
+      photoRejectBtn.addEventListener("click", function () {
+        _pendingPhotoFile    = null;
+        _pendingPhotoDataUrl = null;
+        var ov = document.getElementById("ct-photo-preview-overlay");
+        if (ov) ov.hidden = true;
+      });
+    }
+
+    /* ── Video viewfinder Stop & Save button ─────────────────────────── */
+    var videoStopSaveBtn = document.getElementById("ct-video-stop-btn");
+    if (videoStopSaveBtn) {
+      videoStopSaveBtn.addEventListener("click", function () {
+        stopVideoCapture();
+      });
     }
   }
 
