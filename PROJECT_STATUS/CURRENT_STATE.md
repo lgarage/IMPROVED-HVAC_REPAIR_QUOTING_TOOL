@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–61 — KI-002 Hygiene + Security + Archive + Security Polish. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **Swipe-delete polish + remove approve/reject overlay** (`conversational_timeline.js?v=25`, `Phase60-SwipeDeleteNoOverlay-2026-05-15`). Delete button now hidden by default (opacity:0/pointer-events:none); fades in only after swipe-left reveals card (`.ct-swiped` class). Removed approve/reject overlay — native camera Retake/Use Photo is the only confirmation. Photos save to timeline directly on "Use Photo". Previous: swipe-to-delete media.
+- **Last shipped (2026-05-15):** **Video upload error handling** (`conversational_timeline.js?v=26`). `openMediaViewer` now checks `uploadStatus`; `openVideoPlayer` displays "Video upload failed" instead of "still uploading" when `uploadStatus === "error"`. Previous: swipe-delete polish + remove overlay.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).

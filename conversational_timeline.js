@@ -1820,7 +1820,7 @@
       /* Prefer full-res Storage URL; fall back to thumbnail data URL */
       openPhotoLightbox(entry.meta.storageUrl || entry.meta.thumbnailDataUrl);
     } else if (entry.meta.mediaType === "video") {
-      openVideoPlayer(entry.meta.storageUrl);
+      openVideoPlayer(entry.meta.storageUrl, entry.meta.uploadStatus === "error");
     }
   }
 
@@ -1839,14 +1839,17 @@
     if (overlay) overlay.hidden = true;
   }
 
-  function openVideoPlayer(src) {
+  function openVideoPlayer(src, isError) {
     var overlay = document.getElementById("ct-video-player-modal");
     var video   = document.getElementById("ct-video-player-el");
     var msg     = document.getElementById("ct-video-player-msg");
     if (!overlay) return;
     if (!src) {
       if (video) { video.src = ""; video.style.display = "none"; }
-      if (msg)   { msg.style.display = "block"; msg.textContent = "Video is still uploading \u2014 check back in a moment."; }
+      if (msg)   {
+        msg.style.display = "block";
+        msg.textContent = isError ? "Video upload failed." : "Video is still uploading \u2014 check back in a moment.";
+      }
     } else {
       if (video) { video.src = src; video.style.display = "block"; video.load(); }
       if (msg)   msg.style.display = "none";
