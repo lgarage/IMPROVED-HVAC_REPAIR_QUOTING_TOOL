@@ -95,7 +95,7 @@
     var model =
       typeof global.GEMINI_GENERATE_MODEL !== "undefined"
         ? global.GEMINI_GENERATE_MODEL
-        : "gemini-2.0-flash";
+        : "gemini-2.5-flash";
     var response = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/" +
         model +

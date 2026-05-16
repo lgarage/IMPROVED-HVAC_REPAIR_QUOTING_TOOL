@@ -415,7 +415,7 @@
     if (typeof GEMINI_GENERATE_MODEL !== "undefined" && GEMINI_GENERATE_MODEL) {
       return GEMINI_GENERATE_MODEL;
     }
-    return "gemini-2.0-flash";
+    return "gemini-2.5-flash";
   }
 
   /** Strip markdown code fences (```json / ```) before JSON.parse; used by processVisitNotes and similar. */

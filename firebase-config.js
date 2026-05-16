@@ -16,7 +16,7 @@ const firebaseConfig = {
  * Used by equipment_manager.js (callGeminiVision) for data-plate OCR and dictation nameplate promotion.
  * (gemini-1.5-flash was retired; change here if Google renames again.)
  */
-var GEMINI_GENERATE_MODEL = "gemini-2.0-flash"; /* gemini-2.5-flash returned 403 (preview/restricted); 2.0-flash is GA */
+var GEMINI_GENERATE_MODEL = "gemini-2.5-flash"; /* 2.0-flash deprecated for new users (404); 2.5-flash works with dedicated Gemini API key */
 
 // Initialize Firebase
 firebase.initializeApp({
