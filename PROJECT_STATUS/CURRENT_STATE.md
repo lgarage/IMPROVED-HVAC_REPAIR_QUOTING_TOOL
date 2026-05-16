@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **Equalize header vertical rhythm** (`technician/index.html`, `Phase60-EvenSpacing-2026-05-15`). Set `.dictation-site-nav` padding-top to 2px (was 4px) so gap A (shell→PLANET FITNESS) matches gap B (PLANET FITNESS→address, 2px). Previous: tighten workspace header spacing.
+- **Last shipped (2026-05-15):** **Equalize header vertical rhythm v2** (`technician/index.html`, `Phase60-EvenSpacing2-2026-05-15`). Dropped `.dictation-site-nav` padding-top to 0 (border already separates); grew `.ws-customer-row` margin-bottom 2px→4px. Gap A CSS ~5px, gap B CSS 4px — visually balanced. Previous: EvenSpacing pass 1.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,7 +18,7 @@ None (59b regression deployed — verify on phone).
 
 ## Immediate Next Step
 
-- **Verify even spacing:** On mobile, gap above PLANET FITNESS (shell→banner) should now match gap below it (banner→address) — both 2px. Hard-reload to pick up new build stamp `Phase60-EvenSpacing-2026-05-15`.
+- **Verify even spacing v2:** Gap above PLANET FITNESS (shell→banner) ~5–6px visual, gap below (banner→address) ~5–6px visual. Hard-reload for build stamp `Phase60-EvenSpacing2-2026-05-15`.
 - **Verify timeline:** No dashed **Which unit?** box or that phrase in Vertex bubbles when messages lack a unit reference; escalation may still show **What were you working on?** (Gemini low-confidence path). Hard-reload (`conversational_timeline.js?v=18`).
 - **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
