@@ -2691,6 +2691,7 @@
   var _compiledResult = null;   /* merged JSON result so far */
   var _compiledDisplayText = null; /* formatted display string */
   var _isCompiling = false;     /* prevents overlapping compiles */
+  var _compileToken = 0;        /* increments each compile start; .finally() guards against stale clears */
 
   function resetCompileState() {
     _lastCompiledIndex = 0;
@@ -2863,6 +2864,7 @@
     if (entries.length <= _lastCompiledIndex) return; /* no new entries */
 
     _isCompiling = true;
+    var myToken = ++_compileToken;
     var compileTicketId = currentTicketId; /* capture — ticket may switch before promise resolves */
     var newEntries = entries.slice(_lastCompiledIndex);
     var snapshotIndex = entries.length;
@@ -2881,7 +2883,7 @@
     }).catch(function () {
       /* Background compile failed silently — full compile will run on tap */
     }).finally(function () {
-      _isCompiling = false;
+      if (_compileToken === myToken) _isCompiling = false; /* only clear if still the active compile */
     });
   }
 
@@ -3117,6 +3119,7 @@
     }
 
     _isCompiling = true;
+    var myToken = ++_compileToken;
     var compileTicketId = currentTicketId; /* capture — ticket may switch before promise resolves */
     var snapshotIndex = entries.length;
     var context = gatherCompileContext();
@@ -3145,10 +3148,12 @@
       _lastCompileResult = null;
       openCompileModal(fallbackText);
     }).finally(function () {
-      _isCompiling = false;
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "📋 Compile Notes";
+      if (_compileToken === myToken) { /* only act if still the active compile */
+        _isCompiling = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "📋 Compile Notes";
+        }
       }
     });
   }
