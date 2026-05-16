@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **Media viewer + compile fix** (`conversational_timeline.js?v=22`, `Phase60-MediaViewer-2026-05-15`). Tap any photo thumbnail → fullscreen lightbox (full-res from Storage URL if available, else thumbnail). Tap video thumbnail → video player modal with native controls. Compile Notes: added MEDIA EQUIPMENT RULE instructing Gemini to associate untagged media with equipment mentioned before it in the timeline. Previous: media action sheet.
+- **Last shipped (2026-05-15):** **Swipe-to-delete media** (`conversational_timeline.js?v=23`, `Phase60-SwipeDelete-2026-05-15`). Swipe photo/video entry left → red Delete button reveals on right. Tap Delete → confirmation sheet slides up ("Delete this media? / This cannot be undone."). Confirm deletes from localStorage + re-renders. Cancel snaps entry back. Previous: media viewer + compile equipment rule.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).

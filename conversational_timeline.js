@@ -502,22 +502,28 @@
       : "";
 
     return (
-      '<div class="' + entryClass + '" data-entry-id="' + escapeHtml(item.id) + '">' +
-        thumbHtml +
-        '<div class="ct-media-info">' +
-          '<span class="ct-media-filename">' +
-            escapeHtml(meta.fileName || item.text || "Media") +
-          "</span>" +
-          '<span class="ct-message__meta">' +
-            escapeHtml(typeLabel) + " \u00b7 " +
-            escapeHtml(formatTime(item.ts)) +
-            escapeHtml(sizeLabel) +
-            escapeHtml(statusLabel) +
-            equipBadge +
-          "</span>" +
-          progressHtml +
+      '<div class="ct-media-swipe-wrap">' +
+        '<div class="' + entryClass + '" data-entry-id="' + escapeHtml(item.id) + '">' +
+          thumbHtml +
+          '<div class="ct-media-info">' +
+            '<span class="ct-media-filename">' +
+              escapeHtml(meta.fileName || item.text || "Media") +
+            "</span>" +
+            '<span class="ct-message__meta">' +
+              escapeHtml(typeLabel) + " \u00b7 " +
+              escapeHtml(formatTime(item.ts)) +
+              escapeHtml(sizeLabel) +
+              escapeHtml(statusLabel) +
+              equipBadge +
+            "</span>" +
+            progressHtml +
+          "</div>" +
         "</div>" +
-      "</div>"
+        '<button class="ct-media-delete-reveal" type="button" ' +
+          'data-delete-id="' + escapeHtml(item.id) + '" aria-label="Delete media">' +
+          '\uD83D\uDDD1<br>Delete' +
+        '</button>' +
+      '</div>'
     );
   }
 
@@ -1879,6 +1885,56 @@
     if (overlay) overlay.hidden = true;
   }
 
+  /* ── Swipe-to-delete: delete + confirm ────────────────────────── */
+
+  function deleteMediaEntry(entryId) {
+    var entries = loadEntries(currentTicketId);
+    var filtered = [];
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i] && entries[i].id !== entryId) filtered.push(entries[i]);
+    }
+    saveEntries(currentTicketId, filtered);
+    renderTimeline(currentTicketId);
+
+    var confirmOv = document.getElementById("ct-delete-confirm-overlay");
+    if (confirmOv) {
+      confirmOv.hidden = true;
+      confirmOv.removeAttribute("data-deleting-id");
+    }
+  }
+
+  function confirmDeleteMediaEntry(entryId) {
+    var overlay = document.getElementById("ct-delete-confirm-overlay");
+    if (!overlay) {
+      if (window.confirm("Delete this media? This cannot be undone.")) {
+        deleteMediaEntry(entryId);
+      }
+      return;
+    }
+    overlay.setAttribute("data-deleting-id", entryId);
+    overlay.hidden = false;
+  }
+
+  function dismissDeleteConfirm() {
+    var overlay = document.getElementById("ct-delete-confirm-overlay");
+    if (!overlay) return;
+    var entryId = overlay.getAttribute("data-deleting-id") || "";
+    overlay.hidden = true;
+    overlay.removeAttribute("data-deleting-id");
+
+    /* Snap swiped entry back */
+    var swipedEls = document.querySelectorAll(".ct-media-swipe-wrap.ct-swiped");
+    for (var i = 0; i < swipedEls.length; i++) {
+      var ent = swipedEls[i].querySelector(".ct-media-entry");
+      if (ent) {
+        ent.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
+        ent.style.transform  = "translateX(0)";
+      }
+      swipedEls[i].classList.remove("ct-swiped");
+    }
+    void entryId;
+  }
+
    /**
    * wireTimelineEditing — attaches event-delegated tap listener to #ct-message-list
    * so tapping any tech bubble enters inline edit mode.
@@ -3109,6 +3165,116 @@
     }
   }
 
+  function wireMediaSwipeDelete() {
+    var list = document.getElementById("ct-message-list");
+    if (!list) return;
+
+    var _startX      = 0;
+    var _startY      = 0;
+    var _swipeWrap   = null;
+    var _tracking    = false;
+    var REVEAL_W     = 80;
+    var THRESHOLD    = 55;
+
+    list.addEventListener("touchstart", function (e) {
+      var mediaEl = e.target.closest ? e.target.closest(".ct-media-entry") : null;
+      if (!mediaEl) return;
+      _swipeWrap = mediaEl.parentElement;
+      _startX    = e.touches[0].clientX;
+      _startY    = e.touches[0].clientY;
+      _tracking  = true;
+    }, { passive: true });
+
+    list.addEventListener("touchmove", function (e) {
+      if (!_tracking || !_swipeWrap) return;
+      var dx = e.touches[0].clientX - _startX;
+      var dy = e.touches[0].clientY - _startY;
+
+      /* Predominantly vertical → cancel swipe */
+      if (Math.abs(dy) > Math.abs(dx) + 8) { _tracking = false; return; }
+      if (dx > 0) return; /* ignore rightward */
+
+      var clamped = Math.max(dx, -REVEAL_W);
+      var ent = _swipeWrap.querySelector(".ct-media-entry");
+      if (ent) {
+        ent.style.transition = "none";
+        ent.style.transform  = "translateX(" + clamped + "px)";
+      }
+    }, { passive: true });
+
+    list.addEventListener("touchend", function (e) {
+      if (!_tracking || !_swipeWrap) return;
+      _tracking = false;
+
+      var endX = e.changedTouches && e.changedTouches[0]
+        ? e.changedTouches[0].clientX : _startX;
+      var dx  = endX - _startX;
+      var ent = _swipeWrap.querySelector(".ct-media-entry");
+
+      if (dx <= -THRESHOLD) {
+        /* Enough — reveal delete button */
+        if (ent) {
+          ent.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
+          ent.style.transform  = "translateX(-" + REVEAL_W + "px)";
+        }
+        _swipeWrap.classList.add("ct-swiped");
+      } else {
+        /* Not enough — snap back */
+        if (ent) {
+          ent.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
+          ent.style.transform  = "translateX(0)";
+        }
+        _swipeWrap.classList.remove("ct-swiped");
+      }
+      _swipeWrap = null;
+    }, { passive: true });
+
+    /* Tap delete reveal button → confirm dialog */
+    list.addEventListener("click", function (e) {
+      var delBtn = e.target.closest ? e.target.closest(".ct-media-delete-reveal") : null;
+      if (delBtn) {
+        e.stopPropagation();
+        var id = delBtn.getAttribute("data-delete-id");
+        if (id) confirmDeleteMediaEntry(id);
+        return;
+      }
+
+      /* Tap anywhere else → snap any swiped entry back */
+      var clickedWrap = e.target.closest ? e.target.closest(".ct-media-swipe-wrap") : null;
+      var swiped = list.querySelectorAll(".ct-media-swipe-wrap.ct-swiped");
+      for (var i = 0; i < swiped.length; i++) {
+        if (swiped[i] === clickedWrap) continue;
+        var ent = swiped[i].querySelector(".ct-media-entry");
+        if (ent) {
+          ent.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
+          ent.style.transform  = "translateX(0)";
+        }
+        swiped[i].classList.remove("ct-swiped");
+      }
+    });
+
+    /* Delete confirm overlay wiring */
+    var confirmOv = document.getElementById("ct-delete-confirm-overlay");
+    if (confirmOv) {
+      /* Backdrop tap → cancel */
+      confirmOv.addEventListener("click", function (e) {
+        if (e.target === confirmOv) dismissDeleteConfirm();
+      });
+    }
+
+    var yesBtn = document.getElementById("ct-delete-confirm-yes");
+    if (yesBtn) {
+      yesBtn.addEventListener("click", function () {
+        var ov  = document.getElementById("ct-delete-confirm-overlay");
+        var id  = ov ? ov.getAttribute("data-deleting-id") : null;
+        if (id) deleteMediaEntry(id);
+      });
+    }
+
+    var noBtn = document.getElementById("ct-delete-confirm-no");
+    if (noBtn) noBtn.addEventListener("click", dismissDeleteConfirm);
+  }
+
   function wireCompileBtn() {
     var btn = getCompileBtn();
     if (!btn) return;
@@ -3130,6 +3296,7 @@
     wireSettingsGear();
     wireTimelineEditing();
     wireMediaViewer();
+    wireMediaSwipeDelete();
     wireCompileBtn();
     wireCompileModal();
 

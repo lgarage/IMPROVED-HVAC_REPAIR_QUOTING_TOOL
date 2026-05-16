@@ -1849,6 +1849,56 @@ body.vc-override-active #vcOfficeOverrideBanner {
 }
 .ct-media-entry:active { opacity: 0.75; }
 
+/* ── Swipe-to-delete ── */
+.ct-media-swipe-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.ct-media-delete-reveal {
+  position: absolute;
+  right: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 80px;
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 0 10px 10px 0;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+.ct-media-delete-reveal:active { background: #b91c1c; }
+
+/* Delete confirm overlay */
+.ct-delete-confirm-title {
+  color: #f9fafb;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 4px;
+}
+.ct-delete-confirm-subtitle {
+  color: rgba(255,255,255,0.45);
+  font-size: 13px;
+  text-align: center;
+  margin: 0 0 12px;
+}
+.ct-delete-confirm-delete {
+  color: #fca5a5 !important;
+  font-weight: 700 !important;
+}
+
 /* --- MEDIA TIMELINE ENTRIES (slice 41c) --- */
 
 .ct-media-entry {
@@ -6781,6 +6831,22 @@ button#techDisplayLabel:active { opacity: 0.75; }
     </div>
   </div>
 
+  <!-- Delete Confirm Sheet -->
+  <div id="ct-delete-confirm-overlay" class="ct-action-sheet-overlay" hidden>
+    <div class="ct-action-sheet">
+      <div class="ct-action-sheet-grip" aria-hidden="true"></div>
+      <p class="ct-delete-confirm-title">Delete this media?</p>
+      <p class="ct-delete-confirm-subtitle">This cannot be undone.</p>
+      <button id="ct-delete-confirm-yes" type="button"
+              class="ct-action-sheet-item ct-delete-confirm-delete">
+        <span class="ct-action-sheet-icon" aria-hidden="true">🗑</span>
+        <span>Delete</span>
+      </button>
+      <div class="ct-action-sheet-divider" aria-hidden="true"></div>
+      <button id="ct-delete-confirm-no" type="button" class="ct-action-sheet-cancel">Cancel</button>
+    </div>
+  </div>
+
   <!-- Media Action Sheet — tap Take Photo button to open -->
   <div id="ct-media-action-sheet-overlay" class="ct-action-sheet-overlay" hidden>
     <div id="ct-media-action-sheet" class="ct-action-sheet">
@@ -7255,7 +7321,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase60-MediaViewer-2026-05-15";
+window.VC_BUILD = "Phase60-SwipeDelete-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -12259,7 +12325,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=2"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
-    <script src="../conversational_timeline.js?v=22"></script>
+    <script src="../conversational_timeline.js?v=23"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');
