@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **Media capture preview** (`technician/index.html`, `conversational_timeline.js?v=20`, `Phase60-MediaCapturePreview-2026-05-15`). Tap → instant `getUserMedia` snap → approve/reject overlay; Hold 500ms → live viewfinder + REC badge overlay → Stop & Save. Falls back to file picker if camera denied. Previous: Gemini model fix.
+- **Last shipped (2026-05-15):** **Media action sheet** (`technician/index.html`, `conversational_timeline.js?v=21`, `Phase60-MediaActionSheet-2026-05-15`). Tap Take Photo → iOS-style bottom sheet: 📷 Take a Photo / 🎥 Take a Video / 🖼 Pick from Photos / Cancel. Photo uses native `capture="environment"` input → approve/reject overlay. Video uses native video recorder → saves directly. Works on iOS Safari + Android Chrome. Removed all getUserMedia/MediaRecorder complexity. Previous: instant photo snap (getUserMedia).
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,7 +18,7 @@ None (59b regression deployed — verify on phone).
 
 ## Immediate Next Step
 
-- **Verify media capture:** Hard-reload `conversational_timeline.js?v=20`. Tap Take Photo → camera opens → spinner → photo shown → Approve/Reject. Hold 500ms → black overlay with live camera + REC badge → release or tap Stop & Save to stop recording. Both need HTTPS (camera permissions) — test on device over Tailscale or Firebase Hosting.
+- **Verify media action sheet:** Hard-reload `conversational_timeline.js?v=21`. Tap Take Photo → action sheet slides up with 3 options. "Take a Photo" opens native camera → photo returned → approve/reject overlay. "Take a Video" opens native video recorder → saves to timeline. "Pick from Photos" opens gallery. Test on device (iOS Safari + Android Chrome). Backdrop tap and Cancel both dismiss the sheet.
 - **Verify timeline:** No dashed **Which unit?** box or that phrase in Vertex bubbles when messages lack a unit reference; escalation may still show **What were you working on?** (Gemini low-confidence path). Hard-reload (`conversational_timeline.js?v=18`).
 - **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.

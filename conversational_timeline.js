@@ -770,12 +770,8 @@
 
   /* ── Media capture (Slice 41c) ────────────────────────────────── */
 
-  var _mediaRecorder = null;
-  var _mediaChunks = [];
-  var _isVideoRecording = false;
   var _pendingPhotoFile    = null;
   var _pendingPhotoDataUrl = null;
-  var _viewfinderStream    = null;
 
   function getTechnicianName() {
     try {
@@ -1029,177 +1025,66 @@
     return entry;
   }
 
-  function setMediaBtnVideoState(active) {
-    var btn = document.getElementById("ct-media-btn");
-    if (!btn) return;
-    if (active) {
-      btn.classList.add("ct-recording");
-      btn.setAttribute("aria-pressed", "true");
-      btn.textContent = "⏹ Stop";
-      btn.title = "Release to stop recording";
-    } else {
-      btn.classList.remove("ct-recording");
-      btn.setAttribute("aria-pressed", "false");
-      btn.textContent = "📷 Take Photo";
-      btn.title = "Tap for photo · Hold for video";
-    }
+  /* ── Media action sheet + native capture ──────────────────────── */
+
+  function openMediaActionSheet() {
+    var overlay = document.getElementById("ct-media-action-sheet-overlay");
+    if (overlay) overlay.hidden = false;
   }
 
-  function stopVideoCapture() {
-    if (!_isVideoRecording && !_mediaRecorder) return;
-    _isVideoRecording = false;
-    setMediaBtnVideoState(false);
-    dismissVideoViewfinder();
-    if (_mediaRecorder) {
-      try { _mediaRecorder.stop(); } catch (e) { _mediaRecorder = null; }
-    }
-  }
-
-  function showVideoViewfinder(stream) {
-    _viewfinderStream = stream;
-    var overlay = document.getElementById("ct-video-viewfinder-overlay");
-    var vidEl   = document.getElementById("ct-video-viewfinder-el");
-    if (!overlay || !vidEl) return;
-    vidEl.srcObject = stream;
-    vidEl.play().catch(function () {});
-    overlay.hidden = false;
-  }
-
-  function dismissVideoViewfinder() {
-    var overlay = document.getElementById("ct-video-viewfinder-overlay");
-    var vidEl   = document.getElementById("ct-video-viewfinder-el");
-    if (vidEl) {
-      try { vidEl.pause(); } catch (e) {}
-      vidEl.srcObject = null;
-    }
+  function dismissMediaActionSheet() {
+    var overlay = document.getElementById("ct-media-action-sheet-overlay");
     if (overlay) overlay.hidden = true;
-    _viewfinderStream = null;
   }
 
   /**
-   * capturePhotoInstant — tap handler.
-   * Uses getUserMedia to snap a single frame instantly, then shows an
-   * approve/reject preview overlay. Falls back to the native file picker
-   * if getUserMedia is unavailable or denied.
+   * capturePhotoNative — "Take a Photo" action.
+   * Opens the device native camera (rear-lens preferred) via file input.
+   * On return, shows approve/reject overlay before saving to timeline.
    */
-  function capturePhotoInstant() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      capturePhoto();
-      return;
-    }
-
-    var overlay  = document.getElementById("ct-photo-preview-overlay");
-    var spinner  = document.getElementById("ct-photo-capture-spinner");
-    var img      = document.getElementById("ct-photo-preview-img");
-    var actions  = document.getElementById("ct-photo-preview-actions");
-    var label    = document.getElementById("ct-photo-preview-label");
-
-    if (!overlay) { capturePhoto(); return; }
-
-    /* Reset overlay to loading state */
-    img.style.display     = "none";
-    actions.style.display = "none";
-    spinner.style.display = "block";
-    label.textContent     = "📷 Opening camera\u2026";
-    overlay.hidden        = false;
-
-    _pendingPhotoFile    = null;
-    _pendingPhotoDataUrl = null;
-
-    navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false
-    }).then(function (stream) {
-      var vid = document.createElement("video");
-      vid.srcObject = stream;
-      vid.setAttribute("playsinline", "");
-      vid.muted = true;
-
-      function doCapture() {
-        var canvas = document.createElement("canvas");
-        canvas.width  = vid.videoWidth  || 1280;
-        canvas.height = vid.videoHeight || 720;
-        canvas.getContext("2d").drawImage(vid, 0, 0);
-
-        /* Stop the camera stream immediately after capture */
-        stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
-        vid.srcObject = null;
-
-        var dataUrl = canvas.toDataURL("image/jpeg", 0.88);
-        _pendingPhotoDataUrl = dataUrl;
-
-        /* Build a File object from the data URL */
-        try {
-          var raw   = atob(dataUrl.split(",")[1]);
-          var bytes = new Uint8Array(raw.length);
-          for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-          var blob  = new Blob([bytes], { type: "image/jpeg" });
-          var ts    = new Date().toISOString().replace(/[:.]/g, "-");
-          _pendingPhotoFile = new File([blob], "photo_" + ts + ".jpg", { type: "image/jpeg" });
-        } catch (e) {
-          /* Safari <14.1 File constructor fallback */
-          var raw2   = atob(dataUrl.split(",")[1]);
-          var bytes2 = new Uint8Array(raw2.length);
-          for (var j = 0; j < raw2.length; j++) bytes2[j] = raw2.charCodeAt(j);
-          _pendingPhotoFile = new Blob([bytes2], { type: "image/jpeg" });
-          _pendingPhotoFile.name = "photo_" + new Date().toISOString().replace(/[:.]/g, "-") + ".jpg";
-        }
-
-        /* Reveal the captured image and approve/reject buttons */
-        spinner.style.display = "none";
-        img.src               = dataUrl;
-        img.style.display     = "block";
-        actions.style.display = "flex";
-        label.textContent     = "📷 Use this photo?";
-      }
-
-      var _canPlayFired = false;
-      vid.addEventListener("canplay", function onCanPlay() {
-        if (_canPlayFired) return;
-        _canPlayFired = true;
-        vid.removeEventListener("canplay", onCanPlay);
-        /* Short pause so the sensor can properly expose the first frame */
-        setTimeout(doCapture, 250);
-      });
-
-      vid.play().catch(function () {
-        stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} });
-        overlay.hidden = true;
-        capturePhoto();
-      });
-    }).catch(function () {
-      overlay.hidden = true;
-      capturePhoto();
-    });
-  }
-
-  /**
-   * capturePhoto — exported.
-   * Opens the native media picker (no capture attribute → iOS shows full picker).
-   * Used as a fallback when getUserMedia is unavailable.
-   */
-  function capturePhoto() {
+  function capturePhotoNative() {
+    dismissMediaActionSheet();
     var input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
-    /* intentionally no capture attribute — full picker on iOS */
+    input.type    = "file";
+    input.accept  = "image/*";
+    input.capture = "environment";
     input.style.cssText = "position:fixed;left:-9999px;opacity:0;pointer-events:none;";
     document.body.appendChild(input);
 
     input.addEventListener("change", function () {
       var file = input.files && input.files[0];
-      try { document.body.removeChild(input); } catch (e) { /* no-op */ }
+      try { document.body.removeChild(input); } catch (e) {}
       if (!file) return;
-      createImageThumbnail(file, function (thumbDataUrl) {
-        addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
-      });
+
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        _pendingPhotoFile    = file;
+        _pendingPhotoDataUrl = ev.target.result;
+        var overlay = document.getElementById("ct-photo-preview-overlay");
+        var img     = document.getElementById("ct-photo-preview-img");
+        var label   = document.getElementById("ct-photo-preview-label");
+        if (!overlay) {
+          createImageThumbnail(file, function (thumb) {
+            addMediaEntry(file, "photo", thumb, currentTicketId);
+          });
+          return;
+        }
+        img.src           = ev.target.result;
+        label.textContent = "📷 Use this photo?";
+        overlay.hidden    = false;
+      };
+      reader.onerror = function () {
+        createImageThumbnail(file, function (thumb) {
+          addMediaEntry(file, "photo", thumb, currentTicketId);
+        });
+      };
+      reader.readAsDataURL(file);
     });
 
-    /* Remove orphaned input if user cancels (blur fires after picker dismissed) */
     input.addEventListener("blur", function () {
       setTimeout(function () {
         if (!input.files || !input.files.length) {
-          try { document.body.removeChild(input); } catch (e) { /* no-op */ }
+          try { document.body.removeChild(input); } catch (e) {}
         }
       }, 1000);
     });
@@ -1208,112 +1093,70 @@
   }
 
   /**
-   * captureVideo — exported.
-   * Starts MediaRecorder video capture. Release hold → stopVideoCapture() finishes.
-   * Falls back to file picker if getUserMedia is unavailable.
+   * captureVideoNative — "Take a Video" action.
+   * Opens the device native video camera via file input.
+   * Saved directly to the timeline on return (no preview step).
    */
-  function captureVideo() {
-    if (_isVideoRecording) return;
+  function captureVideoNative() {
+    dismissMediaActionSheet();
+    var input = document.createElement("input");
+    input.type    = "file";
+    input.accept  = "video/*";
+    input.capture = "environment";
+    input.style.cssText = "position:fixed;left:-9999px;opacity:0;pointer-events:none;";
+    document.body.appendChild(input);
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
-      /* Fallback: video file picker */
-      var input = document.createElement("input");
-      input.type = "file";
-      input.accept = "video/*";
-      input.style.cssText = "position:fixed;left:-9999px;opacity:0;pointer-events:none;";
-      document.body.appendChild(input);
-      input.addEventListener("change", function () {
-        var file = input.files && input.files[0];
-        try { document.body.removeChild(input); } catch (e) { /* no-op */ }
-        if (!file) return;
-        createVideoThumbnail(file, function (thumbDataUrl) {
-          addMediaEntry(file, "video", thumbDataUrl, currentTicketId);
-        });
+    input.addEventListener("change", function () {
+      var file = input.files && input.files[0];
+      try { document.body.removeChild(input); } catch (e) {}
+      if (!file) return;
+      createVideoThumbnail(file, function (thumbDataUrl) {
+        addMediaEntry(file, "video", thumbDataUrl, currentTicketId);
       });
-      input.click();
-      return;
-    }
-
-    _isVideoRecording = true;
-    _mediaChunks = [];
-    setMediaBtnVideoState(true);
-
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(function (stream) {
-      var mimeType = "";
-      var candidates = ["video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
-      for (var ci = 0; ci < candidates.length; ci++) {
-        if (MediaRecorder.isTypeSupported(candidates[ci])) {
-          mimeType = candidates[ci];
-          break;
-        }
-      }
-
-      try {
-        _mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType: mimeType } : {});
-      } catch (e) {
-        _mediaRecorder = new MediaRecorder(stream);
-      }
-
-      _mediaRecorder.ondataavailable = function (e) {
-        if (e.data && e.data.size > 0) _mediaChunks.push(e.data);
-      };
-
-      _mediaRecorder.onstop = function () {
-        stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) { /* no-op */ } });
-        _isVideoRecording = false;
-        setMediaBtnVideoState(false);
-        dismissVideoViewfinder();
-
-        if (!_mediaChunks.length) { _mediaRecorder = null; return; }
-
-        var recorderMime = (_mediaRecorder && _mediaRecorder.mimeType) || "video/webm";
-        var blob = new Blob(_mediaChunks, { type: recorderMime });
-        _mediaChunks = [];
-        _mediaRecorder = null;
-
-        var ext = recorderMime.indexOf("mp4") !== -1 ? "mp4" : "webm";
-        var tsStr = new Date().toISOString().replace(/[:.]/g, "-");
-        var fileName = "video_" + tsStr + "." + ext;
-
-        var file;
-        try {
-          file = new File([blob], fileName, { type: blob.type });
-        } catch (e) {
-          /* Safari < 14.1 doesn't support File constructor with options */
-          file = blob;
-          file.name = fileName;
-        }
-
-        createVideoThumbnail(blob, function (thumbDataUrl) {
-          addMediaEntry(file, "video", thumbDataUrl, currentTicketId);
-        });
-      };
-
-      _mediaRecorder.onerror = function () {
-        stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) { /* no-op */ } });
-        _isVideoRecording = false;
-        setMediaBtnVideoState(false);
-        dismissVideoViewfinder();
-        _mediaRecorder = null;
-      };
-
-      _mediaRecorder.start();
-      showVideoViewfinder(stream);
-
-    }).catch(function () {
-      _isVideoRecording = false;
-      setMediaBtnVideoState(false);
-      dismissVideoViewfinder();
-      _mediaRecorder = null;
-      var stream = getMessageStreamEl();
-      if (stream) {
-        var hint = document.createElement("p");
-        hint.className = "ct-empty";
-        hint.textContent = "Camera access denied — cannot record video.";
-        stream.appendChild(hint);
-        scrollToBottom();
-      }
     });
+
+    input.addEventListener("blur", function () {
+      setTimeout(function () {
+        if (!input.files || !input.files.length) {
+          try { document.body.removeChild(input); } catch (e) {}
+        }
+      }, 1000);
+    });
+
+    input.click();
+  }
+
+  /**
+   * captureFromGallery — "Pick from Photos" action.
+   * Opens the device photo gallery / file picker (no camera).
+   */
+  function captureFromGallery() {
+    dismissMediaActionSheet();
+    var input = document.createElement("input");
+    input.type   = "file";
+    input.accept = "image/*";
+    /* No capture attribute — shows gallery on iOS/Android */
+    input.style.cssText = "position:fixed;left:-9999px;opacity:0;pointer-events:none;";
+    document.body.appendChild(input);
+
+    input.addEventListener("change", function () {
+      var file = input.files && input.files[0];
+      try { document.body.removeChild(input); } catch (e) {}
+      if (!file) return;
+      createImageThumbnail(file, function (thumbDataUrl) {
+        addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
+      });
+    });
+
+    input.addEventListener("blur", function () {
+      setTimeout(function () {
+        if (!input.files || !input.files.length) {
+          try { document.body.removeChild(input); } catch (e) {}
+        }
+      }, 1000);
+    });
+
+    input.click();
   }
 
   /* ── Vertex system responses (Slice 41d + 43b) ────────────────── */
@@ -2492,66 +2335,24 @@
 
     var mediaBtn = document.getElementById("ct-media-btn");
     if (mediaBtn) {
-      var _mediaBtnDownTime = 0;
-      var _mediaBtnHoldTimer = null;
-
-      function onMediaBtnDown(e) {
-        if (e && e.cancelable) e.preventDefault();
-        _mediaBtnDownTime = Date.now();
-        _mediaBtnHoldTimer = setTimeout(function () {
-          _mediaBtnHoldTimer = null;
-          captureVideo();
-        }, 500);
-      }
-
-      function onMediaBtnUp(e) {
-        if (e && e.cancelable) e.preventDefault();
-        var elapsed = Date.now() - _mediaBtnDownTime;
-        if (_mediaBtnHoldTimer) {
-          clearTimeout(_mediaBtnHoldTimer);
-          _mediaBtnHoldTimer = null;
-        }
-        if (_isVideoRecording) {
-          stopVideoCapture();
-        } else if (elapsed < 500) {
-          capturePhotoInstant();
-        }
-      }
-
-      function onMediaBtnCancel() {
-        if (_mediaBtnHoldTimer) { clearTimeout(_mediaBtnHoldTimer); _mediaBtnHoldTimer = null; }
-        if (_isVideoRecording) stopVideoCapture();
-      }
-
-      var hasPointerEventsMedia = (typeof window.PointerEvent !== "undefined");
-      if (hasPointerEventsMedia) {
-        mediaBtn.addEventListener("pointerdown", onMediaBtnDown);
-        mediaBtn.addEventListener("pointerup", onMediaBtnUp);
-        mediaBtn.addEventListener("pointercancel", onMediaBtnCancel);
-        mediaBtn.addEventListener("pointerleave", function () {
-          if (_isVideoRecording) stopVideoCapture();
-        });
-      } else {
-        mediaBtn.addEventListener("touchstart", onMediaBtnDown, { passive: false });
-        mediaBtn.addEventListener("touchend", onMediaBtnUp, { passive: false });
-        mediaBtn.addEventListener("touchcancel", onMediaBtnCancel);
-      }
+      mediaBtn.addEventListener("click", function () {
+        openMediaActionSheet();
+      });
     }
 
     /* ── Photo preview overlay buttons ──────────────────────────────── */
     var photoApproveBtn = document.getElementById("ct-photo-approve-btn");
     if (photoApproveBtn) {
       photoApproveBtn.addEventListener("click", function () {
-        if (!_pendingPhotoFile || !_pendingPhotoDataUrl) {
-          var ov = document.getElementById("ct-photo-preview-overlay");
-          if (ov) ov.hidden = true;
-          return;
-        }
-        addMediaEntry(_pendingPhotoFile, "photo", _pendingPhotoDataUrl, currentTicketId);
+        var file = _pendingPhotoFile;
         _pendingPhotoFile    = null;
         _pendingPhotoDataUrl = null;
         var ov = document.getElementById("ct-photo-preview-overlay");
         if (ov) ov.hidden = true;
+        if (!file) return;
+        createImageThumbnail(file, function (thumbDataUrl) {
+          addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
+        });
       });
     }
 
@@ -2565,11 +2366,22 @@
       });
     }
 
-    /* ── Video viewfinder Stop & Save button ─────────────────────────── */
-    var videoStopSaveBtn = document.getElementById("ct-video-stop-btn");
-    if (videoStopSaveBtn) {
-      videoStopSaveBtn.addEventListener("click", function () {
-        stopVideoCapture();
+    /* ── Action sheet option buttons ─────────────────────────────────── */
+    var actionPhoto   = document.getElementById("ct-action-photo");
+    var actionVideo   = document.getElementById("ct-action-video");
+    var actionGallery = document.getElementById("ct-action-gallery");
+    var actionCancel  = document.getElementById("ct-action-cancel");
+
+    if (actionPhoto)   actionPhoto.addEventListener("click",   capturePhotoNative);
+    if (actionVideo)   actionVideo.addEventListener("click",   captureVideoNative);
+    if (actionGallery) actionGallery.addEventListener("click", captureFromGallery);
+    if (actionCancel)  actionCancel.addEventListener("click",  dismissMediaActionSheet);
+
+    /* Tap backdrop to cancel */
+    var actionSheetOverlay = document.getElementById("ct-media-action-sheet-overlay");
+    if (actionSheetOverlay) {
+      actionSheetOverlay.addEventListener("click", function (e) {
+        if (e.target === actionSheetOverlay) dismissMediaActionSheet();
       });
     }
   }

@@ -1682,6 +1682,97 @@ body.vc-override-active #vcOfficeOverrideBanner {
 }
 .ct-capture-stop:hover { background: #b91c1c; }
 
+/* ── Media Action Sheet (iOS-style bottom sheet) ── */
+.ct-action-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9100;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.ct-action-sheet-overlay[hidden] { display: none !important; }
+
+.ct-action-sheet {
+  width: 100%;
+  max-width: 480px;
+  padding: 0 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  animation: ct-sheet-up 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes ct-sheet-up {
+  from { transform: translateY(110%); }
+  to   { transform: translateY(0); }
+}
+
+.ct-action-sheet-grip {
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+  margin: 10px auto 10px;
+}
+
+.ct-action-sheet-title {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 0 0 8px;
+}
+
+.ct-action-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 17px 20px;
+  background: rgba(26, 28, 36, 0.97);
+  border: none;
+  color: #f9fafb;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s;
+}
+.ct-action-sheet-item:first-of-type { border-radius: 14px 14px 0 0; }
+.ct-action-sheet-item:last-of-type  { border-radius: 0 0 14px 14px; }
+.ct-action-sheet-item + .ct-action-sheet-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.ct-action-sheet-item:active { background: rgba(50, 54, 70, 0.97); }
+
+.ct-action-sheet-icon {
+  font-size: 20px;
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ct-action-sheet-divider { height: 10px; }
+
+.ct-action-sheet-cancel {
+  display: block;
+  width: 100%;
+  padding: 17px 20px;
+  background: rgba(26, 28, 36, 0.97);
+  border: none;
+  border-radius: 14px;
+  color: #f9fafb;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s;
+}
+.ct-action-sheet-cancel:active { background: rgba(50, 54, 70, 0.97); }
+
 /* --- MEDIA TIMELINE ENTRIES (slice 41c) --- */
 
 .ct-media-entry {
@@ -6416,7 +6507,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
           class="ct-photo-btn"
           aria-label="Take photo"
           aria-pressed="false"
-          title="Tap for photo · Hold for video"
+          title="Tap to add a photo or video"
         >📷 Take Photo</button>
         <button
           id="ct-talk-btn"
@@ -6582,33 +6673,38 @@ button#techDisplayLabel:active { opacity: 0.75; }
   <!-- #generate kept hidden for JS compatibility; ct-sync-btn in timeline is the visible trigger -->
   <button id="generate" type="button" style="display:none" aria-hidden="true">Complete &amp; Sync Ticket</button>
 
-  <!-- Photo Capture Preview Overlay — approve/reject after instant snap -->
+  <!-- Photo Capture Preview Overlay — approve/reject after native camera capture -->
   <div id="ct-photo-preview-overlay" class="ct-media-capture-overlay" hidden
        role="dialog" aria-modal="true" aria-label="Photo preview">
     <div class="ct-capture-modal">
-      <p id="ct-photo-preview-label" class="ct-capture-label">📷 Opening camera&hellip;</p>
-      <div id="ct-photo-capture-spinner" class="ct-capture-spinner" aria-hidden="true"></div>
-      <img id="ct-photo-preview-img" class="ct-capture-img" alt="Captured photo" style="display:none" />
-      <div id="ct-photo-preview-actions" class="ct-capture-actions" style="display:none">
+      <p id="ct-photo-preview-label" class="ct-capture-label">📷 Use this photo?</p>
+      <img id="ct-photo-preview-img" class="ct-capture-img" alt="Captured photo" />
+      <div class="ct-capture-actions">
         <button id="ct-photo-reject-btn"  type="button" class="ct-capture-btn ct-capture-reject">&#x2715; Reject</button>
         <button id="ct-photo-approve-btn" type="button" class="ct-capture-btn ct-capture-approve">&#x2713; Approve</button>
       </div>
     </div>
   </div>
 
-  <!-- Video Viewfinder Overlay — live camera preview while recording -->
-  <div id="ct-video-viewfinder-overlay" class="ct-media-capture-overlay" hidden
-       role="dialog" aria-modal="true" aria-label="Video recording">
-    <div class="ct-capture-modal">
-      <div class="ct-capture-rec-badge">
-        <span class="ct-capture-rec-dot" aria-hidden="true"></span>
-        <span>REC</span>
-      </div>
-      <video id="ct-video-viewfinder-el" class="ct-capture-video"
-             autoplay playsinline muted></video>
-      <div class="ct-capture-actions">
-        <button id="ct-video-stop-btn" type="button" class="ct-capture-btn ct-capture-stop">&#x23F9; Stop &amp; Save</button>
-      </div>
+  <!-- Media Action Sheet — tap Take Photo button to open -->
+  <div id="ct-media-action-sheet-overlay" class="ct-action-sheet-overlay" hidden>
+    <div id="ct-media-action-sheet" class="ct-action-sheet">
+      <div class="ct-action-sheet-grip" aria-hidden="true"></div>
+      <p class="ct-action-sheet-title">Add Media</p>
+      <button id="ct-action-photo"   type="button" class="ct-action-sheet-item">
+        <span class="ct-action-sheet-icon" aria-hidden="true">📷</span>
+        <span>Take a Photo</span>
+      </button>
+      <button id="ct-action-video"   type="button" class="ct-action-sheet-item">
+        <span class="ct-action-sheet-icon" aria-hidden="true">🎥</span>
+        <span>Take a Video</span>
+      </button>
+      <button id="ct-action-gallery" type="button" class="ct-action-sheet-item">
+        <span class="ct-action-sheet-icon" aria-hidden="true">&#x1F5BC;</span>
+        <span>Pick from Photos</span>
+      </button>
+      <div class="ct-action-sheet-divider" aria-hidden="true"></div>
+      <button id="ct-action-cancel"  type="button" class="ct-action-sheet-cancel">Cancel</button>
     </div>
   </div>
 </div>
@@ -7064,7 +7160,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase60-MediaCapturePreview-2026-05-15";
+window.VC_BUILD = "Phase60-MediaActionSheet-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -12068,7 +12164,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=2"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
-    <script src="../conversational_timeline.js?v=20"></script>
+    <script src="../conversational_timeline.js?v=21"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');
