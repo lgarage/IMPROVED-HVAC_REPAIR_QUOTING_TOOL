@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 62 complete. **Phase 63 slices authored** (Field Intelligence — Contextual Checklists).
-- **Last shipped (2026-05-16):** **Phase 63 slice definitions** — 6 slices (63a–63f) authored in `tools/slices.ts` for Field Intelligence features: multi-trigger words, adaptive checklist reminders, experience-based prompting, photo auto-tie to equipment, post-compile equipment history write. No app code change — slices ready for SDK build runner.
-- **Prior (2026-05-16):** Slack idea vault docs + Rolling background compile notes (Slice 62h) + Gemini 403 deep fix (62e–62g) + `MODEL_GUARDS` (62d).
+- **Active Phase:** Phase 62 complete. **Phase 63 slices authored** (Field Intelligence — Contextual Checklists + Equipment Intelligence).
+- **Last shipped (2026-05-16):** **Phase 63 slices 63g + 63h** added to `tools/slices.ts` — (63g) unit nameplate OCR via Gemini Vision → auto-populates model/serial/manufacturer on equipment record with confirmation gate; (63h) cross-job Equipment History view in Equipment Hub pulling from `site_intelligence`. Total Phase 63: 8 slices (63a–63h).
+- **Prior (2026-05-16):** 63a–63f authored (multi-trigger words, adaptive checklists, experience-based prompting, photo auto-tie, post-compile history write) + Slice 63e shipped.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Run Phase 63 slices via SDK build runner** — `vertex` → `/a` to execute 63a–63f. 63a (multi-trigger UI) and 63e (photo auto-tie) have no dependencies and can run first. 63b→63c→63d chain sequentially. 63f depends on 63e.
+- **Run Phase 63 slices via SDK build runner** — `vertex` → `/a` to execute 63a–63h. 63a and 63e have no dependencies (run first). 63b→63c→63d chain. 63f depends on 63e. 63g depends on 63e. 63h depends on 63f + 63g.
 - **Test Compile Notes on phone** — hard-refresh browser, add 3+ entries, wait 5 min, tap "Compile Notes" (should be instant or near-instant). Then add more entries and tap again to verify delta compile.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.

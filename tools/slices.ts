@@ -594,5 +594,223 @@ Bump conversational_timeline.js cache-bust in technician/index.html.`,
     cacheBusts: ["conversational_timeline.js"],
   },
 
-  
+  {
+    id: "63g",
+    phase: 63,
+    title: "Unit tag nameplate OCR — auto-populate model/serial on equipment record",
+    dependsOn: ["63e"],
+    patterns: ["Multi-file UI feature (no Firestore writes)", "Firestore write path (new collection/doc)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Field tech app → workspace → type 'working on RTU 3' (so RTU 3 is the active equipment) → take a photo of a unit nameplate/data plate.",
+      "Confirm a classification card appears within ~3 seconds: 'Nameplate detected — RTU 3' with extracted fields (Model, Serial, Manufacturer). If fields are empty the card should not appear.",
+      "Verify the extracted Model and Serial fields look plausible (Gemini Vision reading real or test nameplate image).",
+      "Tap 'Save to Equipment Record' → open Firebase Console → find the equipment document for this customer/location/unit → confirm modelNumber and serialNumber fields are now populated.",
+      "Tap 'Dismiss' instead → confirm NO write occurs and no equipment fields are modified.",
+      "Take a regular (non-nameplate) photo while RTU 3 is active → confirm NO classification card appears (false positive guard: Gemini returns null fields).",
+      "Take a nameplate photo with NO active equipment context → confirm the card still shows extracted fields but prompts user to confirm the unit name before saving (fallback: text input for unit name).",
+      "Verify existing equipment fields (Mfg Year, Health Score, etc.) are preserved — the write is a merge, not an overwrite.",
+    ],
+    filesToCreate: [],
+    filesToModify: ["conversational_timeline.js", "equipment_manager.js"],
+    expectedIds: ["ct-nameplate-confirm-card"],
+    expectedExports: {},
+    scope: `When a technician photographs a unit nameplate/data plate while an equipment unit is
+active, use Gemini Vision to extract model number, serial number, and manufacturer, then
+offer to save those fields to the unit's equipment record in Firestore.
+
+## Detection flow (conversational_timeline.js)
+
+After a photo is saved to the timeline (in capturePhotoNative / the media action sheet
+save path), add a post-save classification step:
+
+function classifyNameplate(dataUrl, equipmentRef):
+  1. Build a Gemini Vision request using the existing getGeminiApiKey() + fetch pattern.
+     Endpoint: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent
+     Send the image as a base64 inlineData part (strip the "data:image/...;base64," prefix).
+  2. Prompt (system + user):
+     "You are an HVAC unit data extraction assistant.
+      Look at this image. If it shows a manufacturer nameplate, data plate, or model label
+      for an HVAC unit (RTU, AHU, chiller, boiler, etc.), extract the following fields.
+      If the image is NOT a nameplate, return all fields as null.
+      Return ONLY valid JSON:
+      { \\"manufacturer\\": string|null, \\"modelNumber\\": string|null, \\"serialNumber\\": string|null,
+        \\"voltage\\": string|null, \\"tonnage\\": string|null }"
+  3. Parse the JSON response. If modelNumber AND serialNumber are both null → return null
+     (not a nameplate or unreadable). Otherwise return the parsed object.
+
+This classification should run silently in the background. Use a try/catch so any
+Gemini error is swallowed — the photo is already saved; this is best-effort enrichment.
+
+## Confirmation card (conversational_timeline.js)
+
+If classifyNameplate() returns non-null results, inject a confirmation card immediately
+after the photo entry in the timeline:
+
+  var html = '<div id="ct-nameplate-confirm-card" style="background:#f0f9ff;border:1px solid #7dd3fc;'
+    + 'border-radius:10px;padding:12px 16px;font-size:13px;margin:4px 0;">'
+    + '<div style="font-weight:600;color:#0369a1;margin-bottom:6px;">🏷️ Nameplate detected'
+    + (equipmentRef ? ' — ' + equipmentRef : '') + '</div>'
+    + '<div style="color:#0c4a6e;line-height:1.7;">'
+    + (result.manufacturer ? '<div><strong>Manufacturer:</strong> ' + result.manufacturer + '</div>' : '')
+    + (result.modelNumber ? '<div><strong>Model:</strong> ' + result.modelNumber + '</div>' : '')
+    + (result.serialNumber ? '<div><strong>Serial:</strong> ' + result.serialNumber + '</div>' : '')
+    + (result.voltage ? '<div><strong>Voltage:</strong> ' + result.voltage + '</div>' : '')
+    + (result.tonnage ? '<div><strong>Tonnage:</strong> ' + result.tonnage + '</div>' : '')
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:10px;">'
+    + '<button class="ct-nameplate-save-btn" data-eq="' + (equipmentRef||'') + '" data-result=\\'\\''
+    + ' style="background:#0284c7;color:#fff;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;">'
+    + 'Save to Equipment Record</button>'
+    + '<button class="ct-nameplate-dismiss-btn"'
+    + ' style="background:none;border:1px solid #cbd5e1;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;color:#64748b;">'
+    + 'Dismiss</button></div></div>';
+
+Store the result JSON on the save button via a data attribute (data-result) so the click
+handler can read it without a closure over a shared var.
+
+Wire delegated click handlers (add once to #ct-message-list or document):
+- .ct-nameplate-save-btn → call saveNameplateToEquipment(equipmentRef, result) then remove the card
+- .ct-nameplate-dismiss-btn → remove the card (no write)
+
+## Firestore write (equipment_manager.js)
+
+Add a new exported function: window.VCEquipmentManager.saveNameplateFields(equipmentRef, fields)
+
+  function saveNameplateFields(equipmentRef, fields):
+    1. Look up the equipment document by name. In equipment_manager.js, equipment records are
+       stored per customer+location. Search the in-memory cache or re-query:
+       Find the collection path where equipment is stored (grep for "Equipment" collection
+       or the collection name used in saveEquipmentRecord / getEquipmentList).
+    2. Find the document where the unit name (e.g. "RTU 3") matches equipmentRef
+       (case-insensitive, trimmed). Use the first match.
+    3. Write a Firestore MERGE (update, not set-overwrite) with only non-null fields:
+       { modelNumber, serialNumber, manufacturer, voltage, tonnage } — only include keys
+       where fields[key] is a non-empty string.
+    4. On success, refresh the equipment hub list if it's open: call
+       window.VCEquipmentHub && window.VCEquipmentHub.refresh && window.VCEquipmentHub.refresh()
+    5. On error, log to console but do NOT alert — silent best-effort.
+
+In conversational_timeline.js saveNameplateToEquipment():
+  Call window.VCEquipmentManager.saveNameplateFields(equipmentRef, result) if the module
+  is available. If VCEquipmentManager is not loaded, log a warning and skip the write.
+
+Bump conversational_timeline.js cache-bust in technician/index.html.`,
+    outOfScope: "Changing how equipment photos are stored in Firebase Storage. Modifying the Equipment Hub display of model/serial (that will update automatically via existing hub rendering). Adding OCR to non-HVAC contexts. Changing the camera capture flow itself.",
+    cacheBusts: ["conversational_timeline.js"],
+  },
+
+  {
+    id: "63h",
+    phase: 63,
+    title: "Cross-job equipment history view in Equipment Hub",
+    dependsOn: ["63f", "63g"],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Field tech app → Equipment Hub → tap any equipment unit card → confirm the detail view now has a 'Service History' section below the specs.",
+      "Verify the Service History section shows past findings from site_intelligence for this unit (if 63f has been used to save findings). Each entry should show: date, tech name, repair summary.",
+      "Tap an entry → confirm it expands to show full detail: measurements, parts replaced, follow-up notes.",
+      "Unit with NO history in site_intelligence → confirm the section shows 'No service history recorded yet' (empty state, not an error).",
+      "Verify the history loads asynchronously — the unit detail view opens immediately; history appears after the query resolves.",
+      "Confirm only history for THIS specific unit is shown (equipmentRef exact match) — not all site_intelligence records.",
+      "Verify the list is sorted newest-first (most recent service at top).",
+      "Confirm no console errors when site_intelligence has no records for the unit.",
+    ],
+    filesToCreate: [],
+    filesToModify: ["equipment_hub.js", "technician/index.html"],
+    expectedIds: ["ehub-service-history-section"],
+    expectedExports: {},
+    scope: `Add a Service History section to the Equipment Hub unit detail view that shows
+all past service findings for the selected unit, pulled from the site_intelligence
+collection. This is a read-only aggregated view across all past jobs for that unit.
+
+## Where to add it (equipment_hub.js)
+
+The Equipment Hub renders a detail view when a unit card is tapped. Find the function
+that builds the detail panel HTML (search for openEquipmentDetail or the function that
+renders the full unit spec card with photos, health score, etc. — likely in
+equipment_hub.js ~line 200-400).
+
+At the bottom of the detail panel (after photos, after specs), add a Service History
+section:
+
+  <div id="ehub-service-history-section" style="margin-top:20px;">
+    <div style="font-weight:600;font-size:14px;color:#1e293b;margin-bottom:10px;
+      padding-bottom:8px;border-bottom:1px solid #e2e8f0;">
+      🔧 Service History
+    </div>
+    <div id="ehub-history-list" style="font-size:13px;color:#64748b;">
+      Loading...
+    </div>
+  </div>
+
+## Firestore query (equipment_hub.js)
+
+After rendering the detail panel, run a background query to populate the history:
+
+function loadEquipmentHistory(equipmentRef):
+  1. Get the Firestore db reference (use the same pattern as existing equipment_hub.js
+     Firestore calls — likely firebase.firestore() or window.db).
+  2. Query the site_intelligence collection where equipmentRef matches.
+     Use VCFirestore.siteIntelligence(db) if available, else db.collection("site_intelligence").
+     Filter: where("equipmentRef", "==", equipmentRef)
+     Order: orderBy("createdAt", "desc")
+     Limit: 20 (enough for a mobile scroll without pagination complexity)
+  3. On success, call renderEquipmentHistory(docs) to populate #ehub-history-list.
+  4. On error or empty result, set #ehub-history-list innerHTML to the empty state.
+
+## Rendering (equipment_hub.js)
+
+function renderEquipmentHistory(docs):
+  If docs is empty:
+    #ehub-history-list.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:8px 0;">
+      No service history recorded yet.</div>';
+    return;
+
+  For each doc, render a collapsible card:
+    var d = doc.data();
+    var dateStr = d.date ? new Date(d.date).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : 'Unknown date';
+    var html = '<div class="ehub-history-entry" style="border:1px solid #e2e8f0;border-radius:8px;'
+      + 'margin-bottom:8px;overflow:hidden;">'
+      + '<div class="ehub-history-header" style="padding:10px 14px;cursor:pointer;'
+      + 'background:#f8fafc;display:flex;justify-content:space-between;align-items:center;">'
+      + '<div>'
+      + '<div style="font-weight:600;color:#1e293b;">' + (d.repairOutcome || d.summary || 'Service visit') + '</div>'
+      + '<div style="font-size:12px;color:#94a3b8;margin-top:2px;">' + dateStr + ' · ' + (d.techName || 'Unknown tech') + '</div>'
+      + '</div>'
+      + '<span style="color:#94a3b8;font-size:16px;">›</span>'
+      + '</div>'
+      + '<div class="ehub-history-detail" style="display:none;padding:10px 14px;background:#fff;'
+      + 'border-top:1px solid #e2e8f0;font-size:12px;color:#475569;line-height:1.7;">'
+      + (d.measurements && d.measurements.length ? '<div><strong>Measurements:</strong> ' + d.measurements.join(', ') + '</div>' : '')
+      + (d.partsReplaced && d.partsReplaced.length ? '<div><strong>Parts replaced:</strong> ' + d.partsReplaced.join(', ') + '</div>' : '')
+      + (d.followUp ? '<div><strong>Follow-up:</strong> ' + d.followUp + '</div>' : '')
+      + (d.sourceTicketId ? '<div style="color:#94a3b8;margin-top:4px;">Ticket: ' + d.sourceTicketId + '</div>' : '')
+      + '</div>'
+      + '</div>';
+    append to #ehub-history-list.
+
+Wire click on .ehub-history-header to toggle .ehub-history-detail display:
+  Add a delegated click listener on #ehub-service-history-section (or document):
+  if (e.target.closest('.ehub-history-header')) {
+    var detail = e.target.closest('.ehub-history-entry').querySelector('.ehub-history-detail');
+    detail.style.display = detail.style.display === 'none' ? 'block' : 'none';
+  }
+
+## Integration point
+
+Call loadEquipmentHistory(equipmentRef) immediately after the detail panel HTML is
+injected into the DOM. The equipmentRef should be the unit name string (e.g. "RTU 3")
+from the equipment document — the same value stored in site_intelligence.equipmentRef by 63f.
+
+Make sure loadEquipmentHistory() is called with the right unit identifier. If the equipment
+doc stores the unit name under a field like \`unitName\` or \`name\`, use that field value.
+Grep equipment_hub.js for the field name used when rendering the unit card title.
+
+Bump equipment_hub.js cache-bust in technician/index.html.`,
+    outOfScope: "Writing to site_intelligence (done in 63f). Editing or deleting history entries — this is append-only. Changing the Equipment Hub list view. Pagination beyond 20 entries. Cross-customer history (each Equipment Hub is already customer-scoped).",
+    cacheBusts: ["equipment_hub.js"],
+  },
+
 ];
