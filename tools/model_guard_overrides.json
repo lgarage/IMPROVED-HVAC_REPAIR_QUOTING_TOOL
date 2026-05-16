@@ -11,14 +11,12 @@
     "_notes_last_failure": "slice 55c: agent error status (2026-05-15); slice 54b Cross-module + Multi-file UI prior"
   },
   "claude-opus-4-6": {
-    "forbiddenPatterns": [
-      "Firestore write path (new collection/doc)"
-    ],
+    "forbiddenPatterns": [],
     "_failureCounts": {
       "Firestore write path (new collection/doc)": 2,
       "Gemini prompt integration": 1,
       "Multi-file UI feature (no Firestore writes)": 1
     },
-    "_notes_last_failure": "slice 62b: validation failed (2026-05-16); slice 49a Firestore+Gemini validation fail (2026-05-14)"
+    "_notes_last_failure": "slice 62b: validation failed (2026-05-16); slice 49a Firestore+Gemini validation fail (2026-05-14). 2026-05-16: manual reset — Opus is the ceiling model, should never be blocked from Firestore writes."
   }
 }
