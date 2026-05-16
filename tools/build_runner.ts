@@ -969,9 +969,12 @@ const commands: SlashCommand[] = [
       }
 
       // Print summary
-      console.log(`\n  ╔══════════════════════════════════════════════════════════════╗`);
-      console.log(`  ║   BUILD SUMMARY — last ${hours}h (${commits.length} commit${commits.length > 1 ? "s" : ""})${" ".repeat(Math.max(0, 22 - String(hours).length - String(commits.length).length))}║`);
-      console.log(`  ╚══════════════════════════════════════════════════════════════╝\n`);
+      const title = `BUILD SUMMARY — last ${hours}h (${commits.length} commit${commits.length > 1 ? "s" : ""})`;
+      const boxWidth = 62;
+      const padded = title + " ".repeat(Math.max(0, boxWidth - 4 - title.length));
+      console.log(`\n  ╔${"═".repeat(boxWidth - 2)}╗`);
+      console.log(`  ║ ${padded} ║`);
+      console.log(`  ╚${"═".repeat(boxWidth - 2)}╝\n`);
 
       console.log(`  WHAT CHANGED:\n`);
       for (const c of commits) {
