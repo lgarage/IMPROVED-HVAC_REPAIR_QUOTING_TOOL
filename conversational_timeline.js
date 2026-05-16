@@ -3170,7 +3170,7 @@
       _lastCompileResult = _compiledResult;
       openCompileModal(_compiledDisplayText);
       /* Slice 63f: post-compile equipment classification */
-      classifyEquipmentFindings(_compiledResult, entries);
+      classifyEquipmentFindings(_compiledResult, entries, compileTicketId);
     }).catch(function (err) {
       var fallbackText = "── Compile Error ──\n" +
         (err && err.message ? err.message : "Unknown error") +
@@ -3244,8 +3244,13 @@
     return lines.join("\n");
   }
 
-  function classifyEquipmentFindings(compiledReport, entries) {
+  function classifyEquipmentFindings(compiledReport, entries, capturedTicketId) {
     if (!compiledReport || !entries || !entries.length) return;
+
+    /* Capture the ticket ID at classification start — same pattern as compileTicketId
+       in compileNotes(). If the ticket switches before Promise.all resolves, the guard
+       below discards stale cards rather than appending them to the new ticket's modal. */
+    var classifyTicketId = capturedTicketId || currentTicketId;
 
     var equipRefs = extractUniqueEquipmentRefs(entries);
     if (!equipRefs.length) return;
@@ -3265,16 +3270,17 @@
     }
 
     Promise.all(classifyPromises).then(function (results) {
+      if (currentTicketId !== classifyTicketId) return; /* ticket switched — discard stale */
       var valid = [];
       for (var j = 0; j < results.length; j++) {
         if (results[j] && results[j].findings) valid.push(results[j]);
       }
       if (!valid.length) return;
-      showEquipmentSavePrompt(valid);
+      showEquipmentSavePrompt(valid, classifyTicketId);
     });
   }
 
-  function showEquipmentSavePrompt(classifiedItems) {
+  function showEquipmentSavePrompt(classifiedItems, ticketId) {
     removeEquipmentSavePrompt();
     var modal = document.getElementById("ct-compile-modal");
     if (!modal) return;
@@ -3298,6 +3304,9 @@
         var card = document.createElement("div");
         card.className = "ct-equip-save-card";
         card.setAttribute("data-equip-idx", idx);
+        /* Stamp ticket ID at creation time so the write handler uses the correct
+           source ticket even if currentTicketId changes before the user taps Save. */
+        card.setAttribute("data-ticket-id", ticketId || "");
         card.style.cssText = "background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 16px;margin-bottom:8px;";
 
         var title = document.createElement("div");
@@ -3318,7 +3327,8 @@
         saveBtn.style.cssText = "background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600;min-height:44px;";
         saveBtn.textContent = "Save to Equipment History";
         saveBtn.addEventListener("click", function () {
-          writeEquipmentToSiteIntelligence(item, saveBtn, card);
+          var cardTicketId = card.getAttribute("data-ticket-id") || currentTicketId;
+          writeEquipmentToSiteIntelligence(item, saveBtn, card, cardTicketId);
         });
         btnRow.appendChild(saveBtn);
 
@@ -3354,7 +3364,7 @@
     }
   }
 
-  function writeEquipmentToSiteIntelligence(item, btn, card) {
+  function writeEquipmentToSiteIntelligence(item, btn, card, capturedTicketId) {
     if (!item || !item.findings || !item.equipmentRef) return;
 
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
@@ -3373,7 +3383,9 @@
     btn.disabled = true;
     btn.textContent = "Saving…";
 
-    var ticketId = currentTicketId || "draft";
+    /* Use the ticket ID captured at classification time, not the live value — ensures
+       site_intelligence.sourceTicketId matches the job that produced the findings. */
+    var ticketId = capturedTicketId || currentTicketId || "draft";
     var techName = "";
     try { techName = localStorage.getItem("tp_saved_tech") || ""; } catch (e) {}
 
