@@ -14,7 +14,7 @@ import * as readline from "readline";
 import { execSync } from "child_process";
 import { SLICES, type Slice } from "./slices";
 import { ARCHIVED_SLICES } from "./slices_archive";
-import { selectModel, updateLookupRow, buildEscalationLadder, MODEL_COST_RANK } from "./model_selector";
+import { selectModel, updateLookupRow, buildEscalationLadder, MODEL_COST_RANK, getCostEstimates } from "./model_selector";
 import { validateSlice } from "./validator";
 import { buildPrompt } from "./prompt_builder";
 
@@ -766,15 +766,7 @@ const commands: SlashCommand[] = [
     args: "",
     description: "Estimate remaining cost based on model selections",
     handler: async (_args, state) => {
-      const costEstimates: Record<string, [number, number]> = {
-        "composer-2": [3, 8],
-        "claude-4.6-sonnet": [5, 15],
-        "gpt-5.3-codex": [8, 20],
-        "gpt-5.2": [8, 18],
-        "gpt-5.4-medium": [10, 25],
-        "gpt-5.5-medium": [12, 30],
-        "claude-4.6-opus": [15, 35],
-      };
+      const costEstimates = getCostEstimates();
 
       let totalLow = 0;
       let totalHigh = 0;
@@ -784,7 +776,7 @@ const commands: SlashCommand[] = [
       for (const slice of SLICES) {
         const ss = state.slices[slice.id];
         if (ss?.status === "passed") {
-          const range = costEstimates[ss.model || "claude-4.6-sonnet"] || [10, 20];
+          const range = costEstimates[ss.model || "claude-sonnet-4-6"] || [10, 20];
           spent += (range[0] + range[1]) / 2;
           continue;
         }
