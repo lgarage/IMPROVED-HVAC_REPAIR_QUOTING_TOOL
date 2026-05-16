@@ -9,7 +9,7 @@
     if (typeof GEMINI_GENERATE_MODEL !== "undefined" && GEMINI_GENERATE_MODEL) {
       return GEMINI_GENERATE_MODEL;
     }
-    return "gemini-2.5-flash";
+    return "gemini-2.0-flash";
   }
 
   function loadScript(src) {

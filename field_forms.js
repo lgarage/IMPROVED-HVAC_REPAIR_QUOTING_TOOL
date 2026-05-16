@@ -1144,7 +1144,7 @@
     var model =
       typeof GEMINI_GENERATE_MODEL !== "undefined"
         ? GEMINI_GENERATE_MODEL
-        : "gemini-2.5-flash";
+        : "gemini-2.0-flash";
     var url =
       "https://generativelanguage.googleapis.com/v1beta/models/" +
       model +

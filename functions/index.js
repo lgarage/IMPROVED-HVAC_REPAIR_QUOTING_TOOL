@@ -4,7 +4,7 @@ const { getFirestore } = require("firebase-admin/firestore");
 
 if (!getApps().length) initializeApp();
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-2.0-flash";
 
 /** Read the Gemini API key from Firestore app_config/api_keys.gemini (same doc the Integrations UI writes). */
 async function getGeminiKeyFromFirestore() {

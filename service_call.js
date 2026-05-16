@@ -3039,7 +3039,7 @@ async function improveIssueTextWithAI() {
     try {
         const response = await fetch(
             "https://generativelanguage.googleapis.com/v1beta/models/" +
-                (typeof GEMINI_GENERATE_MODEL !== "undefined" ? GEMINI_GENERATE_MODEL : "gemini-2.5-flash") +
+                (typeof GEMINI_GENERATE_MODEL !== "undefined" ? GEMINI_GENERATE_MODEL : "gemini-2.0-flash") +
                 ":generateContent?key=" +
                 encodeURIComponent(geminiKey),
             {

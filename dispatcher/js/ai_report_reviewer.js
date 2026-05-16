@@ -140,7 +140,7 @@
         var model =
             typeof global.GEMINI_GENERATE_MODEL !== "undefined"
                 ? global.GEMINI_GENERATE_MODEL
-                : "gemini-2.5-flash";
+                : "gemini-2.0-flash";
         function buildBody(jsonMime) {
             var gen = { temperature: 0.15, maxOutputTokens: 8192 };
             if (jsonMime) gen.responseMimeType = "application/json";
