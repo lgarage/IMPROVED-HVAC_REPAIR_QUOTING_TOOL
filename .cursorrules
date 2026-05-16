@@ -151,6 +151,7 @@ A fresh AI reading Tier 1 will see this pointer and know to fetch the plan doc *
 
 - **Batching:** Use `writeBatch` for operations involving more than 5 document changes.
 - **Cache Busting:** Always bump the `?v=N` query param in `index.html` when modifying JS or CSS files.
+- **VC_BUILD stamp (MANDATORY):** Every commit that touches `technician/index.html` or any JS file loaded by the tech app **must** update `window.VC_BUILD` in `technician/index.html` to the new build label (format: `Phase<N>-<ShortLabel>-YYYY-MM-DD`). After every such commit, the AI **must** tell the user the current `VC_BUILD` value in chat so they can verify the phone is on the correct version via the debug overlay.
 - **Geo-Snapshots:** Every "Clock" or "Complete" action must await a 5-second `captureGeoSnapshot`.
 
 ### 5A. Auto-commit & push after every code change (MANDATORY)
