@@ -3948,7 +3948,7 @@
     }
 
     html += '<div style="display:flex;gap:8px;margin-top:10px;">'
-      + '<button class="ct-nameplate-save-btn" data-eq="' + escapeHtml(equipmentRef || '') + '"'
+      + '<button class="ct-nameplate-save-btn" data-eq="' + escapeHtmlAttr(equipmentRef || '') + '"'
       + " data-result='" + resultJson + "'"
       + ' style="background:#0284c7;color:#fff;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;">'
       + 'Save to Equipment Record</button>'
