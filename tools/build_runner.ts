@@ -872,6 +872,151 @@ const commands: SlashCommand[] = [
     },
   },
   {
+    name: "/build",
+    alias: ["/b"],
+    args: "[hours]",
+    description: "What changed recently + what to test (default: last 12h)",
+    handler: async (args, state) => {
+      const hours = parseInt(args[0] || "12", 10);
+      const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+      let commits: Array<{ hash: string; subject: string; files: string[] }> = [];
+      try {
+        const raw = execSync(
+          `git log --since="${since}" --format="__COMMIT__%H||%s" --name-only`,
+          { cwd: PROJECT_ROOT, stdio: "pipe" }
+        ).toString().trim();
+
+        if (!raw) {
+          console.log(`\n  No commits in the last ${hours} hours.\n`);
+          return;
+        }
+
+        let current: { hash: string; subject: string; files: string[] } | null = null;
+        for (const line of raw.split("\n")) {
+          if (line.startsWith("__COMMIT__")) {
+            if (current) commits.push(current);
+            const [hash, ...rest] = line.replace("__COMMIT__", "").split("||");
+            current = { hash: hash.slice(0, 7), subject: rest.join("||"), files: [] };
+          } else if (line.trim() && current) {
+            current.files.push(line.trim());
+          }
+        }
+        if (current) commits.push(current);
+      } catch (e: any) {
+        console.log(`\n  Git error: ${e.message?.slice(0, 200)}\n`);
+        return;
+      }
+
+      if (commits.length === 0) {
+        console.log(`\n  No commits in the last ${hours} hours.\n`);
+        return;
+      }
+
+      // Categorize files into risk buckets
+      const riskBuckets: Record<string, Set<string>> = {
+        "FIELD APP (tech-facing)": new Set(),
+        "DISPATCHER (office-facing)": new Set(),
+        "FIREBASE RULES": new Set(),
+        "BUILD TOOLS / SDK": new Set(),
+        "WORKBENCH (dev)": new Set(),
+        "DOCS / STATUS": new Set(),
+      };
+
+      function categorize(file: string): string {
+        if (/^technician\//.test(file)) return "FIELD APP (tech-facing)";
+        if (/^(index\.html|service_call\.js|dispatcher\/)/.test(file)) return "DISPATCHER (office-facing)";
+        if (/\.(rules)$/.test(file)) return "FIREBASE RULES";
+        if (/^tools\//.test(file)) return "BUILD TOOLS / SDK";
+        if (/^workbench\//.test(file)) return "WORKBENCH (dev)";
+        if (/^PROJECT_STATUS\/|\.md$/.test(file)) return "DOCS / STATUS";
+        return "FIELD APP (tech-facing)";
+      }
+
+      for (const c of commits) {
+        for (const f of c.files) {
+          riskBuckets[categorize(f)].add(f);
+        }
+      }
+
+      // Build test checklist from file patterns
+      const tests: string[] = [];
+      const allFiles = commits.flatMap((c) => c.files);
+
+      if (allFiles.some((f) => f === "storage.rules")) {
+        tests.push("Upload a photo from the tech app → confirm no permission-denied error");
+        tests.push("Upload a video to field_evidence or service_call_addendums → confirm it saves");
+        tests.push("Try uploading a .pdf to a photo-only path → confirm it's REJECTED");
+      }
+      if (allFiles.some((f) => /service_call\.js|index\.html/.test(f) && !/technician/.test(f))) {
+        tests.push("Toggle Office Override on/off → confirm tech iframe responds");
+      }
+      if (allFiles.some((f) => /technician\/index\.html/.test(f))) {
+        tests.push("Open the tech app on mobile → check debug overlay shows latest VC_BUILD stamp");
+        if (allFiles.some((f) => f === "service_call.js")) {
+          tests.push("Test postMessage: shadow tech switch → confirm parent receives it");
+        }
+      }
+      if (allFiles.some((f) => /workbench\//.test(f))) {
+        tests.push("Start workbench server locally → confirm http://localhost:<port> responds");
+      }
+      if (allFiles.some((f) => /model_selector\.ts|build_runner\.ts/.test(f))) {
+        tests.push("Run /cost in the build runner → confirm output shows per-model estimates");
+        tests.push("Run: npx tsc --noEmit (from tools/) → confirm clean compile");
+      }
+      if (allFiles.some((f) => /firestore\.rules/.test(f))) {
+        tests.push("Create/edit a service call → confirm Firestore writes succeed");
+      }
+
+      // Print summary
+      console.log(`\n  ╔══════════════════════════════════════════════════════════════╗`);
+      console.log(`  ║   BUILD SUMMARY — last ${hours}h (${commits.length} commit${commits.length > 1 ? "s" : ""})${" ".repeat(Math.max(0, 22 - String(hours).length - String(commits.length).length))}║`);
+      console.log(`  ╚══════════════════════════════════════════════════════════════╝\n`);
+
+      console.log(`  WHAT CHANGED:\n`);
+      for (const c of commits) {
+        console.log(`    ${c.hash}  ${c.subject}`);
+      }
+
+      console.log(`\n  FILES BY AREA:\n`);
+      for (const [bucket, files] of Object.entries(riskBuckets)) {
+        if (files.size === 0) continue;
+        console.log(`    ${bucket}:`);
+        for (const f of files) {
+          console.log(`      • ${f}`);
+        }
+        console.log();
+      }
+
+      if (tests.length > 0) {
+        console.log(`  TEST CHECKLIST:\n`);
+        tests.forEach((t, i) => {
+          console.log(`    ${i + 1}. ${t}`);
+        });
+        console.log();
+      } else {
+        console.log(`  No field-app or rules changes detected — likely safe (tools/docs only).\n`);
+      }
+
+      // Check for unpushed commits
+      try {
+        const unpushed = execSync("git log origin/main..HEAD --oneline", {
+          cwd: PROJECT_ROOT,
+          stdio: "pipe",
+        }).toString().trim();
+        if (unpushed) {
+          const count = unpushed.split("\n").length;
+          console.log(`  ⚠  ${count} commit${count > 1 ? "s" : ""} NOT yet pushed to origin/main.`);
+          console.log(`     Run /push unpushed when satisfied.\n`);
+        } else {
+          console.log(`  ✓ All commits pushed to origin/main.\n`);
+        }
+      } catch {
+        console.log(`  ⚠  Could not check push status.\n`);
+      }
+    },
+  },
+  {
     name: "/quit",
     alias: ["/q", "/exit"],
     args: "",
@@ -889,7 +1034,7 @@ function printHelp(): void {
 
   const groups: Record<string, SlashCommand[]> = {
     "Build": commands.filter((c) => ["/next", "/all", "/run"].includes(c.name)),
-    "Info": commands.filter((c) => ["/status", "/plan", "/inspect", "/preview", "/errors", "/log"].includes(c.name)),
+    "Info": commands.filter((c) => ["/status", "/build", "/plan", "/inspect", "/preview", "/errors", "/log"].includes(c.name)),
     "Cost": commands.filter((c) => ["/cost", "/models"].includes(c.name)),
     "Manage": commands.filter((c) => ["/reset", "/push", "/preflight", "/archive"].includes(c.name)),
     "Other": commands.filter((c) => ["/help", "/stop", "/quit"].includes(c.name)),
@@ -1107,6 +1252,13 @@ async function main(): Promise<void> {
 
     // Add / prefix if missing
     if (!cmdName.startsWith("/")) cmdName = `/${cmdName}`;
+
+    // Handle /b<N> shorthand (e.g. /b4, /b12, /b24) → /build <N>
+    const buildShorthand = /^\/b(\d+)$/.exec(cmdName);
+    if (buildShorthand) {
+      cmdName = "/build";
+      cmdArgs.unshift(buildShorthand[1]);
+    }
 
     const cmd = commands.find(
       (c) => c.name === cmdName || c.alias.includes(cmdName)
