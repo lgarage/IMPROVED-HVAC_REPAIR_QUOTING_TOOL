@@ -5,6 +5,11 @@
  * v2: Tracks verified/unverified status and cheapest-failed model per
  * pattern so the table learns downward over time instead of staying
  * stuck on optimistic guesses.
+ *
+ * v3: Per-model guard rails (MODEL_GUARDS) define capability ceilings
+ * for every model — max riskLevel, max file count, forbidden patterns.
+ * Auto-tightening writes learnings to model_guard_overrides.json so
+ * guards improve after each run without touching source files.
  */
 
 import * as fs from "fs";
@@ -12,6 +17,7 @@ import * as path from "path";
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const LOOKUP_PATH = path.join(PROJECT_ROOT, "PROJECT_STATUS", "MODEL_LOOKUP.md");
+const GUARD_OVERRIDES_PATH = path.join(__dirname, "model_guard_overrides.json");
 
 const MODEL_COST_RANK: Record<string, number> = {
   "gpt-5.4-nano-medium": 1,
@@ -31,6 +37,304 @@ const MODEL_COST_RANK: Record<string, number> = {
   "gpt-5.5": 12,               // legacy slug alias
   "claude-opus-4-6": 13,
 };
+
+// ── Per-model capability guard rails ─────────────────────────────────────────
+// maxRiskLevel: highest slice riskLevel this model is allowed to run.
+// maxFiles:     max (filesToCreate + filesToModify) count before the guard fires.
+// forbiddenPatterns: task patterns this model must never handle.
+// Auto-tightening adds entries to model_guard_overrides.json after failures.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ModelGuard {
+  maxRiskLevel: "safe" | "review" | "critical";
+  maxFiles: number;
+  forbiddenPatterns: string[];
+  notes: string;
+}
+
+export const MODEL_GUARDS: Record<string, ModelGuard> = {
+  "gpt-5.4-nano-medium": {
+    maxRiskLevel: "safe",
+    maxFiles: 4,
+    forbiddenPatterns: [
+      "Firestore write path (new collection/doc)",
+      "Firestore rules / auth changes",
+      "Firebase config / project migration",
+      "Shadow Mode / Office Override",
+      "Gemini prompt integration",
+      "Cross-module wiring (3+ files)",
+    ],
+    notes: "T0 exact-replace only. No multi-step reasoning or judgment tasks.",
+  },
+  "composer-2": {
+    maxRiskLevel: "safe",
+    maxFiles: 4,
+    forbiddenPatterns: [
+      "Firestore write path (new collection/doc)",
+      "Firestore rules / auth changes",
+      "Firebase config / project migration",
+      "Shadow Mode / Office Override",
+      "Gemini prompt integration",
+      "Cross-module wiring (3+ files)",
+    ],
+    notes: "T0-T1 mechanical. Known reasoning weakness — skip multi-step logic.",
+  },
+  "gpt-5.4-mini-medium": {
+    maxRiskLevel: "safe",
+    maxFiles: 8,
+    forbiddenPatterns: [
+      "Firestore rules / auth changes",
+      "Firebase config / project migration",
+      "Shadow Mode / Office Override",
+      "Gemini prompt integration",
+    ],
+    notes: "T0-T1. Read-only Firestore and single-file bugfixes OK.",
+  },
+  "gpt-5.4-mini": {
+    maxRiskLevel: "safe",
+    maxFiles: 8,
+    forbiddenPatterns: [
+      "Firestore rules / auth changes",
+      "Firebase config / project migration",
+      "Shadow Mode / Office Override",
+      "Gemini prompt integration",
+    ],
+    notes: "Legacy alias for gpt-5.4-mini-medium — same constraints.",
+  },
+  "gemini-3-flash": {
+    maxRiskLevel: "safe",
+    maxFiles: 6,
+    forbiddenPatterns: [
+      "Firestore write path (new collection/doc)",
+      "Firestore rules / auth changes",
+      "Firebase config / project migration",
+      "Shadow Mode / Office Override",
+      "Gemini prompt integration",
+      "Cross-module wiring (3+ files)",
+      "Multi-file UI feature (no Firestore writes)",
+    ],
+    notes: "T0-T1 only. Partial-completion risk on multi-item review slices — see 62b incident 2026-05-16 where it committed after completing 2/5 items and stopped.",
+  },
+  "gpt-5-mini": {
+    maxRiskLevel: "review",
+    maxFiles: 10,
+    forbiddenPatterns: [
+      "Firestore rules / auth changes",
+      "Firebase config / project migration",
+      "Shadow Mode / Office Override",
+    ],
+    notes: "T1 reasoning capable. Avoid all Vertex Core paths.",
+  },
+  "gpt-5.3-codex-spark": {
+    maxRiskLevel: "review",
+    maxFiles: 8,
+    forbiddenPatterns: [
+      "Firestore rules / auth changes",
+      "Firebase config / project migration",
+      "Shadow Mode / Office Override",
+    ],
+    notes: "Strong at regex/pure code. Avoid auth and tenant changes.",
+  },
+  "claude-sonnet-4-6": {
+    maxRiskLevel: "review",
+    maxFiles: 15,
+    forbiddenPatterns: [
+      "Firestore rules / auth changes",
+      "Firebase config / project migration",
+    ],
+    notes: "T1-T2 daily driver. Avoid Vertex Core auth/config changes.",
+  },
+  "kimi-k2.5": {
+    maxRiskLevel: "review",
+    maxFiles: 12,
+    forbiddenPatterns: [
+      "Firestore rules / auth changes",
+      "Firebase config / project migration",
+      "Shadow Mode / Office Override",
+    ],
+    notes: "Experimental T2 alt. Treat conservatively until more verified rows exist.",
+  },
+  "gpt-5.3-codex": {
+    maxRiskLevel: "review",
+    maxFiles: 15,
+    forbiddenPatterns: [
+      "Firestore rules / auth changes",
+      "Firebase config / project migration",
+    ],
+    notes: "T3 code-heavy. Avoid tenant/auth paths.",
+  },
+  "gpt-5.2": {
+    maxRiskLevel: "review",
+    maxFiles: 12,
+    forbiddenPatterns: [
+      "Firestore rules / auth changes",
+      "Firebase config / project migration",
+    ],
+    notes: "T2-T3 capable.",
+  },
+  "gpt-5.4-medium": {
+    maxRiskLevel: "review",
+    maxFiles: 12,
+    forbiddenPatterns: [],
+    notes: "T2-T3 capable.",
+  },
+  "gpt-5.4": {
+    maxRiskLevel: "review",
+    maxFiles: 12,
+    forbiddenPatterns: [],
+    notes: "Legacy alias for gpt-5.4-medium — same constraints.",
+  },
+  "gpt-5.5-medium": {
+    maxRiskLevel: "critical",
+    maxFiles: 20,
+    forbiddenPatterns: [],
+    notes: "Strong reasoning. Suitable for critical-path work.",
+  },
+  "gpt-5.5": {
+    maxRiskLevel: "critical",
+    maxFiles: 20,
+    forbiddenPatterns: [],
+    notes: "Legacy alias for gpt-5.5-medium — same constraints.",
+  },
+  "claude-opus-4-6": {
+    maxRiskLevel: "critical",
+    maxFiles: 20,
+    forbiddenPatterns: [],
+    notes: "Current ceiling. Vertex Core, tenant paths, field critical path.",
+  },
+};
+
+// Risk level order for comparison
+const RISK_ORDER: Record<string, number> = { safe: 0, review: 1, critical: 2 };
+
+/** Read auto-tightened overrides from the JSON sidecar file. */
+function loadGuardOverrides(): Record<string, Partial<ModelGuard>> {
+  try {
+    if (fs.existsSync(GUARD_OVERRIDES_PATH)) {
+      return JSON.parse(fs.readFileSync(GUARD_OVERRIDES_PATH, "utf-8"));
+    }
+  } catch {
+    // corrupt/missing — treat as empty
+  }
+  return {};
+}
+
+/**
+ * Check if a model is allowed to run a given slice.
+ * Merges base MODEL_GUARDS with any auto-tightened overrides.
+ */
+export function checkModelGuard(
+  model: string,
+  sliceRiskLevel: string,
+  fileCount: number,
+  patterns: string[]
+): { allowed: boolean; reason: string } {
+  const base = MODEL_GUARDS[model];
+  const overrides = loadGuardOverrides();
+  const over = overrides[model] || {};
+
+  const maxRisk = over.maxRiskLevel ?? base?.maxRiskLevel ?? "critical";
+  const maxFiles = over.maxFiles ?? base?.maxFiles ?? 99;
+  const forbidden = [
+    ...(base?.forbiddenPatterns ?? []),
+    ...(over.forbiddenPatterns ?? []),
+  ];
+
+  const sliceRisk = RISK_ORDER[sliceRiskLevel] ?? 0;
+  const ceilRisk = RISK_ORDER[maxRisk] ?? 2;
+
+  if (sliceRisk > ceilRisk) {
+    return {
+      allowed: false,
+      reason: `riskLevel "${sliceRiskLevel}" exceeds ${model} ceiling "${maxRisk}"`,
+    };
+  }
+
+  if (fileCount > maxFiles) {
+    return {
+      allowed: false,
+      reason: `${fileCount} files exceeds ${model} max (${maxFiles})`,
+    };
+  }
+
+  for (const pattern of patterns) {
+    if (forbidden.includes(pattern)) {
+      return {
+        allowed: false,
+        reason: `pattern "${pattern}" is forbidden for ${model}`,
+      };
+    }
+  }
+
+  return { allowed: true, reason: "" };
+}
+
+/**
+ * Auto-tighten: called after a model fails on a slice.
+ * Records the failing pattern as forbidden for this model in the overrides file
+ * once it has failed GUARD_FAILURE_THRESHOLD times.
+ */
+const GUARD_FAILURE_THRESHOLD = 2;
+
+interface GuardOverrideEntry extends Partial<ModelGuard> {
+  _failureCounts?: Record<string, number>;
+  _notes_last_failure?: string;
+}
+
+export function recordModelGuardFailure(
+  model: string,
+  sliceId: string,
+  patterns: string[],
+  reason: string
+): void {
+  let overrides: Record<string, GuardOverrideEntry> = {};
+  try {
+    if (fs.existsSync(GUARD_OVERRIDES_PATH)) {
+      overrides = JSON.parse(fs.readFileSync(GUARD_OVERRIDES_PATH, "utf-8"));
+    }
+  } catch { /* start fresh */ }
+
+  if (!overrides[model]) overrides[model] = {};
+  if (!overrides[model]._failureCounts) overrides[model]._failureCounts = {};
+
+  for (const pattern of patterns) {
+    const counts = overrides[model]._failureCounts!;
+    counts[pattern] = (counts[pattern] || 0) + 1;
+
+    if (counts[pattern] >= GUARD_FAILURE_THRESHOLD) {
+      const existing = overrides[model].forbiddenPatterns || [];
+      if (!existing.includes(pattern)) {
+        overrides[model].forbiddenPatterns = [...existing, pattern];
+        console.log(
+          `  🔒 Guard auto-tightened: ${model} → added forbidden pattern "${pattern}" ` +
+          `(failed ${counts[pattern]}x, last: slice ${sliceId})`
+        );
+      }
+    }
+  }
+
+  overrides[model]._notes_last_failure = `slice ${sliceId}: ${reason} (${new Date().toISOString().slice(0, 10)})`;
+  fs.writeFileSync(GUARD_OVERRIDES_PATH, JSON.stringify(overrides, null, 2), "utf-8");
+}
+
+/** Return merged guard for a model (base + overrides), for display/audit purposes. */
+export function resolvedGuard(model: string): ModelGuard & { overrideActive: boolean } {
+  const base = MODEL_GUARDS[model] ?? {
+    maxRiskLevel: "critical" as const,
+    maxFiles: 20,
+    forbiddenPatterns: [],
+    notes: "No guard defined — unrestricted.",
+  };
+  const overrides = loadGuardOverrides();
+  const over = overrides[model] || {};
+  return {
+    maxRiskLevel: over.maxRiskLevel ?? base.maxRiskLevel,
+    maxFiles: over.maxFiles ?? base.maxFiles,
+    forbiddenPatterns: [...new Set([...base.forbiddenPatterns, ...(over.forbiddenPatterns ?? [])])],
+    notes: base.notes,
+    overrideActive: Object.keys(over).filter(k => !k.startsWith("_")).length > 0,
+  };
+}
 
 export interface LookupRow {
   pattern: string;

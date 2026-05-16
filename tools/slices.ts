@@ -792,6 +792,30 @@ NOTE: cacheBusts is intentionally empty — settings.js v19 and shadow_mode.js v
     htmlTarget: "index.html",
   },
   {
+    id: "62d",
+    phase: 62,
+    title: "Guard rail audit: tighten MODEL_GUARDS from build log outcomes",
+    dependsOn: [],
+    patterns: ["Governance / docs-only edits"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["tools/model_guard_overrides.json"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Perform a guard rail audit against the build log and update tools/model_guard_overrides.json.
+
+Steps:
+1. Read tools/build_log.txt — find all lines matching "failed for slice" and "Guard blocked" from the last 30 days.
+2. For each model+pattern failure, check whether that combination is already in the base MODEL_GUARDS.forbiddenPatterns in tools/model_selector.ts.
+3. If a model has failed on a pattern 2+ times and the pattern is NOT already forbidden, add it to the forbiddenPatterns array in tools/model_guard_overrides.json.
+4. Also review tools/.build_state.json: for any slice with status "failed", note the model and patterns, and apply step 3.
+5. Write an updated tools/model_guard_overrides.json that merges existing overrides with any newly tightened entries.
+6. Do NOT modify tools/model_selector.ts — only write to tools/model_guard_overrides.json.
+7. Summarize what was tightened in the commit message.`,
+    outOfScope: "Modifying model_selector.ts. Changing MODEL_GUARDS base config. Any app code changes.",
+    cacheBusts: [],
+  },
+  {
     id: "62c",
     phase: 62,
     title: "Build runner UX: 'pause' -> 'stop' wording fix",

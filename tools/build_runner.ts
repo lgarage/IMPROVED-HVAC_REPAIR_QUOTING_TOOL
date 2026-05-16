@@ -14,7 +14,7 @@ import * as readline from "readline";
 import { execSync } from "child_process";
 import { SLICES, type Slice } from "./slices";
 import { ARCHIVED_SLICES } from "./slices_archive";
-import { selectModel, updateLookupRow, buildEscalationLadder, MODEL_COST_RANK, getCostEstimates } from "./model_selector";
+import { selectModel, updateLookupRow, buildEscalationLadder, MODEL_COST_RANK, getCostEstimates, checkModelGuard, recordModelGuardFailure, resolvedGuard, MODEL_GUARDS } from "./model_selector";
 import { validateSlice } from "./validator";
 import { buildPrompt } from "./prompt_builder";
 
@@ -313,8 +313,18 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
 
   let lastResult: RunAttemptResult | null = null;
 
+  const fileCount = (slice.filesToCreate?.length || 0) + (slice.filesToModify?.length || 0);
+
   for (let i = 0; i < ladder.length; i++) {
     const model = ladder[i];
+
+    // Per-model guard check — skip this rung if the model's guard forbids it.
+    const guardResult = checkModelGuard(model, slice.riskLevel || "safe", fileCount, slice.patterns);
+    if (!guardResult.allowed) {
+      log(`🛡  Guard blocked ${model} for slice ${slice.id}: ${guardResult.reason}`);
+      continue;
+    }
+
     ss.status = "running";
     ss.attempts = i + 1;
     ss.model = model;
@@ -375,6 +385,11 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
     for (const pattern of slice.patterns) {
       updateLookupRow(pattern, model, false);
     }
+
+    // Auto-tighten guard: accumulate failure counts; adds to forbidden list
+    // after GUARD_FAILURE_THRESHOLD failures for this model+pattern combo.
+    const failReason = lastResult?.errors?.[0] || "unknown failure";
+    recordModelGuardFailure(model, slice.id, slice.patterns, failReason);
 
     if (i < ladder.length - 1) {
       log(`✗ ${model} failed for slice ${slice.id}. Escalating to ${ladder[i + 1]}...`);
@@ -978,6 +993,29 @@ const commands: SlashCommand[] = [
     },
   },
   {
+    name: "/guards",
+    alias: ["/guard"],
+    args: "",
+    description: "Show per-model guard rails (ceilings, forbidden patterns, auto-tighten status)",
+    handler: async () => {
+      console.log("\n  MODEL GUARD RAILS (resolved — base + any auto-tightened overrides)\n");
+      const allModels = Object.keys(MODEL_GUARDS);
+      for (const model of allModels) {
+        const g = resolvedGuard(model);
+        const tag = g.overrideActive ? " [OVERRIDE ACTIVE]" : "";
+        console.log(`  ${model}${tag}`);
+        console.log(`    Max risk:  ${g.maxRiskLevel}  |  Max files: ${g.maxFiles}`);
+        if (g.forbiddenPatterns.length > 0) {
+          console.log(`    Forbidden: ${g.forbiddenPatterns.join("; ")}`);
+        }
+        console.log(`    Notes:     ${g.notes}`);
+        console.log();
+      }
+      console.log("  To see auto-tightened overrides: check tools/model_guard_overrides.json");
+      console.log("  To reset overrides: delete tools/model_guard_overrides.json\n");
+    },
+  },
+  {
     name: "/help",
     alias: ["/", "/h", "/?"],
     args: "",
@@ -1336,7 +1374,7 @@ function printHelp(): void {
   const groups: Record<string, SlashCommand[]> = {
     "Build": commands.filter((c) => ["/next", "/all", "/run"].includes(c.name)),
     "Info": commands.filter((c) => ["/status", "/build", "/plan", "/inspect", "/preview", "/errors", "/log"].includes(c.name)),
-    "Cost": commands.filter((c) => ["/cost", "/models"].includes(c.name)),
+    "Cost": commands.filter((c) => ["/cost", "/models", "/guards"].includes(c.name)),
     "Manage": commands.filter((c) => ["/reset", "/push", "/passed", "/failed", "/na", "/preflight", "/archive"].includes(c.name)),
     "Other": commands.filter((c) => ["/help", "/stop", "/quit"].includes(c.name)),
   };
