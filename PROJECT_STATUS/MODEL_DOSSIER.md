@@ -229,7 +229,7 @@ Use this table for **§6B1 (A)** ("switch to **X** because …"). Offer **one** 
 
 | Model | Reason / re-enable condition |
 |-------|------------------------------|
-| **Opus 4.7** | Disabled 2026-05-07 (cost). Re-enable if outcome log shows Opus 4.6 `needed_bigger` or `fail` on T3+ Vertex Core tasks. |
+| **Opus 4.7** | Disabled 2026-05-07 (cost). Re-enable ONLY as absolute last-resort escalation: suggest Opus 4.7 only after multiple lower-tier attempts (value tweaks +/or architecture passes) produce no measurable user-visible change on the same issue (e.g. the Phase60-StickyMerge header gap pattern). |
 | Composer 1.5, Opus 4.5, Gemini 3.1 Pro | Off at last verification; enable only if you want extra rungs beyond current lineup. |
 
 ---
