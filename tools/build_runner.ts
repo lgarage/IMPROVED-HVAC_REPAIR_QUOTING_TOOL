@@ -1434,7 +1434,35 @@ async function runPreflight(): Promise<boolean> {
     console.log("  ⚠ Firebase CLI not found (preview deploys will be skipped — builds still work)");
   }
 
-  // 9. Slice state
+  // 9. MODEL_DOSSIER.md encoding integrity
+  // PowerShell Set-Content can corrupt Unicode (em dashes, §, →, ↓) to replacement chars.
+  // These sentinels must be present; if missing, the dossier was corrupted and should be
+  // restored from git before any agent run touches it.
+  const dossierPath = path.join(PROJECT_ROOT, "PROJECT_STATUS", "MODEL_DOSSIER.md");
+  if (fs.existsSync(dossierPath)) {
+    const dossierText = fs.readFileSync(dossierPath, "utf-8");
+    const sentinels: Array<{ char: string; label: string }> = [
+      { char: "\u00A7", label: "§ (section mark)" },
+      { char: "\u2014", label: "— (em dash)" },
+      { char: "\u2192", label: "→ (right arrow)" },
+      { char: "\u2193", label: "↓ (down arrow)" },
+    ];
+    const missing = sentinels.filter((s) => !dossierText.includes(s.char));
+    if (missing.length === 0) {
+      console.log("  ✓ MODEL_DOSSIER.md encoding intact");
+    } else {
+      console.log("  ✗ MODEL_DOSSIER.md ENCODING CORRUPTED — Unicode characters missing:");
+      missing.forEach((s) => console.log(`    Missing: ${s.label}`));
+      console.log("    Fix: git checkout PROJECT_STATUS/MODEL_DOSSIER.md");
+      console.log("    Then re-apply any needed log rows using the Read tool (not PowerShell Set-Content).");
+      allGood = false;
+    }
+  } else {
+    console.log("  ✗ MODEL_DOSSIER.md not found");
+    allGood = false;
+  }
+
+  // 10. Slice state
   const stateExists = fs.existsSync(STATE_FILE);
   if (stateExists) {
     const state = loadState();
