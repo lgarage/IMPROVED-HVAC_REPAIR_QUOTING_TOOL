@@ -1032,16 +1032,6 @@ const commands: SlashCommand[] = [
         }
       }
 
-      console.log(`\n  FILES BY AREA:\n`);
-      for (const [bucket, files] of Object.entries(riskBuckets)) {
-        if (files.size === 0) continue;
-        console.log(`    ${bucket}:`);
-        for (const f of files) {
-          console.log(`      • ${f}`);
-        }
-        console.log();
-      }
-
       if (tests.length > 0) {
         console.log(`  TEST CHECKLIST:\n`);
         tests.forEach((t, i) => {
