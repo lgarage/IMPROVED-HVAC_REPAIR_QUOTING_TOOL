@@ -921,8 +921,7 @@ async function runPreflight(): Promise<boolean> {
 
   // 1. CURSOR_API_KEY
   if (process.env.CURSOR_API_KEY) {
-    const keyPreview = process.env.CURSOR_API_KEY.slice(0, 10) + "...";
-    console.log(`  ✓ CURSOR_API_KEY is set (${keyPreview})`);
+    console.log(`  ✓ CURSOR_API_KEY: set (${process.env.CURSOR_API_KEY.length} chars)`);
   } else {
     console.log("  ✗ CURSOR_API_KEY is NOT set");
     console.log("    Fix: set CURSOR_API_KEY=your_key_here");
