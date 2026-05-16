@@ -106,6 +106,8 @@ interface SliceState {
 interface BuildState {
   slices: Record<string, SliceState>;
   lastRun: string;
+  lastChecklist?: string[];
+  checklistResults?: Record<number, "passed" | "failed">;
 }
 
 function loadState(): BuildState {
@@ -1033,12 +1035,29 @@ const commands: SlashCommand[] = [
       }
 
       if (tests.length > 0) {
+        // Persist checklist so /p and /f can reference it by number
+        state.lastChecklist = tests;
+        if (!state.checklistResults) state.checklistResults = {};
+        // Clear results for items that no longer exist
+        for (const key of Object.keys(state.checklistResults)) {
+          if (parseInt(key) > tests.length) delete state.checklistResults[parseInt(key)];
+        }
+        saveState(state);
+
         console.log(`\n  ${"─".repeat(58)}`);
         console.log(`  TEST CHECKLIST\n`);
         tests.forEach((t, i) => {
-          console.log(`    ${i + 1}. ${t}`);
+          const num = i + 1;
+          const result = state.checklistResults?.[num];
+          const icon = result === "passed" ? "✓" : result === "failed" ? "✗" : " ";
+          const label = result === "passed" ? " passed" : result === "failed" ? " FAILED" : "";
+          console.log(`    [${icon}] ${num}. ${t}${label}`);
         });
         console.log();
+        const doneCount = Object.keys(state.checklistResults || {}).length;
+        if (doneCount < tests.length) {
+          console.log(`  /p1,2,3 = mark passed  |  /f1,2,3 = mark failed\n`);
+        }
       } else {
         console.log(`  No field-app or rules changes detected — likely safe (tools/docs only).\n`);
       }
@@ -1062,6 +1081,62 @@ const commands: SlashCommand[] = [
     },
   },
   {
+    name: "/passed",
+    alias: ["/p"],
+    args: "<1,2,3>",
+    description: "Mark test checklist items as passed (e.g. /p1,2,3)",
+    handler: async (args, state) => {
+      const nums = args.join(",").split(",").map((n) => parseInt(n.trim(), 10)).filter((n) => !isNaN(n));
+      if (nums.length === 0) {
+        console.log("\n  Usage: /p1,2,3  or  /passed 1,2,3\n");
+        return;
+      }
+      if (!state.lastChecklist || state.lastChecklist.length === 0) {
+        console.log("\n  No checklist loaded — run /b first.\n");
+        return;
+      }
+      if (!state.checklistResults) state.checklistResults = {};
+      for (const n of nums) {
+        if (n < 1 || n > state.lastChecklist.length) {
+          console.log(`  ⚠  Item ${n} out of range (1–${state.lastChecklist.length})`);
+          continue;
+        }
+        state.checklistResults[n] = "passed";
+        console.log(`  ✓ ${n}. ${state.lastChecklist[n - 1]}`);
+      }
+      saveState(state);
+      console.log();
+    },
+  },
+  {
+    name: "/failed",
+    alias: ["/f"],
+    args: "<1,2,3>",
+    description: "Mark test checklist items as failed (e.g. /f1,2,3)",
+    handler: async (args, state) => {
+      const nums = args.join(",").split(",").map((n) => parseInt(n.trim(), 10)).filter((n) => !isNaN(n));
+      if (nums.length === 0) {
+        console.log("\n  Usage: /f1,2,3  or  /failed 1,2,3\n");
+        return;
+      }
+      if (!state.lastChecklist || state.lastChecklist.length === 0) {
+        console.log("\n  No checklist loaded — run /b first.\n");
+        return;
+      }
+      if (!state.checklistResults) state.checklistResults = {};
+      for (const n of nums) {
+        if (n < 1 || n > state.lastChecklist.length) {
+          console.log(`  ⚠  Item ${n} out of range (1–${state.lastChecklist.length})`);
+          continue;
+        }
+        state.checklistResults[n] = "failed";
+        console.log(`  ✗ ${n}. ${state.lastChecklist[n - 1]}`);
+      }
+      saveState(state);
+      console.log();
+    },
+  },
+  {
     name: "/quit",
     alias: ["/q", "/exit"],
     args: "",
@@ -1081,7 +1156,7 @@ function printHelp(): void {
     "Build": commands.filter((c) => ["/next", "/all", "/run"].includes(c.name)),
     "Info": commands.filter((c) => ["/status", "/build", "/plan", "/inspect", "/preview", "/errors", "/log"].includes(c.name)),
     "Cost": commands.filter((c) => ["/cost", "/models"].includes(c.name)),
-    "Manage": commands.filter((c) => ["/reset", "/push", "/preflight", "/archive"].includes(c.name)),
+    "Manage": commands.filter((c) => ["/reset", "/push", "/passed", "/failed", "/preflight", "/archive"].includes(c.name)),
     "Other": commands.filter((c) => ["/help", "/stop", "/quit"].includes(c.name)),
   };
 
@@ -1304,6 +1379,12 @@ async function main(): Promise<void> {
       cmdName = "/build";
       cmdArgs.unshift(buildShorthand[1]);
     }
+
+    // Handle /p<nums> and /f<nums> shorthand (e.g. /p1,2,3 → /passed 1,2,3)
+    const passShorthand = /^\/p([\d,]+)$/.exec(cmdName);
+    if (passShorthand) { cmdName = "/passed"; cmdArgs.unshift(passShorthand[1]); }
+    const failShorthand = /^\/f([\d,]+)$/.exec(cmdName);
+    if (failShorthand) { cmdName = "/failed"; cmdArgs.unshift(failShorthand[1]); }
 
     const cmd = commands.find(
       (c) => c.name === cmdName || c.alias.includes(cmdName)
