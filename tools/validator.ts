@@ -55,15 +55,22 @@ export function validateSlice(slice: Slice): ValidationResult {
     }
   }
 
-  // 4. Check script tags wired in target HTML file
+  // 4. Check script tags wired in at least one HTML file.
+  // Some slices touch both dispatcher (index.html) and field-app (technician/index.html) files,
+  // so we check both and pass if the script tag appears in either one.
+  const bothHtmlPaths = [
+    path.join(PROJECT_ROOT, "index.html"),
+    path.join(PROJECT_ROOT, "technician", "index.html"),
+  ];
   for (const bust of slice.cacheBusts) {
-    const htmlPath = path.join(PROJECT_ROOT, slice.htmlTarget || path.join("technician", "index.html"));
-    if (fs.existsSync(htmlPath)) {
-      const html = fs.readFileSync(htmlPath, "utf-8");
-      const fileName = bust.split("?")[0];
-      if (!html.includes(fileName)) {
-        errors.push(`Script tag for ${fileName} not found in ${slice.htmlTarget || "technician/index.html"}`);
-      }
+    const fileName = bust.split("?")[0];
+    const primaryPath = path.join(PROJECT_ROOT, slice.htmlTarget || path.join("technician", "index.html"));
+    const foundInPrimary = fs.existsSync(primaryPath) && fs.readFileSync(primaryPath, "utf-8").includes(fileName);
+    const foundInAny = foundInPrimary || bothHtmlPaths.some(
+      (p) => fs.existsSync(p) && fs.readFileSync(p, "utf-8").includes(fileName)
+    );
+    if (!foundInAny) {
+      errors.push(`Script tag for ${fileName} not found in index.html or technician/index.html`);
     }
   }
 

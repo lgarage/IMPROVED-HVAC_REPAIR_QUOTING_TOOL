@@ -22,7 +22,7 @@ _Fast lookup before §6B — use § Workspace enabled models for full alternates
 | T1 mechanical (multi-step edits) | **Gemini 3 Flash** / **GPT-5.4 Mini** | Stronger reasoning than Composer 2; skip pure-reasoning tasks |
 | T1 nuanced / T2 | **Sonnet 4.6** | Default daily implementation; Kimi K2.5 as experimental alt |
 | T3 code-heavy multi-file | **Codex 5.3** | Prefer over Opus for pure-code T3 |
-| T3 Vertex Core / T3+ / UNCERTAIN | **Opus 4.6** | Current ceiling — Opus 4.7 disabled 2026-05-07 |
+| T3 Vertex Core / T3+ / UNCERTAIN | **Opus 4.6** | Current ceiling — Opus 4.7 last-resort escalation only (see § Currently disabled) |
 | T4 read-only / tour | **Gemini 3 Flash** / **GPT-5 Mini** | Good reasoning; skip if exhaustive deep-dive needed |
 
 _Last verified: 2026-05-15. **IMPORTANT:** Composer 2 reasoning weakness (see outcome log row 2026-05-15 auto-scroll) makes it a net time-waster despite speed. Prefer GPT-5.4 Nano / GPT-5.4 Mini / Gemini 3 Flash / GPT-5 Mini for all T0–T1. Full table: § Default "switch to" before work._
@@ -227,7 +227,7 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 | **Opus 4.6** | Strong | **Current ceiling** for T3+ / UNCERTAIN / Vertex Core. Replacing Opus 4.7. Tracking performance — see outcome log. |
 | **Kimi K2.5** | **Experimental** | Enabled for testing at T2 level. Benchmarks suggest MoE may rival Sonnet on some tasks. **Do not** add to T0–T1 until outcome log has ≥2 rows. |
 | ~~**Haiku 4.5**~~ | *(disabled)* | Removed from rotation after the dossier rewrite truncation incident; do not re-enable for fast-tier work until it has a clean success record on T2+ tasks. |
-| ~~**Opus 4.7**~~ | *(disabled)* | Disabled 2026-05-07 — too expensive. Re-enable if outcome log shows Opus 4.6 `needed_bigger` on T3+ tasks. |
+| **Opus 4.7** | *(last-resort escalation)* | Escalate from Opus 4.6 **only** when 2+ passes at lower tiers produce no measurable user-visible change on the same issue (e.g. Phase60-StickyMerge header gap pattern). Do not recommend as first choice for any tier. |
 | **Premium** | *(not a model)* | Ignore for recommendations — pick a concrete model above |
 
 ### Default "switch to" before work (first choice)
@@ -243,13 +243,13 @@ Use this table for **§6B1 (A)** ("switch to **X** because …"). Offer **one** 
 | **T4** (read-only / tour) | **Gemini 3 Flash** | GPT-5 Mini |
 | **T3** (implementation / code-heavy) | **Codex 5.3** | GPT-5.5, Opus 4.6, GPT-5.4, GPT-5.2 |
 | **T3 Vertex Core** (tenant, Firestore writes, field critical path, Office Override) | **Opus 4.6** | Codex 5.3, GPT-5.5 |
-| **T3+ / UNCERTAIN** | **Opus 4.6** | GPT-5.5, Codex 5.3 |
+| **T3+ / UNCERTAIN** | **Opus 4.6** | GPT-5.5, Codex 5.3 → **Opus 4.7** (last resort, 2+ failed passes) |
 
 ### Currently disabled
 
 | Model | Reason / re-enable condition |
 |-------|------------------------------|
-| **Opus 4.7** | Disabled 2026-05-07 (cost). Re-enable ONLY as absolute last-resort escalation: suggest Opus 4.7 only after multiple lower-tier attempts (value tweaks +/or architecture passes) produce no measurable user-visible change on the same issue (e.g. the Phase60-StickyMerge header gap pattern). |
+| **Opus 4.7** | **Last-resort escalation only.** Suggest after 2+ Opus 4.6 passes produce no measurable user-visible change on the same issue (e.g. Phase60-StickyMerge header gap). Do not suggest as a first choice at any tier. Escalation chain: Sonnet 4.6 → Opus 4.6 → **Opus 4.7**. |
 | Composer 1.5, Opus 4.5, Gemini 3.1 Pro | Off at last verification; enable only if you want extra rungs beyond current lineup. |
 
 ---

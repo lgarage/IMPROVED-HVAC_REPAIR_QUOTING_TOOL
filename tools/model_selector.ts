@@ -36,6 +36,7 @@ const MODEL_COST_RANK: Record<string, number> = {
   "gpt-5.5-medium": 12,
   "gpt-5.5": 12,               // legacy slug alias
   "claude-opus-4-6": 13,
+  "claude-opus-4-7-thinking-xhigh": 14, // last-resort escalation ceiling
 };
 
 // ── Per-model capability guard rails ─────────────────────────────────────────
@@ -201,6 +202,12 @@ export const MODEL_GUARDS: Record<string, ModelGuard> = {
     maxFiles: 20,
     forbiddenPatterns: [],
     notes: "Current ceiling. Vertex Core, tenant paths, field critical path.",
+  },
+  "claude-opus-4-7-thinking-xhigh": {
+    maxRiskLevel: "critical",
+    maxFiles: 20,
+    forbiddenPatterns: [],
+    notes: "Last-resort escalation only. Only reached after 2+ lower-tier failures on the same slice.",
   },
 };
 
@@ -546,7 +553,7 @@ export function buildEscalationLadder(taskPatterns: string[]): string[] {
 
   let added = 0;
   for (const [name, rank] of sorted) {
-    if (rank > baseRank && added < 2) {
+    if (rank > baseRank && added < 3) {
       if (rank >= floorRank) {
         ladder.push(name);
         added++;
@@ -554,8 +561,9 @@ export function buildEscalationLadder(taskPatterns: string[]): string[] {
     }
   }
 
-  while (ladder.length < 3) {
-    ladder.push("claude-opus-4-6");
+  // Guarantee at least 4 rungs (base + 3 escalations) using the absolute ceiling.
+  while (ladder.length < 4) {
+    ladder.push("claude-opus-4-7-thinking-xhigh");
   }
 
   return [...new Set(ladder)];
