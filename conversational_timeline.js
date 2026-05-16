@@ -2821,7 +2821,7 @@
           data.candidates[0].content.parts[0];
         var rawOut = part && part.text ? String(part.text) : "";
         var parsed = parseGeminiJsonResponse(rawOut);
-        if (!parsed) throw new Error("Failed to parse Gemini response as JSON");
+        if (!parsed) throw new Error("Failed to parse Gemini response as JSON\n\nRaw output:\n" + rawOut.slice(0, 500));
         return parsed;
       });
     });
