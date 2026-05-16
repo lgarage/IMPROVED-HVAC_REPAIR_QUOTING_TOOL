@@ -711,4 +711,87 @@ VERIFICATION: After changes, confirm:
     outOfScope: "Changing slice behavior or runner logic beyond archival. App code changes. MODEL_LOOKUP.md pruning (future). Deleting .build_state.json entries for active slices.",
     cacheBusts: [],
   },
+  // ═══════════════════════════════════════════════════════════
+  //  Phase 62: Hygiene & Regression Fixes
+  // ═══════════════════════════════════════════════════════════
+  {
+    id: "62a",
+    phase: 62,
+    title: "Gemini 403 fallback fix (10 files)",
+    dependsOn: [],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: [
+      "conversational_timeline.js",
+      "dictation_hub.js",
+      "edge_intent_engine.js",
+      "unit_work_parser.js",
+      "equipment_manager.js",
+      "field_forms.js",
+      "invoice.js",
+      "service_call.js",
+      "dispatcher/js/ai_report_reviewer.js",
+      "shared/client_portal_logic.js",
+      "functions/index.js"
+    ],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Fix Gemini 403 fallback regression: change all hardcoded "gemini-2.5-flash"
+fallback strings to "gemini-2.0-flash" across the codebase.
+Root cause: firebase-config.js sets GEMINI_GENERATE_MODEL = "gemini-2.0-flash" globally,
+but every other file has a hardcoded fallback of "gemini-2.5-flash" that fires when
+the variable is not in scope (e.g. on mobile field app).
+Files to fix (fallback-only, exact replace):
+1. conversational_timeline.js (~2768)
+2. dictation_hub.js (~418)
+3. edge_intent_engine.js (~290)
+4. unit_work_parser.js (~55)
+5. equipment_manager.js (~12)
+6. field_forms.js (~1147)
+7. invoice.js (~342)
+8. service_call.js (~3042)
+9. dispatcher/js/ai_report_reviewer.js (~143)
+10. shared/client_portal_logic.js (~98)
+11. functions/index.js (~7): DEFAULT_MODEL = "gemini-2.5-flash" -> "gemini-2.0-flash"
+Do NOT touch firebase-config.js.`,
+    outOfScope: "Changing Gemini logic. Modifying firebase-config.js. Any other model changes.",
+    cacheBusts: ["conversational_timeline.js", "field_forms.js", "service_call.js"],
+  },
+  {
+    id: "62b",
+    phase: 62,
+    title: "KI-002 Minor Tweaks: B5 B6 B7 C4 E1 E3",
+    dependsOn: ["62a"],
+    patterns: ["Multi-file UI feature (no Firestore writes)", "Firestore write path (new collection/doc)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "B5: dispatcher/js/report_builder.js loads ?v=4 CSS.",
+      "B6: sw.js has activate handler with cache cleanup.",
+      "B7: sw.js has dispatcher-vs-tech SW asymmetry comment.",
+      "C4: shadow_mode.js and technician/index.html have origin guards on message receivers.",
+      "E1: activity_feed.js normalizeInternal coercing types to 'internal_comms'.",
+      "E3: settings.js uses WriteBatch for dual roster/on-call writes."
+    ],
+    filesToCreate: [],
+    filesToModify: [
+      "dispatcher/js/report_builder.js",
+      "sw.js",
+      "dispatcher/js/shadow_mode.js",
+      "technician/index.html",
+      "dispatcher/js/activity_feed.js",
+      "settings.js"
+    ],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Apply KI-002 hygiene fixes:
+B5: Consolidate report_builder.css version string to ?v=4 in dispatcher/js/report_builder.js.
+B6: Add/confirm 'activate' event handler in sw.js for stale cache cleanup.
+B7: Document dispatcher-SW vs tech-no-SW asymmetry in sw.js header.
+C4: Add origin guards to postMessage receivers in dispatcher/js/shadow_mode.js and technician/index.html.
+E1: Normalize internal_comms type to 'internal_comms' in activity_feed.js normalizeInternal.
+E3: Use WriteBatch for dual roster + on-call writes in settings.js.`,
+    outOfScope: "Any other KI-002 items. Refactoring beyond the specific fixes. UI changes.",
+    cacheBusts: ["dispatcher/js/report_builder.js", "sw.js", "dispatcher/js/shadow_mode.js", "settings.js"],
+  },
 ];

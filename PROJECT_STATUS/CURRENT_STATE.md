@@ -6,19 +6,21 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 61 complete. Next phase TBD.
-- **Last shipped (2026-05-16):** **Build runner `/b`, `/p`, `/f`, `/na`, `/cost` commands** — morning summary with date grouping + slice status + test checklist; cost split by this-month/prior/all-time + failed-attempt tracking. **Field app:** gallery picker now shows videos; "Take Photo" → "Add Media" + Choose File option; `service_call_files/` storage path for generic uploads. **Auto-run enabled.** `VC_BUILD: Phase61-ChooseFile-2026-05-16`.
+- **Active Phase:** Phase 61 complete. Phase 62 hygiene slices queued.
+- **Last shipped (2026-05-16):** **`tools/slices.ts`** — Added slices 62a (Gemini 403 fix) and 62b (KI-002 hygiene) to the build runner. Superseded `run_hygiene.ts`. Run `vertex` -> `/a` to execute.
+- **Prior (2026-05-16):** **Build runner `/b`, `/p`, `/f`, `/na`, `/cost` commands** + field app media/video/Choose File. `VC_BUILD: Phase61-ChooseFile-2026-05-16`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
 
 ## Active Blocker
 
-None (59b regression deployed — verify on phone).
+Compile Notes shows Gemini 403 on mobile — `gemini-2.5-flash` fallback firing. Slices 62a/62b will fix it; verify after run.
 
 ## Immediate Next Step
 
-- **Verify on phone** (`VC_BUILD: Phase61-ChooseFile-2026-05-16`): Add Media → Pick from Photos shows videos; Add Media → Choose File goes to iOS Files app; photo/video uploads succeed; file uploads save to `service_call_files/` path.
+- **Run the build runner** before leaving: `vertex` -> `/a` (to run all pending slices including hygiene).
+- **When back:** review `/b` summary, test Compile Notes on phone, then commit if clean.
 - **Run `/b` in build runner** each morning after overnight SDK sessions to see what changed and what to test.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
 
