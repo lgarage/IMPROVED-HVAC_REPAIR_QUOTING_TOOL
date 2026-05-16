@@ -20,6 +20,14 @@ import { buildPrompt } from "./prompt_builder";
 
 const MAX_ACTIVE_SLICES = 20;
 
+// Minimum model tier per slice riskLevel — prevents cheap/fast models from
+// running slices that require judgment or multi-file reasoning.
+const RISK_LEVEL_FLOOR: Record<string, string> = {
+  safe: "",                    // no floor — model selector decides freely
+  review: "claude-sonnet-4-6", // Sonnet 4.6 minimum for review-tier slices
+  critical: "claude-opus-4-6", // Opus 4.6 minimum for critical slices
+};
+
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const STATE_FILE = path.join(__dirname, ".build_state.json");
 const LOG_FILE = path.join(__dirname, "build_log.txt");
@@ -283,7 +291,23 @@ async function runSliceAttempt(
 
 async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<boolean> {
   const ss = state.slices[slice.id];
-  const ladder = buildEscalationLadder(slice.patterns);
+  const rawLadder = buildEscalationLadder(slice.patterns);
+
+  // Enforce riskLevel floor — drop any model below the minimum tier.
+  const riskFloor = RISK_LEVEL_FLOOR[slice.riskLevel || "safe"] || "";
+  const floorRank = riskFloor ? (MODEL_COST_RANK[riskFloor] || 0) : 0;
+  const ladder = riskFloor
+    ? [
+        ...rawLadder.filter((m) => (MODEL_COST_RANK[m] || 0) >= floorRank),
+        ...(!rawLadder.some((m) => (MODEL_COST_RANK[m] || 0) >= floorRank)
+          ? [riskFloor]
+          : []),
+      ].filter((m, i, arr) => arr.indexOf(m) === i) // dedupe
+    : rawLadder;
+
+  if (riskFloor && rawLadder[0] !== ladder[0]) {
+    log(`⚠  riskLevel "${slice.riskLevel}" floor applied — starting at ${ladder[0]} (skipped ${rawLadder.filter((m) => (MODEL_COST_RANK[m] || 0) < floorRank).join(", ")})`);
+  }
 
   log(`\nEscalation ladder for ${slice.id}: ${ladder.join(" → ")}`);
 

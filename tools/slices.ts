@@ -766,33 +766,29 @@ Do NOT touch firebase-config.js.`,
     patterns: ["Multi-file UI feature (no Firestore writes)", "Firestore write path (new collection/doc)"],
     riskLevel: "review",
     reviewChecklist: [
-      "B5: dispatcher/js/report_builder.js loads ?v=4 CSS.",
-      "B6: sw.js has activate handler with cache cleanup.",
-      "B7: sw.js has dispatcher-vs-tech SW asymmetry comment.",
-      "C4: shadow_mode.js and technician/index.html have origin guards on message receivers.",
-      "E1: activity_feed.js normalizeInternal coercing types to 'internal_comms'.",
-      "E3: settings.js uses WriteBatch for dual roster/on-call writes."
+      "B7: sw.js has a comment explaining why tech app skips the service worker.",
+      "C4: shadow_mode.js postMessage receiver checks event.origin === window.location.origin.",
+      "C4: technician/index.html postMessage receiver checks event.origin === window.location.origin.",
+      "E3: settings.js uses db.batch() WriteBatch for roster + on-call writes (atomic).",
+      "VERIFY: settings.js version in index.html is still v19 (not bumped again).",
+      "VERIFY: shadow_mode.js version in index.html is still v10 (not bumped again)."
     ],
     filesToCreate: [],
     filesToModify: [
-      "dispatcher/js/report_builder.js",
       "sw.js",
       "dispatcher/js/shadow_mode.js",
       "technician/index.html",
-      "dispatcher/js/activity_feed.js",
       "settings.js"
     ],
     expectedIds: [],
     expectedExports: {},
-    scope: `Apply KI-002 hygiene fixes:
-B5: Consolidate report_builder.css version string to ?v=4 in dispatcher/js/report_builder.js.
-B6: Add/confirm 'activate' event handler in sw.js for stale cache cleanup.
-B7: Document dispatcher-SW vs tech-no-SW asymmetry in sw.js header.
-C4: Add origin guards to postMessage receivers in dispatcher/js/shadow_mode.js and technician/index.html.
-E1: Normalize internal_comms type to 'internal_comms' in activity_feed.js normalizeInternal.
-E3: Use WriteBatch for dual roster + on-call writes in settings.js.`,
-    outOfScope: "Any other KI-002 items. Refactoring beyond the specific fixes. UI changes.",
-    cacheBusts: ["dispatcher/js/report_builder.js", "dispatcher/js/shadow_mode.js", "settings.js"],
+    scope: `Apply REMAINING KI-002 hygiene fixes (B5/B6/E1 already committed in 844d63f):
+B7: Add a comment block in sw.js header explaining the dispatcher-uses-SW vs technician-no-SW asymmetry (why the tech app skips the service worker entirely).
+C4: Add postMessage origin guards (check event.origin === window.location.origin before processing) to receivers in dispatcher/js/shadow_mode.js and technician/index.html.
+E3: Replace individual Firestore set() calls for roster + on-call writes in settings.js with a single WriteBatch (db.batch()) so both writes are atomic.
+NOTE: cacheBusts is intentionally empty — settings.js v19 and shadow_mode.js v10 were already bumped in index.html by the prior partial run (commit 844d63f). Do NOT bump them again.`,
+    outOfScope: "B5 (already done — report_builder.css is at ?v=4). B6 (already done — sw.js is at cache-v3). E1 (already done — activity_feed.js normalization committed). Any refactoring beyond the specific fixes. UI changes.",
+    cacheBusts: [],
     htmlTarget: "index.html",
   },
   {
