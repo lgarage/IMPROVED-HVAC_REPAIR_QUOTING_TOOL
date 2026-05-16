@@ -15,8 +15,8 @@
     "_failureCounts": {
       "Firestore write path (new collection/doc)": 2,
       "Gemini prompt integration": 1,
-      "Multi-file UI feature (no Firestore writes)": 1
+      "Multi-file UI feature (no Firestore writes)": 0
     },
-    "_notes_last_failure": "slice 62b: validation failed (2026-05-16); slice 49a Firestore+Gemini validation fail (2026-05-14). 2026-05-16: manual reset — Opus is the ceiling model, should never be blocked from Firestore writes."
+    "_notes_last_failure": "63d failures were validator false-positives (wrong HTML target for cache-bust check) — not real Opus failures. Reset 2026-05-16 after validator fix in commit 3fc8c7f."
   }
 }

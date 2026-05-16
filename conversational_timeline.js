@@ -2649,6 +2649,10 @@
     /* Reset follow-up dismiss state per ticket open */
     _followUpDismissed = false;
     _siteMemoryCollapsed = false;
+    /* Reset checklist reminder debounce so a new ticket always gets fresh reminders,
+     * even if opened within 30 s of the previous workspace close (Slice 63c fix). */
+    _lastReminderEquipment = null;
+    _lastReminderTime = 0;
     hideFollowUpPrompt();
     seedFromTicket(currentTicketId);
     renderTimeline(currentTicketId);
