@@ -913,6 +913,8 @@ const commands: SlashCommand[] = [
         return;
       }
 
+      commits.reverse();
+
       // Categorize files into risk buckets
       const riskBuckets: Record<string, Set<string>> = {
         "FIELD APP (tech-facing)": new Set(),
