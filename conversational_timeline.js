@@ -479,6 +479,8 @@
       thumbHtml = '<img class="ct-media-thumb" src="' + meta.thumbnailDataUrl + '" alt="Media thumbnail" loading="lazy">';
     } else if (meta.mediaType === "video") {
       thumbHtml = '<div class="ct-media-thumb ct-media-thumb--icon">&#9654;</div>';
+    } else if (meta.mediaType === "file") {
+      thumbHtml = '<div class="ct-media-thumb ct-media-thumb--icon">&#128196;</div>';
     } else {
       thumbHtml = '<div class="ct-media-thumb ct-media-thumb--icon">&#128247;</div>';
     }
@@ -487,7 +489,7 @@
     var statusLabel = isError
       ? " \u00b7 \u26a0\ufe0f Upload failed"
       : (isUploading ? " \u00b7 Uploading\u2026" : "");
-    var typeLabel = meta.mediaType === "video" ? "Video" : "Photo";
+    var typeLabel = meta.mediaType === "video" ? "Video" : meta.mediaType === "file" ? "File" : "Photo";
     var equipBadge = meta.activeEquipment
       ? '<span class="ct-equip-badge">\uD83D\uDD27 ' + escapeHtml(meta.activeEquipment) + '</span>'
       : "";
@@ -983,10 +985,10 @@
       id: entryId,
       ts: new Date().toISOString(),
       role: "tech",
-      text: file.name || (mediaType === "video" ? "video_capture" : "photo_capture"),
+      text: file.name || (mediaType === "video" ? "video_capture" : mediaType === "file" ? "file_upload" : "photo_capture"),
       meta: {
         mediaType: mediaType,
-        fileName: file.name || (mediaType === "video" ? "video.webm" : "photo.jpg"),
+        fileName: file.name || (mediaType === "video" ? "video.webm" : mediaType === "file" ? "file" : "photo.jpg"),
         fileSize: file.size || 0,
         thumbnailDataUrl: thumbnailDataUrl || null,
         storageUrl: null,
@@ -1147,6 +1149,43 @@
     input.click();
   }
 
+  function captureFromFiles() {
+    dismissMediaActionSheet();
+    var input = document.createElement("input");
+    input.type   = "file";
+    input.accept = "*/*";
+    input.style.cssText = "position:fixed;left:-9999px;opacity:0;pointer-events:none;";
+    document.body.appendChild(input);
+
+    input.addEventListener("change", function () {
+      var file = input.files && input.files[0];
+      try { document.body.removeChild(input); } catch (e) {}
+      if (!file) return;
+      if (file.type.startsWith("video/")) {
+        createVideoThumbnail(file, function (thumbDataUrl) {
+          addMediaEntry(file, "video", thumbDataUrl, currentTicketId);
+        });
+      } else if (file.type.startsWith("image/")) {
+        createImageThumbnail(file, function (thumbDataUrl) {
+          addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
+        });
+      } else {
+        /* Generic file (PDF, doc, etc.) — no thumbnail, use a placeholder */
+        addMediaEntry(file, "file", null, currentTicketId);
+      }
+    });
+
+    input.addEventListener("blur", function () {
+      setTimeout(function () {
+        if (!input.files || !input.files.length) {
+          try { document.body.removeChild(input); } catch (e) {}
+        }
+      }, 1000);
+    });
+
+    input.click();
+  }
+
   /* ── Vertex system responses (Slice 41d + 43b) ────────────────── */
 
   /**
@@ -1163,7 +1202,9 @@
 
     /* Media entries ------------------------------------------------ */
     if (entry.meta && entry.meta.mediaType) {
-      return entry.meta.mediaType === "video" ? "\uD83C\uDFA5 Saved." : "\uD83D\uDCF7 Saved.";
+      if (entry.meta.mediaType === "video") return "\uD83C\uDFA5 Saved.";
+      if (entry.meta.mediaType === "file")  return "\uD83D\uDCC4 File saved.";
+      return "\uD83D\uDCF7 Saved.";
     }
 
     var text = safeText(entry.text);
@@ -1827,6 +1868,8 @@
       openPhotoLightbox(entry.meta.storageUrl || entry.meta.thumbnailDataUrl);
     } else if (entry.meta.mediaType === "video") {
       openVideoPlayer(entry.meta.storageUrl, entry.meta.uploadStatus === "error");
+    } else if (entry.meta.mediaType === "file" && entry.meta.storageUrl) {
+      window.open(entry.meta.storageUrl, "_blank");
     }
   }
 
@@ -2441,11 +2484,13 @@
     var actionPhoto   = document.getElementById("ct-action-photo");
     var actionVideo   = document.getElementById("ct-action-video");
     var actionGallery = document.getElementById("ct-action-gallery");
+    var actionFile    = document.getElementById("ct-action-file");
     var actionCancel  = document.getElementById("ct-action-cancel");
 
     if (actionPhoto)   actionPhoto.addEventListener("click",   capturePhotoNative);
     if (actionVideo)   actionVideo.addEventListener("click",   captureVideoNative);
     if (actionGallery) actionGallery.addEventListener("click", captureFromGallery);
+    if (actionFile)    actionFile.addEventListener("click",    captureFromFiles);
     if (actionCancel)  actionCancel.addEventListener("click",  dismissMediaActionSheet);
 
     /* Tap backdrop to cancel */
