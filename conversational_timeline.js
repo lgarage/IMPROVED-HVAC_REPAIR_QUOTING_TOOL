@@ -133,6 +133,10 @@
   var currentTicketId = "draft";
   var initialized = false;
 
+  /* ── checklist reminder debounce state (Slice 63c) ───────────── */
+  var _lastReminderEquipment = null;
+  var _lastReminderTime = 0;
+
   /* ── settings helpers (Slice 44a) ────────────────────────────── */
 
   var VALID_MODES = ["voice_text", "text_only", "silent"];
@@ -568,12 +572,16 @@
               "</span>" +
             "</div>";
         } else {
-          /* System bubble — "V" monogram icon beside message content */
+          /* System bubble — "V" monogram icon beside message content.
+             isHtml entries (e.g. checklist reminder cards) bypass escaping. */
+          var bodyHtml = (item.meta && item.meta.isHtml)
+            ? item.text
+            : escapeHtml(item.text);
           html +=
             '<div class="ct-message ct-message--system">' +
               '<div class="ct-vertex-icon" aria-hidden="true">V</div>' +
               '<div class="ct-msg-content">' +
-                '<span class="ct-message__body">' + escapeHtml(item.text) + "</span>" +
+                '<span class="ct-message__body">' + bodyHtml + "</span>" +
                 '<span class="ct-message__meta">' + escapeHtml(formatTime(item.ts)) + "</span>" +
               "</div>" +
             "</div>";
@@ -1582,17 +1590,24 @@
       !window.ChecklistReminderEngine ||
       typeof window.ChecklistReminderEngine.getReminders !== "function"
     ) return;
-    /* 800 ms head start for the primary confirmation bubble */
+    /* Debounce: suppress re-fire for the same equipment within 30 s (Slice 63c) */
+    if (equipment === _lastReminderEquipment && (Date.now() - _lastReminderTime) < 30000) return;
+    /* Mark immediately (before async delay) to block concurrent rapid mentions */
+    _lastReminderEquipment = equipment;
+    _lastReminderTime = Date.now();
+    /* 800 ms head start so the primary "Got it." confirmation bubble appears first */
     setTimeout(function () {
       var reminders = window.ChecklistReminderEngine.getReminders(equipment, ticketId);
       if (!reminders || !reminders.length) return;
+      /* Render all reminder items as one lightweight grouped card (Slice 63c) */
+      var html = '<div class="ct-checklist-remind" style="background:#fef9c3;border-radius:10px;padding:10px 14px;font-size:13px;color:#713f12;">';
+      html += '<div style="font-weight:600;margin-bottom:6px;">\uD83D\uDCCB ' + escapeHtml(equipment) + ' \u2014 items to check:</div>';
+      html += '<ul style="margin:0;padding-left:18px;line-height:1.6;">';
       for (var i = 0; i < reminders.length; i++) {
-        (function (reminder, idx) {
-          setTimeout(function () {
-            addEntry(reminder, "system", ticketId);
-          }, idx * 700);
-        })(reminders[i], i);
+        html += '<li>' + escapeHtml(reminders[i]) + '</li>';
       }
+      html += '</ul></div>';
+      addEntry(html, "system", ticketId, { isHtml: true });
     }, 800);
   }
 
@@ -1686,9 +1701,10 @@
 
     if (eqRef && window.JobContextEngine && typeof JobContextEngine.setActiveEquipment === "function") {
       JobContextEngine.setActiveEquipment(eqRef);
-      /* Equipment switched — remind tech about any missed items on the previous unit */
-      if (previousEquipment && previousEquipment !== eqRef) {
-        scheduleChecklistReminders(previousEquipment, id);
+      /* Fire reminders on first mention OR on equipment switch (Slice 63c).
+         Debounce inside scheduleChecklistReminders prevents repeat fires. */
+      if (eqRef && (!previousEquipment || eqRef !== previousEquipment)) {
+        scheduleChecklistReminders(eqRef, id);
       }
     }
 
