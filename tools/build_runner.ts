@@ -883,6 +883,28 @@ const commands: SlashCommand[] = [
       const grandTotal = Math.round(spentThisMonth + spentPriorMonths + spentArchived);
       console.log(`  ─────────────────────────────────────────────────────────`);
       console.log(`  All-time total (est.): ~$${grandTotal}\n`);
+
+      // ── Model cost reference ──────────────────────────────────────
+      console.log(`  MODEL COST REFERENCE (per slice est.):\n`);
+      const modelGroups: Array<{ label: string; slugs: string[] }> = [
+        { label: "Cheapest",  slugs: ["gpt-5.4-nano-medium", "composer-2"] },
+        { label: "Budget",    slugs: ["gpt-5.4-mini-medium", "gemini-3-flash", "gpt-5-mini"] },
+        { label: "Mid",       slugs: ["gpt-5.3-codex-spark", "claude-sonnet-4-6", "kimi-k2.5"] },
+        { label: "Premium",   slugs: ["gpt-5.3-codex", "gpt-5.2", "gpt-5.4-medium", "gpt-5.5-medium"] },
+        { label: "Top",       slugs: ["claude-opus-4-6"] },
+      ];
+      for (const group of modelGroups) {
+        for (const slug of group.slugs) {
+          const range = costEstimates[slug];
+          if (!range) continue;
+          const usedCount = passedActive.filter(
+            (s) => state.slices[s.id]?.model === slug
+          ).length;
+          const usedTag = usedCount > 0 ? ` ← used ${usedCount}x` : "";
+          console.log(`  ${group.label.padEnd(10)} ${slug.padEnd(26)} $${range[0]}–$${range[1]}/slice${usedTag}`);
+        }
+      }
+      console.log();
     },
   },
   {
