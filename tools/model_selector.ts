@@ -14,16 +14,22 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const LOOKUP_PATH = path.join(PROJECT_ROOT, "PROJECT_STATUS", "MODEL_LOOKUP.md");
 
 const MODEL_COST_RANK: Record<string, number> = {
-  "claude-haiku-4-5": 1,
+  "gpt-5.4-nano-medium": 1,
   "composer-2": 2,
-  "gpt-5.4-mini": 3,
-  "gpt-5.3-codex-spark": 4,
-  "claude-sonnet-4-6": 5,
-  "gpt-5.3-codex": 6,
-  "gpt-5.2": 7,
-  "gpt-5.4": 8,
-  "gpt-5.5": 9,
-  "claude-opus-4-6": 10,
+  "gpt-5.4-mini-medium": 3,
+  "gpt-5.4-mini": 3,           // legacy slug alias — SDK may accept either form
+  "gemini-3-flash": 4,
+  "gpt-5-mini": 5,
+  "gpt-5.3-codex-spark": 6,
+  "claude-sonnet-4-6": 7,
+  "kimi-k2.5": 8,
+  "gpt-5.3-codex": 9,
+  "gpt-5.2": 10,
+  "gpt-5.4-medium": 11,
+  "gpt-5.4": 11,               // legacy slug alias
+  "gpt-5.5-medium": 12,
+  "gpt-5.5": 12,               // legacy slug alias
+  "claude-opus-4-6": 13,
 };
 
 export interface LookupRow {

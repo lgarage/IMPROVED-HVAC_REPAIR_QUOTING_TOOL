@@ -392,7 +392,7 @@ DO NOT deploy — commit only. Add a comment in storage.rules noting the audit d
     phase: 61,
     title: "Storage rules — MIME type + file-type restrictions on upload paths",
     dependsOn: [],
-    patterns: ["Firestore write path (new collection/doc)"],
+    patterns: ["Storage rules / upload paths"],
     riskLevel: "review",
     reviewChecklist: [
       "Tech app → workspace → tap Take a Photo → approve → confirm upload succeeds (no permission-denied in DevTools console or #vcDebugOverlay).",
@@ -591,20 +591,32 @@ the /cost command, ~lines 769-777) that duplicates the MODEL_COST_RANK data alre
 maintained in model_selector.ts. These two sources will drift over time as models are
 added or removed.
 
+KNOWN BUG: The /cost map uses STALE model slugs (e.g. "claude-4.6-sonnet", "claude-4.6-opus",
+"gpt-5.4-medium", "gpt-5.5-medium") while MODEL_COST_RANK in model_selector.ts uses the
+CORRECT slugs (e.g. "claude-sonnet-4-6", "claude-opus-4-6", "gpt-5.4", "gpt-5.5"). The cost
+command frequently falls through to the default [10,20] range because of this mismatch.
+
 Fix:
-1. Read both files carefully.
-2. In model_selector.ts, export a getCostEstimates() function (or export the cost map
-   directly) that returns a Record<string, string> mapping model slug → cost tier label
-   (e.g. "GPT-5.4 Nano" → "$", "Sonnet 4.6" → "$$", "Opus 4.6" → "$$$").
-   Base this on the existing MODEL_COST_RANK or cost-related data already in the file.
+1. Read both files carefully. Note the slug mismatches between the two maps.
+2. In model_selector.ts, export a function getCostEstimates() that returns a
+   Record<string, [number, number]> mapping each model slug from MODEL_COST_RANK to
+   a [low, high] cost-per-slice estimate in cents. Use the existing MODEL_COST_RANK
+   keys as the canonical slug names. Approximate cost ranges:
+   - rank 1-2 (haiku, composer): [3, 8]
+   - rank 3-4 (mini, spark): [4, 10]
+   - rank 5 (sonnet): [5, 15]
+   - rank 6-7 (codex, gpt-5.2): [8, 20]
+   - rank 8-9 (gpt-5.4, gpt-5.5): [10, 25]
+   - rank 10 (opus): [15, 35]
 3. In build_runner.ts /cost command handler, replace the inline costEstimates object
-   literal with a call to the exported function from model_selector.ts:
+   literal with a call to getCostEstimates() from model_selector.ts:
    import { getCostEstimates } from './model_selector';
    ...
    const costEstimates = getCostEstimates();
 4. Remove the now-redundant inline costEstimates definition from build_runner.ts.
 
-Ensure the /cost command output is unchanged — same display format, same model names.
+Ensure the /cost command output is unchanged in format — same display layout.
+The model slugs in the output should now be CORRECT (matching MODEL_COST_RANK).
 Run npx tsc --noEmit from the tools/ directory to confirm the change compiles cleanly.`,
     outOfScope: "Changing model recommendations. Updating MODEL_LOOKUP.md. Changing the /cost display format.",
     cacheBusts: [],
