@@ -1662,6 +1662,94 @@
     });
   }
 
+  /* ── Slice 63g: saveNameplateFields — merge OCR data onto equipment doc ── */
+
+  /**
+   * saveNameplateFields(equipmentRef, fields)
+   * Looks up the equipment document by unit name (equipmentRef) within the current
+   * customer/location context, then writes a Firestore merge with non-null fields.
+   */
+  function saveNameplateFields(equipmentRef, fields) {
+    try {
+      var firestoreDb = getFirestoreDb();
+      if (!firestoreDb) {
+        console.warn("[EquipmentManager] saveNameplateFields: Firestore not available.");
+        return;
+      }
+
+      var refTrimmed = String(equipmentRef || "").trim().toLowerCase();
+      if (!refTrimmed) {
+        console.warn("[EquipmentManager] saveNameplateFields: empty equipmentRef.");
+        return;
+      }
+
+      var customerId = "";
+      var locationId = "";
+      if (typeof activeTicket !== "undefined" && activeTicket) {
+        customerId = sanitizePathSegment(activeTicket.customerName || "");
+        var locEl = document.getElementById("location");
+        var locLine = (locEl && locEl.value) ? String(locEl.value).trim() : "";
+        locationId = sanitizePathSegment(locLine || "");
+      }
+      if (!customerId || !locationId) {
+        console.warn("[EquipmentManager] saveNameplateFields: no customer/location context.");
+        return;
+      }
+
+      var mergeData = {};
+      var fieldMap = {
+        modelNumber: "modelNumber",
+        serialNumber: "serialNumber",
+        manufacturer: "manufacturer",
+        voltage: "voltage",
+        tonnage: "tonnage"
+      };
+      Object.keys(fieldMap).forEach(function (key) {
+        var val = fields && fields[key];
+        if (typeof val === "string" && val.trim()) {
+          mergeData[fieldMap[key]] = val.trim();
+        }
+      });
+      if (!Object.keys(mergeData).length) {
+        console.warn("[EquipmentManager] saveNameplateFields: no non-empty fields to write.");
+        return;
+      }
+
+      var collRef = firestoreDb
+        .collection("Customers").doc(customerId)
+        .collection("Locations").doc(locationId)
+        .collection("Equipment");
+
+      var unitDocId = sanitizePathSegment(equipmentRef);
+
+      collRef.get().then(function (snap) {
+        var matchDoc = null;
+        snap.forEach(function (doc) {
+          if (matchDoc) return;
+          var data = doc.data() || {};
+          var docTag = String(data.unitTag || doc.id || "").trim().toLowerCase();
+          if (docTag === refTrimmed) {
+            matchDoc = doc;
+          }
+        });
+
+        if (matchDoc) {
+          return matchDoc.ref.set(mergeData, { merge: true });
+        }
+        return collRef.doc(unitDocId).set(mergeData, { merge: true });
+      }).then(function () {
+        console.info("[EquipmentManager] nameplate fields saved for", equipmentRef);
+        if (typeof refreshEquipmentHubList === "function") {
+          refreshEquipmentHubList();
+        }
+      }).catch(function (e) {
+        console.warn("[EquipmentManager] saveNameplateFields error:", e);
+      });
+    } catch (e) {
+      console.warn("[EquipmentManager] saveNameplateFields exception:", e);
+    }
+  }
+
   window.processOcrQueue = processOcrQueue;
   window.dictationPromoteAssetPhoto = dictationPromoteAssetPhoto;
   window.dictationPreviewNameplateFromFile = dictationPreviewNameplateFromFile;
@@ -1675,5 +1763,9 @@
     readContextFromDom: readContextFromDom,
     estimateCRV: estimateCRV,
     calculateHealthScore: calculateHealthScore,
+  };
+
+  window.VCEquipmentManager = {
+    saveNameplateFields: saveNameplateFields,
   };
 })();

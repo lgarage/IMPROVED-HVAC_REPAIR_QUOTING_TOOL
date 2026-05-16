@@ -1084,6 +1084,9 @@
       if (!file) return;
       createImageThumbnail(file, function (thumb) {
         addMediaEntry(file, "photo", thumb, currentTicketId);
+        var eqRef = (window.JobContextEngine && typeof window.JobContextEngine.getActiveEquipment === "function")
+          ? window.JobContextEngine.getActiveEquipment() : null;
+        runNameplateClassification(file, eqRef || null);
       });
     });
 
@@ -1156,6 +1159,9 @@
       } else {
         createImageThumbnail(file, function (thumbDataUrl) {
           addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
+          var eqRef = (window.JobContextEngine && typeof window.JobContextEngine.getActiveEquipment === "function")
+            ? window.JobContextEngine.getActiveEquipment() : null;
+          runNameplateClassification(file, eqRef || null);
         });
       }
     });
@@ -1192,6 +1198,9 @@
       } else if (file.type.startsWith("image/")) {
         createImageThumbnail(file, function (thumbDataUrl) {
           addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
+          var eqRef = (window.JobContextEngine && typeof window.JobContextEngine.getActiveEquipment === "function")
+            ? window.JobContextEngine.getActiveEquipment() : null;
+          runNameplateClassification(file, eqRef || null);
         });
       } else {
         /* Generic file (PDF, doc, etc.) — no thumbnail, use a placeholder */
@@ -3805,6 +3814,235 @@
     });
   }
 
+  /* ── Slice 63g: Nameplate OCR classification ─────────────────── */
+
+  /**
+   * classifyNameplate — send a photo to Gemini Vision and attempt to extract
+   * manufacturer, model, serial, voltage, tonnage from a unit nameplate.
+   * Returns Promise<object|null>.  Null means "not a nameplate" or unreadable.
+   */
+  function classifyNameplate(dataUrl) {
+    if (typeof getGeminiApiKey !== "function") return Promise.resolve(null);
+
+    var base64 = dataUrl;
+    var mimeType = "image/jpeg";
+    var prefixMatch = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,/);
+    if (prefixMatch) {
+      mimeType = prefixMatch[1];
+      base64 = dataUrl.slice(prefixMatch[0].length);
+    }
+
+    var prompt =
+      "You are an HVAC unit data extraction assistant.\n" +
+      "Look at this image. If it shows a manufacturer nameplate, data plate, or model label " +
+      "for an HVAC unit (RTU, AHU, chiller, boiler, etc.), extract the following fields.\n" +
+      "If the image is NOT a nameplate, return all fields as null.\n" +
+      'Return ONLY valid JSON:\n' +
+      '{ "manufacturer": string|null, "modelNumber": string|null, "serialNumber": string|null, ' +
+      '"voltage": string|null, "tonnage": string|null }';
+
+    return getGeminiApiKey().then(function (key) {
+      if (!key) return null;
+      var url =
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
+        encodeURIComponent(key);
+
+      var body = {
+        contents: [{
+          role: "user",
+          parts: [
+            { text: prompt },
+            { inlineData: { mimeType: mimeType, data: base64 } }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 512,
+          responseMimeType: "application/json"
+        }
+      };
+
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).then(function (resp) {
+        if (!resp.ok) return null;
+        return resp.json();
+      }).then(function (data) {
+        var parts = data && data.candidates && data.candidates[0] &&
+          data.candidates[0].content && data.candidates[0].content.parts;
+        if (!parts || !parts.length) return null;
+        var raw = (parts[0].text || "").trim();
+        raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+        try {
+          var parsed = JSON.parse(raw);
+          if (!parsed.modelNumber && !parsed.serialNumber) return null;
+          return parsed;
+        } catch (e) { return null; }
+      });
+    }).catch(function () { return null; });
+  }
+
+  /**
+   * Read an image File into a full-resolution data URL for Gemini Vision.
+   * Uses a canvas down-scale to max 1280px to keep the payload reasonable.
+   */
+  function fileToClassificationDataUrl(file) {
+    return new Promise(function (resolve) {
+      try {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          var img = new Image();
+          img.onload = function () {
+            try {
+              var maxDim = 1280;
+              var w = img.width, h = img.height;
+              if (w > maxDim || h > maxDim) {
+                var ratio = Math.min(maxDim / w, maxDim / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+              }
+              var canvas = document.createElement("canvas");
+              canvas.width = w;
+              canvas.height = h;
+              canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+              resolve(canvas.toDataURL("image/jpeg", 0.85));
+            } catch (ex) { resolve(null); }
+          };
+          img.onerror = function () { resolve(null); };
+          img.src = e.target.result;
+        };
+        reader.onerror = function () { resolve(null); };
+        reader.readAsDataURL(file);
+      } catch (e) { resolve(null); }
+    });
+  }
+
+  /**
+   * Build the nameplate confirmation card HTML.
+   */
+  function buildNameplateConfirmCard(result, equipmentRef) {
+    var resultJson = JSON.stringify(result).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+    var eqDisplay = equipmentRef ? escapeHtml(equipmentRef) : "";
+
+    var html = '<div id="ct-nameplate-confirm-card" style="background:#f0f9ff;border:1px solid #7dd3fc;'
+      + 'border-radius:10px;padding:12px 16px;font-size:13px;margin:4px 0;">'
+      + '<div style="font-weight:600;color:#0369a1;margin-bottom:6px;">\uD83C\uDFF7\uFE0F Nameplate detected'
+      + (eqDisplay ? ' \u2014 ' + eqDisplay : '') + '</div>'
+      + '<div style="color:#0c4a6e;line-height:1.7;">'
+      + (result.manufacturer ? '<div><strong>Manufacturer:</strong> ' + escapeHtml(result.manufacturer) + '</div>' : '')
+      + (result.modelNumber ? '<div><strong>Model:</strong> ' + escapeHtml(result.modelNumber) + '</div>' : '')
+      + (result.serialNumber ? '<div><strong>Serial:</strong> ' + escapeHtml(result.serialNumber) + '</div>' : '')
+      + (result.voltage ? '<div><strong>Voltage:</strong> ' + escapeHtml(result.voltage) + '</div>' : '')
+      + (result.tonnage ? '<div><strong>Tonnage:</strong> ' + escapeHtml(result.tonnage) + '</div>' : '')
+      + '</div>';
+
+    if (!equipmentRef) {
+      html += '<div style="margin-top:8px;">'
+        + '<label style="font-size:12px;color:#475569;display:block;margin-bottom:4px;">Unit name (e.g. RTU 3):</label>'
+        + '<input type="text" class="ct-nameplate-unit-input" placeholder="Enter unit name…" '
+        + 'style="width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid #94a3b8;border-radius:6px;font-size:13px;'
+        + 'background:#fff;color:#0c4a6e;" />'
+        + '</div>';
+    }
+
+    html += '<div style="display:flex;gap:8px;margin-top:10px;">'
+      + '<button class="ct-nameplate-save-btn" data-eq="' + escapeHtml(equipmentRef || '') + '"'
+      + " data-result='" + resultJson + "'"
+      + ' style="background:#0284c7;color:#fff;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;">'
+      + 'Save to Equipment Record</button>'
+      + '<button class="ct-nameplate-dismiss-btn"'
+      + ' style="background:none;border:1px solid #cbd5e1;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;color:#64748b;">'
+      + 'Dismiss</button></div></div>';
+
+    return html;
+  }
+
+  /**
+   * Inject the nameplate confirmation card into the timeline stream,
+   * immediately after the most recent photo entry.
+   */
+  function injectNameplateCard(result, equipmentRef) {
+    var existing = document.getElementById("ct-nameplate-confirm-card");
+    if (existing) existing.parentNode.removeChild(existing);
+
+    var cardHtml = buildNameplateConfirmCard(result, equipmentRef);
+    var stream = getMessageStreamEl();
+    if (!stream) return;
+    var wrapper = document.createElement("div");
+    wrapper.innerHTML = cardHtml;
+    stream.appendChild(wrapper.firstChild);
+    scrollToBottom();
+  }
+
+  /**
+   * saveNameplateToEquipment — delegates to VCEquipmentManager.saveNameplateFields.
+   */
+  function saveNameplateToEquipment(equipmentRef, result) {
+    if (window.VCEquipmentManager && typeof window.VCEquipmentManager.saveNameplateFields === "function") {
+      window.VCEquipmentManager.saveNameplateFields(equipmentRef, result);
+    } else {
+      console.warn("[CT] VCEquipmentManager not loaded — skipping nameplate save.");
+    }
+  }
+
+  /**
+   * wireNameplateHandlers — delegated click handlers for nameplate card buttons.
+   */
+  function wireNameplateHandlers() {
+    var list = getListElement();
+    if (!list) return;
+    list.addEventListener("click", function (e) {
+      var saveBtn = e.target.closest ? e.target.closest(".ct-nameplate-save-btn") : null;
+      if (saveBtn) {
+        e.stopPropagation();
+        var resultStr = saveBtn.getAttribute("data-result");
+        var eqRef = saveBtn.getAttribute("data-eq") || "";
+        var result;
+        try { result = JSON.parse(resultStr.replace(/&quot;/g, '"').replace(/&#39;/g, "'")); } catch (ex) { return; }
+
+        if (!eqRef) {
+          var card = document.getElementById("ct-nameplate-confirm-card");
+          var unitInput = card ? card.querySelector(".ct-nameplate-unit-input") : null;
+          eqRef = unitInput ? String(unitInput.value).trim() : "";
+          if (!eqRef) {
+            if (unitInput) unitInput.style.borderColor = "#dc2626";
+            return;
+          }
+        }
+
+        saveNameplateToEquipment(eqRef, result);
+        var card2 = document.getElementById("ct-nameplate-confirm-card");
+        if (card2) card2.parentNode.removeChild(card2);
+        return;
+      }
+
+      var dismissBtn = e.target.closest ? e.target.closest(".ct-nameplate-dismiss-btn") : null;
+      if (dismissBtn) {
+        e.stopPropagation();
+        var card3 = document.getElementById("ct-nameplate-confirm-card");
+        if (card3) card3.parentNode.removeChild(card3);
+      }
+    });
+  }
+
+  /**
+   * runNameplateClassification — background pipeline: read file → classify → inject card.
+   */
+  function runNameplateClassification(file, equipmentRef) {
+    if (!file || !file.type || !file.type.startsWith("image/")) return;
+    try {
+      fileToClassificationDataUrl(file).then(function (dataUrl) {
+        if (!dataUrl) return;
+        return classifyNameplate(dataUrl);
+      }).then(function (result) {
+        if (!result) return;
+        injectNameplateCard(result, equipmentRef || null);
+      }).catch(function () { /* swallow — best-effort enrichment */ });
+    } catch (e) { /* swallow */ }
+  }
+
   /* ── init ─────────────────────────────────────────────────────── */
 
   function init() {
@@ -3821,6 +4059,7 @@
     wireMediaSwipeDelete();
     wireCompileBtn();
     wireCompileModal();
+    wireNameplateHandlers();
 
     try {
       window.addEventListener("vc:contextUpdated", function (e) {
