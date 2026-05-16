@@ -1,5 +1,5 @@
 /**
- * Conversational Timeline — Slice 52a.
+ * Conversational Timeline — Slice 63e.
  *
  * Slice 41a: localStorage-only timeline, bubble layout, workspace integration.
  * Slice 41b: Hold-to-Talk action bar + live Web Speech API STT.
@@ -1008,6 +1008,9 @@
         activeTicketId: id,
         technicianName: getTechnicianName(),
         activeEquipment: (window.VCJobContext && window.VCJobContext.activeEquipment) || null,
+        equipmentRef: (window.JobContextEngine && typeof window.JobContextEngine.getActiveEquipment === "function"
+          ? window.JobContextEngine.getActiveEquipment()
+          : null) || null,
         visibility: "internal"
       }
     };
@@ -2815,7 +2818,7 @@
   function buildDeltaCompilePrompt(newEntries, existingResult, context) {
     var lines = [];
     lines.push("You are an HVAC field service report compiler processing incremental timeline entries.");
-    lines.push("MEDIA EQUIPMENT RULE: Media entries (photo/video) tagged with [equip: X] are explicitly tied to that equipment. For any media entry WITHOUT an [equip:] tag, associate it with the equipment or issue most recently mentioned in the timeline entries immediately before it.");
+    lines.push("MEDIA EQUIPMENT RULE: Media entries (photo/video) tagged with (equipment: X) are explicitly tied to that equipment. For any media entry WITHOUT an (equipment:) tag, associate it with the equipment or issue most recently mentioned in the timeline entries immediately before it.");
     lines.push("");
 
     if (existingResult && existingResult.summary) {
@@ -2834,7 +2837,8 @@
       var prefix = e.role === "system" ? "[SYSTEM]" : "[TECH]";
       var meta = "";
       if (e.meta && e.meta.mediaType) meta = " (media: " + e.meta.mediaType + ")";
-      if (e.meta && e.meta.activeEquipment) meta += " [equip: " + e.meta.activeEquipment + "]";
+      var eqRef = (e.meta && (e.meta.equipmentRef || e.meta.activeEquipment)) || null;
+      if (eqRef) meta += " (equipment: " + eqRef + ")";
       lines.push(prefix + " " + (e.ts || "") + " — " + (e.text || "") + meta);
     }
 
@@ -2910,7 +2914,7 @@
   function buildCompilePrompt(context) {
     var lines = [];
     lines.push("You are an HVAC field service report compiler. Analyze the following technician timeline entries and produce a structured JSON report.");
-    lines.push("MEDIA EQUIPMENT RULE: Media entries (photo/video) tagged with [equip: X] are explicitly tied to that equipment. For any media entry WITHOUT an [equip:] tag, associate it with the equipment or issue most recently mentioned in the timeline entries immediately before it.");
+    lines.push("MEDIA EQUIPMENT RULE: Media entries (photo/video) tagged with (equipment: X) are explicitly tied to that equipment. For any media entry WITHOUT an (equipment:) tag, associate it with the equipment or issue most recently mentioned in the timeline entries immediately before it.");
     lines.push("");
     lines.push("TIMELINE ENTRIES:");
     for (var i = 0; i < context.entries.length; i++) {
@@ -2919,7 +2923,8 @@
       var prefix = e.role === "system" ? "[SYSTEM]" : "[TECH]";
       var meta = "";
       if (e.meta && e.meta.mediaType) meta = " (media: " + e.meta.mediaType + ")";
-      if (e.meta && e.meta.activeEquipment) meta += " [equip: " + e.meta.activeEquipment + "]";
+      var eqRef = (e.meta && (e.meta.equipmentRef || e.meta.activeEquipment)) || null;
+      if (eqRef) meta += " (equipment: " + eqRef + ")";
       lines.push(prefix + " " + (e.ts || "") + " — " + (e.text || "") + meta);
     }
 
