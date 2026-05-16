@@ -1408,11 +1408,13 @@ async function main(): Promise<void> {
       cmdArgs.unshift(buildShorthand[1]);
     }
 
-    // Handle /p<nums> and /f<nums> shorthand (e.g. /p1,2,3 → /passed 1,2,3)
+    // Handle /p<nums>, /f<nums>, /na<nums> shorthand (e.g. /p1,2,3 → /passed 1,2,3)
     const passShorthand = /^\/p([\d,]+)$/.exec(cmdName);
     if (passShorthand) { cmdName = "/passed"; cmdArgs.unshift(passShorthand[1]); }
     const failShorthand = /^\/f([\d,]+)$/.exec(cmdName);
     if (failShorthand) { cmdName = "/failed"; cmdArgs.unshift(failShorthand[1]); }
+    const naShorthand = /^\/na([\d,]+)$/.exec(cmdName);
+    if (naShorthand) { cmdName = "/na"; cmdArgs.unshift(naShorthand[1]); }
 
     const cmd = commands.find(
       (c) => c.name === cmdName || c.alias.includes(cmdName)
