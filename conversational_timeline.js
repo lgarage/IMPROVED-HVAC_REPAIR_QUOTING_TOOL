@@ -2657,6 +2657,17 @@
 
     /* Start background compile timer */
     startBgCompileTimer();
+
+    /* Stop timer immediately if tech marks job inactive */
+    try {
+      var statusEl = document.getElementById("finalJobStatus");
+      if (statusEl && !statusEl._bgCompileWired) {
+        statusEl._bgCompileWired = true;
+        statusEl.addEventListener("change", function () {
+          if (!isJobActiveForCompile()) stopBgCompileTimer();
+        });
+      }
+    } catch (e) { /* degrade silently */ }
   }
 
   function onWorkspaceClose() {
@@ -2682,8 +2693,17 @@
     _isCompiling = false;
   }
 
+  var COMPILE_INACTIVE_STATUSES = ["Completed", "Needs Repair Quote", "Parts on Order"];
+
+  function isJobActiveForCompile() {
+    var el = document.getElementById("finalJobStatus");
+    if (!el) return true; /* can't tell — allow compile */
+    return COMPILE_INACTIVE_STATUSES.indexOf(el.value) === -1;
+  }
+
   function startBgCompileTimer() {
     stopBgCompileTimer();
+    if (!isJobActiveForCompile()) return; /* don't start on an already-inactive job */
     _bgCompileTimer = setInterval(function () {
       try { backgroundCompile(); } catch (e) { /* degrade silently */ }
     }, COMPILE_BG_INTERVAL_MS);
@@ -2810,6 +2830,11 @@
   function backgroundCompile() {
     if (_isCompiling) return;
     if (!currentTicketId) return;
+    /* Stop timer if job is no longer active */
+    if (!isJobActiveForCompile()) {
+      stopBgCompileTimer();
+      return;
+    }
     var entries = loadEntries(currentTicketId);
     var techEntries = entries.filter(function (e) {
       return e && e.role === "tech" && !(e.meta && e.meta.seed);
