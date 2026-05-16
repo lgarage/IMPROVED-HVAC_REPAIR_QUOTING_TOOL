@@ -9,6 +9,15 @@ rules_version = '2';
 //   uploads to field_evidence/ (already covered); verified
 //   offline_storage_outbox.js (Phase 56a) replays existing paths
 //   only (no new prefix needed).  Audit date: 2026-05-15.
+// 2026-05-15 v4: Slice 61a — MIME type restrictions added to all
+//   write rules.  Audit date: 2026-05-15.
+//   • PHOTO-ONLY paths accept image/.* only (covers HEIC/HEIF).
+//   • MEDIA paths (field_evidence, service_call_addendums) accept
+//     image/.* or video/.* — technician captures both media types.
+//   • MEDIA+AUDIO path (teaching_media) accepts image/.*, video/.*,
+//     or audio/.* — knowledge base supports all three.
+//   Use .matches() prefix patterns (not == exact match) so all
+//   image subtypes (HEIC, WEBP, PNG, etc.) are covered.
 //
 // Design mirrors firestore.rules: each known upload prefix is
 // listed individually; everything else is denied by default
@@ -38,78 +47,96 @@ service firebase.storage {
     match /equipment_photos/{allPaths=**} {
       allow read:  if true;
       allow write: if true
-                   && request.resource.size < 10 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
     // Dictation Hub asset photos (nameplate promotion, watermarked assets)
     match /dictation_hub_assets/{allPaths=**} {
       allow read:  if true;
       allow write: if true
-                   && request.resource.size < 10 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
     // Customer evidence attachments (service call — dispatcher + field app)
     match /customer_evidence/{allPaths=**} {
       allow read:  if true;
       allow write: if true
-                   && request.resource.size < 10 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
     // Field quote mandatory evidence photos
     match /field_quote_evidence/{allPaths=**} {
       allow read:  if true;
       allow write: if true
-                   && request.resource.size < 10 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
     // Field form dynamic question photo uploads
     match /field_form_evidence/{allPaths=**} {
       allow read:  if true;
       allow write: if true
-                   && request.resource.size < 10 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
     // Repair quote photos
     match /quote_evidence/{allPaths=**} {
       allow read:  if true;
       allow write: if true
-                   && request.resource.size < 10 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
     // Site Intel access photos (workspace panel — workspace_ui.js)
     match /site_access_photos/{allPaths=**} {
       allow read:  if true;
       allow write: if true
-                   && request.resource.size < 10 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
     // Vision Hub imported equipment nameplate photos (tenant-scoped)
     match /tenants/{tenantId}/imported_equipment_photos/{allPaths=**} {
       allow read:  if true;
       allow write: if true
-                   && request.resource.size < 10 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
     // Field-app pasted photo evidence + conversational timeline media capture
     // (technician/index.html + conversational_timeline.js Phase 41c)
+    // Accepts image or video — technician captures both media types.
     match /field_evidence/{allPaths=**} {
       allow read:  if true;
       allow write: if true
-                   && request.resource.size < 10 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*')
+                       || request.resource.contentType.matches('video/.*'));
     }
 
     // Service call addendum file attachments (addendums flow — technician/index.html)
+    // Accepts image or video — addendum evidence can be photo or video clip.
     match /service_call_addendums/{allPaths=**} {
       allow read:  if true;
       allow write: if true
-                   && request.resource.size < 10 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*')
+                       || request.resource.contentType.matches('video/.*'));
     }
 
     // Teaching Layer knowledge media uploads (teaching_layer.js Phase 52a)
+    // Accepts image, video, or audio — knowledge base supports all three media types.
     match /teaching_media/{allPaths=**} {
       allow read:  if true;
       allow write: if true
-                   && request.resource.size < 10 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*')
+                       || request.resource.contentType.matches('video/.*')
+                       || request.resource.contentType.matches('audio/.*'));
     }
 
     // All other paths: default deny (no match = no access).
