@@ -792,6 +792,26 @@ C4: Add origin guards to postMessage receivers in dispatcher/js/shadow_mode.js a
 E1: Normalize internal_comms type to 'internal_comms' in activity_feed.js normalizeInternal.
 E3: Use WriteBatch for dual roster + on-call writes in settings.js.`,
     outOfScope: "Any other KI-002 items. Refactoring beyond the specific fixes. UI changes.",
-    cacheBusts: ["dispatcher/js/report_builder.js", "sw.js", "dispatcher/js/shadow_mode.js", "settings.js"],
+    cacheBusts: ["dispatcher/js/report_builder.js", "dispatcher/js/shadow_mode.js", "settings.js"],
+    htmlTarget: "index.html",
+  },
+  {
+    id: "62c",
+    phase: 62,
+    title: "Build runner UX: 'pause' -> 'stop' wording fix",
+    dependsOn: [],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["tools/build_runner.ts"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Update the build runner STOP message wording to be more accurate.
+File: tools/build_runner.ts line ~64
+Find: console.log(\`\\n\\n  ⏸  STOP received — will finish current slice then pause.\`);
+Replace: console.log(\`\\n\\n  ⏸  STOP received — will finish current slice then stop.\`);
+Reason: The runner fully stops after the slice; it doesn't pause for resumption.`,
+    outOfScope: "Changing stop logic. Modifying any other strings.",
+    cacheBusts: [],
   },
 ];
