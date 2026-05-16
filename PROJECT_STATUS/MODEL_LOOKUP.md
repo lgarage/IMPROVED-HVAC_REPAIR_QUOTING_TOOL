@@ -26,6 +26,6 @@
 | Hamburger menu / nav chrome | gpt-5.4-nano-medium | — | — | no | 2026-05-15 | Slug updated from haiku; unverified |
 | Dictation hub labels / hints / copy | gpt-5.4-nano-medium | — | — | no | 2026-05-15 | Slug updated from haiku; unverified |
 | Shadow Mode / Office Override | claude-opus-4-6 | — | claude-opus-4-6 | no | 2026-05-13 | Vertex Core rule — no matching slice yet |
-| Governance / docs-only edits | gpt-5.4-nano-medium | — | — | no | 2026-05-15 | Slug updated from haiku; unverified |
+| Governance / docs-only edits | gpt-5.4-nano-medium | — | — | no | 2026-05-16 | Slug updated from haiku; unverified |
 | Storage rules / upload paths | claude-sonnet-4-6 | — | — | yes | 2026-05-16 | Verified: claude-sonnet-4-6 passed |
 | Boot sequence / performance | claude-sonnet-4-6 | — | — | no | 2026-05-13 | Unverified — will test on next matching slice |
