@@ -1,0 +1,14 @@
+---
+description: Slack idea vault — channel ID for direct MCP access
+alwaysApply: true
+---
+
+# Slack Idea Vault (Icebox)
+
+When the user mentions "icebox," "idea vault," "ideas I added," or asks what ideas they have, **always check the Slack channel first** before looking at `ROADMAP.md`.
+
+- **Channel:** `#icebox` (private), Slack workspace: Vertex-Core
+- **Channel ID:** `C0B543CE4QG`
+- **How to read:** call `slack_get_channel_history` with `channel_id: "C0B543CE4QG"`
+- **Do not** list workspace channels to find it — the channel is private and will not appear in `slack_list_channels`. Use the ID directly.
+- The `ROADMAP.md` Icebox section is a curated backlog. Raw ideas the user dictates while driving live in Slack and get promoted to `ROADMAP.md` intentionally.
