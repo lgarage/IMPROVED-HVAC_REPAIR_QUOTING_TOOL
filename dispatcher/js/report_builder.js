@@ -136,7 +136,7 @@
   function reportCssHref() {
     // If the stylesheet is already present in the main document, reuse its
     // resolved href so the popup shares the browser's cache entry and avoids
-    // a redundant network request for the stale ?v=1 copy.
+    // a duplicate network request.
     try {
       var existing = document.querySelector('link[href*="report_builder.css"]');
       if (existing && existing.href) return existing.href;

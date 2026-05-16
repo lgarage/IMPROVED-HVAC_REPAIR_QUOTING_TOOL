@@ -49,8 +49,9 @@
     if (!typeVal) return "internal_comms";
     var t = String(typeVal).trim();
     if (t === "internal_comms") return "internal_comms";
+    var tLower = t.toLowerCase();
     for (var i = 0; i < INTERNAL_COMMS_TYPE_VARIANTS.length; i++) {
-      if (t === INTERNAL_COMMS_TYPE_VARIANTS[i]) return "internal_comms";
+      if (tLower === INTERNAL_COMMS_TYPE_VARIANTS[i].toLowerCase()) return "internal_comms";
     }
     return t;
   }
