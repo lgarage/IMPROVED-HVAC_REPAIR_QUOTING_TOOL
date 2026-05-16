@@ -1773,6 +1773,82 @@ body.vc-override-active #vcOfficeOverrideBanner {
 }
 .ct-action-sheet-cancel:active { background: rgba(50, 54, 70, 0.97); }
 
+/* ── Media Viewer: Photo Lightbox + Video Player ── */
+.ct-media-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9400;
+  background: rgba(0, 0, 0, 0.93);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.ct-media-viewer-overlay[hidden] { display: none !important; }
+
+.ct-media-viewer-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  max-width: min(100%, 600px);
+  max-height: 90vh;
+}
+
+.ct-media-viewer-close {
+  align-self: flex-end;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #f9fafb;
+  font-size: 18px;
+  line-height: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+.ct-media-viewer-close:hover { background: rgba(255, 255, 255, 0.18); }
+
+.ct-lightbox-img {
+  max-width: 100%;
+  max-height: calc(90vh - 56px);
+  object-fit: contain;
+  border-radius: 10px;
+  display: block;
+}
+
+.ct-video-player-el {
+  max-width: 100%;
+  max-height: calc(90vh - 56px);
+  border-radius: 10px;
+  background: #000;
+  display: block;
+}
+
+.ct-video-player-msg {
+  color: #9ca3af;
+  font-size: 14px;
+  text-align: center;
+  padding: 24px 0;
+  margin: 0;
+}
+
+/* Make media entries tappable */
+.ct-media-entry {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.ct-media-entry:active { opacity: 0.75; }
+
 /* --- MEDIA TIMELINE ENTRIES (slice 41c) --- */
 
 .ct-media-entry {
@@ -6686,6 +6762,25 @@ button#techDisplayLabel:active { opacity: 0.75; }
     </div>
   </div>
 
+  <!-- Photo Lightbox -->
+  <div id="ct-photo-lightbox" class="ct-media-viewer-overlay" hidden
+       role="dialog" aria-modal="true" aria-label="Photo viewer">
+    <div class="ct-media-viewer-inner">
+      <button id="ct-lightbox-close" type="button" class="ct-media-viewer-close" aria-label="Close">&#x2715;</button>
+      <img id="ct-lightbox-img" class="ct-lightbox-img" alt="Full size photo" />
+    </div>
+  </div>
+
+  <!-- Video Player Modal -->
+  <div id="ct-video-player-modal" class="ct-media-viewer-overlay" hidden
+       role="dialog" aria-modal="true" aria-label="Video player">
+    <div class="ct-media-viewer-inner">
+      <button id="ct-video-player-close" type="button" class="ct-media-viewer-close" aria-label="Close">&#x2715;</button>
+      <video id="ct-video-player-el" class="ct-video-player-el" controls playsinline></video>
+      <p id="ct-video-player-msg" class="ct-video-player-msg" style="display:none"></p>
+    </div>
+  </div>
+
   <!-- Media Action Sheet — tap Take Photo button to open -->
   <div id="ct-media-action-sheet-overlay" class="ct-action-sheet-overlay" hidden>
     <div id="ct-media-action-sheet" class="ct-action-sheet">
@@ -7160,7 +7255,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase60-MediaActionSheet-2026-05-15";
+window.VC_BUILD = "Phase60-MediaViewer-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -12164,7 +12259,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=2"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
-    <script src="../conversational_timeline.js?v=21"></script>
+    <script src="../conversational_timeline.js?v=22"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');

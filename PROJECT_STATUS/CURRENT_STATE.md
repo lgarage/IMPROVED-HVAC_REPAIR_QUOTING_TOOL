@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **Media action sheet** (`technician/index.html`, `conversational_timeline.js?v=21`, `Phase60-MediaActionSheet-2026-05-15`). Tap Take Photo → iOS-style bottom sheet: 📷 Take a Photo / 🎥 Take a Video / 🖼 Pick from Photos / Cancel. Photo uses native `capture="environment"` input → approve/reject overlay. Video uses native video recorder → saves directly. Works on iOS Safari + Android Chrome. Removed all getUserMedia/MediaRecorder complexity. Previous: instant photo snap (getUserMedia).
+- **Last shipped (2026-05-15):** **Media viewer + compile fix** (`conversational_timeline.js?v=22`, `Phase60-MediaViewer-2026-05-15`). Tap any photo thumbnail → fullscreen lightbox (full-res from Storage URL if available, else thumbnail). Tap video thumbnail → video player modal with native controls. Compile Notes: added MEDIA EQUIPMENT RULE instructing Gemini to associate untagged media with equipment mentioned before it in the timeline. Previous: media action sheet.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,7 +18,7 @@ None (59b regression deployed — verify on phone).
 
 ## Immediate Next Step
 
-- **Verify media action sheet:** Hard-reload `conversational_timeline.js?v=21`. Tap Take Photo → action sheet slides up with 3 options. "Take a Photo" opens native camera → photo returned → approve/reject overlay. "Take a Video" opens native video recorder → saves to timeline. "Pick from Photos" opens gallery. Test on device (iOS Safari + Android Chrome). Backdrop tap and Cancel both dismiss the sheet.
+- **Verify media viewer:** Tap any photo bubble in the timeline → fullscreen dark overlay with the photo + ✕ close. Tap backdrop or ✕ to dismiss. Tap any video bubble → video player modal with native play/pause/scrub controls. If video still uploading, shows "Still uploading" message instead. Hard-reload `v=22`.
 - **Verify timeline:** No dashed **Which unit?** box or that phrase in Vertex bubbles when messages lack a unit reference; escalation may still show **What were you working on?** (Gemini low-confidence path). Hard-reload (`conversational_timeline.js?v=18`).
 - **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.

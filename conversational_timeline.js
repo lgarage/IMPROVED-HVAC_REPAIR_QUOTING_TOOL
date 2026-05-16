@@ -1824,6 +1824,62 @@
   }
 
   /**
+  /* ── Media viewer: photo lightbox + video player ──────────────── */
+
+  function openMediaViewer(entryId) {
+    var entries = loadEntries(currentTicketId);
+    var entry = null;
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i] && entries[i].id === entryId) { entry = entries[i]; break; }
+    }
+    if (!entry || !entry.meta) return;
+
+    if (entry.meta.mediaType === "photo") {
+      /* Prefer full-res Storage URL; fall back to thumbnail data URL */
+      openPhotoLightbox(entry.meta.storageUrl || entry.meta.thumbnailDataUrl);
+    } else if (entry.meta.mediaType === "video") {
+      openVideoPlayer(entry.meta.storageUrl);
+    }
+  }
+
+  function openPhotoLightbox(src) {
+    var overlay = document.getElementById("ct-photo-lightbox");
+    var img     = document.getElementById("ct-lightbox-img");
+    if (!overlay || !img) return;
+    img.src = src || "";
+    overlay.hidden = false;
+  }
+
+  function closePhotoLightbox() {
+    var overlay = document.getElementById("ct-photo-lightbox");
+    var img     = document.getElementById("ct-lightbox-img");
+    if (img) img.src = "";
+    if (overlay) overlay.hidden = true;
+  }
+
+  function openVideoPlayer(src) {
+    var overlay = document.getElementById("ct-video-player-modal");
+    var video   = document.getElementById("ct-video-player-el");
+    var msg     = document.getElementById("ct-video-player-msg");
+    if (!overlay) return;
+    if (!src) {
+      if (video) { video.src = ""; video.style.display = "none"; }
+      if (msg)   { msg.style.display = "block"; msg.textContent = "Video is still uploading \u2014 check back in a moment."; }
+    } else {
+      if (video) { video.src = src; video.style.display = "block"; video.load(); }
+      if (msg)   msg.style.display = "none";
+    }
+    overlay.hidden = false;
+  }
+
+  function closeVideoPlayer() {
+    var overlay = document.getElementById("ct-video-player-modal");
+    var video   = document.getElementById("ct-video-player-el");
+    if (video) { try { video.pause(); } catch (e) {} video.src = ""; }
+    if (overlay) overlay.hidden = true;
+  }
+
+   /**
    * wireTimelineEditing — attaches event-delegated tap listener to #ct-message-list
    * so tapping any tech bubble enters inline edit mode.
    * Called once from init(); survives innerHTML re-renders because the listener
@@ -2581,6 +2637,7 @@
   function buildCompilePrompt(context) {
     var lines = [];
     lines.push("You are an HVAC field service report compiler. Analyze the following technician timeline entries and produce a structured JSON report.");
+    lines.push("MEDIA EQUIPMENT RULE: Media entries (photo/video) tagged with [equip: X] are explicitly tied to that equipment. For any media entry WITHOUT an [equip:] tag, associate it with the equipment or issue most recently mentioned in the timeline entries immediately before it.");
     lines.push("");
     lines.push("TIMELINE ENTRIES:");
     for (var i = 0; i < context.entries.length; i++) {
@@ -3019,6 +3076,39 @@
     if (submitBtn) submitBtn.addEventListener("click", submitCompileToOffice);
   }
 
+  function wireMediaViewer() {
+    /* Event delegation — catches clicks on media entries even after timeline re-render */
+    var list = document.getElementById("ct-message-list");
+    if (list) {
+      list.addEventListener("click", function (e) {
+        var entryEl = e.target.closest ? e.target.closest(".ct-media-entry") : null;
+        if (!entryEl) return;
+        var entryId = entryEl.getAttribute("data-entry-id");
+        if (entryId) openMediaViewer(entryId);
+      });
+    }
+
+    /* Photo lightbox — backdrop click or × closes */
+    var lightbox = document.getElementById("ct-photo-lightbox");
+    if (lightbox) {
+      lightbox.addEventListener("click", function (e) {
+        if (e.target === lightbox) closePhotoLightbox();
+      });
+      var lbClose = document.getElementById("ct-lightbox-close");
+      if (lbClose) lbClose.addEventListener("click", closePhotoLightbox);
+    }
+
+    /* Video player — backdrop click or × closes */
+    var videoModal = document.getElementById("ct-video-player-modal");
+    if (videoModal) {
+      videoModal.addEventListener("click", function (e) {
+        if (e.target === videoModal) closeVideoPlayer();
+      });
+      var vpClose = document.getElementById("ct-video-player-close");
+      if (vpClose) vpClose.addEventListener("click", closeVideoPlayer);
+    }
+  }
+
   function wireCompileBtn() {
     var btn = getCompileBtn();
     if (!btn) return;
@@ -3039,6 +3129,7 @@
     wireEquipmentChip();
     wireSettingsGear();
     wireTimelineEditing();
+    wireMediaViewer();
     wireCompileBtn();
     wireCompileModal();
 
@@ -3099,8 +3190,10 @@
     onWorkspaceOpen: onWorkspaceOpen,
     startListening: startListening,
     stopListening: stopListening,
-    capturePhoto: capturePhoto,
-    captureVideo: captureVideo,
+    openMediaActionSheet: openMediaActionSheet,
+    capturePhotoNative: capturePhotoNative,
+    captureVideoNative: captureVideoNative,
+    captureFromGallery: captureFromGallery,
     processEntry: processEntry,
     generateResponse: generateResponse,
     handleFollowUpResponse: handleFollowUpResponse,
