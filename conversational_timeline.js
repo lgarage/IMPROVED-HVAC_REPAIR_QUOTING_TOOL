@@ -776,9 +776,6 @@
 
   /* ── Media capture (Slice 41c) ────────────────────────────────── */
 
-  var _pendingPhotoFile    = null;
-  var _pendingPhotoDataUrl = null;
-
   function getTechnicianName() {
     try {
       if (window.firebase && window.firebase.auth) {
@@ -1046,7 +1043,7 @@
   /**
    * capturePhotoNative — "Take a Photo" action.
    * Opens the device native camera (rear-lens preferred) via file input.
-   * On return, shows approve/reject overlay before saving to timeline.
+   * Native Retake / Use Photo UI is the only confirmation step.
    */
   function capturePhotoNative() {
     dismissMediaActionSheet();
@@ -1061,30 +1058,9 @@
       var file = input.files && input.files[0];
       try { document.body.removeChild(input); } catch (e) {}
       if (!file) return;
-
-      var reader = new FileReader();
-      reader.onload = function (ev) {
-        _pendingPhotoFile    = file;
-        _pendingPhotoDataUrl = ev.target.result;
-        var overlay = document.getElementById("ct-photo-preview-overlay");
-        var img     = document.getElementById("ct-photo-preview-img");
-        var label   = document.getElementById("ct-photo-preview-label");
-        if (!overlay) {
-          createImageThumbnail(file, function (thumb) {
-            addMediaEntry(file, "photo", thumb, currentTicketId);
-          });
-          return;
-        }
-        img.src           = ev.target.result;
-        label.textContent = "📷 Use this photo?";
-        overlay.hidden    = false;
-      };
-      reader.onerror = function () {
-        createImageThumbnail(file, function (thumb) {
-          addMediaEntry(file, "photo", thumb, currentTicketId);
-        });
-      };
-      reader.readAsDataURL(file);
+      createImageThumbnail(file, function (thumb) {
+        addMediaEntry(file, "photo", thumb, currentTicketId);
+      });
     });
 
     input.addEventListener("blur", function () {
@@ -2449,32 +2425,6 @@
     if (mediaBtn) {
       mediaBtn.addEventListener("click", function () {
         openMediaActionSheet();
-      });
-    }
-
-    /* ── Photo preview overlay buttons ──────────────────────────────── */
-    var photoApproveBtn = document.getElementById("ct-photo-approve-btn");
-    if (photoApproveBtn) {
-      photoApproveBtn.addEventListener("click", function () {
-        var file = _pendingPhotoFile;
-        _pendingPhotoFile    = null;
-        _pendingPhotoDataUrl = null;
-        var ov = document.getElementById("ct-photo-preview-overlay");
-        if (ov) ov.hidden = true;
-        if (!file) return;
-        createImageThumbnail(file, function (thumbDataUrl) {
-          addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
-        });
-      });
-    }
-
-    var photoRejectBtn = document.getElementById("ct-photo-reject-btn");
-    if (photoRejectBtn) {
-      photoRejectBtn.addEventListener("click", function () {
-        _pendingPhotoFile    = null;
-        _pendingPhotoDataUrl = null;
-        var ov = document.getElementById("ct-photo-preview-overlay");
-        if (ov) ov.hidden = true;
       });
     }
 

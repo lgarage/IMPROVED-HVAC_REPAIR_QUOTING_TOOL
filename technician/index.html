@@ -1876,7 +1876,13 @@ body.vc-override-active #vcOfficeOverrideBanner {
   justify-content: center;
   gap: 2px;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s;
+  transition: opacity 0.18s ease, background 0.15s;
+  opacity: 0;
+  pointer-events: none;
+}
+.ct-media-swipe-wrap.ct-swiped .ct-media-delete-reveal {
+  opacity: 1;
+  pointer-events: auto;
 }
 .ct-media-delete-reveal:active { background: #b91c1c; }
 
@@ -6799,19 +6805,6 @@ button#techDisplayLabel:active { opacity: 0.75; }
   <!-- #generate kept hidden for JS compatibility; ct-sync-btn in timeline is the visible trigger -->
   <button id="generate" type="button" style="display:none" aria-hidden="true">Complete &amp; Sync Ticket</button>
 
-  <!-- Photo Capture Preview Overlay — approve/reject after native camera capture -->
-  <div id="ct-photo-preview-overlay" class="ct-media-capture-overlay" hidden
-       role="dialog" aria-modal="true" aria-label="Photo preview">
-    <div class="ct-capture-modal">
-      <p id="ct-photo-preview-label" class="ct-capture-label">📷 Use this photo?</p>
-      <img id="ct-photo-preview-img" class="ct-capture-img" alt="Captured photo" />
-      <div class="ct-capture-actions">
-        <button id="ct-photo-reject-btn"  type="button" class="ct-capture-btn ct-capture-reject">&#x2715; Reject</button>
-        <button id="ct-photo-approve-btn" type="button" class="ct-capture-btn ct-capture-approve">&#x2713; Approve</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Photo Lightbox -->
   <div id="ct-photo-lightbox" class="ct-media-viewer-overlay" hidden
        role="dialog" aria-modal="true" aria-label="Photo viewer">
@@ -7321,7 +7314,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase60-SwipeDeleteGuard-2026-05-15";
+window.VC_BUILD = "Phase60-SwipeDeleteNoOverlay-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -12325,7 +12318,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=2"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
-    <script src="../conversational_timeline.js?v=24"></script>
+    <script src="../conversational_timeline.js?v=25"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');
