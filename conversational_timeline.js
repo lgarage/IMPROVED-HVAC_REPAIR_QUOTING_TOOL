@@ -2622,7 +2622,12 @@
   }
 
   function onWorkspaceOpen(ticketId) {
-    currentTicketId = normalizeTicketId(ticketId || resolveTicketIdFromObject(getActiveTicket()));
+    var newTicketId = normalizeTicketId(ticketId || resolveTicketIdFromObject(getActiveTicket()));
+    /* Reset compile state when switching to a different ticket */
+    if (newTicketId !== currentTicketId) {
+      resetCompileState();
+    }
+    currentTicketId = newTicketId;
     /* Reset follow-up dismiss state per ticket open */
     _followUpDismissed = false;
     _siteMemoryCollapsed = false;
@@ -2649,11 +2654,47 @@
         window.TeachingLayer.onWorkspaceOpen();
       }
     } catch (e) { /* degrade silently */ }
+
+    /* Start background compile timer */
+    startBgCompileTimer();
+  }
+
+  function onWorkspaceClose() {
+    stopBgCompileTimer();
   }
 
   /* ── Compile Notes (Slice 48a) ─────────────────────────────────── */
 
   var COMPILE_MIN_ENTRIES = 3;
+  var COMPILE_BG_INTERVAL_MS = 5 * 60 * 1000; /* 5 minutes */
+
+  /* Rolling background compile state */
+  var _bgCompileTimer = null;
+  var _lastCompiledIndex = 0;   /* number of entries already compiled */
+  var _compiledResult = null;   /* merged JSON result so far */
+  var _compiledDisplayText = null; /* formatted display string */
+  var _isCompiling = false;     /* prevents overlapping compiles */
+
+  function resetCompileState() {
+    _lastCompiledIndex = 0;
+    _compiledResult = null;
+    _compiledDisplayText = null;
+    _isCompiling = false;
+  }
+
+  function startBgCompileTimer() {
+    stopBgCompileTimer();
+    _bgCompileTimer = setInterval(function () {
+      try { backgroundCompile(); } catch (e) { /* degrade silently */ }
+    }, COMPILE_BG_INTERVAL_MS);
+  }
+
+  function stopBgCompileTimer() {
+    if (_bgCompileTimer) {
+      clearInterval(_bgCompileTimer);
+      _bgCompileTimer = null;
+    }
+  }
 
   function getCompileBtn() {
     return document.getElementById("ct-compile-btn");
@@ -2696,6 +2737,104 @@
       equipmentContext: equipmentContext,
       checklistState: checklistState
     };
+  }
+
+  function mergeCompileResults(existing, delta) {
+    if (!existing) return delta;
+    if (!delta) return existing;
+    return {
+      equipmentFindings: (existing.equipmentFindings || []).concat(delta.equipmentFindings || []),
+      quoteRecommendations: (existing.quoteRecommendations || []).concat(delta.quoteRecommendations || []),
+      unresolvedIssues: (existing.unresolvedIssues || []).concat(delta.unresolvedIssues || []),
+      equipmentHistoryUpdates: (existing.equipmentHistoryUpdates || []).concat(delta.equipmentHistoryUpdates || []),
+      summary: delta.summary || existing.summary || ""
+    };
+  }
+
+  function buildDeltaCompilePrompt(newEntries, existingResult, context) {
+    var lines = [];
+    lines.push("You are an HVAC field service report compiler processing incremental timeline entries.");
+    lines.push("MEDIA EQUIPMENT RULE: Media entries (photo/video) tagged with [equip: X] are explicitly tied to that equipment. For any media entry WITHOUT an [equip:] tag, associate it with the equipment or issue most recently mentioned in the timeline entries immediately before it.");
+    lines.push("");
+
+    if (existingResult && existingResult.summary) {
+      lines.push("EXISTING REPORT CONTEXT (already compiled from earlier entries):");
+      lines.push("Summary so far: " + existingResult.summary);
+      if (existingResult.equipmentFindings && existingResult.equipmentFindings.length) {
+        lines.push("Equipment already found: " + existingResult.equipmentFindings.map(function (f) { return f.equipment || ""; }).filter(Boolean).join(", "));
+      }
+      lines.push("");
+    }
+
+    lines.push("NEW TIMELINE ENTRIES (compile only these — merge context with existing report):");
+    for (var i = 0; i < newEntries.length; i++) {
+      var e = newEntries[i];
+      if (!e) continue;
+      var prefix = e.role === "system" ? "[SYSTEM]" : "[TECH]";
+      var meta = "";
+      if (e.meta && e.meta.mediaType) meta = " (media: " + e.meta.mediaType + ")";
+      if (e.meta && e.meta.activeEquipment) meta += " [equip: " + e.meta.activeEquipment + "]";
+      lines.push(prefix + " " + (e.ts || "") + " — " + (e.text || "") + meta);
+    }
+
+    if (context && context.ticket) {
+      lines.push("");
+      lines.push("JOB CONTEXT:");
+      if (context.ticket.customerName) lines.push("Customer: " + context.ticket.customerName);
+      if (context.ticket.address || context.ticket.locationAddress) {
+        lines.push("Location: " + (context.ticket.address || context.ticket.locationAddress));
+      }
+      if (context.ticket.issue) lines.push("Reported issue: " + context.ticket.issue);
+    }
+
+    lines.push("");
+    lines.push("OUTPUT FORMAT — Return ONLY valid JSON. Update the summary to cover ALL entries (both existing and new). Only include findings/issues found in the NEW entries above (the existing ones are already tracked):");
+    lines.push('{');
+    lines.push('  "equipmentFindings": [');
+    lines.push('    { "equipment": "string", "diagnosis": "string", "measurements": "string", "actionsTaken": "string" }');
+    lines.push('  ],');
+    lines.push('  "quoteRecommendations": [');
+    lines.push('    { "part": "string", "description": "string", "laborEstimate": "string" }');
+    lines.push('  ],');
+    lines.push('  "unresolvedIssues": [');
+    lines.push('    { "issue": "string", "severity": "low|medium|high", "notes": "string" }');
+    lines.push('  ],');
+    lines.push('  "equipmentHistoryUpdates": [');
+    lines.push('    { "equipment": "string", "dataPoints": "string" }');
+    lines.push('  ],');
+    lines.push('  "summary": "string (1-2 sentence summary covering ALL entries, including previous context)"');
+    lines.push('}');
+    return lines.join("\n");
+  }
+
+  function backgroundCompile() {
+    if (_isCompiling) return;
+    if (!currentTicketId) return;
+    var entries = loadEntries(currentTicketId);
+    var techEntries = entries.filter(function (e) {
+      return e && e.role === "tech" && !(e.meta && e.meta.seed);
+    });
+    if (techEntries.length < COMPILE_MIN_ENTRIES) return;
+    if (entries.length <= _lastCompiledIndex) return; /* no new entries */
+
+    _isCompiling = true;
+    var newEntries = entries.slice(_lastCompiledIndex);
+    var snapshotIndex = entries.length;
+    var context = gatherCompileContext();
+
+    var prompt = _compiledResult
+      ? buildDeltaCompilePrompt(newEntries, _compiledResult, context)
+      : buildCompilePrompt(context);
+
+    callGeminiCompile(prompt).then(function (result) {
+      _compiledResult = mergeCompileResults(_compiledResult, result);
+      _compiledDisplayText = formatCompileResultForDisplay(_compiledResult);
+      _lastCompiledIndex = snapshotIndex;
+    }).catch(function () {
+      /* Background compile failed silently — full compile will run on tap */
+    }).finally(function () {
+      _isCompiling = false;
+    });
   }
 
   function buildCompilePrompt(context) {
@@ -2884,6 +3023,7 @@
     return lines.join("\n");
   }
 
+
   var _lastCompileResult = null;
 
   function openCompileModal(displayText) {
@@ -2909,31 +3049,51 @@
   }
 
   function compileNotes() {
+    if (_isCompiling) return; /* background compile in progress — ignore tap */
+
+    var entries = loadEntries(currentTicketId);
+    var newEntries = entries.slice(_lastCompiledIndex);
+
+    /* Case 1: report fully up to date — open instantly */
+    if (_compiledResult && newEntries.length === 0) {
+      _lastCompileResult = _compiledResult;
+      openCompileModal(_compiledDisplayText);
+      return;
+    }
+
+    /* Case 2: report exists with a small delta, OR no report yet (full compile) */
     var btn = getCompileBtn();
     if (btn) {
       btn.disabled = true;
       btn.textContent = "Compiling…";
     }
 
+    _isCompiling = true;
+    var snapshotIndex = entries.length;
     var context = gatherCompileContext();
-    var prompt = buildCompilePrompt(context);
+    var prompt = (_compiledResult && newEntries.length > 0)
+      ? buildDeltaCompilePrompt(newEntries, _compiledResult, context)
+      : buildCompilePrompt(context);
 
     callGeminiCompile(prompt).then(function (result) {
-      _lastCompileResult = result;
-      var displayText = formatCompileResultForDisplay(result);
-      openCompileModal(displayText);
+      _compiledResult = mergeCompileResults(_compiledResult, result);
+      _compiledDisplayText = formatCompileResultForDisplay(_compiledResult);
+      _lastCompiledIndex = snapshotIndex;
+      _lastCompileResult = _compiledResult;
+      openCompileModal(_compiledDisplayText);
     }).catch(function (err) {
       var fallbackText = "── Compile Error ──\n" +
         (err && err.message ? err.message : "Unknown error") +
         "\n\nFallback: Raw timeline entries\n\n";
-      var entries = loadEntries(currentTicketId);
-      for (var i = 0; i < entries.length; i++) {
-        var e = entries[i];
+      var allEntries = loadEntries(currentTicketId);
+      for (var i = 0; i < allEntries.length; i++) {
+        var e = allEntries[i];
         if (e && e.text) fallbackText += (e.ts || "") + " [" + (e.role || "") + "] " + e.text + "\n";
       }
       _lastCompileResult = null;
       openCompileModal(fallbackText);
     }).finally(function () {
+      _isCompiling = false;
       if (btn) {
         btn.disabled = false;
         btn.textContent = "📋 Compile Notes";
@@ -3376,6 +3536,7 @@
     renderTimeline: renderTimeline,
     scrollToBottom: scrollToBottom,
     onWorkspaceOpen: onWorkspaceOpen,
+    onWorkspaceClose: onWorkspaceClose,
     startListening: startListening,
     stopListening: stopListening,
     openMediaActionSheet: openMediaActionSheet,
