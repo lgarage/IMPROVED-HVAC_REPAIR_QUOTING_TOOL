@@ -1,6 +1,6 @@
 /**
  * Repo Workbench — Lightweight local web server.
- * Binds to 0.0.0.0 for Tailscale/LAN access.
+ * Binds to 127.0.0.1 (localhost only) — use an SSH tunnel or reverse proxy for Tailscale access.
  * Mobile-friendly UI for repo analysis, note parsing, sandbox management.
  */
 
@@ -116,7 +116,8 @@ app.post("/api/analyze", (_req, res) => {
     currentAnalysis = analyzeRepo(currentRepoPath);
     res.json({ ok: true, analysis: currentAnalysis, summary: formatAnalysisSummary(currentAnalysis) });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error("[workbench] route error:", e);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -134,7 +135,8 @@ app.post("/api/parse-notes", async (req, res) => {
     parsedNotes.push(parsed);
     res.json({ ok: true, parsed, formatted: formatParsedNote(parsed), aiAvailable: !!geminiKey });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error("[workbench] route error:", e);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -159,7 +161,8 @@ app.post("/api/generate-work-path", (_req, res) => {
     const filePath = writeWorkPath(currentRepoPath, content);
     res.json({ ok: true, filePath, content });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error("[workbench] route error:", e);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -179,7 +182,8 @@ app.post("/api/sandbox/create", (_req, res) => {
     });
     res.json({ ok: true, sandbox });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error("[workbench] route error:", e);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -219,7 +223,8 @@ app.post("/api/sandbox/:id/run", (req, res) => {
     analysis: currentAnalysis,
     parsedNotes,
     lookupPath: getLookupPath(),
-    apiKey: req.body.apiKey || process.env.CURSOR_API_KEY,
+    // Never accept API key over HTTP — use CURSOR_API_KEY env var only.
+    apiKey: process.env.CURSOR_API_KEY,
     onStatus: (msg) => {
       statusLog.push(`[${new Date().toISOString().slice(11, 19)}] ${msg}`);
     },
@@ -296,7 +301,8 @@ app.post("/api/sandbox/:id/test", (req, res) => {
       res.json({ ok: true, testResult });
     })
     .catch((e) => {
-      res.status(500).json({ error: e.message });
+      console.error("[workbench] route error:", e);
+      res.status(500).json({ error: "Internal server error" });
     });
 });
 
@@ -316,7 +322,8 @@ app.post("/api/sandbox/:id/merge", (req, res) => {
     const result = executeMerge({ sandbox, confirmed: true });
     res.json(result);
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error("[workbench] route error:", e);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -335,7 +342,10 @@ app.post("/api/browse-native", (_req, res) => {
   ].join("; ");
 
   execFile("powershell.exe", ["-NoProfile", "-Command", ps], { timeout: 120_000 }, (err, stdout) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) {
+      console.error("[workbench] route error:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
     res.json({ ok: true, selectedPath: (stdout || "").trim() });
   });
 });
@@ -359,7 +369,8 @@ app.get("/api/browse-dirs", (req, res) => {
     const hasGit = fs.existsSync(path.join(resolved, ".git"));
     res.json({ ok: true, currentPath: resolved, dirs, hasGit });
   } catch (e: any) {
-    res.status(400).json({ error: e.message });
+    console.error("[workbench] route error:", e);
+    res.status(400).json({ error: "Invalid path or permission denied" });
   }
 });
 
@@ -401,7 +412,8 @@ app.post("/api/sandbox/:id/start-server", async (req, res) => {
   try {
     analysis = analyzeRepo(sandbox.path);
   } catch (e: any) {
-    return res.status(500).json({ error: "Could not analyze sandbox: " + e.message });
+    console.error("[workbench] route error:", e);
+    return res.status(500).json({ error: "Internal server error" });
   }
 
   if (!analysis.runCommand) {
@@ -412,7 +424,8 @@ app.post("/api/sandbox/:id/start-server", async (req, res) => {
   try {
     port = await findFreePort(4100);
   } catch (e: any) {
-    return res.status(500).json({ error: "Could not find free port: " + e.message });
+    console.error("[workbench] route error:", e);
+    return res.status(500).json({ error: "Internal server error" });
   }
 
   const env = {
@@ -502,7 +515,8 @@ app.get("*", (_req, res) => {
 });
 
 // --- Start ---
-app.listen(PORT, "0.0.0.0", () => {
+// Localhost-only — use an SSH tunnel or reverse proxy for Tailscale access.
+app.listen(PORT, "127.0.0.1", () => {
   const interfaces = os.networkInterfaces();
   const addresses: string[] = [];
   for (const iface of Object.values(interfaces)) {
