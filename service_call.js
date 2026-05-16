@@ -3670,7 +3670,7 @@ function toggleOfficeOverride(active) {
         try {
             var f = frames[i];
             if (f && f.contentWindow) {
-                f.contentWindow.postMessage(payload, "*");
+                f.contentWindow.postMessage(payload, window.location.origin);
             }
         } catch (e) {}
     }
