@@ -978,7 +978,24 @@ const commands: SlashCommand[] = [
 
       console.log(`  WHAT CHANGED:\n`);
       for (const c of commits) {
-        console.log(`    ${c.hash}  ${c.subject}`);
+        const sliceMatch = /Slice (\w+)\)?/.exec(c.subject) || /Phase\s*(\d+\w*)/.exec(c.subject);
+        if (sliceMatch) {
+          const sliceId = sliceMatch[1];
+          const ss = state.slices[sliceId];
+          let tag = "? unknown";
+          if (ss?.status === "passed") tag = "✓ passed";
+          else if (ss?.status === "failed") tag = "✗ FAILED";
+          else if (ss?.status === "running") tag = "▶ running";
+          else if (ss?.status === "pending") tag = "○ pending";
+          // Inject status into the subject after "Phase XX"
+          const formatted = c.subject.replace(
+            /(Phase\s*\d+)/,
+            `$1 (${tag})`
+          );
+          console.log(`    ${c.hash}  ${formatted}`);
+        } else {
+          console.log(`    ${c.hash}  ${c.subject}`);
+        }
       }
 
       console.log(`\n  FILES BY AREA:\n`);
