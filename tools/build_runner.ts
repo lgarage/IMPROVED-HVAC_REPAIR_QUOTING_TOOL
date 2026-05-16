@@ -788,27 +788,70 @@ const commands: SlashCommand[] = [
 
       let totalLow = 0;
       let totalHigh = 0;
-      let spent = 0;
+      let spentActive = 0;
+      let spentArchived = 0;
 
-      console.log("\n  Cost Estimate (remaining slices):\n");
-      for (const slice of SLICES) {
-        const ss = state.slices[slice.id];
-        if (ss?.status === "passed") {
-          const range = costEstimates[ss.model || "claude-sonnet-4-6"] || [10, 20];
-          spent += (range[0] + range[1]) / 2;
-          continue;
-        }
-        if (ss?.status === "failed" || ss?.status === "pending") {
+      // ── Pending / failed slices (remaining work) ─────────────────
+      const remaining = SLICES.filter(
+        (s) => state.slices[s.id]?.status === "failed" || state.slices[s.id]?.status === "pending"
+      );
+      const passedActive = SLICES.filter((s) => state.slices[s.id]?.status === "passed");
+
+      console.log("\n  ╔══════════════════════════════════════════════════════════╗");
+      console.log("  ║   Cost Estimate                                          ║");
+      console.log("  ╚══════════════════════════════════════════════════════════╝\n");
+
+      if (remaining.length > 0) {
+        console.log("  REMAINING:\n");
+        for (const slice of remaining) {
           const model = selectModel(slice.patterns);
-          const range = costEstimates[model] || [10, 20];
+          const range = costEstimates[model] || [5, 15];
           totalLow += range[0];
           totalHigh += range[1];
-          console.log(`  ${slice.id.padEnd(8)} ${model.padEnd(22)} ~$${range[0]}-${range[1]}`);
+          const ss = state.slices[slice.id];
+          const statusIcon = ss?.status === "failed" ? "✗" : "○";
+          console.log(`  ${statusIcon} ${slice.id.padEnd(6)} ${model.padEnd(24)} ~$${range[0]}–$${range[1]}`);
         }
+        console.log(`\n  Estimated remaining:  $${totalLow}–$${totalHigh}`);
+      } else {
+        console.log("  ✓ All active slices complete — nothing remaining.\n");
       }
-      console.log(`\n  Estimated remaining: $${totalLow}–$${totalHigh}`);
-      if (spent > 0) console.log(`  Estimated spent:     ~$${Math.round(spent)}`);
-      console.log(`  Ultra plan budget:   $400/month\n`);
+
+      // ── Passed active slices (spent this phase) ───────────────────
+      if (passedActive.length > 0) {
+        console.log("\n  SPENT (active slices):\n");
+        // Group by model for a cleaner summary
+        const byModel: Record<string, { count: number; total: number }> = {};
+        for (const slice of passedActive) {
+          const ss = state.slices[slice.id];
+          const model = ss?.model || "claude-sonnet-4-6";
+          const range = costEstimates[model] || [5, 15];
+          const avg = (range[0] + range[1]) / 2;
+          spentActive += avg;
+          if (!byModel[model]) byModel[model] = { count: 0, total: 0 };
+          byModel[model].count++;
+          byModel[model].total += avg;
+        }
+        for (const [model, data] of Object.entries(byModel)) {
+          console.log(`  ${model.padEnd(26)} ${String(data.count).padStart(2)} slice${data.count > 1 ? "s" : " "} ~$${Math.round(data.total)}`);
+        }
+        console.log(`\n  Subtotal (active):    ~$${Math.round(spentActive)}`);
+      }
+
+      // ── Archived slices (rough estimate from count) ───────────────
+      if (ARCHIVED_SLICES.length > 0) {
+        // Archived slices don't retain model info — use sonnet as a conservative default
+        const defaultRange = costEstimates["claude-sonnet-4-6"] || [5, 15];
+        spentArchived = ARCHIVED_SLICES.length * ((defaultRange[0] + defaultRange[1]) / 2);
+        console.log(`\n  + ${ARCHIVED_SLICES.length} archived slices (est. ~$${Math.round(spentArchived)} at avg Sonnet rate)`);
+      }
+
+      const grandTotal = Math.round(spentActive + spentArchived);
+      console.log(`\n  ─────────────────────────────────────────────────────────`);
+      console.log(`  Total spent (est.):   ~$${grandTotal}`);
+      console.log(`  Ultra plan budget:     $400/month`);
+      const remaining_budget = 400 - grandTotal;
+      console.log(`  Remaining budget:     ~$${Math.max(0, remaining_budget)}\n`);
     },
   },
   {
