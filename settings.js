@@ -2425,6 +2425,95 @@ function setFfbChipValues(containerId, vals) {
     });
 }
 
+/** Phase 63a — multi-trigger word helpers. */
+function getTriggerWordChips() {
+    const chips = document.querySelectorAll("#ffbTriggerWordsContainer .ffb-trigger-chip");
+    const seen = new Set();
+    const out = [];
+    chips.forEach(function (chip) {
+        const v = String(chip.getAttribute("data-value") || "").trim().toLowerCase();
+        if (v && !seen.has(v)) {
+            seen.add(v);
+            out.push(v);
+        }
+    });
+    return out;
+}
+
+function setTriggerWordChips(words) {
+    const container = document.getElementById("ffbTriggerWordsContainer");
+    if (!container) return;
+    container.innerHTML = "";
+    const list = Array.isArray(words) ? words : [];
+    list.forEach(function (w) {
+        const word = String(w || "").trim().toLowerCase();
+        if (!word) return;
+        const span = document.createElement("span");
+        span.className = "ffb-trigger-chip";
+        span.setAttribute("data-value", word);
+        span.style.cssText =
+            "background:#e0f2fe;color:#0c4a6e;padding:4px 10px;border-radius:999px;" +
+            "font-size:12px;display:inline-flex;align-items:center;gap:4px;";
+        span.textContent = word;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.style.cssText =
+            "border:none;background:none;cursor:pointer;font-size:14px;color:#64748b;padding:0;line-height:1;";
+        btn.textContent = "×";
+        btn.addEventListener("click", function () { span.remove(); });
+        span.appendChild(btn);
+        container.appendChild(span);
+    });
+}
+
+function addTriggerWordFromInput() {
+    const input = document.getElementById("ffbTriggerWordInput");
+    const container = document.getElementById("ffbTriggerWordsContainer");
+    if (!input || !container) return;
+    const word = String(input.value || "").trim().toLowerCase();
+    if (!word) return;
+    const existing = getTriggerWordChips();
+    if (existing.includes(word)) {
+        input.value = "";
+        return;
+    }
+    const span = document.createElement("span");
+    span.className = "ffb-trigger-chip";
+    span.setAttribute("data-value", word);
+    span.style.cssText =
+        "background:#e0f2fe;color:#0c4a6e;padding:4px 10px;border-radius:999px;" +
+        "font-size:12px;display:inline-flex;align-items:center;gap:4px;";
+    span.textContent = word;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.style.cssText =
+        "border:none;background:none;cursor:pointer;font-size:14px;color:#64748b;padding:0;line-height:1;";
+    btn.textContent = "×";
+    btn.addEventListener("click", function () { span.remove(); });
+    span.appendChild(btn);
+    container.appendChild(span);
+    input.value = "";
+}
+
+function buildTriggerWordsArray(primaryKw, additionalWords) {
+    const primary = String(primaryKw || "").trim().toLowerCase();
+    const seen = new Set();
+    const result = [];
+    if (primary) {
+        seen.add(primary);
+        result.push(primary);
+    }
+    const extras = Array.isArray(additionalWords) ? additionalWords : [];
+    extras.forEach(function (w) {
+        const word = String(w || "").trim().toLowerCase();
+        if (word && !seen.has(word)) {
+            seen.add(word);
+            result.push(word);
+        }
+    });
+    return result;
+}
+
 function openFieldFormBuilderCreate() {
     fieldFormBuilderEditingId = null;
     const title = document.getElementById("fieldFormBuilderModalTitle");
@@ -2445,6 +2534,7 @@ function openFieldFormBuilderCreate() {
     if (defEl) defEl.checked = false;
     setFfbChipValues("ffbJobTypeChips", []);
     setFfbChipValues("ffbRepairTypeChips", []);
+    setTriggerWordChips([]);
     if (rows) rows.innerHTML = "";
     addFieldFormBuilderRow();
     if (del) del.style.display = "none";
@@ -2478,6 +2568,7 @@ function openFieldFormBuilderEdit(docId) {
             const del = document.getElementById("fieldFormBuilderDeleteBtn");
             if (nameEl) nameEl.value = d.templateName || "";
             if (kwEl) kwEl.value = d.targetKeyword || "";
+            setTriggerWordChips(Array.isArray(d.triggerWords) ? d.triggerWords : []);
             if (act) act.checked = d.active !== false;
             if (catEl) catEl.value = d.formCategory || "general";
             if (sortEl) sortEl.value = Number.isFinite(Number(d.sortIndex)) ? String(d.sortIndex) : "0";
@@ -2559,6 +2650,7 @@ async function saveFieldFormTemplate() {
     const payload = {
         templateName: name,
         targetKeyword: kw,
+        triggerWords: buildTriggerWordsArray(kw, getTriggerWordChips()),
         active: !!(act && act.checked),
         fields,
         formCategory: catEl && catEl.value ? String(catEl.value) : "general",
@@ -2725,6 +2817,23 @@ function initFieldFormBuilderUi() {
         seedBtn.dataset.wired = "1";
         seedBtn.addEventListener("click", function () {
             void handleSeedDefaultFormTemplatesClick();
+        });
+    }
+    const twAddBtn = document.getElementById("ffbTriggerWordAddBtn");
+    if (twAddBtn && twAddBtn.dataset.wired !== "1") {
+        twAddBtn.dataset.wired = "1";
+        twAddBtn.addEventListener("click", function () {
+            addTriggerWordFromInput();
+        });
+    }
+    const twInput = document.getElementById("ffbTriggerWordInput");
+    if (twInput && twInput.dataset.wired !== "1") {
+        twInput.dataset.wired = "1";
+        twInput.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                addTriggerWordFromInput();
+            }
         });
     }
 }
@@ -2899,12 +3008,14 @@ async function hydrateFieldFormTemplatesList() {
                 ? r.assignedRepairTypes.map((x) => REPAIR_TYPE_LABELS[x] || x).filter(Boolean)
                 : [];
             const def = !!r.isDefault;
+            const extraCount = Array.isArray(r.triggerWords) ? Math.max(0, r.triggerWords.length - 1) : 0;
+            const kwDisplay = kw + (extraCount > 0 ? " (+" + extraCount + " more)" : "");
             html += `<div style="background:#fff;border:1px solid #e1e8ed;border-radius:10px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.04);">`;
             html += `<div style="min-width:200px;flex:1;">`;
             html += `<div style="font-weight:800;color:#0ea5e9;font-size:15px;">${nm}`;
             if (def) html += ` <span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;letter-spacing:0.5px;">DEFAULT</span>`;
             html += `</div>`;
-            html += `<div style="font-size:12px;color:#64748b;margin-top:4px;">${escapeHTML(cat)} · AI trigger: <strong style="color:#334155;">${kw}</strong> · ${nf} field(s) · `;
+            html += `<div style="font-size:12px;color:#64748b;margin-top:4px;">${escapeHTML(cat)} · AI trigger: <strong style="color:#334155;">${kwDisplay}</strong> · ${nf} field(s) · `;
             html += active
                 ? '<span style="color:#16a085;font-weight:700;">Active</span>'
                 : '<span style="color:#95a5a6;font-weight:700;">Inactive</span>';

@@ -6664,6 +6664,24 @@
             "
           />
 
+          <!-- Phase 63a: multi-trigger words -->
+          <label style="display:block;font-size:13px;font-weight:600;margin:12px 0 4px;color:#0ea5e9">
+            Additional Trigger Words
+          </label>
+          <p style="font-size:12px;color:#64748b;margin:0 0 6px;line-height:1.45">
+            Add synonyms or alternate phrases techs might use for this repair type.
+            These help the AI match this checklist more accurately during field notes.
+          </p>
+          <div id="ffbTriggerWordsContainer" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:28px;"></div>
+          <div style="display:flex;gap:6px;margin-bottom:14px;">
+            <input type="text" id="ffbTriggerWordInput" placeholder='e.g. "blower motor"'
+              style="flex:1;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;" />
+            <button type="button" id="ffbTriggerWordAddBtn"
+              style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;">
+              + Add
+            </button>
+          </div>
+
           <!-- Phase 34a: form classification + assignment -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px">
             <div>
@@ -9345,7 +9363,7 @@
 
     <script src="dispatcher/js/navigation.js?v=1"></script>
     <script src="shared/repair_form_seeds.js?v=1"></script>
-    <script src="settings.js?v=19"></script>
+    <script src="settings.js?v=20"></script>
     <script src="dispatcher/js/user_import.js?v=2"></script>
     <script src="dispatcher/js/shadow_mode.js?v=10"></script>
     <script src="customer_directory.js?v=27"></script>
