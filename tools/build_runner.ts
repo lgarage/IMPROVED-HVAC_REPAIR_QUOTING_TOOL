@@ -880,10 +880,10 @@ const commands: SlashCommand[] = [
       const hours = parseInt(args[0] || "12", 10);
       const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
-      let commits: Array<{ hash: string; subject: string; files: string[] }> = [];
+      let commits: Array<{ hash: string; subject: string; time: string; files: string[] }> = [];
       try {
         const raw = execSync(
-          `git log --since="${since}" --format="__COMMIT__%H||%s" --name-only`,
+          `git log --since="${since}" --format="__COMMIT__%H||%aI||%s" --name-only`,
           { cwd: PROJECT_ROOT, stdio: "pipe" }
         ).toString().trim();
 
@@ -892,12 +892,20 @@ const commands: SlashCommand[] = [
           return;
         }
 
-        let current: { hash: string; subject: string; files: string[] } | null = null;
+        let current: { hash: string; subject: string; time: string; files: string[] } | null = null;
         for (const line of raw.split("\n")) {
           if (line.startsWith("__COMMIT__")) {
             if (current) commits.push(current);
-            const [hash, ...rest] = line.replace("__COMMIT__", "").split("||");
-            current = { hash: hash.slice(0, 7), subject: rest.join("||"), files: [] };
+            const payload = line.replace("__COMMIT__", "");
+            const [hash, isoTime, ...rest] = payload.split("||");
+            const commitDate = new Date(isoTime);
+            const hhmm = new Intl.DateTimeFormat("en-US", {
+              timeZone: "America/Chicago",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            }).format(commitDate);
+            current = { hash: hash.slice(0, 7), subject: rest.join("||"), time: hhmm, files: [] };
           } else if (line.trim() && current) {
             current.files.push(line.trim());
           }
@@ -1005,9 +1013,9 @@ const commands: SlashCommand[] = [
             .replace(/^[\s—–-]+/, "")
             .trim();
 
-          console.log(`    ${c.hash}  Phase ${phaseNum}, Slice ${sliceId} (${tag}): ${description}`);
+          console.log(`    ${c.hash}  Phase ${phaseNum}, Slice ${sliceId} (${tag}: ${c.time}): ${description}`);
         } else {
-          console.log(`    ${c.hash}  ${c.subject}`);
+          console.log(`    ${c.hash}  (${c.time}) ${c.subject}`);
         }
       }
 
