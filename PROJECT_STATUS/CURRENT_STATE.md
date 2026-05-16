@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **Equalize header vertical rhythm v4** (`technician/index.html`, `Phase60-EvenSpacing4-2026-05-15`). Root-cause fix: `align-items: flex-end` on `.app-header-row` (kills 3px invisible centering gap below Schedule pill caused by DAN D. chip min-height mismatch); `display: contents` on `.vc-header-shadow-tech-anchor` (collapses phantom flex gap). Both CSS gaps now 3px. Previous: v1–v3 never identified the flex centering gap.
+- **Last shipped (2026-05-15):** **Equalize header vertical rhythm v5 — real root cause** (`technician/index.html`, `Phase60-EvenSpacing5-2026-05-15`). Removed `.app-top-shell` box-shadow (`0 4px 20px rgba(0,0,0,0.35)` was casting a dark gradient onto the top 16px of the banner via z-index stacking, creating fake visual gap that no padding adjustment could touch). Reverted v4's flex-end + display:contents experiments. Set padding 4/0 + margin 5 for matching CSS gaps. Previous: v1–v4 all chased CSS spacing while ignoring the shadow.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,7 +18,7 @@ None (59b regression deployed — verify on phone).
 
 ## Immediate Next Step
 
-- **Verify even spacing v4:** Gap above PLANET FITNESS should now visibly match gap below it — both 3px CSS. Hard-reload for `Phase60-EvenSpacing4-2026-05-15`. Also verify Schedule screen (header pill bottom-aligns instead of centering).
+- **Verify even spacing v5:** Hard-reload for `Phase60-EvenSpacing5-2026-05-15`. The dark gradient under the Schedule pill should be GONE (box-shadow removed). Gap above PLANET FITNESS should now visibly match gap below it. If the shell looks too flat without the shadow, we can add back a subtle hairline (`0 1px 0 rgba(0,0,0,0.4)`).
 - **Verify timeline:** No dashed **Which unit?** box or that phrase in Vertex bubbles when messages lack a unit reference; escalation may still show **What were you working on?** (Gemini low-confidence path). Hard-reload (`conversational_timeline.js?v=18`).
 - **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
