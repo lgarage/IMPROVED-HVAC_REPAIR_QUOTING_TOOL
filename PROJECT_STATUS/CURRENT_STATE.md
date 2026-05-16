@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **Equalize header vertical rhythm v2** (`technician/index.html`, `Phase60-EvenSpacing2-2026-05-15`). Dropped `.dictation-site-nav` padding-top to 0 (border already separates); grew `.ws-customer-row` margin-bottom 2px→4px. Gap A CSS ~5px, gap B CSS 4px — visually balanced. Previous: EvenSpacing pass 1.
+- **Last shipped (2026-05-15):** **Equalize header vertical rhythm v3** (`technician/index.html`, `Phase60-EvenSpacing3-2026-05-15`). Cut `.app-header-row` padding-bottom 4→2px (main gap-A lever the prior two passes missed); set `.ws-customer-row` margin-bottom to 3px. Both CSS gaps now 3px. Previous: EvenSpacing v1–v2 (insufficient — only touched nav padding, never the header row).
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,7 +18,7 @@ None (59b regression deployed — verify on phone).
 
 ## Immediate Next Step
 
-- **Verify even spacing v2:** Gap above PLANET FITNESS (shell→banner) ~5–6px visual, gap below (banner→address) ~5–6px visual. Hard-reload for build stamp `Phase60-EvenSpacing2-2026-05-15`.
+- **Verify even spacing v3:** Gap above PLANET FITNESS should now match gap below it — both 3px CSS (~8px visual with line-height leading). Hard-reload for build stamp `Phase60-EvenSpacing3-2026-05-15`. The key change vs v1/v2: `.app-header-row` padding-bottom reduced (affects all screens — verify Schedule screen still looks OK).
 - **Verify timeline:** No dashed **Which unit?** box or that phrase in Vertex bubbles when messages lack a unit reference; escalation may still show **What were you working on?** (Gemini low-confidence path). Hard-reload (`conversational_timeline.js?v=18`).
 - **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
