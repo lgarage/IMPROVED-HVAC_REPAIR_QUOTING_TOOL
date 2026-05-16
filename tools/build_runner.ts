@@ -485,9 +485,19 @@ async function runArchiveRoutine(state: BuildState, force = false): Promise<numb
   fs.writeFileSync(archiveTsPath, archiveTsText);
   saveState(state);
 
+  // Remove archived slices from the in-memory SLICES array so subsequent
+  // commands (/a, /status, getNextSlice) don't reference stale entries
+  // whose state was just deleted.
+  const archivedSet = new Set(passedInActive.map((s) => s.id));
+  for (let i = SLICES.length - 1; i >= 0; i--) {
+    if (archivedSet.has(SLICES[i].id)) {
+      SLICES.splice(i, 1);
+    }
+  }
+
   const msg = force
     ? `Archived ${extractedObjects.length} passed slices (/archive command)`
-    : `Auto-archived ${extractedObjects.length} passed slices (SLICES had ${SLICES.length} > MAX_ACTIVE_SLICES=${MAX_ACTIVE_SLICES})`;
+    : `Auto-archived ${extractedObjects.length} passed slices (SLICES had ${SLICES.length + extractedObjects.length} > MAX_ACTIVE_SLICES=${MAX_ACTIVE_SLICES})`;
   log(msg);
   return extractedObjects.length;
 }
