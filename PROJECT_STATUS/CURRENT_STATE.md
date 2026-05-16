@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
-- **Last shipped (2026-05-15):** **Equalize header vertical rhythm v5 — real root cause** (`technician/index.html`, `Phase60-EvenSpacing5-2026-05-15`). Removed `.app-top-shell` box-shadow (`0 4px 20px rgba(0,0,0,0.35)` was casting a dark gradient onto the top 16px of the banner via z-index stacking, creating fake visual gap that no padding adjustment could touch). Reverted v4's flex-end + display:contents experiments. Set padding 4/0 + margin 5 for matching CSS gaps. Previous: v1–v4 all chased CSS spacing while ignoring the shadow.
+- **Last shipped (2026-05-15):** **Collapse sticky header — v6 structural fix** (`technician/index.html`, `Phase60-StickyMerge-2026-05-15`). Removed redundant `position: sticky` from `.workspace-site-banner-sticky` (parent already `overflow: hidden` + bounded height — sticky did nothing functional, just created stacking-context complexity); removed second `box-shadow` on `.dictation-site-nav` (v5 only caught the shell shadow); tightened padding 0→4/6 and margin 5→4. Six passes total to reach the architectural fix. Previous: v1–v5 chased padding while two box-shadows + redundant sticky fought each other.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
@@ -18,7 +18,7 @@ None (59b regression deployed — verify on phone).
 
 ## Immediate Next Step
 
-- **Verify even spacing v5:** Hard-reload for `Phase60-EvenSpacing5-2026-05-15`. The dark gradient under the Schedule pill should be GONE (box-shadow removed). Gap above PLANET FITNESS should now visibly match gap below it. If the shell looks too flat without the shadow, we can add back a subtle hairline (`0 1px 0 rgba(0,0,0,0.4)`).
+- **Verify sticky-merge v6:** Hard-reload for `Phase60-StickyMerge-2026-05-15`. Both dark gradient bands (under Schedule pill AND under address row) should be gone. Gap above and below PLANET FITNESS should be visibly balanced at ~6–8px each. Banner still always-visible because `#screen-workspace.active` is `overflow: hidden` (no need for sticky positioning).
 - **Verify timeline:** No dashed **Which unit?** box or that phrase in Vertex bubbles when messages lack a unit reference; escalation may still show **What were you working on?** (Gemini low-confidence path). Hard-reload (`conversational_timeline.js?v=18`).
 - **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.

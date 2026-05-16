@@ -3035,21 +3035,18 @@ body.vc-override-active #vcOfficeOverrideBanner {
 .dictation-site-nav {
   background: #0f172a;
   color: #94a3b8;
-  padding: 0 14px 8px;
+  padding: 4px 14px 6px;
   border-bottom: 2px solid #0ea5e9;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
-.workspace-site-banner-sticky {
-  position: sticky;
-  /* `top` synced to `.app-top-shell` offsetHeight in JS — shell already includes safe-area padding */
-  top: var(--vc-app-shell-height, 118px);
-  z-index: 95;
-}
+/* `.workspace-site-banner-sticky` was previously `position: sticky` with a JS-measured `top` offset.
+ * Removed: parent `#screen-workspace.active` is `overflow: hidden` and `height: calc(100dvh - shell)`,
+ * so the banner is already always-visible by virtue of being outside the scroll container.
+ * Sticky + z-index + JS offset were redundant complexity that fought box-shadows on adjacent layers. */
 .dictation-site-nav .ws-customer-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 .dictation-site-nav .ws-customer-row .ws-customer { margin-bottom: 0; flex: 1; min-width: 0; }
 .dictation-site-nav .ws-customer { font-size: 20px; font-weight: 800; margin-bottom: 6px; color: #f1f5f9; }
@@ -6913,7 +6910,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase60-EvenSpacing5-2026-05-15";
+window.VC_BUILD = "Phase60-StickyMerge-2026-05-15";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
