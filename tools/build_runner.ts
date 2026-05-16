@@ -69,7 +69,7 @@ function enableStopHotkey(): void {
           ? Math.round(recentSliceDurations.reduce((a, b) => a + b, 0) / recentSliceDurations.length / 1000)
           : 0;
         const remaining = avgDuration > elapsed ? avgDuration - elapsed : 0;
-        console.log(`\n\n  ⏸  STOP received — will finish current slice then pause.`);
+        console.log(`\n\n  ⏸  STOP received — will finish current slice then stop.`);
         if (currentSliceId) {
           console.log(`  Currently running: Slice ${currentSliceId} (${elapsed}s elapsed)`);
         }
