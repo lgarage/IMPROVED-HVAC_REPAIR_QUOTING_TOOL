@@ -1116,8 +1116,8 @@
     dismissMediaActionSheet();
     var input = document.createElement("input");
     input.type   = "file";
-    input.accept = "image/*";
-    /* No capture attribute — shows gallery on iOS/Android */
+    input.accept = "image/*,video/*";
+    /* No capture attribute — shows full photo+video library on iOS/Android */
     input.style.cssText = "position:fixed;left:-9999px;opacity:0;pointer-events:none;";
     document.body.appendChild(input);
 
@@ -1125,9 +1125,15 @@
       var file = input.files && input.files[0];
       try { document.body.removeChild(input); } catch (e) {}
       if (!file) return;
-      createImageThumbnail(file, function (thumbDataUrl) {
-        addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
-      });
+      if (file.type.startsWith("video/")) {
+        createVideoThumbnail(file, function (thumbDataUrl) {
+          addMediaEntry(file, "video", thumbDataUrl, currentTicketId);
+        });
+      } else {
+        createImageThumbnail(file, function (thumbDataUrl) {
+          addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
+        });
+      }
     });
 
     input.addEventListener("blur", function () {
