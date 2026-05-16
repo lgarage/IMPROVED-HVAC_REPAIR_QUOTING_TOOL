@@ -1,5 +1,5 @@
 /**
- * Checklist Reminder Engine — Slice 45a.
+ * Checklist Reminder Engine — Slice 45a / updated Slice 63b.
  *
  * Loads PM / service workflow checklists dynamically from Firestore
  * form_templates collection (same collection used by field_forms.js).
@@ -124,10 +124,42 @@
   /* ── workflow loading ─────────────────────────────────────────── */
 
   /**
+   * matchesTriggerWords — checks whether a form_templates document matches
+   * the given typeKey string using its triggerWords[] array (Slice 63b) or
+   * falling back to targetKeyword for backward compatibility.
+   *
+   * @param {object} data  — doc.data() from form_templates
+   * @param {string} typeKey — normalized (trimmed, lowercased) ticket type
+   * @returns {{ matched: boolean, bestKwLen: number }}
+   *   bestKwLen is the length of the longest matching word (used for
+   *   "most specific" ranking so longer keywords win ties).
+   */
+  function matchesTriggerWords(data, typeKey) {
+    var words;
+    if (Array.isArray(data.triggerWords) && data.triggerWords.length) {
+      words = data.triggerWords;
+    } else {
+      /* backward compat — templates without triggerWords fall back to targetKeyword */
+      words = [data.targetKeyword || ""];
+    }
+    var matched = false;
+    var bestKwLen = 0;
+    for (var i = 0; i < words.length; i++) {
+      var word = String(words[i] || "").trim().toLowerCase();
+      if (!word) continue;
+      if (typeKey.indexOf(word) !== -1 || word.indexOf(typeKey) !== -1) {
+        matched = true;
+        if (word.length > bestKwLen) bestKwLen = word.length;
+      }
+    }
+    return { matched: matched, bestKwLen: bestKwLen };
+  }
+
+  /**
    * loadWorkflow — exported.
    * Queries form_templates for a template whose targetKeyword matches
    * the given ticketType string (case-insensitive, substring match).
-   * Returns Promise<{ templateId, templateName, items[] } | null>.
+   * Returns Promise<{ templateId, templateName, items[], triggerWords[], targetKeyword } | null>.
    * Results are memoized in-memory for the session.
    */
   function loadWorkflow(ticketType) {
@@ -155,22 +187,29 @@
           var best = null;
           snap.forEach(function (doc) {
             var data = doc.data() || {};
-            var kw = String(data.targetKeyword || "").trim().toLowerCase();
-            if (!kw) return;
-            /* substring match in either direction; prefer the most specific (longest) keyword */
-            var matches = typeKey.indexOf(kw) !== -1 || kw.indexOf(typeKey) !== -1;
-            if (!matches) return;
-            if (!best || kw.length > best._kwLen) {
+            /* Slice 63b: check triggerWords[] array with fallback to targetKeyword */
+            var mr = matchesTriggerWords(data, typeKey);
+            if (!mr.matched) return;
+            /* prefer the most specific match (longest trigger word length) */
+            if (!best || mr.bestKwLen > best._kwLen) {
               best = {
                 templateId: doc.id,
                 templateName: String(data.templateName || doc.id),
                 items: extractChecklistItems(data),
-                _kwLen: kw.length
+                triggerWords: Array.isArray(data.triggerWords) ? data.triggerWords : [],
+                targetKeyword: String(data.targetKeyword || ""),
+                _kwLen: mr.bestKwLen
               };
             }
           });
           var result = best
-            ? { templateId: best.templateId, templateName: best.templateName, items: best.items }
+            ? {
+                templateId: best.templateId,
+                templateName: best.templateName,
+                items: best.items,
+                triggerWords: best.triggerWords,
+                targetKeyword: best.targetKeyword
+              }
             : null;
           _workflowCache[typeKey] = result;
           if (result) saveWorkflowCache(typeKey, result);

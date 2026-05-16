@@ -494,6 +494,26 @@
   var formTemplatesCache = null;
   var formTemplatesUnsubscribe = null;
 
+  /* Slice 63b — localStorage key for offline form-template persistence */
+  var LS_FORM_TEMPLATES_CACHE_KEY = "vc_form_templates_cache";
+
+  function saveFormTemplatesLocalCache(rows) {
+    try {
+      localStorage.setItem(LS_FORM_TEMPLATES_CACHE_KEY, JSON.stringify(rows));
+    } catch (e) { /* quota exceeded — degrade silently */ }
+  }
+
+  function loadFormTemplatesLocalCache() {
+    try {
+      var raw = localStorage.getItem(LS_FORM_TEMPLATES_CACHE_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /**
    * Phase 34a — inject toggle (Yes/No slider) styles once. Lives here so the
    * dispatcher Settings preview AND the Field App both pick up the same CSS
@@ -523,6 +543,8 @@
       out.push({ id: doc.id, data: doc.data() || {} });
     });
     formTemplatesCache = out;
+    /* Slice 63b — persist to localStorage so triggerWords are available offline */
+    saveFormTemplatesLocalCache(out);
   }
 
   function startFormTemplatesListener() {
@@ -1029,7 +1051,14 @@
   }
 
   async function fetchActiveFormTemplates() {
-    if (typeof firebase === "undefined" || !firebase.apps.length) return [];
+    /* Slice 63b — fall back to localStorage cache when Firebase is unavailable (offline) */
+    if (typeof firebase === "undefined" || !firebase.apps.length) {
+      var localRows = formTemplatesCache || loadFormTemplatesLocalCache();
+      if (localRows) {
+        return localRows.filter(function (t) { return t.data.active !== false; });
+      }
+      return [];
+    }
     if (formTemplatesCache !== null) {
       return formTemplatesCache.filter(function (t) {
         return t.data.active !== false;
@@ -1044,6 +1073,11 @@
       });
     } catch (e) {
       console.error("[field_forms] form_templates", e);
+      /* Slice 63b — Firestore query failed (offline); serve from localStorage if available */
+      var offlineRows = loadFormTemplatesLocalCache();
+      if (offlineRows) {
+        return offlineRows.filter(function (t) { return t.data.active !== false; });
+      }
     }
     return [];
   }
@@ -1109,11 +1143,18 @@
     }
 
     var templates = await fetchActiveFormTemplates();
-    var keywords = templates
-      .map(function (t) {
-        return String(t.data.targetKeyword || "").trim();
-      })
-      .filter(Boolean);
+    /* Slice 63b — build keyword list from triggerWords[] (all variants) with
+       targetKeyword fallback so Gemini hears every matching phrase */
+    var keywords = [];
+    templates.forEach(function (t) {
+      var words = Array.isArray(t.data.triggerWords) && t.data.triggerWords.length
+        ? t.data.triggerWords
+        : [t.data.targetKeyword || ""];
+      words.forEach(function (w) {
+        var tw = String(w || "").trim();
+        if (tw && keywords.indexOf(tw) === -1) keywords.push(tw);
+      });
+    });
 
     if (!keywords.length) {
       hideFormIntentBanner();
@@ -1181,11 +1222,18 @@
       }
 
       var matched = null;
+      var answerLower = answer.toLowerCase();
+      /* Slice 63b — match Gemini's answer against triggerWords[] with targetKeyword fallback */
       templates.forEach(function (t) {
-        var kw = String(t.data.targetKeyword || "").trim();
-        if (!kw) return;
-        if (answer.toLowerCase() === kw.toLowerCase()) matched = t;
-        if (answer.toLowerCase().indexOf(kw.toLowerCase()) >= 0) matched = t;
+        if (matched) return;
+        var words = Array.isArray(t.data.triggerWords) && t.data.triggerWords.length
+          ? t.data.triggerWords
+          : [t.data.targetKeyword || ""];
+        for (var w = 0; w < words.length; w++) {
+          var tw = String(words[w]).trim().toLowerCase();
+          if (!tw) continue;
+          if (answerLower === tw || answerLower.indexOf(tw) >= 0) { matched = t; break; }
+        }
       });
 
       if (!matched) {
