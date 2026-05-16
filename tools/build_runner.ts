@@ -786,12 +786,20 @@ const commands: SlashCommand[] = [
     handler: async (_args, state) => {
       const costEstimates = getCostEstimates();
 
+      // Billing month boundaries — Cursor resets on the 13th based on current plan
+      const now = new Date();
+      const resetDay = 13;
+      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), resetDay);
+      if (now < thisMonthStart) {
+        thisMonthStart.setMonth(thisMonthStart.getMonth() - 1);
+      }
+
       let totalLow = 0;
       let totalHigh = 0;
-      let spentActive = 0;
+      let spentThisMonth = 0;
+      let spentPriorMonths = 0;
       let spentArchived = 0;
 
-      // ── Pending / failed slices (remaining work) ─────────────────
       const remaining = SLICES.filter(
         (s) => state.slices[s.id]?.status === "failed" || state.slices[s.id]?.status === "pending"
       );
@@ -801,6 +809,7 @@ const commands: SlashCommand[] = [
       console.log("  ║   Cost Estimate                                          ║");
       console.log("  ╚══════════════════════════════════════════════════════════╝\n");
 
+      // ── Remaining work ────────────────────────────────────────────
       if (remaining.length > 0) {
         console.log("  REMAINING:\n");
         for (const slice of remaining) {
@@ -808,50 +817,72 @@ const commands: SlashCommand[] = [
           const range = costEstimates[model] || [5, 15];
           totalLow += range[0];
           totalHigh += range[1];
-          const ss = state.slices[slice.id];
-          const statusIcon = ss?.status === "failed" ? "✗" : "○";
+          const statusIcon = state.slices[slice.id]?.status === "failed" ? "✗" : "○";
           console.log(`  ${statusIcon} ${slice.id.padEnd(6)} ${model.padEnd(24)} ~$${range[0]}–$${range[1]}`);
         }
-        console.log(`\n  Estimated remaining:  $${totalLow}–$${totalHigh}`);
+        console.log(`\n  Estimated remaining:  $${totalLow}–$${totalHigh}\n`);
       } else {
         console.log("  ✓ All active slices complete — nothing remaining.\n");
       }
 
-      // ── Passed active slices (spent this phase) ───────────────────
-      if (passedActive.length > 0) {
-        console.log("\n  SPENT (active slices):\n");
-        // Group by model for a cleaner summary
+      // ── This billing month ────────────────────────────────────────
+      const thisMonthSlices = passedActive.filter((s) => {
+        const ts = state.slices[s.id]?.lastAttempt;
+        return ts && new Date(ts) >= thisMonthStart;
+      });
+      const priorMonthSlices = passedActive.filter((s) => {
+        const ts = state.slices[s.id]?.lastAttempt;
+        return !ts || new Date(ts) < thisMonthStart;
+      });
+
+      const monthLabel = thisMonthStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+      if (thisMonthSlices.length > 0) {
+        console.log(`  THIS MONTH (since ${monthLabel}):\n`);
         const byModel: Record<string, { count: number; total: number }> = {};
-        for (const slice of passedActive) {
+        for (const slice of thisMonthSlices) {
           const ss = state.slices[slice.id];
           const model = ss?.model || "claude-sonnet-4-6";
           const range = costEstimates[model] || [5, 15];
           const avg = (range[0] + range[1]) / 2;
-          spentActive += avg;
+          spentThisMonth += avg;
           if (!byModel[model]) byModel[model] = { count: 0, total: 0 };
           byModel[model].count++;
           byModel[model].total += avg;
         }
         for (const [model, data] of Object.entries(byModel)) {
-          console.log(`  ${model.padEnd(26)} ${String(data.count).padStart(2)} slice${data.count > 1 ? "s" : " "} ~$${Math.round(data.total)}`);
+          console.log(`    ${model.padEnd(26)} ${String(data.count).padStart(2)} slice${data.count > 1 ? "s" : " "} ~$${Math.round(data.total)}`);
         }
-        console.log(`\n  Subtotal (active):    ~$${Math.round(spentActive)}`);
+        console.log(`\n  Subtotal this month:  ~$${Math.round(spentThisMonth)}`);
+        console.log(`  Ultra API budget:      $400/month`);
+        console.log(`  Remaining this month: ~$${Math.max(0, Math.round(400 - spentThisMonth))}\n`);
+      } else {
+        console.log(`  THIS MONTH (since ${monthLabel}): no SDK slices run yet.\n`);
       }
 
-      // ── Archived slices (rough estimate from count) ───────────────
-      if (ARCHIVED_SLICES.length > 0) {
-        // Archived slices don't retain model info — use sonnet as a conservative default
-        const defaultRange = costEstimates["claude-sonnet-4-6"] || [5, 15];
-        spentArchived = ARCHIVED_SLICES.length * ((defaultRange[0] + defaultRange[1]) / 2);
-        console.log(`\n  + ${ARCHIVED_SLICES.length} archived slices (est. ~$${Math.round(spentArchived)} at avg Sonnet rate)`);
+      // ── Prior months ──────────────────────────────────────────────
+      if (priorMonthSlices.length > 0 || ARCHIVED_SLICES.length > 0) {
+        for (const slice of priorMonthSlices) {
+          const ss = state.slices[slice.id];
+          const model = ss?.model || "claude-sonnet-4-6";
+          const range = costEstimates[model] || [5, 15];
+          spentPriorMonths += (range[0] + range[1]) / 2;
+        }
+        if (ARCHIVED_SLICES.length > 0) {
+          const defaultRange = costEstimates["claude-sonnet-4-6"] || [5, 15];
+          spentArchived = ARCHIVED_SLICES.length * ((defaultRange[0] + defaultRange[1]) / 2);
+        }
+        const priorTotal = Math.round(spentPriorMonths + spentArchived);
+        const archivedNote = ARCHIVED_SLICES.length > 0
+          ? ` (incl. ${ARCHIVED_SLICES.length} archived at avg Sonnet rate)`
+          : "";
+        console.log(`  PRIOR MONTHS:         ~$${priorTotal}${archivedNote}\n`);
       }
 
-      const grandTotal = Math.round(spentActive + spentArchived);
-      console.log(`\n  ─────────────────────────────────────────────────────────`);
-      console.log(`  Total spent (est.):   ~$${grandTotal}`);
-      console.log(`  Ultra plan budget:     $400/month`);
-      const remaining_budget = 400 - grandTotal;
-      console.log(`  Remaining budget:     ~$${Math.max(0, remaining_budget)}\n`);
+      // ── Grand total ───────────────────────────────────────────────
+      const grandTotal = Math.round(spentThisMonth + spentPriorMonths + spentArchived);
+      console.log(`  ─────────────────────────────────────────────────────────`);
+      console.log(`  All-time total (est.): ~$${grandTotal}\n`);
     },
   },
   {
