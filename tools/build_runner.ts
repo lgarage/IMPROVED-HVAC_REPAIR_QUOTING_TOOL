@@ -819,7 +819,7 @@ const commands: SlashCommand[] = [
   },
   {
     name: "/cost",
-    alias: ["/usage"],
+    alias: ["/usage", "/u"],
     args: "",
     description: "Show SDK model invocation counts (how many times each agent was called)",
     handler: async (_args, state) => {
