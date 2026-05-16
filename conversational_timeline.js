@@ -3179,7 +3179,10 @@
     list.addEventListener("touchstart", function (e) {
       var mediaEl = e.target.closest ? e.target.closest(".ct-media-entry") : null;
       if (!mediaEl) return;
-      _swipeWrap = mediaEl.parentElement;
+      var wrap = mediaEl.parentElement;
+      /* Only activate on properly-wrapped entries (photo/video), not text bubbles */
+      if (!wrap || !wrap.classList.contains("ct-media-swipe-wrap")) return;
+      _swipeWrap = wrap;
       _startX    = e.touches[0].clientX;
       _startY    = e.touches[0].clientY;
       _tracking  = true;

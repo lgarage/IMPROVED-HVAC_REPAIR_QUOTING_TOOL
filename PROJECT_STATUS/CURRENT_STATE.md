@@ -6,7 +6,7 @@
 
 ## Snapshot
 
-- **Active Phase:** Phases 58–60 — KI-002 Hygiene + Security + Archive. Review slices pending human verification.
+- **Active Phase:** Phases 58–61 — KI-002 Hygiene + Security + Archive + Security Polish. Review slices pending human verification.
 - **Last shipped (2026-05-15):** **Swipe-to-delete media** (`conversational_timeline.js?v=23`, `Phase60-SwipeDelete-2026-05-15`). Swipe photo/video entry left → red Delete button reveals on right. Tap Delete → confirmation sheet slides up ("Delete this media? / This cannot be undone."). Confirm deletes from localStorage + re-renders. Cancel snaps entry back. Previous: media viewer + compile equipment rule.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
@@ -20,7 +20,8 @@ None (59b regression deployed — verify on phone).
 
 - **Verify media viewer:** Tap any photo bubble in the timeline → fullscreen dark overlay with the photo + ✕ close. Tap backdrop or ✕ to dismiss. Tap any video bubble → video player modal with native play/pause/scrub controls. If video still uploading, shows "Still uploading" message instead. Hard-reload `v=22`.
 - **Verify timeline:** No dashed **Which unit?** box or that phrase in Vertex bubbles when messages lack a unit reference; escalation may still show **What were you working on?** (Gemini low-confidence path). Hard-reload (`conversational_timeline.js?v=18`).
-- **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a.
+- **Review pending slices on-device** (checklists in `tools/slices.ts` → `reviewChecklist`): 58b, 58d, 58e, 59a, 60a, 61b.
+- **Phase 61 overnight slices queued:** 61a (Storage MIME types), 61b (postMessage sender tighten), 61c (workbench localhost bind), 61d (runner key log scrub), 61e (cost map dedup). Run `vertex` → `/a` to execute.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.

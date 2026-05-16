@@ -382,6 +382,235 @@ DO NOT deploy — commit only. Add a comment in storage.rules noting the audit d
   },
 
   // ═══════════════════════════════════════════════════════════
+  //  Phase 61: Security Polish & Tooling Hygiene
+  //  Overnight-safe hardening: no app logic changes, no auth
+  //  rollout required. Pure rules / sender tightening / tooling.
+  // ═══════════════════════════════════════════════════════════
+
+  {
+    id: "61a",
+    phase: 61,
+    title: "Storage rules — MIME type + file-type restrictions on upload paths",
+    dependsOn: [],
+    patterns: ["Firestore write path (new collection/doc)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Tech app → workspace → tap Take a Photo → approve → confirm upload succeeds (no permission-denied in DevTools console or #vcDebugOverlay).",
+      "Tech app → take a video → confirm upload succeeds to field_evidence/.",
+      "Tech app → Equipment Manager → save equipment with a photo → confirm upload to equipment_photos/ succeeds.",
+      "In Firebase Console → Storage → Rules Playground: attempt a write to equipment_photos/test.html with contentType: text/html → expect DENIED.",
+      "Rules Playground: write to equipment_photos/test.jpg with contentType: image/jpeg, size 5MB → expect ALLOWED.",
+      "Rules Playground: write to field_evidence/test.mp4 with contentType: video/mp4, size 8MB → expect ALLOWED.",
+      "Rules Playground: write to teaching_media/test.pdf with contentType: application/pdf → expect DENIED (teaching media should only allow image or video).",
+      "If any legitimate iOS HEIC upload was blocked, check iOS Safari reports contentType image/heic — add image/heic to allowed patterns if needed.",
+    ],
+    filesToCreate: [],
+    filesToModify: ["storage.rules"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `SECURITY: Add MIME type restrictions to storage.rules upload paths so only
+legitimate file types can be written to each prefix.
+
+For each match block in storage.rules, add a contentType check to the write rule:
+
+PHOTO-ONLY paths (accept image/* only):
+  equipment_photos/, dictation_hub_assets/, customer_evidence/,
+  field_quote_evidence/, field_form_evidence/, quote_evidence/,
+  site_access_photos/, tenants/{tenantId}/imported_equipment_photos/
+
+  allow write: if true
+               && request.resource.size < 10 * 1024 * 1024
+               && request.resource.contentType.matches('image/.*');
+
+MEDIA paths (accept image/* OR video/*):
+  field_evidence/, service_call_addendums/
+
+  allow write: if true
+               && request.resource.size < 10 * 1024 * 1024
+               && (request.resource.contentType.matches('image/.*')
+                   || request.resource.contentType.matches('video/.*'));
+
+MEDIA + DOCUMENT paths (teaching_media — image, video, or audio):
+  teaching_media/
+
+  allow write: if true
+               && request.resource.size < 10 * 1024 * 1024
+               && (request.resource.contentType.matches('image/.*')
+                   || request.resource.contentType.matches('video/.*')
+                   || request.resource.contentType.matches('audio/.*'));
+
+IMPORTANT notes:
+- Keep read rules unchanged (allow read: if true on all paths).
+- iOS Safari may report HEIC as image/heic or image/heif — these match image/.* so they pass.
+- DO NOT use request.resource.contentType == 'image/jpeg' (exact match) — use .matches() for
+  prefix patterns so all image subtypes are covered.
+- DO NOT deploy — commit only. Add a comment in storage.rules noting the audit date and
+  that MIME types were added.`,
+    outOfScope: "Firestore rules. Adding Firebase Auth to upload paths. Changing JS upload code. Deploying rules.",
+    cacheBusts: [],
+  },
+
+  {
+    id: "61b",
+    phase: 61,
+    title: "postMessage senders — tighten '*' targetOrigin to explicit origin",
+    dependsOn: [],
+    patterns: ["Cross-module wiring (3+ files)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Dispatcher → open any active job → toggle Office Override ON → confirm the tech app iframe immediately shows the orange override chrome (postMessage still reaches the iframe).",
+      "In Shadow Mode: switch tech selection → confirm the parent window's shadow panel reflects the new tech (vc_shadow_tech_changed message still works).",
+      "Dispatcher → Settings → confirm roster names sync to the phone preview iframe (the existing smart-origin logic in index.html must remain untouched).",
+      "DevTools → Application → Service Workers: confirm no new console errors after the postMessage calls.",
+    ],
+    filesToCreate: [],
+    filesToModify: ["service_call.js", "technician/index.html"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `SECURITY: Two postMessage senders still use '*' as the targetOrigin, which
+means any origin that can embed the page could intercept the message.
+Tighten both to use window.location.origin.
+
+1. service_call.js line ~3673:
+   Find: f.contentWindow.postMessage(payload, "*");
+   Replace: f.contentWindow.postMessage(payload, window.location.origin);
+   Context: This is inside a loop over iframes for the Office Override toggle. The
+   iframes are same-origin (both on Firebase Hosting), so window.location.origin is correct.
+
+2. technician/index.html line ~11499:
+   Find:
+     window.parent.postMessage(
+       { type: "vc_shadow_tech_changed", presenceKey: pk, displayName: name },
+       "*"
+     );
+   Replace:
+     window.parent.postMessage(
+       { type: "vc_shadow_tech_changed", presenceKey: pk, displayName: name },
+       window.location.origin
+     );
+   Context: This sends a message from the tech app iframe back to the dispatcher parent.
+   Both are same-origin, so window.location.origin is correct.
+
+DO NOT touch index.html lines ~7857-7860 — that sender already has smart fallback logic
+(uses window.location.origin with a "null" guard for file:// contexts). Leave it unchanged.
+
+Bump cache-bust versions on service_call.js in index.html and on the technician/index.html
+inline script version constant (VC_BUILD) if you change the inline script block there.`,
+    outOfScope: "postMessage receiver hardening (already done in 59a). Adding message encryption. Changing message data formats.",
+    cacheBusts: ["service_call.js"],
+    htmlTarget: "index.html",
+  },
+
+  {
+    id: "61c",
+    phase: 61,
+    title: "Workbench server — localhost bind + block HTTP API key injection",
+    dependsOn: [],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["workbench/src/server.ts"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `SECURITY: The workbench Express server currently binds to 0.0.0.0 (all interfaces)
+and allows API key injection via req.body.apiKey. Harden it:
+
+1. LOCALHOST BIND (workbench/src/server.ts line ~505):
+   Find: app.listen(port, '0.0.0.0', ...)  OR  app.listen(port, ...)
+   Change the bind address to '127.0.0.1':
+   app.listen(port, '127.0.0.1', () => { ... })
+   Reason: The workbench is a local developer tool. Binding to 0.0.0.0 exposes it on
+   all network interfaces (LAN, Tailscale). Localhost-only prevents accidental exposure.
+   Add a comment: "// Localhost-only — use an SSH tunnel or reverse proxy for Tailscale access."
+
+2. BLOCK API KEY INJECTION (workbench/src/server.ts ~line 222):
+   Find the route POST /api/sandbox/:id/run (or similar) that reads:
+   apiKey: req.body.apiKey || process.env.CURSOR_API_KEY
+   Replace with:
+   apiKey: process.env.CURSOR_API_KEY
+   Remove the req.body.apiKey fallback entirely.
+   Add a comment: "// Never accept API key over HTTP — use CURSOR_API_KEY env var only."
+
+3. GENERIC ERROR RESPONSES (~lines 118-119, ~361-362 and any other handler that does
+   res.status(500).json({ error: e.message })):
+   Replace e.message with a generic string for the HTTP response, and log the real error
+   to console.error. Pattern:
+   Before: res.status(500).json({ error: e.message })
+   After:  console.error('[workbench] route error:', e); res.status(500).json({ error: 'Internal server error' })
+   Apply this pattern consistently to all error handlers in the file.
+
+Read the file carefully to find all three patterns before editing. The workbench is
+paused (see CURRENT_STATE.md) but these are safe pre-emptive hardening changes.`,
+    outOfScope: "Adding authentication middleware. Changing sandbox runner logic. Fixing path traversal in /api/browse-dirs (separate concern). App code changes outside workbench/.",
+    cacheBusts: [],
+  },
+
+  {
+    id: "61d",
+    phase: 61,
+    title: "Build runner — scrub API key prefix from preflight log output",
+    dependsOn: [],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["tools/build_runner.ts"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `SECURITY / HYGIENE: build_runner.ts preflight check (~lines 920-930) currently
+prints the first 10 characters of CURSOR_API_KEY to the console:
+  e.g. console.log(\`  ✓ CURSOR_API_KEY: \${key.substring(0, 10)}...\`)
+This leaks a partial key in screenshots, log files, and screen shares.
+
+Fix:
+1. Find the preflight section that logs the API key.
+2. Replace the key-prefix log with a simple "set" confirmation:
+   Before: console.log(\`  ✓ CURSOR_API_KEY: \${key.substring(0, 10)}...\`)
+   After:  console.log(\`  ✓ CURSOR_API_KEY: set (\${key.length} chars)\`)
+   This confirms the key is present and hints at whether it's plausibly the right length
+   (Cursor API keys are typically ~50+ chars) without revealing any content.
+
+Read the file to find the exact line(s) before editing — there may be more than one
+place where the key is logged (e.g. in error messages). Apply the same pattern to all.`,
+    outOfScope: "Changing how the API key is loaded. Adding key rotation. Modifying agent prompt logic.",
+    cacheBusts: [],
+  },
+
+  {
+    id: "61e",
+    phase: 61,
+    title: "Build runner — consolidate duplicate cost map into model_selector",
+    dependsOn: [],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["tools/build_runner.ts", "tools/model_selector.ts"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `HYGIENE / ANTI-BLOAT: build_runner.ts defines its own costEstimates map (used by
+the /cost command, ~lines 769-777) that duplicates the MODEL_COST_RANK data already
+maintained in model_selector.ts. These two sources will drift over time as models are
+added or removed.
+
+Fix:
+1. Read both files carefully.
+2. In model_selector.ts, export a getCostEstimates() function (or export the cost map
+   directly) that returns a Record<string, string> mapping model slug → cost tier label
+   (e.g. "GPT-5.4 Nano" → "$", "Sonnet 4.6" → "$$", "Opus 4.6" → "$$$").
+   Base this on the existing MODEL_COST_RANK or cost-related data already in the file.
+3. In build_runner.ts /cost command handler, replace the inline costEstimates object
+   literal with a call to the exported function from model_selector.ts:
+   import { getCostEstimates } from './model_selector';
+   ...
+   const costEstimates = getCostEstimates();
+4. Remove the now-redundant inline costEstimates definition from build_runner.ts.
+
+Ensure the /cost command output is unchanged — same display format, same model names.
+Run npx tsc --noEmit from the tools/ directory to confirm the change compiles cleanly.`,
+    outOfScope: "Changing model recommendations. Updating MODEL_LOOKUP.md. Changing the /cost display format.",
+    cacheBusts: [],
+  },
+
+  // ═══════════════════════════════════════════════════════════
   //  Phase 60: Memory & Archive Hygiene
   // ═══════════════════════════════════════════════════════════
 
