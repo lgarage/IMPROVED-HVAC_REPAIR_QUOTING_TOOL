@@ -25,6 +25,22 @@ const STATE_FILE = path.join(__dirname, ".build_state.json");
 const LOG_FILE = path.join(__dirname, "build_log.txt");
 const VERSION = "2.1.0";
 
+function formatChicagoTimestamp(date: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second} ${values.timeZoneName}`;
+}
+
 let stopAfterCurrent = false;
 let currentSliceStart = 0;
 let currentSliceId = "";
@@ -126,14 +142,14 @@ function loadState(): BuildState {
 }
 
 function saveState(state: BuildState): void {
-  state.lastRun = new Date().toISOString();
+  state.lastRun = formatChicagoTimestamp();
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
 // ─── Logging ───
 
 function log(msg: string): void {
-  const ts = new Date().toISOString().slice(0, 19).replace("T", " ");
+  const ts = formatChicagoTimestamp();
   const line = `[${ts}] ${msg}`;
   console.log(line);
   fs.appendFileSync(LOG_FILE, line + "\n");
@@ -276,7 +292,7 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
     ss.status = "running";
     ss.attempts = i + 1;
     ss.model = model;
-    ss.lastAttempt = new Date().toISOString();
+    ss.lastAttempt = formatChicagoTimestamp();
     saveState(state);
 
     if (i > 0) {
