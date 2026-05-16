@@ -6,23 +6,22 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 61 complete. Phase 62 hygiene slices queued.
-- **Last shipped (2026-05-16):** **`tools/model_selector.ts` v3** — `MODEL_GUARDS` for all 14 models (maxRiskLevel, maxFiles, forbiddenPatterns); `checkModelGuard()` enforced per escalation rung; `recordModelGuardFailure()` auto-tightens `model_guard_overrides.json` after repeated failures; `/guards` command added to build runner; slice 62d (periodic guard audit).
-- **Prior (2026-05-16):** Guard rail riskLevel floor (`RISK_LEVEL_FLOOR`) + slice 62b remaining scope fix after Gemini 3 Flash partial run.
-- **Prior (2026-05-16):** **Build runner /b, /p, /f, /na, /cost commands** + field app media/video/Choose File. VC_BUILD: Phase61-ChooseFile-2026-05-16.
-- **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
+- **Active Phase:** Phase 61 complete. Phase 62 hygiene slices complete.
+- **Last shipped (2026-05-16):** **Gemini 403 deep fix (Slice 62e)** — replaced all remaining hardcoded `gemini-2.5-flash` fallbacks with `gemini-2.0-flash` in `technician/index.html` and `workbench/`; cache-busted `firebase-config.js` v6→v7 in both HTML files; updated `PROJECT_MAP.md` + `AI_CONTEXT_PROJECT_OVERVIEW.md`. `VC_BUILD: Phase62-Slice62e-2026-05-16`.
+- **Prior (2026-05-16):** **`tools/model_selector.ts` v3** — `MODEL_GUARDS` for all 14 models; `checkModelGuard()` enforced; `/guards` command; slice 62d (periodic audit).
+- **Prior (2026-05-16):** Guard rail riskLevel floor (`RISK_LEVEL_FLOOR`) + slice 62b remaining scope fix.
+- **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
-- **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db` (personal account).
+- **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
 
 ## Active Blocker
 
-Compile Notes shows Gemini 403 on mobile — `gemini-2.5-flash` fallback firing. Slice 62a passed; verify on phone. Slice 62b re-queued with correct validator.
+(None)
 
 ## Immediate Next Step
 
-- **Run the build runner** before leaving: `vertex` -> `/a` (to run pending slices 62b, 62c, 62d).
-- **When back:** review `/b` summary + `/guards` for any auto-tightened overrides, test Compile Notes on phone.
-- **Run /b in build runner** each morning after overnight SDK sessions to see what changed and what to test.
+- **Test Compile Notes on phone** to verify the 403 is gone (cache-bust v7 should force the fix).
+- **Run the build runner** before leaving: `vertex` -> `/a` (to run remaining slices if any).
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.

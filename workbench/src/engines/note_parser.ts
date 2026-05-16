@@ -234,7 +234,7 @@ Set confidence 70-95 based on how clear and actionable the notes are.
 --- USER NOTES ---
 ${rawText}`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`;
 
   const response = await fetch(url, {
     method: "POST",

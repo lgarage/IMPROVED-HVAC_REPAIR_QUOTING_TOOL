@@ -176,7 +176,7 @@ A **persistent block** at the top of the workspace:
 | Service call polish | `service_call.js` | “Improve With AI” on issue text |
 | Technician | `technician/index.html` | Location extraction, parts array |
 
-Model id: **`GEMINI_GENERATE_MODEL`** (e.g. `gemini-2.5-flash`) in `firebase-config.js`.
+Model id: **`GEMINI_GENERATE_MODEL`** (e.g. `gemini-2.0-flash`) in `firebase-config.js`.
 
 ---
 
