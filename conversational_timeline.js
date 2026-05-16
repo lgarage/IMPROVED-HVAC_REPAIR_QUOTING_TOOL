@@ -2800,7 +2800,17 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       }).then(function (resp) {
-        if (!resp.ok) throw new Error("Gemini API error: " + resp.status);
+        if (!resp.ok) {
+          return resp.text().then(function (errBody) {
+            var reason = "";
+            try {
+              var parsed = JSON.parse(errBody);
+              var errObj = parsed && parsed.error;
+              if (errObj) reason = " — " + (errObj.status || "") + ": " + (errObj.message || "");
+            } catch (e) { reason = errBody ? " — " + errBody.slice(0, 200) : ""; }
+            throw new Error("Gemini API error: " + resp.status + reason);
+          });
+        }
         return resp.json();
       }).then(function (data) {
         var part =
