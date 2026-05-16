@@ -7,7 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 61 complete. Phase 62 hygiene slices queued.
-- **Last shipped (2026-05-16):** **`tools/slices.ts`** — Added slices 62a (Gemini 403 fix), 62b (KI-002 hygiene), and 62c (UX wording fix) to the build runner. Reset 62b to pending with corrected validator metadata.
+- **Last shipped (2026-05-16):** **`tools/model_selector.ts` v3** — `MODEL_GUARDS` for all 14 models (maxRiskLevel, maxFiles, forbiddenPatterns); `checkModelGuard()` enforced per escalation rung; `recordModelGuardFailure()` auto-tightens `model_guard_overrides.json` after repeated failures; `/guards` command added to build runner; slice 62d (periodic guard audit).
+- **Prior (2026-05-16):** Guard rail riskLevel floor (`RISK_LEVEL_FLOOR`) + slice 62b remaining scope fix after Gemini 3 Flash partial run.
 - **Prior (2026-05-16):** **Build runner /b, /p, /f, /na, /cost commands** + field app media/video/Choose File. VC_BUILD: Phase61-ChooseFile-2026-05-16.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14** to focus on Vertex 30-day field-readiness. See `workbench/PAUSE_NOTES.md` to resume.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
@@ -19,8 +20,8 @@ Compile Notes shows Gemini 403 on mobile — `gemini-2.5-flash` fallback firing.
 
 ## Immediate Next Step
 
-- **Run the build runner** before leaving: `vertex` -> `/a` (to run pending slices 62b and 62c).
-- **When back:** review `/b` summary, test Compile Notes on phone, then commit if clean.
+- **Run the build runner** before leaving: `vertex` -> `/a` (to run pending slices 62b, 62c, 62d).
+- **When back:** review `/b` summary + `/guards` for any auto-tightened overrides, test Compile Notes on phone.
 - **Run /b in build runner** each morning after overnight SDK sessions to see what changed and what to test.
 - **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
 
