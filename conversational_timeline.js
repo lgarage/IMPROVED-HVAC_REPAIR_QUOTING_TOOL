@@ -1,5 +1,5 @@
 /**
- * Conversational Timeline — Slice 63e.
+ * Conversational Timeline — Slice 63f.
  *
  * Slice 41a: localStorage-only timeline, bubble layout, workspace integration.
  * Slice 41b: Hold-to-Talk action bar + live Web Speech API STT.
@@ -117,6 +117,13 @@
  *       5. Uploaded manuals (stub)       6. Cloud Gemini lookup
  *   - Cloud answer offers save prompt: company knowledge or site note.
  *   - System bubble displays answer with source badge.
+ *
+ * Slice 63f: Post-compile classification + equipment history write.
+ *   - classifyEquipmentFindings(): scans entries for unique equipmentRef values,
+ *     sends each to Gemini for structured extraction (measurements, parts, outcome).
+ *   - Green confirmation card at bottom of compile modal per equipment unit.
+ *   - "Save to Equipment History" writes to site_intelligence via VCFirestore.
+ *   - "Skip" dismisses without writing. Never auto-writes.
  *
  * Exports: startListening, stopListening, capturePhoto, captureVideo,
  *          processEntry, generateResponse, handleFollowUpResponse,
@@ -3121,6 +3128,7 @@
   function closeCompileModal() {
     var modal = document.getElementById("ct-compile-modal");
     if (modal) modal.classList.add("hidden");
+    removeEquipmentSavePrompt();
   }
 
   function compileNotes() {
@@ -3161,6 +3169,8 @@
       _lastCompiledIndex = snapshotIndex;
       _lastCompileResult = _compiledResult;
       openCompileModal(_compiledDisplayText);
+      /* Slice 63f: post-compile equipment classification */
+      classifyEquipmentFindings(_compiledResult, entries);
     }).catch(function (err) {
       var fallbackText = "── Compile Error ──\n" +
         (err && err.message ? err.message : "Unknown error") +
@@ -3182,6 +3192,243 @@
       }
     });
   }
+
+  /* ── Slice 63f: Post-compile equipment classification ──────── */
+
+  function extractUniqueEquipmentRefs(entries) {
+    var seen = {};
+    var refs = [];
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      if (!e || !e.meta) continue;
+      var ref = e.meta.equipmentRef || e.meta.activeEquipment || null;
+      if (ref && !seen[ref]) {
+        seen[ref] = true;
+        refs.push(ref);
+      }
+    }
+    return refs;
+  }
+
+  function buildEquipmentClassifyPrompt(compiledReport, equipmentRef) {
+    var lines = [];
+    lines.push("You are an HVAC service data extractor.");
+    lines.push("From this compiled field service report, extract findings specific to \"" + equipmentRef + "\" that should be saved to the unit's permanent equipment history.");
+    lines.push("");
+    lines.push("COMPILED REPORT:");
+    if (compiledReport.summary) lines.push("Summary: " + compiledReport.summary);
+    if (compiledReport.equipmentFindings && compiledReport.equipmentFindings.length) {
+      for (var i = 0; i < compiledReport.equipmentFindings.length; i++) {
+        var ef = compiledReport.equipmentFindings[i];
+        lines.push("Equipment: " + (ef.equipment || "") +
+          " | Diagnosis: " + (ef.diagnosis || "") +
+          " | Measurements: " + (ef.measurements || "") +
+          " | Actions: " + (ef.actionsTaken || ""));
+      }
+    }
+    if (compiledReport.equipmentHistoryUpdates && compiledReport.equipmentHistoryUpdates.length) {
+      for (var j = 0; j < compiledReport.equipmentHistoryUpdates.length; j++) {
+        var eh = compiledReport.equipmentHistoryUpdates[j];
+        lines.push("History update: " + (eh.equipment || "") + " — " + (eh.dataPoints || ""));
+      }
+    }
+    lines.push("");
+    lines.push("Return ONLY valid JSON for \"" + equipmentRef + "\":");
+    lines.push('{');
+    lines.push('  "measurements": ["string — e.g. amp draw 18.5A, supply temp 52°F"],');
+    lines.push('  "partsReplaced": ["string — e.g. contactor, capacitor"],');
+    lines.push('  "repairOutcome": "string — verified working / needs follow-up / etc.",');
+    lines.push('  "followUp": "string — any recommended follow-up for this unit, or empty string",');
+    lines.push('  "summary": "string — 1-2 sentence summary of work done on this unit"');
+    lines.push('}');
+    return lines.join("\n");
+  }
+
+  function classifyEquipmentFindings(compiledReport, entries) {
+    if (!compiledReport || !entries || !entries.length) return;
+
+    var equipRefs = extractUniqueEquipmentRefs(entries);
+    if (!equipRefs.length) return;
+
+    var classifyPromises = [];
+    for (var i = 0; i < equipRefs.length; i++) {
+      (function (ref) {
+        var prompt = buildEquipmentClassifyPrompt(compiledReport, ref);
+        classifyPromises.push(
+          callGeminiCompile(prompt, 1024).then(function (parsed) {
+            return { equipmentRef: ref, findings: parsed };
+          }).catch(function () {
+            return null;
+          })
+        );
+      })(equipRefs[i]);
+    }
+
+    Promise.all(classifyPromises).then(function (results) {
+      var valid = [];
+      for (var j = 0; j < results.length; j++) {
+        if (results[j] && results[j].findings) valid.push(results[j]);
+      }
+      if (!valid.length) return;
+      showEquipmentSavePrompt(valid);
+    });
+  }
+
+  function showEquipmentSavePrompt(classifiedItems) {
+    removeEquipmentSavePrompt();
+    var modal = document.getElementById("ct-compile-modal");
+    if (!modal) return;
+
+    var container = document.createElement("div");
+    container.id = "ct-equip-save-container";
+    container.style.cssText = "padding:0 16px 16px 16px;";
+
+    for (var i = 0; i < classifiedItems.length; i++) {
+      (function (item, idx) {
+        var findings = item.findings;
+        var previewParts = [];
+        if (findings.summary) previewParts.push(findings.summary);
+        if (!previewParts.length) {
+          if (findings.measurements && findings.measurements.length) previewParts.push(findings.measurements.join(", "));
+          if (findings.partsReplaced && findings.partsReplaced.length) previewParts.push("replaced " + findings.partsReplaced.join(", "));
+          if (findings.repairOutcome) previewParts.push(findings.repairOutcome);
+        }
+        var previewText = previewParts.join(" · ") || "Equipment findings captured";
+
+        var card = document.createElement("div");
+        card.className = "ct-equip-save-card";
+        card.setAttribute("data-equip-idx", idx);
+        card.style.cssText = "background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 16px;margin-bottom:8px;";
+
+        var title = document.createElement("div");
+        title.style.cssText = "font-weight:600;color:#166534;font-size:14px;";
+        title.textContent = "Save to " + item.equipmentRef + " equipment history?";
+        card.appendChild(title);
+
+        var preview = document.createElement("div");
+        preview.style.cssText = "font-size:13px;color:#15803d;margin:6px 0;line-height:1.4;";
+        preview.textContent = previewText;
+        card.appendChild(preview);
+
+        var btnRow = document.createElement("div");
+        btnRow.style.cssText = "display:flex;gap:8px;margin-top:8px;";
+
+        var saveBtn = document.createElement("button");
+        saveBtn.className = "ct-equip-save-btn";
+        saveBtn.style.cssText = "background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600;min-height:44px;";
+        saveBtn.textContent = "Save to Equipment History";
+        saveBtn.addEventListener("click", function () {
+          writeEquipmentToSiteIntelligence(item, saveBtn, card);
+        });
+        btnRow.appendChild(saveBtn);
+
+        var skipBtn = document.createElement("button");
+        skipBtn.className = "ct-equip-skip-btn";
+        skipBtn.style.cssText = "background:none;border:1px solid #cbd5e1;border-radius:8px;padding:8px 16px;cursor:pointer;color:#64748b;font-size:13px;min-height:44px;";
+        skipBtn.textContent = "Skip";
+        skipBtn.addEventListener("click", function () {
+          card.style.transition = "opacity 0.3s ease";
+          card.style.opacity = "0";
+          setTimeout(function () { card.remove(); cleanupEquipContainer(); }, 300);
+        });
+        btnRow.appendChild(skipBtn);
+
+        card.appendChild(btnRow);
+        container.appendChild(card);
+      })(classifiedItems[i], i);
+    }
+
+    var modalContent = modal.querySelector(".ct-compile-content") || modal;
+    modalContent.appendChild(container);
+  }
+
+  function removeEquipmentSavePrompt() {
+    var existing = document.getElementById("ct-equip-save-container");
+    if (existing) existing.remove();
+  }
+
+  function cleanupEquipContainer() {
+    var container = document.getElementById("ct-equip-save-container");
+    if (container && !container.querySelector(".ct-equip-save-card")) {
+      container.remove();
+    }
+  }
+
+  function writeEquipmentToSiteIntelligence(item, btn, card) {
+    if (!item || !item.findings || !item.equipmentRef) return;
+
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      markEquipCardError(card, "Firebase unavailable");
+      return;
+    }
+
+    var db;
+    try {
+      db = firebase.firestore();
+    } catch (e) {
+      markEquipCardError(card, "Firestore unavailable");
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+
+    var ticketId = currentTicketId || "draft";
+    var techName = "";
+    try { techName = localStorage.getItem("tp_saved_tech") || ""; } catch (e) {}
+
+    var findings = item.findings;
+    var ref;
+    try {
+      ref = (typeof VCFirestore !== "undefined" && VCFirestore.siteIntelligence)
+        ? VCFirestore.siteIntelligence(db)
+        : db.collection("site_intelligence");
+    } catch (e) {
+      markEquipCardError(card, "Firestore unavailable");
+      btn.disabled = false;
+      btn.textContent = "Save to Equipment History";
+      return;
+    }
+
+    ref.add({
+      equipmentRef: item.equipmentRef,
+      type: "service_findings",
+      summary: findings.summary || "",
+      measurements: findings.measurements || [],
+      partsReplaced: findings.partsReplaced || [],
+      repairOutcome: findings.repairOutcome || "",
+      followUp: findings.followUp || "",
+      sourceTicketId: ticketId,
+      techName: techName,
+      date: new Date().toISOString(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(function () {
+      btn.textContent = "Saved ✓";
+      btn.style.background = "#bbf7d0";
+      btn.style.color = "#166534";
+      card.style.borderColor = "#4ade80";
+      var skipBtn = card.querySelector(".ct-equip-skip-btn");
+      if (skipBtn) skipBtn.style.display = "none";
+    }).catch(function (err) {
+      markEquipCardError(card, (err && err.message) || "Write failed");
+      btn.disabled = false;
+      btn.textContent = "Save to Equipment History";
+    });
+  }
+
+  function markEquipCardError(card, msg) {
+    if (!card) return;
+    var errEl = card.querySelector(".ct-equip-error");
+    if (!errEl) {
+      errEl = document.createElement("div");
+      errEl.className = "ct-equip-error";
+      errEl.style.cssText = "font-size:12px;color:#dc2626;margin-top:4px;";
+      card.appendChild(errEl);
+    }
+    errEl.textContent = msg;
+  }
+
+  /* ── end Slice 63f ──────────────────────────────────────────── */
 
   function copyCompileSummary() {
     var modal = document.getElementById("ct-compile-modal");
