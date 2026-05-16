@@ -880,7 +880,7 @@ const commands: SlashCommand[] = [
       const hours = parseInt(args[0] || "12", 10);
       const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
-      let commits: Array<{ hash: string; subject: string; time: string; files: string[] }> = [];
+      let commits: Array<{ hash: string; subject: string; time: string; date: string; files: string[] }> = [];
       try {
         const raw = execSync(
           `git log --since="${since}" --format="__COMMIT__%H||%aI||%s" --name-only`,
@@ -892,7 +892,7 @@ const commands: SlashCommand[] = [
           return;
         }
 
-        let current: { hash: string; subject: string; time: string; files: string[] } | null = null;
+        let current: { hash: string; subject: string; time: string; date: string; files: string[] } | null = null;
         for (const line of raw.split("\n")) {
           if (line.startsWith("__COMMIT__")) {
             if (current) commits.push(current);
@@ -905,7 +905,13 @@ const commands: SlashCommand[] = [
               minute: "2-digit",
               hour12: false,
             }).format(commitDate);
-            current = { hash: hash.slice(0, 7), subject: rest.join("||"), time: hhmm, files: [] };
+            const dateStr = new Intl.DateTimeFormat("en-US", {
+              timeZone: "America/Chicago",
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            }).format(commitDate);
+            current = { hash: hash.slice(0, 7), subject: rest.join("||"), time: hhmm, date: dateStr, files: [] };
           } else if (line.trim() && current) {
             current.files.push(line.trim());
           }
@@ -988,8 +994,15 @@ const commands: SlashCommand[] = [
 
       console.log(`  WHAT CHANGED:\n`);
       const archivedIds = new Set(ARCHIVED_SLICES.map((s) => s.id));
+      let lastDate = "";
 
       for (const c of commits) {
+        // Print date header when the date changes
+        if (c.date !== lastDate) {
+          if (lastDate) console.log();
+          console.log(`    ── ${c.date} ──`);
+          lastDate = c.date;
+        }
         // Match "Slice XXx" references (e.g. "Slice 61c")
         const sliceMatch = /Slice (\d+\w+)/.exec(c.subject);
         if (sliceMatch) {
