@@ -21,6 +21,7 @@
 ## Immediate Next Step
 
 - **Test Compile Notes on phone** — hard-refresh browser, add 3+ entries, wait 5 min, tap "Compile Notes" (should be instant or near-instant). Then add more entries and tap again to verify delta compile.
+- **Slack idea vault active** — `#icebox` channel + Cursor Ideas bot + `~/.cursor/mcp.json` MCP config in place. Restart Cursor to load MCP, then test: ask agent to read `#icebox` channel.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
