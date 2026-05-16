@@ -7,9 +7,9 @@
 ## Snapshot
 
 - **Active Phase:** Phase 61 complete. Phase 62 hygiene slices complete.
-- **Last shipped (2026-05-16):** **Gemini 403 deep fix (Slice 62e)** — replaced all remaining hardcoded `gemini-2.5-flash` fallbacks with `gemini-2.0-flash` in `technician/index.html` and `workbench/`; cache-busted `firebase-config.js` v6→v7 in both HTML files; updated `PROJECT_MAP.md` + `AI_CONTEXT_PROJECT_OVERVIEW.md`. `VC_BUILD: Phase62-Slice62e-2026-05-16`.
-- **Prior (2026-05-16):** **`tools/model_selector.ts` v3** — `MODEL_GUARDS` for all 14 models; `checkModelGuard()` enforced; `/guards` command; slice 62d (periodic audit).
-- **Prior (2026-05-16):** Guard rail riskLevel floor (`RISK_LEVEL_FLOOR`) + slice 62b remaining scope fix.
+- **Last shipped (2026-05-16):** **Rolling background compile notes (Slice 62h)** — `backgroundCompile()` fires every 5 min silently via `setInterval`; `mergeCompileResults()` + `buildDeltaCompilePrompt()` keep AI calls cheap (delta only); `compileNotes()` tap opens modal instantly if report is up-to-date, otherwise runs delta/full compile; timer starts on workspace open, stops on close; button always reads "Compile Notes". `VC_BUILD: Phase62-Slice62h-2026-05-16`.
+- **Prior (2026-05-16):** **Gemini 403 deep fix (Slice 62e–62g)** — fixed 403/404/credits chain; all models set to `gemini-2.5-flash`; `maxOutputTokens` 2048→8192; cache-busted v33.
+- **Prior (2026-05-16):** `tools/model_selector.ts` v3 — `MODEL_GUARDS`; `/guards` command; slice 62d audit.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -20,9 +20,7 @@
 
 ## Immediate Next Step
 
-- **Test Compile Notes on phone** to verify the 403 is gone (cache-bust v7 should force the fix).
-- **Run the build runner** before leaving: `vertex` -> `/a` (to run remaining slices if any).
-- **Future:** Re-tighten Firestore rules ONLY after implementing anonymous-auth or custom-token flow for field techs.
+- **Test Compile Notes on phone** — hard-refresh browser, add 3+ entries, wait 5 min, tap "Compile Notes" (should be instant or near-instant). Then add more entries and tap again to verify delta compile.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
