@@ -977,14 +977,16 @@ const commands: SlashCommand[] = [
       console.log(`  ╚${"═".repeat(boxWidth - 2)}╝\n`);
 
       console.log(`  WHAT CHANGED:\n`);
-      const activeIds = new Set(SLICES.map((s) => s.id));
       const archivedIds = new Set(ARCHIVED_SLICES.map((s) => s.id));
 
       for (const c of commits) {
-        // Only match explicit "Slice XXx" references (e.g. "Slice 61a")
+        // Match "Slice XXx" references (e.g. "Slice 61c")
         const sliceMatch = /Slice (\d+\w+)/.exec(c.subject);
         if (sliceMatch) {
           const sliceId = sliceMatch[1];
+          const phaseMatch = /Phase\s*(\d+)/.exec(c.subject);
+          const phaseNum = phaseMatch ? phaseMatch[1] : sliceId.replace(/\D+$/, "");
+
           let tag: string;
           if (state.slices[sliceId]?.status === "passed") tag = "✓ passed";
           else if (state.slices[sliceId]?.status === "failed") tag = "✗ FAILED";
@@ -992,11 +994,16 @@ const commands: SlashCommand[] = [
           else if (state.slices[sliceId]?.status === "pending") tag = "○ pending";
           else if (archivedIds.has(sliceId)) tag = "✓ archived";
           else tag = "✓ committed";
-          const formatted = c.subject.replace(
-            /(Phase\s*\d+)/,
-            `$1 (${tag})`
-          );
-          console.log(`    ${c.hash}  ${formatted}`);
+
+          // Strip the original "Phase XX:" and "(Slice XXx)" from the subject to rebuild cleanly
+          let description = c.subject
+            .replace(/Phase\s*\d+:\s*/i, "")
+            .replace(/\(Slice \d+\w+\)\s*/i, "")
+            .replace(/Slice \d+\w+\s*/i, "")
+            .replace(/^[\s—–-]+/, "")
+            .trim();
+
+          console.log(`    ${c.hash}  Phase ${phaseNum}, Slice ${sliceId} (${tag}): ${description}`);
         } else {
           console.log(`    ${c.hash}  ${c.subject}`);
         }
