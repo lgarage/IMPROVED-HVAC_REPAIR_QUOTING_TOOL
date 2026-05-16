@@ -977,17 +977,21 @@ const commands: SlashCommand[] = [
       console.log(`  ╚${"═".repeat(boxWidth - 2)}╝\n`);
 
       console.log(`  WHAT CHANGED:\n`);
+      const activeIds = new Set(SLICES.map((s) => s.id));
+      const archivedIds = new Set(ARCHIVED_SLICES.map((s) => s.id));
+
       for (const c of commits) {
-        const sliceMatch = /Slice (\w+)\)?/.exec(c.subject) || /Phase\s*(\d+\w*)/.exec(c.subject);
+        // Only match explicit "Slice XXx" references (e.g. "Slice 61a")
+        const sliceMatch = /Slice (\d+\w+)/.exec(c.subject);
         if (sliceMatch) {
           const sliceId = sliceMatch[1];
-          const ss = state.slices[sliceId];
-          let tag = "? unknown";
-          if (ss?.status === "passed") tag = "✓ passed";
-          else if (ss?.status === "failed") tag = "✗ FAILED";
-          else if (ss?.status === "running") tag = "▶ running";
-          else if (ss?.status === "pending") tag = "○ pending";
-          // Inject status into the subject after "Phase XX"
+          let tag: string;
+          if (state.slices[sliceId]?.status === "passed") tag = "✓ passed";
+          else if (state.slices[sliceId]?.status === "failed") tag = "✗ FAILED";
+          else if (state.slices[sliceId]?.status === "running") tag = "▶ running";
+          else if (state.slices[sliceId]?.status === "pending") tag = "○ pending";
+          else if (archivedIds.has(sliceId)) tag = "✓ archived";
+          else tag = "✓ committed";
           const formatted = c.subject.replace(
             /(Phase\s*\d+)/,
             `$1 (${tag})`
