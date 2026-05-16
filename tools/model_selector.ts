@@ -36,7 +36,6 @@ const MODEL_COST_RANK: Record<string, number> = {
   "gpt-5.5-medium": 12,
   "gpt-5.5": 12,               // legacy slug alias
   "claude-opus-4-6": 13,
-  "claude-opus-4-7-thinking-xhigh": 14, // last-resort escalation ceiling
 };
 
 // ── Per-model capability guard rails ─────────────────────────────────────────
@@ -202,12 +201,6 @@ export const MODEL_GUARDS: Record<string, ModelGuard> = {
     maxFiles: 20,
     forbiddenPatterns: [],
     notes: "Current ceiling. Vertex Core, tenant paths, field critical path.",
-  },
-  "claude-opus-4-7-thinking-xhigh": {
-    maxRiskLevel: "critical",
-    maxFiles: 20,
-    forbiddenPatterns: [],
-    notes: "Last-resort escalation only. Only reached after 2+ lower-tier failures on the same slice.",
   },
 };
 
@@ -561,9 +554,14 @@ export function buildEscalationLadder(taskPatterns: string[]): string[] {
     }
   }
 
-  // Guarantee at least 4 rungs (base + 3 escalations) using the absolute ceiling.
-  while (ladder.length < 4) {
-    ladder.push("claude-opus-4-7-thinking-xhigh");
+  // Guarantee at least 4 rungs (base + 3 escalations) by adding the highest-ranked
+  // distinct models we already know about. Never hard-code a possibly-missing slug.
+  const sortedDesc = Object.entries(MODEL_COST_RANK)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name]) => name);
+  for (const name of sortedDesc) {
+    if (ladder.length >= 4) break;
+    if (!ladder.includes(name)) ladder.push(name);
   }
 
   return [...new Set(ladder)];
