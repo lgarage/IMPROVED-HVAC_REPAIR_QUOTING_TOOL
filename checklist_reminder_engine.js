@@ -246,8 +246,25 @@
   /* ── reminder generation ──────────────────────────────────────── */
 
   /**
+   * getMaxReminders — returns reminder cap based on tech experience level.
+   * Reads window.VCJobContext.techExperienceLevel (set by field app on sign-in).
+   * apprentice → 4, senior → 0 (silent), journeyman (default) → 2.
+   */
+  function getMaxReminders() {
+    var level = "journeyman";
+    try {
+      if (window.VCJobContext && window.VCJobContext.techExperienceLevel) {
+        level = String(window.VCJobContext.techExperienceLevel).toLowerCase();
+      }
+    } catch (e) {}
+    if (level === "apprentice") return 4;
+    if (level === "senior") return 0;
+    return 2; /* journeyman default */
+  }
+
+  /**
    * getReminders — exported.
-   * Returns up to MAX_REMINDERS_PER_SWITCH short reminder strings for
+   * Returns up to getMaxReminders() short reminder strings for
    * checklist items not yet mentioned on the given equipment unit.
    * Format: "RTU6 capacitor?" — short, not aggressive.
    * @param {string} equipment  e.g. "RTU6"
@@ -260,8 +277,10 @@
     var state = loadState(ticketId);
     var equipState = state[eq] || { mentionedItems: [] };
     var missing = checkMissing(_activeWorkflow, equipState.mentionedItems);
+    var cap = getMaxReminders();
+    if (cap <= 0) return [];
     return missing
-      .slice(0, MAX_REMINDERS_PER_SWITCH)
+      .slice(0, cap)
       .map(function (item) {
         return eq + " " + item.label.toLowerCase() + "?";
       });

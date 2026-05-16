@@ -289,6 +289,7 @@ function getTechProfile(name) {
         onCallEligible: !!p.onCallEligible,
         ptoDates: Array.isArray(p.ptoDates) ? p.ptoDates.slice() : [],
         availability: normalizeTechAvailability(p.availability),
+        experienceLevel: p.experienceLevel || "journeyman",
     };
 }
 
@@ -303,6 +304,7 @@ function setTechProfile(name, partial) {
             partial.availability !== undefined
                 ? normalizeTechAvailability(partial.availability)
                 : cur.availability,
+        experienceLevel: partial.experienceLevel !== undefined ? String(partial.experienceLevel) : cur.experienceLevel,
     };
     persistTechProfilesLocal();
     syncTechnicianRosterToFirestore();
@@ -809,6 +811,7 @@ function renderTechSettings() {
     appTechList.forEach((tech, index) => {
         const elig = getTechProfile(tech).onCallEligible;
         const av = getTechProfile(tech).availability;
+        const level = getTechProfile(tech).experienceLevel;
         const safe = escapeHTML(tech);
         let dayRow =
             '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #eef2f6;font-size:12px;color:#475569;">';
@@ -839,6 +842,14 @@ function renderTechSettings() {
                         <input type="checkbox" ${elig ? "checked" : ""} onchange="setTechOnCallEligible(${index}, this.checked)" />
                         Eligible for On-Call Rotation
                     </label>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:#444;">
+                        <label style="white-space:nowrap;font-size:13px;color:#444;">Experience Level:</label>
+                        <select data-tech-exp-index="${index}" style="padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;" onchange="(function(sel){var name=window.appTechList[${index}];if(!name)return;setTechProfile(name,{experienceLevel:sel.value});syncTechnicianRosterToFirestore();})(this)">
+                            <option value="apprentice" ${level === 'apprentice' ? 'selected' : ''}>Apprentice</option>
+                            <option value="journeyman" ${level === 'journeyman' ? 'selected' : ''}>Journeyman</option>
+                            <option value="senior" ${level === 'senior' ? 'selected' : ''}>Senior</option>
+                        </select>
+                    </div>
                     ${dayRow}
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">

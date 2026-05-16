@@ -7318,7 +7318,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase63-Slice63c-2026-05-16";
+window.VC_BUILD = "Phase63-Slice63d-2026-05-16";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -9217,6 +9217,32 @@ function buildWorkspaceLocationString(ticket) {
   return `${name} - ${addr}`;
 }
 
+/**
+ * Reads the tech's experienceLevel from the tenant roster in Firestore
+ * and sets window.VCJobContext.techExperienceLevel.
+ * Fire-and-forget: called on workspace open; falls back to "journeyman" silently.
+ */
+function applyTechExperienceLevelToContext(techName) {
+  try {
+    if (!techName || typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) return;
+    if (typeof VCFirestore === 'undefined' || !VCFirestore.rosterDoc) return;
+    var db = firebase.firestore();
+    VCFirestore.rosterDoc(db).get().then(function (snap) {
+      try {
+        var level = 'journeyman';
+        if (snap.exists) {
+          var data = snap.data() || {};
+          var profiles = data.profiles || {};
+          var prof = profiles[String(techName).trim()] || {};
+          if (prof.experienceLevel) level = String(prof.experienceLevel).toLowerCase();
+        }
+        if (!window.VCJobContext) window.VCJobContext = {};
+        window.VCJobContext.techExperienceLevel = level;
+      } catch (e2) {}
+    }).catch(function () {});
+  } catch (e) {}
+}
+
 function openWorkspace(ticketId) {
   try {
     if (
@@ -9232,6 +9258,8 @@ function openWorkspace(ticketId) {
   teardownWorkspaceAddendums();
   activeTicket = myTickets.find(t => t.id === ticketId);
   if (!activeTicket) return;
+
+  applyTechExperienceLevelToContext(currentTechProfile);
 
   var roPanel = document.getElementById('vcLiteReadonlyWorkspace');
   if (roPanel) roPanel.classList.add('hidden');
@@ -12322,7 +12350,7 @@ window.onload = async function(){
     <script src="../field_forms.js?v=6"></script>
     <script src="../job_context_engine.js?v=5"></script>
     <script src="../edge_intent_engine.js?v=3"></script>
-    <script src="../checklist_reminder_engine.js?v=3"></script>
+    <script src="../checklist_reminder_engine.js?v=4"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
     <script src="../conversational_timeline.js?v=39"></script>
