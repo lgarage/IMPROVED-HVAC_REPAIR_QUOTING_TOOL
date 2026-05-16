@@ -4,6 +4,13 @@ This document gives **full architectural context** for the repository **IMPROVED
 
 > **Tier 2 (cold) — first-time onboarding only, or major architectural shift.** Treat as historical context; **current naming conventions and feature locations live in `PROJECT_MAP.md`**, not here. Read protocol in `.cursorrules` §1A.
 
+## 0. Slack Idea Vault
+
+- **Canonical capture channel:** `#icebox` in Slack, private channel ID `C0B543CE4QG` (`https://vertexcore.slack.com/archives/C0B543CE4QG`).
+- **How to read it:** use the Slack MCP tool `slack_get_channel_history` with `channel_id: "C0B543CE4QG"`.
+- **Do not confuse it with:** the `ROADMAP.md` Icebox section, which is a curated backlog. Raw driving ideas live in Slack first, then get promoted into `ROADMAP.md` later.
+- **Workflow cue:** if a user says they added an idea to "the icebox," check Slack first before assuming the roadmap file.
+
 ---
 
 ## 1. What This Program Is
