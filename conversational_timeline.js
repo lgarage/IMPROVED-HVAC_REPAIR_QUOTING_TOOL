@@ -2863,6 +2863,7 @@
     if (entries.length <= _lastCompiledIndex) return; /* no new entries */
 
     _isCompiling = true;
+    var compileTicketId = currentTicketId; /* capture — ticket may switch before promise resolves */
     var newEntries = entries.slice(_lastCompiledIndex);
     var snapshotIndex = entries.length;
     var context = gatherCompileContext();
@@ -2873,6 +2874,7 @@
 
     var tokenBudget = _compiledResult ? COMPILE_DELTA_MAX_TOKENS : COMPILE_FULL_MAX_TOKENS;
     callGeminiCompile(prompt, tokenBudget).then(function (result) {
+      if (currentTicketId !== compileTicketId) return; /* ticket switched — discard stale result */
       _compiledResult = mergeCompileResults(_compiledResult, result);
       _compiledDisplayText = formatCompileResultForDisplay(_compiledResult);
       _lastCompiledIndex = snapshotIndex;
@@ -3115,13 +3117,17 @@
     }
 
     _isCompiling = true;
+    var compileTicketId = currentTicketId; /* capture — ticket may switch before promise resolves */
     var snapshotIndex = entries.length;
     var context = gatherCompileContext();
-    var prompt = (_compiledResult && newEntries.length > 0)
+    var isDelta = (_compiledResult && newEntries.length > 0);
+    var prompt = isDelta
       ? buildDeltaCompilePrompt(newEntries, _compiledResult, context)
       : buildCompilePrompt(context);
+    var tokenBudget = isDelta ? COMPILE_DELTA_MAX_TOKENS : COMPILE_FULL_MAX_TOKENS;
 
-    callGeminiCompile(prompt).then(function (result) {
+    callGeminiCompile(prompt, tokenBudget).then(function (result) {
+      if (currentTicketId !== compileTicketId) return; /* ticket switched — discard stale result */
       _compiledResult = mergeCompileResults(_compiledResult, result);
       _compiledDisplayText = formatCompileResultForDisplay(_compiledResult);
       _lastCompiledIndex = snapshotIndex;
