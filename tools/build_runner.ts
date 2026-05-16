@@ -880,9 +880,42 @@ const commands: SlashCommand[] = [
       }
 
       // ── Grand total ───────────────────────────────────────────────
-      const grandTotal = Math.round(spentThisMonth + spentPriorMonths + spentArchived);
+      // ── Failed escalation attempts (real cost, just didn't pass) ─
+      let spentFailedAttempts = 0;
+      const failedAttemptLog: Array<{ sliceId: string; model: string; cost: number }> = [];
+
+      for (const slice of passedActive) {
+        const ss = state.slices[slice.id];
+        if (!ss || ss.attempts <= 1) continue;
+        // Reconstruct what was tried before the winning model
+        const ladder = buildEscalationLadder(slice.patterns);
+        const failedCount = ss.attempts - 1;
+        for (let i = 0; i < failedCount && i < ladder.length; i++) {
+          const triedModel = ladder[i];
+          const range = costEstimates[triedModel] || [5, 15];
+          const avg = (range[0] + range[1]) / 2;
+          spentFailedAttempts += avg;
+          failedAttemptLog.push({ sliceId: slice.id, model: triedModel, cost: avg });
+        }
+      }
+
+      if (spentFailedAttempts > 0) {
+        console.log(`  FAILED ATTEMPTS (escalation cost):\n`);
+        const byModel: Record<string, { count: number; total: number }> = {};
+        for (const entry of failedAttemptLog) {
+          if (!byModel[entry.model]) byModel[entry.model] = { count: 0, total: 0 };
+          byModel[entry.model].count++;
+          byModel[entry.model].total += entry.cost;
+        }
+        for (const [model, data] of Object.entries(byModel)) {
+          console.log(`    ${model.padEnd(26)} ${String(data.count).padStart(2)} attempt${data.count > 1 ? "s" : " "} ~$${Math.round(data.total)}`);
+        }
+        console.log(`\n  Subtotal (wasted):    ~$${Math.round(spentFailedAttempts)}\n`);
+      }
+
+      const grandTotal = Math.round(spentThisMonth + spentPriorMonths + spentArchived + spentFailedAttempts);
       console.log(`  ─────────────────────────────────────────────────────────`);
-      console.log(`  All-time total (est.): ~$${grandTotal}\n`);
+      console.log(`  All-time total (est.): ~$${grandTotal}  (incl. ~$${Math.round(spentFailedAttempts)} failed attempts)\n`);
 
       // ── Model cost reference ──────────────────────────────────────
       console.log(`  MODEL COST REFERENCE (per slice est.):\n`);
