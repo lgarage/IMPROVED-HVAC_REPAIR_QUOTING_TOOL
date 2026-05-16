@@ -1048,15 +1048,15 @@ const commands: SlashCommand[] = [
         console.log(`  TEST CHECKLIST\n`);
         tests.forEach((t, i) => {
           const num = i + 1;
-          const result = state.checklistResults?.[num];
-          const icon = result === "passed" ? "✓" : result === "failed" ? "✗" : " ";
-          const label = result === "passed" ? " passed" : result === "failed" ? " FAILED" : "";
+          const result = (state.checklistResults as Record<number, string> | undefined)?.[num];
+          const icon  = result === "passed" ? "✓" : result === "failed" ? "✗" : result === "n/a" ? "—" : " ";
+          const label = result === "passed" ? " passed" : result === "failed" ? " FAILED" : result === "n/a" ? " n/a" : "";
           console.log(`    [${icon}] ${num}. ${t}${label}`);
         });
         console.log();
         const doneCount = Object.keys(state.checklistResults || {}).length;
         if (doneCount < tests.length) {
-          console.log(`  /p1,2,3 = mark passed  |  /f1,2,3 = mark failed\n`);
+          console.log(`  /p1,2,3 = passed  |  /f1,2,3 = failed  |  /na 3 = not applicable\n`);
         }
       } else {
         console.log(`  No field-app or rules changes detected — likely safe (tools/docs only).\n`);
@@ -1137,6 +1137,34 @@ const commands: SlashCommand[] = [
     },
   },
   {
+    name: "/na",
+    alias: [],
+    args: "<1,2,3>",
+    description: "Mark test checklist items as N/A (e.g. /na 3)",
+    handler: async (args, state) => {
+      const nums = args.join(",").split(",").map((n) => parseInt(n.trim(), 10)).filter((n) => !isNaN(n));
+      if (nums.length === 0) {
+        console.log("\n  Usage: /na 3  or  /na 1,2,3\n");
+        return;
+      }
+      if (!state.lastChecklist || state.lastChecklist.length === 0) {
+        console.log("\n  No checklist loaded — run /b first.\n");
+        return;
+      }
+      if (!state.checklistResults) state.checklistResults = {};
+      for (const n of nums) {
+        if (n < 1 || n > state.lastChecklist.length) {
+          console.log(`  ⚠  Item ${n} out of range (1–${state.lastChecklist.length})`);
+          continue;
+        }
+        (state.checklistResults as Record<number, string>)[n] = "n/a";
+        console.log(`  —  ${n}. ${state.lastChecklist[n - 1]} (skipped)`);
+      }
+      saveState(state);
+      console.log();
+    },
+  },
+  {
     name: "/quit",
     alias: ["/q", "/exit"],
     args: "",
@@ -1156,7 +1184,7 @@ function printHelp(): void {
     "Build": commands.filter((c) => ["/next", "/all", "/run"].includes(c.name)),
     "Info": commands.filter((c) => ["/status", "/build", "/plan", "/inspect", "/preview", "/errors", "/log"].includes(c.name)),
     "Cost": commands.filter((c) => ["/cost", "/models"].includes(c.name)),
-    "Manage": commands.filter((c) => ["/reset", "/push", "/passed", "/failed", "/preflight", "/archive"].includes(c.name)),
+    "Manage": commands.filter((c) => ["/reset", "/push", "/passed", "/failed", "/na", "/preflight", "/archive"].includes(c.name)),
     "Other": commands.filter((c) => ["/help", "/stop", "/quit"].includes(c.name)),
   };
 

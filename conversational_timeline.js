@@ -861,7 +861,9 @@
       }
       var ts = Date.now();
       var safeName = (file.name || "capture").replace(/[^a-zA-Z0-9._-]/g, "_");
-      var path = "field_evidence/" + (ticketId || "draft") + "/" + ts + "_" + safeName;
+      var isGenericFile = !file.type.startsWith("image/") && !file.type.startsWith("video/") && !file.type.startsWith("audio/");
+      var storageBucket = isGenericFile ? "service_call_files" : "field_evidence";
+      var path = storageBucket + "/" + (ticketId || "draft") + "/" + ts + "_" + safeName;
       var storageRef = window.firebase.storage().ref().child(path);
       var task = storageRef.put(file);
       task.on(
@@ -1153,7 +1155,9 @@
     dismissMediaActionSheet();
     var input = document.createElement("input");
     input.type   = "file";
-    input.accept = "*/*";
+    /* Exclude image/* and video/* so iOS skips the camera/photos sheet
+       and goes straight to the Files app (iCloud Drive, On My iPhone, etc.) */
+    input.accept = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.heic";
     input.style.cssText = "position:fixed;left:-9999px;opacity:0;pointer-events:none;";
     document.body.appendChild(input);
 

@@ -139,6 +139,15 @@ service firebase.storage {
                        || request.resource.contentType.matches('audio/.*'));
     }
 
+    // Generic file attachments from Choose File (PDFs, docs, etc.)
+    // No MIME restriction — file type is user-controlled; size cap enforced.
+    // Added Phase61-AddMedia-2026-05-16.
+    match /service_call_files/{allPaths=**} {
+      allow read:  if true;
+      allow write: if true
+                   && request.resource.size < 25 * 1024 * 1024;
+    }
+
     // All other paths: default deny (no match = no access).
     // Add a new explicit block above when a new upload prefix is introduced.
     // Grep *.js AND *.html for `firebase.storage().ref` when adding new upload features.
