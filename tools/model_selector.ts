@@ -561,23 +561,4 @@ export function buildEscalationLadder(taskPatterns: string[]): string[] {
   return [...new Set(ladder)];
 }
 
-/**
- * Returns a cost-per-slice estimate (in cents) for every model in MODEL_COST_RANK.
- * Ranges are [low, high] cents. Canonical slug source: MODEL_COST_RANK keys.
- */
-export function getCostEstimates(): Record<string, [number, number]> {
-  const result: Record<string, [number, number]> = {};
-  for (const [slug, rank] of Object.entries(MODEL_COST_RANK)) {
-    let range: [number, number];
-    if (rank <= 2)       range = [3, 8];
-    else if (rank <= 4)  range = [4, 10];
-    else if (rank <= 7)  range = [5, 15];
-    else if (rank <= 10) range = [8, 20];
-    else if (rank <= 12) range = [10, 25];
-    else                 range = [15, 35];
-    result[slug] = range;
-  }
-  return result;
-}
-
 export { MODEL_COST_RANK };

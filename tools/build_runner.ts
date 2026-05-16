@@ -14,7 +14,7 @@ import * as readline from "readline";
 import { execSync } from "child_process";
 import { SLICES, type Slice } from "./slices";
 import { ARCHIVED_SLICES } from "./slices_archive";
-import { selectModel, updateLookupRow, buildEscalationLadder, MODEL_COST_RANK, getCostEstimates, checkModelGuard, recordModelGuardFailure, resolvedGuard, MODEL_GUARDS } from "./model_selector";
+import { selectModel, updateLookupRow, buildEscalationLadder, MODEL_COST_RANK, checkModelGuard, recordModelGuardFailure, resolvedGuard, MODEL_GUARDS } from "./model_selector";
 import { validateSlice } from "./validator";
 import { buildPrompt } from "./prompt_builder";
 
@@ -819,164 +819,58 @@ const commands: SlashCommand[] = [
   },
   {
     name: "/cost",
-    alias: [],
+    alias: ["/usage"],
     args: "",
-    description: "Estimate remaining cost based on model selections",
+    description: "Show SDK model invocation counts (how many times each agent was called)",
     handler: async (_args, state) => {
-      const costEstimates = getCostEstimates();
-
-      // Billing month boundaries — Cursor resets on the 13th based on current plan
-      const now = new Date();
-      const resetDay = 13;
-      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), resetDay);
-      if (now < thisMonthStart) {
-        thisMonthStart.setMonth(thisMonthStart.getMonth() - 1);
-      }
-
-      let totalLow = 0;
-      let totalHigh = 0;
-      let spentThisMonth = 0;
-      let spentPriorMonths = 0;
-      let spentArchived = 0;
-
-      const remaining = SLICES.filter(
-        (s) => state.slices[s.id]?.status === "failed" || state.slices[s.id]?.status === "pending"
-      );
       const passedActive = SLICES.filter((s) => state.slices[s.id]?.status === "passed");
+      const failedActive = SLICES.filter((s) => state.slices[s.id]?.status === "failed");
+      const pendingActive = SLICES.filter((s) => state.slices[s.id]?.status === "pending");
 
       console.log("\n  ╔══════════════════════════════════════════════════════════╗");
-      console.log("  ║   Cost Estimate                                          ║");
+      console.log("  ║   SDK Model Usage                                        ║");
       console.log("  ╚══════════════════════════════════════════════════════════╝\n");
 
-      // ── Remaining work ────────────────────────────────────────────
-      if (remaining.length > 0) {
-        console.log("  REMAINING:\n");
-        for (const slice of remaining) {
-          const model = selectModel(slice.patterns);
-          const range = costEstimates[model] || [5, 15];
-          totalLow += range[0];
-          totalHigh += range[1];
-          const statusIcon = state.slices[slice.id]?.status === "failed" ? "✗" : "○";
-          console.log(`  ${statusIcon} ${slice.id.padEnd(6)} ${model.padEnd(24)} ~$${range[0]}–$${range[1]}`);
-        }
-        console.log(`\n  Estimated remaining:  $${totalLow}–$${totalHigh}\n`);
-      } else {
-        console.log("  ✓ All active slices complete — nothing remaining.\n");
-      }
+      const usage: Record<string, { passed: number; failed: number; total: number }> = {};
 
-      // ── This billing month ────────────────────────────────────────
-      const thisMonthSlices = passedActive.filter((s) => {
-        const ts = state.slices[s.id]?.lastAttempt;
-        return ts && new Date(ts) >= thisMonthStart;
-      });
-      const priorMonthSlices = passedActive.filter((s) => {
-        const ts = state.slices[s.id]?.lastAttempt;
-        return !ts || new Date(ts) < thisMonthStart;
-      });
-
-      const monthLabel = thisMonthStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-      if (thisMonthSlices.length > 0) {
-        console.log(`  THIS MONTH (since ${monthLabel}):\n`);
-        const byModel: Record<string, { count: number; total: number }> = {};
-        for (const slice of thisMonthSlices) {
-          const ss = state.slices[slice.id];
-          const model = ss?.model || "claude-sonnet-4-6";
-          const range = costEstimates[model] || [5, 15];
-          const avg = (range[0] + range[1]) / 2;
-          spentThisMonth += avg;
-          if (!byModel[model]) byModel[model] = { count: 0, total: 0 };
-          byModel[model].count++;
-          byModel[model].total += avg;
-        }
-        for (const [model, data] of Object.entries(byModel)) {
-          console.log(`    ${model.padEnd(26)} ${String(data.count).padStart(2)} slice${data.count > 1 ? "s" : " "} ~$${Math.round(data.total)}`);
-        }
-        console.log(`\n  Subtotal this month:  ~$${Math.round(spentThisMonth)}`);
-        console.log(`  Ultra API budget:      $400/month`);
-        console.log(`  Remaining this month: ~$${Math.max(0, Math.round(400 - spentThisMonth))}\n`);
-      } else {
-        console.log(`  THIS MONTH (since ${monthLabel}): no SDK slices run yet.\n`);
-      }
-
-      // ── Prior months ──────────────────────────────────────────────
-      if (priorMonthSlices.length > 0 || ARCHIVED_SLICES.length > 0) {
-        for (const slice of priorMonthSlices) {
-          const ss = state.slices[slice.id];
-          const model = ss?.model || "claude-sonnet-4-6";
-          const range = costEstimates[model] || [5, 15];
-          spentPriorMonths += (range[0] + range[1]) / 2;
-        }
-        if (ARCHIVED_SLICES.length > 0) {
-          const defaultRange = costEstimates["claude-sonnet-4-6"] || [5, 15];
-          spentArchived = ARCHIVED_SLICES.length * ((defaultRange[0] + defaultRange[1]) / 2);
-        }
-        const priorTotal = Math.round(spentPriorMonths + spentArchived);
-        const archivedNote = ARCHIVED_SLICES.length > 0
-          ? ` (incl. ${ARCHIVED_SLICES.length} archived at avg Sonnet rate)`
-          : "";
-        console.log(`  PRIOR MONTHS:         ~$${priorTotal}${archivedNote}\n`);
-      }
-
-      // ── Grand total ───────────────────────────────────────────────
-      // ── Failed escalation attempts (real cost, just didn't pass) ─
-      let spentFailedAttempts = 0;
-      const failedAttemptLog: Array<{ sliceId: string; model: string; cost: number }> = [];
-
+      // Count passed slices
       for (const slice of passedActive) {
-        const ss = state.slices[slice.id];
-        if (!ss || ss.attempts <= 1) continue;
-        // Reconstruct what was tried before the winning model
-        const ladder = buildEscalationLadder(slice.patterns);
-        const failedCount = ss.attempts - 1;
-        for (let i = 0; i < failedCount && i < ladder.length; i++) {
-          const triedModel = ladder[i];
-          const range = costEstimates[triedModel] || [5, 15];
-          const avg = (range[0] + range[1]) / 2;
-          spentFailedAttempts += avg;
-          failedAttemptLog.push({ sliceId: slice.id, model: triedModel, cost: avg });
-        }
+        const model = state.slices[slice.id]?.model || "unknown";
+        if (!usage[model]) usage[model] = { passed: 0, failed: 0, total: 0 };
+        usage[model].passed++;
+        usage[model].total++;
       }
 
-      if (spentFailedAttempts > 0) {
-        console.log(`  FAILED ATTEMPTS (escalation cost):\n`);
-        const byModel: Record<string, { count: number; total: number }> = {};
-        for (const entry of failedAttemptLog) {
-          if (!byModel[entry.model]) byModel[entry.model] = { count: 0, total: 0 };
-          byModel[entry.model].count++;
-          byModel[entry.model].total += entry.cost;
-        }
-        for (const [model, data] of Object.entries(byModel)) {
-          console.log(`    ${model.padEnd(26)} ${String(data.count).padStart(2)} attempt${data.count > 1 ? "s" : " "} ~$${Math.round(data.total)}`);
-        }
-        console.log(`\n  Subtotal (wasted):    ~$${Math.round(spentFailedAttempts)}\n`);
+      // Count failed slices (last attempted model)
+      for (const slice of failedActive) {
+        const model = state.slices[slice.id]?.model || "unknown";
+        if (!usage[model]) usage[model] = { passed: 0, failed: 0, total: 0 };
+        usage[model].failed++;
+        usage[model].total++;
       }
 
-      const grandTotal = Math.round(spentThisMonth + spentPriorMonths + spentArchived + spentFailedAttempts);
-      console.log(`  ─────────────────────────────────────────────────────────`);
-      console.log(`  All-time total (est.): ~$${grandTotal}  (incl. ~$${Math.round(spentFailedAttempts)} failed attempts)\n`);
+      // Sort models by cost rank
+      const sortedModels = Object.keys(usage).sort((a, b) => (MODEL_COST_RANK[a] || 0) - (MODEL_COST_RANK[b] || 0));
 
-      // ── Model cost reference ──────────────────────────────────────
-      console.log(`  MODEL COST REFERENCE (per slice est.):\n`);
-      const modelGroups: Array<{ label: string; slugs: string[] }> = [
-        { label: "Cheapest",  slugs: ["gpt-5.4-nano-medium", "composer-2"] },
-        { label: "Budget",    slugs: ["gpt-5.4-mini-medium", "gemini-3-flash", "gpt-5-mini"] },
-        { label: "Mid",       slugs: ["gpt-5.3-codex-spark", "claude-sonnet-4-6", "kimi-k2.5"] },
-        { label: "Premium",   slugs: ["gpt-5.3-codex", "gpt-5.2", "gpt-5.4-medium", "gpt-5.5-medium"] },
-        { label: "Top",       slugs: ["claude-opus-4-6"] },
-      ];
-      for (const group of modelGroups) {
-        for (const slug of group.slugs) {
-          const range = costEstimates[slug];
-          if (!range) continue;
-          const usedCount = passedActive.filter(
-            (s) => state.slices[s.id]?.model === slug
-          ).length;
-          const usedTag = usedCount > 0 ? ` ← used ${usedCount}x` : "";
-          console.log(`  ${group.label.padEnd(10)} ${slug.padEnd(26)} $${range[0]}–$${range[1]}/slice${usedTag}`);
+      if (sortedModels.length === 0) {
+        console.log("  No model invocations recorded yet.\n");
+      } else {
+        console.log("  MODEL INVOCATIONS (active slices):\n");
+        for (const model of sortedModels) {
+          const data = usage[model];
+          const passedStr = data.passed > 0 ? `${data.passed} passed` : "";
+          const failedStr = data.failed > 0 ? `${data.failed} failed` : "";
+          const split = passedStr && failedStr ? ` (${passedStr}, ${failedStr})` : ` (${passedStr}${failedStr})`;
+          console.log(`    ${model.padEnd(26)} ${String(data.total).padStart(2)} calls${split}`);
         }
+        console.log();
       }
-      console.log();
+
+      const totalCalls = Object.values(usage).reduce((sum, d) => sum + d.total, 0);
+      console.log(`  Total SDK agent calls: ${totalCalls}`);
+      console.log(`  Active slices: ${passedActive.length} passed, ${failedActive.length} failed, ${pendingActive.length} pending`);
+      console.log(`  Archived slices: ${ARCHIVED_SLICES.length} (passed in prior sessions)\n`);
+      console.log("  Note: For actual dollar charges, check your Cursor billing dashboard.\n");
     },
   },
   {
