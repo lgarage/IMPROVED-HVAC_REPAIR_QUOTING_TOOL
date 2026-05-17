@@ -40,7 +40,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Phase64-Slice64a-2026-05-17";
+      window.VC_BUILD = "Phase64-Slice64b-2026-05-17";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -4638,6 +4638,28 @@
                 />
               </div>
             </div>
+            <label style="display:flex;align-items:center;gap:8px;margin:12px 0;font-size:13px;cursor:pointer;">
+              <input type="checkbox" id="showDispatchFeeSeparate" onchange="triggerQuoteAutoSave()">
+              Show SERVICE &amp; DISPATCH FEE as Separate Line Item
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer;">
+              <input type="checkbox" id="showItemizedParts" checked onchange="triggerQuoteAutoSave(); togglePartsSummary();">
+              Show Itemized Parts to Customer
+            </label>
+            <div id="partsSummaryGroup" style="display:none;margin:8px 0 12px 26px;">
+              <label style="font-size:12px;color:#64748b;display:block;margin-bottom:4px;">
+                Parts Summary Description (shown to customer instead of itemized list)
+              </label>
+              <textarea id="partsSummaryDescription" rows="2"
+                style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;resize:vertical;"
+                onchange="triggerQuoteAutoSave()"
+              >All parts and materials required to complete the repair are included in the quoted price. Only OEM-quality or equivalent components will be used.</textarea>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer;">
+              <input type="checkbox" id="includeSalesTax" checked onchange="triggerQuoteAutoSave()">
+              Include Sales Tax (5.5%) on Quote
+              <span style="font-size:11px;color:#94a3b8;">(uncheck for real property improvements / new construction)</span>
+            </label>
           </div>
 
           <div class="form-section">
@@ -4738,7 +4760,7 @@
                 <div class="total-line">
                   <span>Subtotal</span> <span id="printSubtotal">$0.00</span>
                 </div>
-                <div class="total-line">
+                <div class="total-line" id="printTaxRow">
                   <span>Sales Tax (5.5%)</span> <span id="printTax">$0.00</span>
                 </div>
                 <div class="final-total total-line">
@@ -9735,7 +9757,7 @@
       }
     </script>
     <script src="dispatcher/js/client_notifications.js?v=2"></script>
-    <script src="quoting.js?v=7"></script>
+    <script src="quoting.js?v=8"></script>
     <script src="invoice.js?v=41"></script>
 
     <div

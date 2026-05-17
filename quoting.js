@@ -41,6 +41,11 @@ function addRequoteNote() {
     triggerQuoteAutoSave();
 }
 
+function togglePartsSummary() {
+    var show = !document.getElementById('showItemizedParts').checked;
+    document.getElementById('partsSummaryGroup').style.display = show ? 'block' : 'none';
+}
+
 function setDates() {
     document.getElementById('quoteDateInput').valueAsDate = new Date();
     var dueDate = new Date(); dueDate.setDate(dueDate.getDate() + 14);
@@ -94,7 +99,11 @@ function startNewQuote() {
         <label style="color:#27ae60;">Retail $ (Auto)</label>
         <label></label>
     </div>`;
-    addPartRow(); setDates(); setNextQuoteNumber(); 
+    addPartRow(); setDates(); setNextQuoteNumber();
+    document.getElementById('showDispatchFeeSeparate').checked = false;
+    document.getElementById('showItemizedParts').checked = true;
+    document.getElementById('includeSalesTax').checked = true;
+    togglePartsSummary();
     document.getElementById('resultsSection').style.display = 'none';
     document.getElementById('mainFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -122,7 +131,8 @@ function gatherFormData() {
     });
 
     const subtotal = partsRetailSubtotal + totalLaborAmount + truckCharge;
-    const tax = subtotal * 0.055;
+    var includeTax = document.getElementById('includeSalesTax').checked;
+    var tax = includeTax ? subtotal * 0.055 : 0;
     const grandTotal = subtotal + tax;
 
     return {
@@ -144,7 +154,13 @@ function gatherFormData() {
         requoteNote: document.getElementById('requoteNoteHistory').value, 
         quoteDate: document.getElementById('quoteDateInput').value,
         dueDate: document.getElementById('dueDateInput').value,
-        laborHours, laborRate, truckCharge, totalLaborAmount, parts: partsData, subtotal, tax, grandTotal
+        laborHours, laborRate, truckCharge, totalLaborAmount, parts: partsData,
+        partsSubtotal: partsRetailSubtotal,
+        subtotal, tax, grandTotal,
+        showDispatchFeeSeparate: document.getElementById('showDispatchFeeSeparate').checked,
+        showItemizedParts: document.getElementById('showItemizedParts').checked,
+        partsSummaryDescription: document.getElementById('partsSummaryDescription').value,
+        includeSalesTax: includeTax
     };
 }
 
@@ -232,6 +248,12 @@ function _populateQuoteForm(quote) {
             '<div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>';
         document.getElementById('partsContainer').appendChild(row);
     }
+
+    document.getElementById('showDispatchFeeSeparate').checked = quote.showDispatchFeeSeparate || false;
+    document.getElementById('showItemizedParts').checked = quote.showItemizedParts !== false;
+    document.getElementById('partsSummaryDescription').value = quote.partsSummaryDescription || 'All parts and materials required to complete the repair are included in the quoted price. Only OEM-quality or equivalent components will be used.';
+    document.getElementById('includeSalesTax').checked = quote.includeSalesTax !== false;
+    togglePartsSummary();
 
     document.getElementById('resultsSection').style.display = 'none';
     document.getElementById('mainFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -394,25 +416,37 @@ function updatePreviewHTML() {
 
     const tableBody = document.getElementById('printTableBody');
     tableBody.innerHTML = "";
-    data.parts.forEach(p => {
-        const row = document.createElement('tr');
-        row.innerHTML = `<td>${p.qty}</td><td>${p.desc}</td><td>${p.lead}</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td>`;
-        tableBody.appendChild(row);
-    });
+    if (data.showItemizedParts) {
+        data.parts.forEach(p => {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${p.qty}</td><td>${p.desc}</td><td>${p.lead}</td><td>$${p.retailUnit.toFixed(2)}</td><td>$${p.retailTotal.toFixed(2)}</td>`;
+            tableBody.appendChild(row);
+        });
+    } else {
+        if (data.parts.length > 0) {
+            const summaryDesc = data.partsSummaryDescription || 'All parts and materials required to complete the repair are included in the quoted price. Only OEM-quality or equivalent components will be used.';
+            const partsTotal = data.partsSubtotal || 0;
+            const summaryRow = document.createElement('tr');
+            summaryRow.innerHTML = `<td>1</td><td colspan="2">${summaryDesc}</td><td>$${partsTotal.toFixed(2)}</td><td>$${partsTotal.toFixed(2)}</td>`;
+            tableBody.appendChild(summaryRow);
+        }
+    }
     if (data.totalLaborAmount > 0) {
         const laborRow = document.createElement('tr');
         laborRow.innerHTML = `<td>${data.laborHours}</td><td>REPAIR LABOR</td><td>N/A</td><td></td><td>$${data.totalLaborAmount.toFixed(2)}</td>`;
         tableBody.appendChild(laborRow);
     }
-    if (data.truckCharge > 0) {
+    if (data.truckCharge > 0 && data.showDispatchFeeSeparate) {
         const truckRow = document.createElement('tr');
-        truckRow.innerHTML = `<td>1</td><td>TRUCK / DISPATCH CHARGE</td><td>N/A</td><td></td><td>$${data.truckCharge.toFixed(2)}</td>`;
+        truckRow.innerHTML = `<td>1</td><td>SERVICE & DISPATCH FEE</td><td>N/A</td><td></td><td>$${data.truckCharge.toFixed(2)}</td>`;
         tableBody.appendChild(truckRow);
     }
 
     document.getElementById('printSubtotal').innerText = `$${data.subtotal.toFixed(2)}`;
     document.getElementById('printTax').innerText = `$${data.tax.toFixed(2)}`;
     document.getElementById('printGrandTotal').innerText = `$${data.grandTotal.toFixed(2)}`;
+    var taxRowEl = document.getElementById('printTaxRow');
+    if (taxRowEl) taxRowEl.style.display = data.includeSalesTax ? '' : 'none';
 }
 
 function createQuote() {
