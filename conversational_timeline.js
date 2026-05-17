@@ -292,6 +292,22 @@
   var EQUIPMENT_REGEX = /\b(RTU|AHU|FCU|MAU|CU|HP|Unit|Chiller|Boiler)\s*#?\d+/i;
   var CORRECTION_PREFIX_RE = /^(correction[,\s]+|actually[,\s]+|correct that[,\s]+|i meant[,\s]+)/i;
 
+  /* Spoken-number → digit map for voice-dictated equipment names.
+     Covers "RTU seven", "AHU two", "Unit twelve", etc.
+     Only replaces number words immediately following a known equipment prefix. */
+  var SPOKEN_UNIT_NUMBERS = {
+    'one':'1','two':'2','three':'3','four':'4','five':'5',
+    'six':'6','seven':'7','eight':'8','nine':'9','ten':'10',
+    'eleven':'11','twelve':'12','thirteen':'13','fourteen':'14','fifteen':'15'
+  };
+  var SPOKEN_UNIT_RE = /\b(RTU|AHU|FCU|MAU|CU|HP|Unit|Chiller|Boiler)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen)\b/gi;
+
+  function normalizeEquipmentNumbers(text) {
+    return text.replace(SPOKEN_UNIT_RE, function (match, prefix, word) {
+      return prefix + (SPOKEN_UNIT_NUMBERS[word.toLowerCase()] || word);
+    });
+  }
+
   function storageKey(ticketId) {
     return LS_PREFIX + (ticketId || "draft");
   }
@@ -1662,7 +1678,7 @@
       }
     }
     if (!eqRef) {
-      equipMatch = responseTextForIntent.match(EQUIPMENT_REGEX);
+      equipMatch = normalizeEquipmentNumbers(responseTextForIntent).match(EQUIPMENT_REGEX);
       if (equipMatch) eqRef = equipMatch[0].replace(/\s+/g, " ").trim();
     }
 
@@ -1686,19 +1702,21 @@
     }
 
     /* Trigger-word scan on EVERY entry when no workflow is loaded yet.
-       This is the primary path for surfacing checklists from form_templates.
-       Fixes two gaps:
-         (a) Same equipment already active when repair type is first mentioned:
-             "RTU7 needs a new supply fan motor" → eqRef === previousEquipment
-             → old equipment-switch guard skipped the scan entirely.
-         (b) Multi-message context: "I'm on RTU7" sets equipment, then next
-             message "supply fan motor is seized" had no eqRef so the old
-             guard never ran.
-       scheduleChecklistReminders debounce (30 s) prevents double-fires when
-       both this block and the equipment-switch block above are relevant. */
-    var _effectiveEqForScan = eqRef || previousEquipment;
+       No equipment context is required to scan — the workflow loads from
+       form_templates based solely on trigger words in the text. Reminders
+       fire in the callback using whatever equipment context is available at
+       that point (eqRef from this entry OR activeEquipment already set).
+       Covers all dictation patterns:
+         (a) "RTU7 needs a new supply fan motor" — equipment + trigger same msg
+         (b) "RTU seven needs a new supply fan motor" — spoken number now
+             normalized to RTU7 before regex, so eqRef is set correctly
+         (c) Same equipment already active + repair type mentioned ("supply
+             fan motor is seized") — uses activeEquipment at callback time
+         (d) Trigger word only, no equipment in text — callback resolves
+             activeEquipment from VCJobContext
+       scheduleChecklistReminders debounce (30 s) prevents double-fires. */
     if (
-      _effectiveEqForScan &&
+      rawText.trim() &&
       window.ChecklistReminderEngine &&
       typeof window.ChecklistReminderEngine.getActiveWorkflow === "function" &&
       !window.ChecklistReminderEngine.getActiveWorkflow() &&
@@ -1706,9 +1724,16 @@
     ) {
       (function (capturedEq, capturedId) {
         window.ChecklistReminderEngine.scanEntryForWorkflow(rawText, function () {
-          scheduleChecklistReminders(capturedEq, capturedId);
+          /* Resolve equipment: prefer the eq from this entry, then fall back
+             to whatever is active in VCJobContext at callback time. */
+          var resolvedEq = capturedEq ||
+            (window.VCJobContext && window.VCJobContext.activeEquipment
+              ? String(window.VCJobContext.activeEquipment) : "");
+          if (resolvedEq) {
+            scheduleChecklistReminders(resolvedEq, capturedId);
+          }
         });
-      }(_effectiveEqForScan, id));
+      }(eqRef || previousEquipment, id));
     }
 
     /* Track entry mentions against active workflow checklist (Slice 45a) */
