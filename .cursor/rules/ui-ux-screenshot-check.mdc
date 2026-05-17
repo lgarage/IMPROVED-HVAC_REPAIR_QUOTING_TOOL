@@ -1,0 +1,53 @@
+---
+description: Always verify UI/UX changes with a Playwright screenshot before reporting done
+alwaysApply: true
+---
+
+# UI/UX Change Verification — Playwright Screenshot Required
+
+**Any time a UI or UX change is made to the field app or dispatcher**, you MUST take a Playwright screenshot and visually confirm the result before telling the user the change worked.
+
+## Required steps after every UI/UX edit + deploy
+
+1. Run the Playwright login + screenshot script (see pattern below)
+2. Read the screenshot image and visually inspect it
+3. Only then tell the user what you see — including if it looks wrong
+
+## Login script pattern (app requires auth)
+
+```js
+// _check_screenshot.mjs
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ headless: true });
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+const page = await ctx.newPage();
+// ?vc_debug=0 hides the overlay so it doesn't block clicks
+await page.goto('https://vertex-core-db.web.app/technician/index.html?vc_debug=0', { waitUntil: 'domcontentloaded', timeout: 15000 });
+await page.waitForTimeout(3000);
+await page.locator('select').first().selectOption({ label: 'DAN DAY' });
+await page.waitForTimeout(500);
+await page.locator('#loginContinueBtn').click({ timeout: 5000 });
+await page.waitForTimeout(4000);
+// Take schedule screenshot, then click job card for workspace
+await page.screenshot({ path: '_screenshot_schedule.png' });
+const jobCard = page.locator('.job-card').first();
+if (await jobCard.isVisible({ timeout: 3000 }).catch(() => false)) {
+  await jobCard.click();
+  await page.waitForTimeout(3000);
+  await page.screenshot({ path: '_screenshot_workspace.png' });
+}
+await browser.close();
+```
+
+Run with: `node _check_screenshot.mjs`  
+Playwright package is already installed in the project root.
+
+## After taking screenshots
+
+- Read both `_screenshot_schedule.png` and `_screenshot_workspace.png` using the Read tool
+- Show the screenshots to the user
+- Delete the temp files after reviewing
+
+## Do NOT skip this step
+
+Do not say "deployed and pushed" for any UI change without first verifying the screenshot looks correct. If the screenshot shows the wrong result, fix it before closing the task.
