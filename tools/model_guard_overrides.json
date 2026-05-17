@@ -18,5 +18,5 @@
       "Multi-file UI feature (no Firestore writes)": 0
     },
     "_notes_last_failure": "63d failures were validator false-positives (wrong HTML target for cache-bust check) — not real Opus failures. Reset 2026-05-16 after validator fix in commit 3fc8c7f."
-  },
+  }
 }
