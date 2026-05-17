@@ -40,7 +40,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Phase64-Slice64d-2026-05-17";
+      window.VC_BUILD = "Phase64-Slice64e-2026-05-17";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -4805,7 +4805,12 @@
         </div>
 
         <div id="dbTarget" class="database-section">
-          <h3>Recent Quotes Database</h3>
+          <h3 style="display:inline-block;margin-right:12px;">Recent Quotes Database</h3>
+          <button id="importLocalQuotesBtn" onclick="importLocalQuotesToFirestore()"
+            style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:8px 16px;
+            font-size:13px;cursor:pointer;margin-left:8px;">
+            ⬆ Import Local Quotes to Cloud
+          </button>
           <table class="db-table">
             <thead>
               <tr>
@@ -9837,7 +9842,7 @@
       }
     </script>
     <script src="dispatcher/js/client_notifications.js?v=2"></script>
-    <script src="quoting.js?v=9"></script>
+    <script src="quoting.js?v=10"></script>
     <script src="invoice.js?v=41"></script>
 
     <div

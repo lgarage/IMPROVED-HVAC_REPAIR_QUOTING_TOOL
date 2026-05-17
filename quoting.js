@@ -699,3 +699,87 @@ function printQuote() {
     document.getElementById('printInvoiceView').classList.remove('screen-preview');
     window.print();
 }
+
+function importLocalQuotesToFirestore() {
+    var raw = localStorage.getItem('twinPillarsQuotesDB');
+    var localQuotes;
+    try {
+        localQuotes = JSON.parse(raw);
+    } catch (e) {
+        localQuotes = null;
+    }
+    if (!localQuotes || !Array.isArray(localQuotes) || localQuotes.length === 0) {
+        alert("No local quotes found.");
+        return;
+    }
+
+    var db;
+    var ref;
+    try {
+        db = firebase.firestore();
+        ref = window.VCFirestore ? window.VCFirestore.officeQuotes(db) : db.collection("office_quotes");
+    } catch (e) {
+        alert("Firestore is not available. Cannot import to cloud.");
+        return;
+    }
+
+    ref.get().then(function(snapshot) {
+        var existingNums = {};
+        snapshot.forEach(function(doc) {
+            var d = doc.data();
+            if (d.quoteNum) existingNums[d.quoteNum] = true;
+        });
+
+        var toImport = [];
+        for (var i = 0; i < localQuotes.length; i++) {
+            var q = localQuotes[i];
+            if (q.quoteNum && !existingNums[q.quoteNum]) {
+                toImport.push(q);
+            }
+        }
+
+        if (toImport.length === 0) {
+            alert("No new quotes to import. All " + localQuotes.length + " quotes already in cloud.");
+            return;
+        }
+
+        if (!confirm("Found " + toImport.length + " new quotes in local storage. Import to cloud?")) {
+            return;
+        }
+
+        var succeeded = 0;
+        var failed = [];
+        var promises = [];
+
+        for (var j = 0; j < toImport.length; j++) {
+            (function(quote) {
+                var data = Object.assign({}, quote);
+                delete data.id;
+                data.importedFrom = "localStorage";
+                data.importedAt = new Date().toISOString();
+                if (!data.createdAt) {
+                    data.createdAt = data.quoteDate ? new Date(data.quoteDate).toISOString() : new Date().toISOString();
+                }
+                var p = ref.add(data).then(function() {
+                    succeeded++;
+                }).catch(function(err) {
+                    failed.push(quote.quoteNum || "unknown");
+                    console.warn("[Quoting] Import failed for " + quote.quoteNum + ":", err);
+                });
+                promises.push(p);
+            })(toImport[j]);
+        }
+
+        Promise.all(promises).then(function() {
+            if (failed.length === 0) {
+                alert("Imported " + succeeded + " quotes to cloud.");
+            } else {
+                alert("Imported " + succeeded + " quotes. Failed: " + failed.join(", "));
+            }
+            renderQuoteHistory();
+        });
+    }).catch(function(err) {
+        console.warn("[Quoting] Could not read existing quotes from Firestore:", err);
+        alert("Failed to check existing cloud quotes. Please try again.");
+    });
+}
