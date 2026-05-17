@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 (ChatGPT UI redesign). Phase 64 slices ready.
-- **Last shipped (2026-05-17):** Workspace header is now transparent again while the upper workspace pill and bottom chat pill stay solid-colored/opaque in the phone UI. `technician/index.html`.
+- **Last shipped (2026-05-17):** Workspace header and chat window wrappers are transparent again while the upper workspace pill and bottom chat pill stay solid-colored/opaque in the phone UI. `technician/index.html`.
 - **Prior (2026-05-17):** Idea Tracker Slack sync. Phase65-ChatGPTUI (minimal nav, waveform mic). Phase65-SpacePolish.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
@@ -19,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Immediate Next Step:** Hard-refresh the field app on iPhone and confirm the blue header band is gone while both pills remain solid.
+- **Immediate Next Step:** Hard-refresh the field app on iPhone and confirm the blue header band is gone, the chat window stays transparent, and both pills remain solid.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
