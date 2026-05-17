@@ -64,6 +64,16 @@ body.ws-active .app-top-shell {
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+}
+body.ws-active .workspace-site-banner-sticky {
+  position: fixed;
+  top: var(--vc-app-shell-height, 50px);
+  left: 0;
+  right: 0;
+  z-index: 50;
 }
 .app-header-row {
   display: flex;
@@ -585,9 +595,11 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 #screen-workspace.screen.active {
   display: flex;
   flex-direction: column;
-  /* height (not min-height) so the flex chain has a bounded container — #ct-message-list can scroll */
   height: calc(100dvh - var(--vc-app-shell-height, 118px));
   overflow: hidden;
+}
+body.ws-active #screen-workspace.screen.active {
+  height: 100dvh;
 }
 #screen-workspace.screen.active #workspaceLockScope {
   flex: 1 1 auto;
@@ -1248,6 +1260,7 @@ body.vc-override-active #vcOfficeOverrideBanner {
 /* Reserve space so last bubbles clear the fixed composer dock (single input row ≈ 72px). */
 #screen-workspace.screen.active #ct-message-list {
   padding-bottom: calc(16px + 72px + env(safe-area-inset-bottom, 0px));
+  padding-top: calc(var(--vc-app-shell-height, 50px) + 60px);
 }
 
 .ct-message {
@@ -7477,7 +7490,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase65-HeaderV5-2026-05-17";
+window.VC_BUILD = "Phase65-HeaderV6-2026-05-17";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
