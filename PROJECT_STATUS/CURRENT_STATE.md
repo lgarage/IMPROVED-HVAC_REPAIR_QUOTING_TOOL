@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 (ChatGPT UI redesign). Phase 64 slices ready.
-- **Last shipped (2026-05-17):** Bottom chat composer pill is now solid-colored/opaque instead of transparent in the phone UI. `technician/index.html`.
+- **Last shipped (2026-05-17):** Bottom chat composer pill and upper workspace pill are now solid-colored/opaque instead of transparent in the phone UI. `technician/index.html`.
 - **Prior (2026-05-17):** Idea Tracker Slack sync. Phase65-ChatGPTUI (minimal nav, waveform mic). Phase65-SpacePolish.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
@@ -19,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Immediate Next Step:** Hard-refresh the field app on iPhone and confirm the bottom chat pill now reads as a solid opaque pill behind the message input and controls.
+- **Immediate Next Step:** Hard-refresh the field app on iPhone and confirm both the upper workspace pill and bottom chat pill now read as solid opaque pills.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
