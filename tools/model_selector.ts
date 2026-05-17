@@ -19,11 +19,13 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const LOOKUP_PATH = path.join(PROJECT_ROOT, "PROJECT_STATUS", "MODEL_LOOKUP.md");
 const GUARD_OVERRIDES_PATH = path.join(__dirname, "model_guard_overrides.json");
 
+// All slugs here must be verified against Cursor.models.list() output.
+// Invalid slugs cause immediate SDK failure — do not add "-medium" or other
+// invented suffixes. Verified 2026-05-16 from SDK error available-models list.
 const MODEL_COST_RANK: Record<string, number> = {
-  "gpt-5.4-nano-medium": 1,
+  "gpt-5.4-nano": 1,           // verified SDK slug
   "composer-2": 2,
-  "gpt-5.4-mini-medium": 3,
-  "gpt-5.4-mini": 3,           // legacy slug alias — SDK may accept either form
+  "gpt-5.4-mini": 3,           // verified SDK slug
   "gemini-3-flash": 4,
   "gpt-5-mini": 5,
   "gpt-5.3-codex-spark": 6,
@@ -31,10 +33,8 @@ const MODEL_COST_RANK: Record<string, number> = {
   "kimi-k2.5": 8,
   "gpt-5.3-codex": 9,
   "gpt-5.2": 10,
-  "gpt-5.4-medium": 11,
-  "gpt-5.4": 11,               // legacy slug alias
-  "gpt-5.5-medium": 12,
-  "gpt-5.5": 12,               // legacy slug alias
+  "gpt-5.4": 11,               // verified SDK slug
+  "gpt-5.5": 12,               // verified SDK slug
   "claude-opus-4-6": 13,
 };
 
@@ -53,7 +53,7 @@ export interface ModelGuard {
 }
 
 export const MODEL_GUARDS: Record<string, ModelGuard> = {
-  "gpt-5.4-nano-medium": {
+  "gpt-5.4-nano": {
     maxRiskLevel: "safe",
     maxFiles: 4,
     forbiddenPatterns: [
@@ -79,17 +79,6 @@ export const MODEL_GUARDS: Record<string, ModelGuard> = {
     ],
     notes: "T0-T1 mechanical. Known reasoning weakness — skip multi-step logic.",
   },
-  "gpt-5.4-mini-medium": {
-    maxRiskLevel: "safe",
-    maxFiles: 8,
-    forbiddenPatterns: [
-      "Firestore rules / auth changes",
-      "Firebase config / project migration",
-      "Shadow Mode / Office Override",
-      "Gemini prompt integration",
-    ],
-    notes: "T0-T1. Read-only Firestore and single-file bugfixes OK.",
-  },
   "gpt-5.4-mini": {
     maxRiskLevel: "safe",
     maxFiles: 8,
@@ -99,7 +88,7 @@ export const MODEL_GUARDS: Record<string, ModelGuard> = {
       "Shadow Mode / Office Override",
       "Gemini prompt integration",
     ],
-    notes: "Legacy alias for gpt-5.4-mini-medium — same constraints.",
+    notes: "T0-T1. Read-only Firestore and single-file bugfixes OK.",
   },
   "gemini-3-flash": {
     maxRiskLevel: "safe",
@@ -172,29 +161,17 @@ export const MODEL_GUARDS: Record<string, ModelGuard> = {
     ],
     notes: "T2-T3 capable.",
   },
-  "gpt-5.4-medium": {
+  "gpt-5.4": {
     maxRiskLevel: "review",
     maxFiles: 12,
     forbiddenPatterns: [],
     notes: "T2-T3 capable.",
   },
-  "gpt-5.4": {
-    maxRiskLevel: "review",
-    maxFiles: 12,
-    forbiddenPatterns: [],
-    notes: "Legacy alias for gpt-5.4-medium — same constraints.",
-  },
-  "gpt-5.5-medium": {
-    maxRiskLevel: "critical",
-    maxFiles: 20,
-    forbiddenPatterns: [],
-    notes: "Strong reasoning. Suitable for critical-path work.",
-  },
   "gpt-5.5": {
     maxRiskLevel: "critical",
     maxFiles: 20,
     forbiddenPatterns: [],
-    notes: "Legacy alias for gpt-5.5-medium — same constraints.",
+    notes: "Strong reasoning. Suitable for critical-path work.",
   },
   "claude-opus-4-6": {
     maxRiskLevel: "critical",

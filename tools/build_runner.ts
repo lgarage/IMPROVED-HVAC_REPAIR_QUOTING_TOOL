@@ -1440,6 +1440,27 @@ async function runPreflight(): Promise<boolean> {
     console.log("  ✓ Fresh start — no previous build state");
   }
 
+  // 11. Model slug validation — every slug in MODEL_COST_RANK must be in the verified list.
+  // The SDK rejects unknown slugs immediately; catching this at startup prevents wasted runs.
+  // Update VERIFIED_SDK_SLUGS when Cursor.models.list() returns new entries.
+  const VERIFIED_SDK_SLUGS = new Set([
+    "default", "composer-2", "gpt-5.5", "gpt-5.3-codex", "claude-sonnet-4-6",
+    "claude-opus-4-7", "grok-4.3", "gpt-5.4", "claude-opus-4-6", "claude-opus-4-5",
+    "gpt-5.2", "gemini-3.1-pro", "gpt-5.4-mini", "gpt-5.4-nano", "claude-haiku-4-5",
+    "claude-sonnet-4-5", "gpt-5.2-codex", "gpt-5.1-codex-max", "gpt-5.1",
+    "gemini-3-flash", "gpt-5.1-codex-mini", "claude-sonnet-4", "gpt-5-mini",
+    "gemini-2.5-flash", "kimi-k2.5", "gpt-5.3-codex-spark",
+  ]);
+  const unverifiedSlugs = Object.keys(MODEL_COST_RANK).filter((s) => !VERIFIED_SDK_SLUGS.has(s));
+  if (unverifiedSlugs.length === 0) {
+    console.log("  ✓ All model slugs verified against SDK list");
+  } else {
+    console.log(`  ✗ Unverified model slugs (will fail at runtime): ${unverifiedSlugs.join(", ")}`);
+    console.log("    Fix: remove these from MODEL_COST_RANK in model_selector.ts,");
+    console.log("    or add them to VERIFIED_SDK_SLUGS after confirming via Cursor.models.list().");
+    allGood = false;
+  }
+
   // Summary
   console.log();
   if (allGood) {

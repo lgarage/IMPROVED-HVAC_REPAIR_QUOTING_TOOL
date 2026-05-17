@@ -2846,6 +2846,13 @@
     lines.push("You are an HVAC field service report compiler processing incremental timeline entries.");
     lines.push("MEDIA EQUIPMENT RULE: Media entries (photo/video) tagged with (equipment: X) are explicitly tied to that equipment. For any media entry WITHOUT an (equipment:) tag, associate it with the equipment or issue most recently mentioned in the timeline entries immediately before it.");
     lines.push("");
+    lines.push("CRITICAL DATA PRESERVATION RULES — follow these exactly:");
+    lines.push("1. EXACT MEASUREMENTS: Copy filter dimensions (e.g. 16x20x2), pressures, temperatures, voltages, and quantities VERBATIM from the timeline. Never round, convert, abbreviate, or paraphrase numbers.");
+    lines.push("2. EXACT PART NAMES: Belt designations (e.g. BX56), part numbers, and model/serial numbers must appear exactly as stated. Never substitute, generalize, or infer part names.");
+    lines.push("3. EQUIPMENT LABELS: RTU labels (e.g. RTU 1, RTU 2), unit names, and system identifiers are literal — do not merge, conflate, or rename them.");
+    lines.push("4. QUANTITIES: If the technician states a specific count (e.g. 'four filters', '4 filters'), preserve the exact number. Never change quantities.");
+    lines.push("5. DO NOT INVENT: Never add part numbers, measurements, quantities, or specifications not explicitly present in the timeline entries.");
+    lines.push("");
 
     if (existingResult && existingResult.summary) {
       lines.push("EXISTING REPORT CONTEXT (already compiled from earlier entries):");
@@ -2941,6 +2948,13 @@
     var lines = [];
     lines.push("You are an HVAC field service report compiler. Analyze the following technician timeline entries and produce a structured JSON report.");
     lines.push("MEDIA EQUIPMENT RULE: Media entries (photo/video) tagged with (equipment: X) are explicitly tied to that equipment. For any media entry WITHOUT an (equipment:) tag, associate it with the equipment or issue most recently mentioned in the timeline entries immediately before it.");
+    lines.push("");
+    lines.push("CRITICAL DATA PRESERVATION RULES — follow these exactly:");
+    lines.push("1. EXACT MEASUREMENTS: Copy filter dimensions (e.g. 16x20x2), pressures, temperatures, voltages, and quantities VERBATIM from the timeline. Never round, convert, abbreviate, or paraphrase numbers.");
+    lines.push("2. EXACT PART NAMES: Belt designations (e.g. BX56), part numbers, and model/serial numbers must appear exactly as stated. Never substitute, generalize, or infer part names.");
+    lines.push("3. EQUIPMENT LABELS: RTU labels (e.g. RTU 1, RTU 2), unit names, and system identifiers are literal — do not merge, conflate, or rename them.");
+    lines.push("4. QUANTITIES: If the technician states a specific count (e.g. 'four filters', '4 filters'), preserve the exact number. Never change quantities.");
+    lines.push("5. DO NOT INVENT: Never add part numbers, measurements, quantities, or specifications not explicitly present in the timeline entries.");
     lines.push("");
     lines.push("TIMELINE ENTRIES:");
     for (var i = 0; i < context.entries.length; i++) {
