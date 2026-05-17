@@ -1874,13 +1874,19 @@ function renderServiceBoard() {
         if (sc.priority === 'Routine') colorClass = 'priority-Routine';
 
         const releaseBadge = sc.releasedToTech === false ? `<span style="font-size:9px; background:#fdebd0; color:#ca6f1e; padding:2px 6px; border-radius:4px; font-weight:700; margin-left:4px;">Field: hold</span>` : '';
+        var quoteBadge = sc.quotePending
+            ? '<span id="quote-ready-badge" class="vc-quote-ready-badge" data-ticket-id="' + sc.id + '"' +
+              ' style="display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#713f12;' +
+              'font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;cursor:pointer;' +
+              'margin-left:6px;border:1px solid #fde047;">🔖 Quote Ready</span>'
+            : '';
         const techAvatarsRow = buildSidebarTechAvatarsHtml(sc);
 
         let cardHTML = `
             <div class="glass-card ${colorClass}" draggable="true" ondragstart="drag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')">
                 <div class="tc-title">
                     <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">${sc.customerName}</span>
-                    <span style="font-size:10px; color:#aaa;">${sc.ticketNum}${releaseBadge}</span>
+                    <span style="font-size:10px; color:#aaa;">${sc.ticketNum}${releaseBadge}${quoteBadge}</span>
                 </div>
                 <div class="tc-loc"><i class="fas fa-map-marker-alt" style="color:#c89b53;"></i> ${sc.locationAddress} | ${sc.custCity}, ${sc.custState}</div>
                 <div class="tc-tech-strip">${techAvatarsRow}</div>
@@ -3877,3 +3883,60 @@ try {
         init();
     }
 })();
+
+// ====================================================================
+// --- QUOTE-READY BADGE: DELEGATED CLICK + DRAFT CREATION (Slice 64i)
+// ====================================================================
+
+(function wireQuoteReadyBadge() {
+    var wired = false;
+    function init() {
+        if (wired) return;
+        wired = true;
+        document.addEventListener("click", function (e) {
+            var badge = e.target.closest(".vc-quote-ready-badge");
+            if (!badge) return;
+            e.stopPropagation();
+            var ticketId = badge.getAttribute("data-ticket-id");
+            if (!ticketId) return;
+            createDraftQuoteFromTicket(ticketId);
+        });
+    }
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();
+
+function createDraftQuoteFromTicket(ticketId) {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+        console.warn("[QuotePipeline] Firebase not available");
+        return;
+    }
+    var db = firebase.firestore();
+    var scRef =
+        typeof VCFirestore !== "undefined" && VCFirestore.serviceCalls
+            ? VCFirestore.serviceCalls(db).doc(ticketId)
+            : db.collection("service_calls").doc(ticketId);
+
+    scRef.get().then(function (snap) {
+        if (!snap.exists) {
+            console.warn("[QuotePipeline] Service call not found:", ticketId);
+            return;
+        }
+        var data = snap.data();
+        var quoteData = data.quote_data;
+        if (!quoteData) {
+            alert("No quote data found on this ticket yet.");
+            return;
+        }
+        if (typeof createOfficeDraftQuote === "function") {
+            createOfficeDraftQuote(quoteData, ticketId, data);
+        } else {
+            console.warn("[QuotePipeline] createOfficeDraftQuote not loaded (quoting.js)");
+        }
+    }).catch(function (err) {
+        console.warn("[QuotePipeline] Error reading service call:", err);
+    });
+}
