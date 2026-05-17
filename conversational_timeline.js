@@ -3030,14 +3030,52 @@
   }
 
   /**
-   * saveQuoteDataToTicket — persist quote_data locally.
-   * Slice 64h will wire this to Firestore.
+   * saveQuoteDataToTicket — write quote_data to the service call Firestore doc (Slice 64h).
+   * Uses merge:true so existing fields are never overwritten.
+   * Fire-and-forget — the confirmation UI updates immediately; Firestore write is background.
    */
   function saveQuoteDataToTicket(quoteData, ticketId) {
+    if (!quoteData || !ticketId) {
+      console.warn('[QuotePipeline] saveQuoteDataToTicket called without quoteData or ticketId — skipping.');
+      return;
+    }
+
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      console.warn('[QuotePipeline] Firebase unavailable — quote_data not written.');
+      return;
+    }
+
+    var payload = {
+      quote_data: quoteData,
+      quotePending: true,
+      quotePendingAt: firebase.firestore.FieldValue.serverTimestamp(),
+      quoteDataUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    var db;
     try {
-      var key = "vc_quote_data_" + (ticketId || "draft");
-      localStorage.setItem(key, JSON.stringify(quoteData));
-    } catch (e) { /* quota exceeded — degrade silently */ }
+      db = firebase.firestore();
+    } catch (e) {
+      console.warn('[QuotePipeline] Firestore unavailable:', e);
+      return;
+    }
+
+    var scRef;
+    if (window.VCFirestore && typeof window.VCFirestore.serviceCall === 'function') {
+      scRef = window.VCFirestore.serviceCall(db, ticketId);
+    } else if (window.VCFirestore && typeof window.VCFirestore.tenantCollection === 'function') {
+      scRef = window.VCFirestore.tenantCollection(db, 'service_calls').doc(ticketId);
+    } else {
+      scRef = db.collection('service_calls').doc(ticketId);
+    }
+
+    scRef.set(payload, { merge: true })
+      .then(function() {
+        console.log('[QuotePipeline] quote_data written to ticket', ticketId);
+      })
+      .catch(function(err) {
+        console.warn('[QuotePipeline] Failed to write quote_data:', err);
+      });
   }
 
   /**
