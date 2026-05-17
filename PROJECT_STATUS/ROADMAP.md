@@ -19,6 +19,33 @@ A place to park ideas, feature requests, and future phases so they do not get lo
 
 ## ?? The Icebox (Raw Ideas)
 
+### VC Admin Voice Layer — Role-Aware Conversational Control
+
+**Concept.** Extend the existing field tech app shell with role awareness so the owner/admin can open the same conversational interface from their phone and talk to the system as a manager — not a tech. Same UI, same mic, same "Got it" feel. The underlying agent switches based on role.
+
+**Admin capabilities (conversational, voice-first, on the road):**
+- *"Add a supply fan motor checklist — steps are: check belt tension, verify rotation, measure amp draw, check capacitor"* ? template created in `form_templates`
+- *"Add a vendor — Wesco, orders@wesco.com, handles motors and controls"* ? vendor directory updated
+- *"Mark Jake as senior tech"* ? roster profile updated, reminder verbosity adjusts automatically
+- *"The capacitor checklist needs a step for microfarad rating"* ? existing template patched
+- *"What did RTU 3 at Planet Fitness need last time?"* ? reads from `site_intelligence`, spoken back
+
+**Design principle:** No new UI. Admin sees the same screen as the tech. The role indicator (pill at top) shows "Admin." The workspace context switches from "job ticket" to "system configuration session." Output goes to `form_templates`, vendor directory, roster, etc. instead of the job timeline.
+
+**Architecture:**
+- Sign-in: existing roster picker + admin PIN for elevated role (localStorage session flag)
+- Role check at workspace open: if admin ? load Admin Agent instead of Job Notes Agent
+- Admin Agent: Gemini-driven conversation that knows which system fields need to be collected (template fields, vendor fields, roster fields) and asks follow-up questions until the record is complete, then confirms and writes
+- Same voice input pattern, same bubble rendering, same debounce/scroll behavior — zero new UI components
+
+**Why this matters:** VC becomes the operating system for the whole company. Techs talk to it in the field. Owner talks to it on the road. Same voice, same feel, different context. Long-term: add more admin "modes" (reviewing compilations, adjusting pricing, dispatch notes) without building new surfaces.
+
+**Build size:** ~3 slices — (a) role-aware sign-in + admin session flag, (b) Admin Agent conversation engine + workspace shell switch, (c) save-to-Firestore per intent type (templates, vendors, roster).
+
+**Prerequisite:** Current 63/64 test pass complete. No blocking technical debt.
+
+---
+
 ### On-Call Rotation & PTO Tracking (Settings Tab)
 
 **Concept.** Mechanism to manage technician on-call schedules, hours of operation, and PTO requests directly in the dispatcher settings tab.

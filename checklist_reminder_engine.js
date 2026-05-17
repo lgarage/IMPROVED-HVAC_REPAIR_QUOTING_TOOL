@@ -396,6 +396,69 @@
   }
 
   /**
+   * scanEntryForWorkflow — exported.
+   * Called from conversational_timeline.js processEntry when no workflow
+   * is loaded yet. Scans the raw entry text against all template trigger
+   * words (Slice 63b logic) instead of matching the ticket type.
+   *
+   * This fixes the gap where onJobCheckin matches ticket type ("HVAC Service
+   * Call") against repair-type trigger words ("supply fan motor") — they
+   * never match on a generic service call. This function scans what the
+   * tech actually said and loads the right template on the fly.
+   *
+   * @param {string}   text     — raw entry text from the tech (lowercased internally)
+   * @param {Function} callback — called after attempt (workflow may or may not have loaded)
+   */
+  function scanEntryForWorkflow(text, callback) {
+    var textLower = String(text || "").trim().toLowerCase();
+    if (!textLower) { if (callback) callback(); return; }
+
+    var db = getDb();
+    if (!db) { if (callback) callback(); return; }
+
+    try {
+      db.collection("form_templates")
+        .where("active", "==", true)
+        .get()
+        .then(function (snap) {
+          var best = null;
+          snap.forEach(function (doc) {
+            var data = doc.data() || {};
+            var mr = matchesTriggerWords(data, textLower);
+            if (!mr.matched) return;
+            if (!best || mr.bestKwLen > best._kwLen) {
+              best = {
+                templateId: doc.id,
+                templateName: String(data.templateName || doc.id),
+                items: extractChecklistItems(data),
+                triggerWords: Array.isArray(data.triggerWords) ? data.triggerWords : [],
+                targetKeyword: String(data.targetKeyword || ""),
+                _kwLen: mr.bestKwLen
+              };
+            }
+          });
+          if (best) {
+            _activeWorkflow = {
+              templateId: best.templateId,
+              templateName: best.templateName,
+              items: best.items,
+              triggerWords: best.triggerWords,
+              targetKeyword: best.targetKeyword
+            };
+            /* persist to session cache so subsequent notes hit the memory path */
+            saveWorkflowCache(textLower, _activeWorkflow);
+          }
+          if (callback) callback();
+        })
+        .catch(function () {
+          if (callback) callback();
+        });
+    } catch (e) {
+      if (callback) callback();
+    }
+  }
+
+  /**
    * setActiveWorkflow — exported.
    * Allows external code to inject a workflow directly (e.g. dispatcher
    * sets a specific template for the ticket before the tech checks in).
@@ -421,6 +484,7 @@
     markMentioned: markMentioned,
     updateFromEntry: updateFromEntry,
     onJobCheckin: onJobCheckin,
+    scanEntryForWorkflow: scanEntryForWorkflow,
     setActiveWorkflow: setActiveWorkflow,
     getActiveWorkflow: getActiveWorkflow
   };

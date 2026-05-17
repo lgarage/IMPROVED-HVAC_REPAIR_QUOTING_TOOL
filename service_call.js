@@ -1875,7 +1875,7 @@ function renderServiceBoard() {
 
         const releaseBadge = sc.releasedToTech === false ? `<span style="font-size:9px; background:#fdebd0; color:#ca6f1e; padding:2px 6px; border-radius:4px; font-weight:700; margin-left:4px;">Field: hold</span>` : '';
         var quoteBadge = sc.quotePending
-            ? '<span id="quote-ready-badge" class="vc-quote-ready-badge" data-ticket-id="' + sc.id + '"' +
+            ? '<span class="vc-quote-ready-badge" data-ticket-id="' + sc.id + '"' +
               ' style="display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#713f12;' +
               'font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;cursor:pointer;' +
               'margin-left:6px;border:1px solid #fde047;">🔖 Quote Ready</span>'

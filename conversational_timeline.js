@@ -1674,9 +1674,27 @@
     if (eqRef && window.JobContextEngine && typeof JobContextEngine.setActiveEquipment === "function") {
       JobContextEngine.setActiveEquipment(eqRef);
       /* Fire reminders on first mention OR on equipment switch (Slice 63c).
-         Debounce inside scheduleChecklistReminders prevents repeat fires. */
+         Debounce inside scheduleChecklistReminders prevents repeat fires.
+         If no workflow is loaded yet, scan the entry text for trigger words
+         first (fixes: onJobCheckin matches ticket type, not repair type). */
       if (eqRef && (!previousEquipment || eqRef !== previousEquipment)) {
-        scheduleChecklistReminders(eqRef, id);
+        var _hasWorkflow = window.ChecklistReminderEngine &&
+          typeof window.ChecklistReminderEngine.getActiveWorkflow === "function" &&
+          !!window.ChecklistReminderEngine.getActiveWorkflow();
+        if (!_hasWorkflow &&
+            window.ChecklistReminderEngine &&
+            typeof window.ChecklistReminderEngine.scanEntryForWorkflow === "function") {
+          /* No workflow loaded — scan entry text for trigger word match.
+             scheduleChecklistReminders is called in the callback so reminders
+             fire after the workflow (if any) is loaded from Firestore. */
+          (function (capturedEq, capturedId) {
+            window.ChecklistReminderEngine.scanEntryForWorkflow(rawText, function () {
+              scheduleChecklistReminders(capturedEq, capturedId);
+            });
+          }(eqRef, id));
+        } else {
+          scheduleChecklistReminders(eqRef, id);
+        }
       }
     }
 
@@ -2830,22 +2848,32 @@
       openCompileModal(_compiledDisplayText);
       /* Slice 63f: post-compile equipment classification */
       classifyEquipmentFindings(_compiledResult, entries, compileTicketId);
-      /* Slice 64g: quote data generation */
+      /* Slice 64g: quote data generation.
+         getActiveFormTemplates is async — chain with .then() instead of calling
+         synchronously. Calling it synchronously and chaining .filter() on the
+         returned Promise throws a TypeError that is silently caught, leaving
+         _quoteMatchedTemplates always empty and the quote card never showing. */
       try {
-        var _quoteMatchedTemplates = (typeof window.getActiveFormTemplates === "function")
-          ? (window.getActiveFormTemplates() || []).filter(function (t) { return t && t.data && t.data.quoteRelevant; })
-          : [];
-        if (_quoteMatchedTemplates.length && window.VCAgents && window.VCAgents.QuoteDataBuilder) {
+        if (typeof window.getActiveFormTemplates === "function" &&
+            window.VCAgents && window.VCAgents.QuoteDataBuilder) {
           var _quoteEquipCtx = {
             activeEquipment: (window.VCJobContext && window.VCJobContext.activeEquipment) || "",
             nameplateFields: window._lastNameplateFields || null
           };
           var _quoteTicketId = compileTicketId;
-          typeof getGeminiApiKey === "function" && getGeminiApiKey().then(function (apiKey) {
-            if (!apiKey) return;
-            return window.VCAgents.QuoteDataBuilder.buildQuoteData(
-              _compiledDisplayText, _quoteMatchedTemplates, _quoteEquipCtx, apiKey
-            );
+          window.getActiveFormTemplates().then(function (allTemplates) {
+            var _quoteMatchedTemplates = (allTemplates || []).filter(function (t) {
+              return t && t.data && t.data.quoteRelevant;
+            });
+            if (!_quoteMatchedTemplates.length) return Promise.resolve(null);
+            return typeof getGeminiApiKey === "function"
+              ? getGeminiApiKey().then(function (apiKey) {
+                  if (!apiKey) return null;
+                  return window.VCAgents.QuoteDataBuilder.buildQuoteData(
+                    _compiledDisplayText, _quoteMatchedTemplates, _quoteEquipCtx, apiKey
+                  );
+                })
+              : Promise.resolve(null);
           }).then(function (quoteData) {
             if (!quoteData || !quoteData.repairs || !quoteData.repairs.length) return;
             showQuoteDataCard(quoteData, _quoteTicketId);
