@@ -40,7 +40,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Phase64-Slice64c-2026-05-17";
+      window.VC_BUILD = "Phase64-Slice64d-2026-05-17";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -2672,6 +2672,17 @@
             <span class="menu-text">Quoting Tool</span></a
           >
         </li>
+        <li>
+          <a
+            id="nav-vendors"
+            onclick="switchTab('vendors')"
+            title="Vendor Directory"
+            ><span class="menu-icon"
+              ><i class="fas fa-building" aria-hidden="true"></i
+            ></span>
+            <span class="menu-text">Vendors</span></a
+          >
+        </li>
         <li class="sidebar-item-has-submenu" id="sidebar-nav-invoicing">
           <button
             type="button"
@@ -4811,6 +4822,66 @@
             </thead>
             <tbody id="dbTableBody"></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- ═══ Vendor Directory (Slice 64d) ═══ -->
+      <div id="view-vendors" class="app-view">
+        <div class="form-container">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h2 style="color:#0ea5e9;margin:0;">🏢 Vendor Directory</h2>
+            <button id="vendorAddBtn" onclick="openVendorForm()"
+              style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:10px 20px;
+              font-size:14px;cursor:pointer;font-weight:600;">
+              + Add Vendor
+            </button>
+          </div>
+          <div id="vendorListTarget"></div>
+        </div>
+
+        <div id="vendorFormModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);
+          z-index:9999;align-items:center;justify-content:center;">
+          <div style="background:#fff;border-radius:12px;padding:24px;max-width:500px;width:90%;
+            max-height:80vh;overflow-y:auto;">
+            <h3 id="vendorFormTitle" style="margin:0 0 16px;color:#1e293b;">Add Vendor</h3>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <input type="hidden" id="vendorEditId" value="">
+              <div>
+                <label style="font-size:13px;font-weight:600;color:#475569;">Vendor Name *</label>
+                <input type="text" id="vendorNameInput" placeholder="e.g. Johnstone Supply"
+                  style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="font-size:13px;font-weight:600;color:#475569;">Email</label>
+                <input type="email" id="vendorEmailInput" placeholder="orders@vendor.com"
+                  style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="font-size:13px;font-weight:600;color:#475569;">Phone</label>
+                <input type="tel" id="vendorPhoneInput" placeholder="920-555-1234"
+                  style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="font-size:13px;font-weight:600;color:#475569;">Categories (select all that apply)</label>
+                <div id="vendorCategoriesContainer" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;"></div>
+              </div>
+              <div>
+                <label style="font-size:13px;font-weight:600;color:#475569;">Notes</label>
+                <textarea id="vendorNotesInput" rows="2" placeholder="Best pricing on motors. Usually responds same day."
+                  style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;resize:vertical;box-sizing:border-box;"></textarea>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+              <button onclick="closeVendorForm()"
+                style="background:none;border:1px solid #cbd5e1;border-radius:8px;padding:10px 20px;cursor:pointer;color:#64748b;">
+                Cancel
+              </button>
+              <button onclick="saveVendor()"
+                style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:600;">
+                Save Vendor
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -7982,6 +8053,7 @@
         document.getElementById("view-insights").classList.remove("active");
         document.getElementById("view-report-studio").classList.remove("active");
         document.getElementById("view-quoting").classList.remove("active");
+        document.getElementById("view-vendors").classList.remove("active");
         document.getElementById("view-invoice").classList.remove("active");
         document
           .getElementById("view-invoice-archive")
@@ -7994,6 +8066,8 @@
         document.getElementById("nav-insights").classList.remove("active-tab");
         document.getElementById("nav-report-studio").classList.remove("active-tab");
         document.getElementById("nav-quoting").classList.remove("active-tab");
+        var navVendorsEl = document.getElementById("nav-vendors");
+        if (navVendorsEl) navVendorsEl.classList.remove("active-tab");
         document.getElementById("nav-invoice").classList.remove("active-tab");
         document
           .getElementById("nav-invoice-archive")
@@ -8099,6 +8173,9 @@
           if (typeof window.VcReportStudio !== "undefined") {
             window.VcReportStudio.initReportStudio();
           }
+        }
+        if (tabName === "vendors") {
+          if (typeof loadVendors === "function") loadVendors();
         }
       }
 
@@ -10068,5 +10145,6 @@
     <script src="dispatcher/js/import_hub.js?v=2"></script>
     <script src="agents/nameplate_ocr.js?v=1"></script>
     <script src="equipment_manager.js?v=17"></script>
+    <script src="vendor_directory.js?v=1"></script>
   </body>
 </html>
