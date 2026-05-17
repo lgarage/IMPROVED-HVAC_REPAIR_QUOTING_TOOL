@@ -12,3 +12,13 @@ When the user mentions "icebox," "idea vault," "ideas I added," or asks what ide
 - **How to read:** call `slack_get_channel_history` with `channel_id: "C0B543CE4QG"`
 - **Do not** list workspace channels to find it — the channel is private and will not appear in `slack_list_channels`. Use the ID directly.
 - The `ROADMAP.md` Icebox section is a curated backlog. Raw ideas the user dictates while driving live in Slack and get promoted to `ROADMAP.md` intentionally.
+
+## Cross-reference with IDEA_TRACKER.md
+
+After reading the Slack channel, **always read `PROJECT_STATUS/IDEA_TRACKER.md`** and overlay the status on each idea before presenting results.
+
+- If an idea appears in `IDEA_TRACKER.md`, report its `Status` (fresh / discussed / in-progress / shipped / tracked / parked) and `Notes` alongside the raw Slack content.
+- If an idea from Slack is **not yet in** `IDEA_TRACKER.md`, flag it as "new — not yet tracked" so it can be added.
+- This prevents re-presenting ideas that have already been discussed or shipped as if they were fresh.
+
+**After any Cursor session that discusses or works on an icebox idea, update `IDEA_TRACKER.md`** to keep the cross-reference current.

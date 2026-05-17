@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 63 (Field Intelligence). **Phase 64 slices authored** (AI Quote Pipeline — Foundation). **Agent Architecture Separation** shipped.
-- **Last shipped (2026-05-17):** Agent Architecture Separation — `gemini_client.js` + 5 agent modules under `agents/` (notes_parser, equipment_classifier, nameplate_ocr, conversation_agent, location_parts_parser). `conversational_timeline.js` v46→v47 (-532 lines), `equipment_manager.js` v16→v17, `technician/index.html` inline AI replaced. `index.html` updated.
-- **Prior (2026-05-17):** Build runner retry prep — reset slice `63g` to pending. Prior (2026-05-16): AI Quote Pipeline spec + Phase 64 slices; 63a–63f + 63e shipped.
+- **Last shipped (2026-05-17):** Idea Tracker system — `PROJECT_STATUS/IDEA_TRACKER.md` created (10 icebox ideas cross-referenced with statuses); `slack-icebox.mdc` rule updated to overlay tracker status when reading icebox.
+- **Prior (2026-05-17):** Agent Architecture Separation — `gemini_client.js` + 5 agent modules under `agents/`. Prior (2026-05-16): AI Quote Pipeline spec + Phase 64 slices; 63a–63f + 63e shipped.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
