@@ -42,15 +42,25 @@ export function validateSlice(slice: Slice): ValidationResult {
     }
   }
 
-  // 3. Check expected HTML element IDs exist in target HTML file
+  // 3. Check expected HTML element IDs exist in target HTML file OR in JS files
+  //    (elements created dynamically in JS use string literals like id="foo")
   if (slice.expectedIds.length > 0) {
     const htmlPath = path.join(PROJECT_ROOT, slice.htmlTarget || path.join("technician", "index.html"));
-    if (fs.existsSync(htmlPath)) {
-      const html = fs.readFileSync(htmlPath, "utf-8");
-      for (const id of slice.expectedIds) {
-        if (!html.includes(`id="${id}"`) && !html.includes(`id='${id}'`)) {
-          errors.push(`Expected HTML element #${id} not found in ${slice.htmlTarget || "technician/index.html"}`);
-        }
+    const htmlContent = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, "utf-8") : "";
+
+    const jsContents = [...slice.filesToCreate, ...slice.filesToModify]
+      .filter((f) => f.endsWith(".js"))
+      .map((f) => {
+        const full = path.join(PROJECT_ROOT, f);
+        return fs.existsSync(full) ? fs.readFileSync(full, "utf-8") : "";
+      })
+      .join("\n");
+
+    const allContent = htmlContent + "\n" + jsContents;
+
+    for (const id of slice.expectedIds) {
+      if (!allContent.includes(`id="${id}"`) && !allContent.includes(`id='${id}'`)) {
+        errors.push(`Expected HTML element #${id} not found in HTML or JS files`);
       }
     }
   }

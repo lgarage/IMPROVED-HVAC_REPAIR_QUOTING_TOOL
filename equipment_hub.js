@@ -454,6 +454,14 @@
       "<button type=\"button\" class=\"ehub-btn-delete\" id=\"ehubDeleteBtn\">🗑 Remove</button>" +
       "</div>";
 
+    var serviceHistoryPlaceholder =
+      '<div id="ehub-service-history-section" style="margin-top:20px;">' +
+      '<div style="font-weight:600;font-size:14px;color:#1e293b;margin-bottom:10px;' +
+      'padding-bottom:8px;border-bottom:1px solid #e2e8f0;">' +
+      'Service History (Site Intelligence)</div>' +
+      '<div id="ehub-si-history-list" style="font-size:13px;color:#64748b;">Loading\u2026</div>' +
+      '</div>';
+
     header.innerHTML =
       "<div class=\"ehub-title-row\">" +
       "<h3 class=\"equipment-hub-unit-title\">" + escapeHtml(String(title)) + "</h3>" +
@@ -464,7 +472,8 @@
       healthLine +
       photosHtml +
       buildProfileDetailsHtml(profile) +
-      actionBarHtml;
+      actionBarHtml +
+      serviceHistoryPlaceholder;
 
     // Wire thumbnail tap → fullscreen lightbox
     header.querySelectorAll(".ehub-unit-photo-wrap[data-lightbox-src]").forEach(function (btn) {
@@ -492,8 +501,12 @@
       });
     }
 
+    loadSiteIntelligenceHistory(
+      (profile && (profile.unitTag || profile.brand)) || parsed.unitDocId
+    );
+
     timeline.innerHTML =
-      "<p class=\"equipment-hub-loading\">Loading history…</p>";
+      "<p class=\"equipment-hub-loading\">Loading history\u2026</p>";
     showHistoryView();
 
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
@@ -1136,6 +1149,101 @@
     closeBtn.addEventListener("click", function (e) { e.stopPropagation(); dismiss(); });
     overlay.addEventListener("click", dismiss);
     img.addEventListener("click", function (e) { e.stopPropagation(); });
+  }
+
+  function loadSiteIntelligenceHistory(equipmentRef) {
+    var container = document.getElementById("ehub-si-history-list");
+    if (!container) return;
+    if (!equipmentRef) {
+      container.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:8px 0;">No unit context available.</div>';
+      return;
+    }
+
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      container.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:8px 0;">Firebase not available.</div>';
+      return;
+    }
+
+    var db = firebase.firestore();
+    var siCol = (typeof VCFirestore !== "undefined" && VCFirestore.siteIntelligence)
+      ? VCFirestore.siteIntelligence(db)
+      : db.collection("site_intelligence");
+
+    siCol
+      .where("equipmentRef", "==", equipmentRef)
+      .orderBy("createdAt", "desc")
+      .limit(20)
+      .get()
+      .then(function (snap) {
+        if (snap.empty) {
+          container.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:8px 0;">No service history recorded yet.</div>';
+          return;
+        }
+
+        var html = "";
+        snap.forEach(function (doc) {
+          var d = doc.data() || {};
+          var dateStr = d.date ? String(d.date).slice(0, 10) : "\u2014";
+          var tech = d.techName || "\u2014";
+          var summary = d.summary || "";
+          var measurements = Array.isArray(d.measurements) && d.measurements.length
+            ? d.measurements.join(", ") : "";
+          var parts = Array.isArray(d.partsReplaced) && d.partsReplaced.length
+            ? d.partsReplaced.join(", ") : "";
+          var outcome = d.repairOutcome || "";
+          var followUp = d.followUp || "";
+          var ticket = d.sourceTicketId || "";
+
+          var detailLines = [];
+          if (measurements) detailLines.push("<strong>Measurements:</strong> " + escapeHtml(measurements));
+          if (parts) detailLines.push("<strong>Parts replaced:</strong> " + escapeHtml(parts));
+          if (outcome) detailLines.push("<strong>Outcome:</strong> " + escapeHtml(outcome));
+          if (followUp) detailLines.push("<strong>Follow-up:</strong> " + escapeHtml(followUp));
+          if (ticket) detailLines.push("<strong>Job:</strong> " + escapeHtml(ticket));
+
+          var hasDetail = detailLines.length > 0;
+          var entryId = "ehub-si-" + doc.id;
+
+          html += '<div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-bottom:8px;background:#fafafa;">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+          html += '<div style="font-weight:600;color:#1e293b;font-size:13px;">' + escapeHtml(dateStr) + ' \u2014 ' + escapeHtml(tech) + '</div>';
+          if (hasDetail) {
+            html += '<button type="button" class="ehub-si-toggle" data-target="' + escapeAttr(entryId) + '"'
+              + ' style="background:none;border:none;color:#0284c7;font-size:12px;cursor:pointer;padding:2px 6px;">\u25BC</button>';
+          }
+          html += '</div>';
+          if (summary) {
+            html += '<div style="color:#475569;margin-top:4px;font-size:13px;">' + escapeHtml(summary) + '</div>';
+          }
+          if (hasDetail) {
+            html += '<div id="' + escapeAttr(entryId) + '" style="display:none;margin-top:8px;padding-top:8px;'
+              + 'border-top:1px solid #e2e8f0;color:#475569;font-size:12px;line-height:1.7;">'
+              + detailLines.join("<br>") + '</div>';
+          }
+          html += '</div>';
+        });
+
+        container.innerHTML = html;
+
+        container.addEventListener("click", function (e) {
+          var btn = e.target.closest ? e.target.closest(".ehub-si-toggle") : null;
+          if (!btn) return;
+          var targetId = btn.getAttribute("data-target");
+          var detail = document.getElementById(targetId);
+          if (!detail) return;
+          if (detail.style.display === "none") {
+            detail.style.display = "block";
+            btn.textContent = "\u25B2";
+          } else {
+            detail.style.display = "none";
+            btn.textContent = "\u25BC";
+          }
+        });
+      })
+      .catch(function (err) {
+        console.warn("[EquipmentHub] site_intelligence query error:", err);
+        container.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:8px 0;">Could not load service history.</div>';
+      });
   }
 
   function initEquipmentHubUi() {
