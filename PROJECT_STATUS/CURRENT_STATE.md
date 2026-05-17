@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 (ChatGPT UI). Phase 63/64 testing in progress.
-- **Last shipped (2026-05-17):** Bug fixes from code trace review — (1) 63c checklist reminders: added `scanEntryForWorkflow()` to `checklist_reminder_engine.js` so trigger-word matching scans entry text not ticket type; (2) 64g quote pipeline: fixed silent async failure (`getActiveFormTemplates` is async, was called synchronously — quote card never appeared); (3) 64i badge: removed duplicate `id` from `vc-quote-ready-badge`. `VC_BUILD: Phase65-QuotePipelineFix-2026-05-17`.
+- **Last shipped (2026-05-17):** Checklist trigger-word wiring fix — `scanEntryForWorkflow` was trapped inside the equipment-switch guard, so trigger words only scanned when equipment changed, not when the repair type was mentioned on already-active equipment (e.g. "RTU7 needs a new supply fan motor"). Moved scan to an independent block that fires on every entry when no workflow loaded, covering both same-equipment messages and multi-message context. `conversational_timeline.js?v=54`. `VC_BUILD: Phase65-ChecklistTriggerFix-2026-05-17`.
 - **Prior (2026-05-17):** Phase 64 slices 64a–64i all passed (AI Quote Pipeline). Phase 63 slices 63a–63h all passed (Field Intelligence). Roadmap: VC Admin Voice Layer added to icebox.
 - **Prior (2026-05-17):** Header & Composer polish / HeaderV7 floating pill chrome. VC DEBUG draggable. Phase65-ChatGPTUI.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
@@ -20,7 +20,7 @@
 
 ## Immediate Next Step
 
-- **Immediate Next Step:** Continue 63/64 test pass on device — priority order: (1) 63c checklist reminder card now fixed, test with "replacing supply fan motor on RTU 3"; (2) 64g quote card now fixed, test compile → "🔖 Repair quote detected" card appears; (3) 64h write → check Firebase Console for `quote_data` on service call; (4) 64i badge → dispatcher card shows "🔖 Quote Ready" → click → draft quote created. Then 63b, 63d, 64f.
+- **Immediate Next Step:** Test the checklist trigger-word fix on device — say "RTU7 needs a new supply fan motor" in the chat (with RTU7 already active or as first message). The yellow 📋 checklist card should appear. If the form template has `active: true` and `triggerWords: ["supply fan motor"]` set in Settings → Forms, it will fire. Then continue 63/64 test pass: (2) 64g quote card — compile → "🔖 Repair quote detected" card appears; (3) 64h write → Firebase Console `quote_data`; (4) 64i badge.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 

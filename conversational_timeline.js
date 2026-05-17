@@ -1673,29 +1673,42 @@
 
     if (eqRef && window.JobContextEngine && typeof JobContextEngine.setActiveEquipment === "function") {
       JobContextEngine.setActiveEquipment(eqRef);
-      /* Fire reminders on first mention OR on equipment switch (Slice 63c).
-         Debounce inside scheduleChecklistReminders prevents repeat fires.
-         If no workflow is loaded yet, scan the entry text for trigger words
-         first (fixes: onJobCheckin matches ticket type, not repair type). */
+      /* Fire reminders immediately on equipment switch ONLY when a workflow is
+         already loaded (Slice 63c). The trigger-word scan block below handles
+         the no-workflow case for both switch and same-equipment entries. */
       if (eqRef && (!previousEquipment || eqRef !== previousEquipment)) {
-        var _hasWorkflow = window.ChecklistReminderEngine &&
-          typeof window.ChecklistReminderEngine.getActiveWorkflow === "function" &&
-          !!window.ChecklistReminderEngine.getActiveWorkflow();
-        if (!_hasWorkflow &&
-            window.ChecklistReminderEngine &&
-            typeof window.ChecklistReminderEngine.scanEntryForWorkflow === "function") {
-          /* No workflow loaded — scan entry text for trigger word match.
-             scheduleChecklistReminders is called in the callback so reminders
-             fire after the workflow (if any) is loaded from Firestore. */
-          (function (capturedEq, capturedId) {
-            window.ChecklistReminderEngine.scanEntryForWorkflow(rawText, function () {
-              scheduleChecklistReminders(capturedEq, capturedId);
-            });
-          }(eqRef, id));
-        } else {
+        if (window.ChecklistReminderEngine &&
+            typeof window.ChecklistReminderEngine.getActiveWorkflow === "function" &&
+            window.ChecklistReminderEngine.getActiveWorkflow()) {
           scheduleChecklistReminders(eqRef, id);
         }
       }
+    }
+
+    /* Trigger-word scan on EVERY entry when no workflow is loaded yet.
+       This is the primary path for surfacing checklists from form_templates.
+       Fixes two gaps:
+         (a) Same equipment already active when repair type is first mentioned:
+             "RTU7 needs a new supply fan motor" → eqRef === previousEquipment
+             → old equipment-switch guard skipped the scan entirely.
+         (b) Multi-message context: "I'm on RTU7" sets equipment, then next
+             message "supply fan motor is seized" had no eqRef so the old
+             guard never ran.
+       scheduleChecklistReminders debounce (30 s) prevents double-fires when
+       both this block and the equipment-switch block above are relevant. */
+    var _effectiveEqForScan = eqRef || previousEquipment;
+    if (
+      _effectiveEqForScan &&
+      window.ChecklistReminderEngine &&
+      typeof window.ChecklistReminderEngine.getActiveWorkflow === "function" &&
+      !window.ChecklistReminderEngine.getActiveWorkflow() &&
+      typeof window.ChecklistReminderEngine.scanEntryForWorkflow === "function"
+    ) {
+      (function (capturedEq, capturedId) {
+        window.ChecklistReminderEngine.scanEntryForWorkflow(rawText, function () {
+          scheduleChecklistReminders(capturedEq, capturedId);
+        });
+      }(_effectiveEqForScan, id));
     }
 
     /* Track entry mentions against active workflow checklist (Slice 45a) */
