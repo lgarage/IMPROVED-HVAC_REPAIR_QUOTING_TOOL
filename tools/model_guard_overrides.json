@@ -18,5 +18,12 @@
       "Multi-file UI feature (no Firestore writes)": 0
     },
     "_notes_last_failure": "63d failures were validator false-positives (wrong HTML target for cache-bust check) — not real Opus failures. Reset 2026-05-16 after validator fix in commit 3fc8c7f."
+  },
+  "gpt-5.2": {
+    "_failureCounts": {
+      "Multi-file UI feature (no Firestore writes)": 1,
+      "Firestore write path (new collection/doc)": 1
+    },
+    "_notes_last_failure": "slice 63g: Expected HTML element #ct-nameplate-confirm-card not found in technician/index.html (2026-05-17)"
   }
 }
