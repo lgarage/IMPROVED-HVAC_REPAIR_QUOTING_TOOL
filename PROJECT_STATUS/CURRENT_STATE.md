@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 63 deployed. **Phase 64 slices authored** (AI Quote Pipeline — Foundation).
-- **Last shipped (2026-05-17):** Phase 63 (Field Intelligence: Contextual Checklists). Deployed to hosting. Agent Architecture Separation shipped.
-- **Prior (2026-05-17):** Idea Tracker system. Agent Architecture Separation.
+- **Active Phase:** Phase 65 (Space Polish). Phase 64 slices ready.
+- **Last shipped (2026-05-17):** Phase65-SpacePolish — Slack-feel spacing pass: message gap 8→12px, side margins 12→16px, softer nav divider, lighter customer name, open input box, softer dock shadow.
+- **Prior (2026-05-17):** Phase 63 (Field Intelligence) + Agent Architecture Separation. Idea Tracker system.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Field-test Phase 63** — Test compile notes, nameplate OCR, and service history in Equipment Hub on mobile.
+- **Field-test Phase 65 polish** — Load workspace on mobile. Messages should feel airier (more gap, wider side margins), nav less heavy, input box more open.
 - **Phase 64 (Quote Pipeline Foundation)** ready in `tools/slices.ts` — 5 slices (64a–64e). Run via SDK build runner (`vertex` → `/a`).
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
