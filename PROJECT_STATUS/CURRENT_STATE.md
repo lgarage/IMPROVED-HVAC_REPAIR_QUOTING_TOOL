@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 63 (Field Intelligence). **Phase 64 slices authored** (AI Quote Pipeline — Foundation).
-- **Last shipped (2026-05-16):** AI Quote Pipeline design spec (`PROJECT_STATUS/ai_quote_pipeline_spec.md`) + Phase 64 slices (64a–64e) + ROADMAP entry. No code change.
-- **Prior (2026-05-16):** SDK model-guard fix; 63a–63f authored + 63e shipped; 63g–63h authored.
+- **Active Phase:** Phase 63 (Field Intelligence). **Phase 64 slices authored** (AI Quote Pipeline — Foundation). **Agent Architecture Separation** planned — see `.cursor/plans/agent_architecture_separation_c9da7200.plan.md`.
+- **Last shipped (2026-05-16):** Model slug fix (remove `-medium` variants from `model_selector.ts`); preflight slug validation in `build_runner.ts`; compile data preservation rules in `conversational_timeline.js` v45→v46; `equipment_manager.js` locLine trailing-dash fix; `#issues-found` Slack channel rule.
+- **Prior (2026-05-16):** AI Quote Pipeline design spec + Phase 64 slices (64a–64e); SDK model-guard fix; 63a–63f authored + 63e shipped; 63g–63h authored.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,8 +19,9 @@
 
 ## Immediate Next Step
 
-- **Run Phase 63 slices via SDK build runner** — `vertex` → `/a` to execute 63a–63h. 63a and 63e have no dependencies (run first). 63b→63c→63d chain. 63f depends on 63e. 63g depends on 63e. 63h depends on 63f + 63g.
-- **Phase 64 (Quote Pipeline Foundation)** ready in `tools/slices.ts` — 5 slices (64a–64e). 64a is foundation (Firestore migration); 64b–64e depend on 64a. See `PROJECT_STATUS/ai_quote_pipeline_spec.md` for full design.
+- **Implement Agent Architecture Separation** — 7-phase plan ready at `.cursor/plans/agent_architecture_separation_c9da7200.plan.md`. Creates `gemini_client.js` + 5 agent modules under `agents/`. Use the continuation prompt from this session.
+- **Run Phase 63 slices via SDK build runner** — `vertex` → `/a` to execute remaining slices. 63g reset to pending (was failing on invalid `-medium` slug, now fixed).
+- **Phase 64 (Quote Pipeline Foundation)** ready in `tools/slices.ts` — 5 slices (64a–64e).
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
