@@ -13,7 +13,7 @@
 (function (global) {
   "use strict";
 
-  var FIREBASE_LOGIC_VERSION = 2;
+  var FIREBASE_LOGIC_VERSION = 3;
   try {
     console.info("[VC] firebase_logic v=" + FIREBASE_LOGIC_VERSION + " loaded");
   } catch (e) {}
@@ -143,6 +143,20 @@
       return sandboxDefaultSubcollection(db, "field_quotes");
     }
     return tenantCollection(db, "field_quotes");
+  }
+
+  function officeQuotes(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "office_quotes");
+    }
+    return tenantCollection(db, "office_quotes");
+  }
+
+  function vendors(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "vendors");
+    }
+    return tenantCollection(db, "vendors");
   }
 
   function pmRecords(db) {
@@ -768,6 +782,8 @@
     siteIntelligence: siteIntelligence,
     rosterDoc: rosterDoc,
     fieldQuotes: fieldQuotes,
+    officeQuotes: officeQuotes,
+    vendors: vendors,
     pmRecords: pmRecords,
     fieldFormSubmissions: fieldFormSubmissions,
     onCallStateDoc: onCallStateDoc,

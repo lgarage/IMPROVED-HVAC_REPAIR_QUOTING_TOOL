@@ -149,10 +149,38 @@ function gatherFormData() {
 }
 
 function loadQuoteForEditing(dbId) {
-    let db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
-    const quote = db.find(q => q.id === dbId);
-    if (!quote) return;
+    try {
+        var fsDb = firebase.firestore();
+        var ref = window.VCFirestore ? window.VCFirestore.officeQuotes(fsDb) : fsDb.collection("office_quotes");
+        ref.doc(dbId).get().then(function(doc) {
+            if (doc.exists) {
+                var quote = doc.data();
+                quote.id = doc.id;
+                _populateQuoteForm(quote);
+            } else {
+                _loadQuoteFromLocalStorage(dbId);
+            }
+        }).catch(function(err) {
+            console.warn("[Quoting] Firestore load failed, trying localStorage:", err);
+            _loadQuoteFromLocalStorage(dbId);
+        });
+    } catch (e) {
+        console.warn("[Quoting] Firestore unavailable for load, using localStorage:", e);
+        _loadQuoteFromLocalStorage(dbId);
+    }
+}
 
+function _loadQuoteFromLocalStorage(dbId) {
+    var lsDb = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
+    var quote = null;
+    for (var i = 0; i < lsDb.length; i++) {
+        if (lsDb[i].id === dbId) { quote = lsDb[i]; break; }
+    }
+    if (!quote) return;
+    _populateQuoteForm(quote);
+}
+
+function _populateQuoteForm(quote) {
     document.getElementById('currentQuoteId').value = quote.id;
     document.getElementById('custNameInput').value = quote.customerName;
     document.getElementById('custNumInput').value = quote.customerNum;
@@ -161,42 +189,49 @@ function loadQuoteForEditing(dbId) {
     document.getElementById('custCityInput').value = quote.custCity || "";
     document.getElementById('custStateInput').value = quote.custState || "";
     document.getElementById('custZipInput').value = quote.custZip || "";
-    
-    // THE FIX IS ON THIS LINE:
-    document.getElementById('quoteLocNumInput').value = quote.locationNum;
-    
+    document.getElementById('quoteLocNumInput').value = quote.locationNum || "";
     document.getElementById('quoteNumberInput').value = quote.quoteNum;
     document.getElementById('quoteStatusInput').value = quote.status;
     document.getElementById('jobWorkflowInput').value = quote.jobWorkflow || "N/A";
     document.getElementById('requoteNoteHistory').value = quote.requoteNote || "";
     document.getElementById('newRequoteNote').value = "";
-    handleQuoteStatusChange(); updateLocationDatalist(); 
-    
+    handleQuoteStatusChange(); updateLocationDatalist();
+
     document.getElementById('quoteDateInput').value = quote.quoteDate;
     document.getElementById('dueDateInput').value = quote.dueDate;
     document.getElementById('laborHoursInput').value = quote.laborHours;
     document.getElementById('laborRateInput').value = quote.laborRate;
     document.getElementById('truckChargeInput').value = quote.truckCharge;
 
-    document.getElementById('partsContainer').innerHTML = `
-    <div class="parts-grid-layout part-header-row">
-        <label>QTY</label>
-        <label>Part Description</label>
-        <label>Part Number</label>
-        <label>Vendor</label>
-        <label>Lead Time (Days)</label>
-        <label>Our Cost $</label>
-        <label style="color:#27ae60;">Retail $ (Auto)</label>
-        <label></label>
-    </div>`;
-    
-    quote.parts.forEach(p => {
-        const row = document.createElement('div'); row.className = 'parts-grid-layout part-row part-entry-line';
-        const loadedLineRetail = p.retailTotal || 0;
-        
-        row.innerHTML = `<input type="number" class="p-qty" value="${p.qty}" min="1" oninput="calcQuoteLiveMath()"><input type="text" class="p-desc" value="${p.desc}"><input type="text" class="p-num" value="${p.num}"><input type="text" class="p-vendor text-uppercase" value="${p.vendor || ''}"><input type="text" class="p-lead" value="${p.lead}"><div class="cost-wrapper"><span>$</span><input type="number" class="p-cost" step="0.01" value="${p.cost}" oninput="calcQuoteLiveMath()"></div><div class="cost-wrapper" style="color:#27ae60;"><span>$</span><input type="text" class="p-retail" value="${loadedLineRetail.toFixed(2)}" readonly style="background:transparent; border:none; font-weight:bold; width:100%; outline:none;"></div><div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>`;
+    document.getElementById('partsContainer').innerHTML =
+    '<div class="parts-grid-layout part-header-row">' +
+        '<label>QTY</label>' +
+        '<label>Part Description</label>' +
+        '<label>Part Number</label>' +
+        '<label>Vendor</label>' +
+        '<label>Lead Time (Days)</label>' +
+        '<label>Our Cost $</label>' +
+        '<label style="color:#27ae60;">Retail $ (Auto)</label>' +
+        '<label></label>' +
+    '</div>';
+
+    var parts = quote.parts || [];
+    for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        var row = document.createElement('div');
+        row.className = 'parts-grid-layout part-row part-entry-line';
+        var loadedLineRetail = p.retailTotal || 0;
+
+        row.innerHTML = '<input type="number" class="p-qty" value="' + p.qty + '" min="1" oninput="calcQuoteLiveMath()">' +
+            '<input type="text" class="p-desc" value="' + (p.desc || '') + '">' +
+            '<input type="text" class="p-num" value="' + (p.num || '') + '">' +
+            '<input type="text" class="p-vendor text-uppercase" value="' + (p.vendor || '') + '">' +
+            '<input type="text" class="p-lead" value="' + (p.lead || '') + '">' +
+            '<div class="cost-wrapper"><span>$</span><input type="number" class="p-cost" step="0.01" value="' + p.cost + '" oninput="calcQuoteLiveMath()"></div>' +
+            '<div class="cost-wrapper" style="color:#27ae60;"><span>$</span><input type="text" class="p-retail" value="' + loadedLineRetail.toFixed(2) + '" readonly style="background:transparent; border:none; font-weight:bold; width:100%; outline:none;"></div>' +
+            '<div style="text-align: right;"><button class="remove-part-btn" onclick="this.parentElement.parentElement.remove(); triggerQuoteAutoSave();">X</button></div>';
         document.getElementById('partsContainer').appendChild(row);
-    });
+    }
 
     document.getElementById('resultsSection').style.display = 'none';
     document.getElementById('mainFormContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -388,87 +423,227 @@ function createQuote() {
     document.getElementById('internalView').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function saveQuoteToDatabase(silent = false, isAutoSave = false) {
-    if (!isAutoSave) { const pendingNote = document.getElementById('newRequoteNote').value.trim(); if (pendingNote !== "") addRequoteNote(); }
-    const data = gatherFormData();
+function saveQuoteToDatabase(silent, isAutoSave) {
+    if (silent === undefined) silent = false;
+    if (isAutoSave === undefined) isAutoSave = false;
+    if (!isAutoSave) { var pendingNote = document.getElementById('newRequoteNote').value.trim(); if (pendingNote !== "") addRequoteNote(); }
+    var data = gatherFormData();
 
     if (isAutoSave && data.id === "") return false;
     if (data.status === 'Requote Requested' && data.requoteNote.trim() === '') {
         if(!silent) alert("A note explaining why the requote was requested is required. Please type a note and click 'Add Note'.");
-        if(!isAutoSave) document.getElementById('newRequoteNote').focus(); return false; 
+        if(!isAutoSave) document.getElementById('newRequoteNote').focus(); return false;
     }
 
     if (!isAutoSave || data.id !== "") syncCustomerToDirectory(data);
 
-    let db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
-    if (data.id) {
-        const index = db.findIndex(q => q.id === data.id);
-        if (index !== -1) { db[index] = data; if(!silent) showSaveCue("✓ Quote Updated!"); }
-    } else {
-        data.id = 'DB-ID-' + Date.now(); db.push(data);
-        document.getElementById('currentQuoteId').value = data.id; incrementQuoteNumber(); 
-        if(!silent) showSaveCue(`✓ New Quote Created! (${data.quoteNum})`); 
+    data.updatedAt = new Date().toISOString();
+    var currentId = data.id;
+    var isNewQuote = !currentId || currentId.indexOf("DB-ID-") === 0;
+
+    if (isNewQuote) {
+        data.createdAt = new Date().toISOString();
     }
-    localStorage.setItem('twinPillarsQuotesDB', JSON.stringify(db));
-    renderQuoteHistory();
-    if (isAutoSave) showSaveCue("✓ Auto-Saved"); 
-    return true; 
+
+    try {
+        var db = firebase.firestore();
+        var ref = window.VCFirestore ? window.VCFirestore.officeQuotes(db) : db.collection("office_quotes");
+
+        if (isNewQuote) {
+            var localData = Object.assign({}, data);
+            delete localData.id;
+            ref.add(localData).then(function(docRef) {
+                data.id = docRef.id;
+                document.getElementById('currentQuoteId').value = docRef.id;
+                incrementQuoteNumber();
+                _saveQuoteToLocalStorage(data, true);
+                renderQuoteHistory();
+                if (!silent && !isAutoSave) showSaveCue("\u2713 New Quote Created! (" + data.quoteNum + ")");
+                if (isAutoSave) showSaveCue("\u2713 Auto-Saved");
+            }).catch(function(err) {
+                console.warn("[Quoting] Firestore write failed, localStorage fallback:", err);
+                data.id = 'DB-ID-' + Date.now();
+                document.getElementById('currentQuoteId').value = data.id;
+                incrementQuoteNumber();
+                _saveQuoteToLocalStorage(data, true);
+                renderQuoteHistory();
+                if (!silent && !isAutoSave) showSaveCue("\u2713 New Quote Created (offline)");
+                if (isAutoSave) showSaveCue("\u2713 Auto-Saved (offline)");
+            });
+        } else {
+            var updateData = Object.assign({}, data);
+            delete updateData.id;
+            ref.doc(currentId).set(updateData, { merge: true }).then(function() {
+                _saveQuoteToLocalStorage(data, false);
+                renderQuoteHistory();
+                if (!silent && !isAutoSave) showSaveCue("\u2713 Quote Updated!");
+                if (isAutoSave) showSaveCue("\u2713 Auto-Saved");
+            }).catch(function(err) {
+                console.warn("[Quoting] Firestore update failed, localStorage fallback:", err);
+                _saveQuoteToLocalStorage(data, false);
+                renderQuoteHistory();
+                if (!silent && !isAutoSave) showSaveCue("\u2713 Quote Updated (offline)");
+                if (isAutoSave) showSaveCue("\u2713 Auto-Saved (offline)");
+            });
+        }
+    } catch (e) {
+        console.warn("[Quoting] Firestore unavailable, localStorage only:", e);
+        if (isNewQuote) {
+            data.id = 'DB-ID-' + Date.now();
+            document.getElementById('currentQuoteId').value = data.id;
+            incrementQuoteNumber();
+        }
+        _saveQuoteToLocalStorage(data, isNewQuote);
+        renderQuoteHistory();
+        if (!silent && !isAutoSave) showSaveCue(isNewQuote ? "\u2713 New Quote Created (offline)" : "\u2713 Quote Updated (offline)");
+        if (isAutoSave) showSaveCue("\u2713 Auto-Saved (offline)");
+    }
+    return true;
+}
+
+function _saveQuoteToLocalStorage(data, isNew) {
+    try {
+        var lsDb = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
+        if (isNew) {
+            lsDb.push(data);
+        } else {
+            var idx = -1;
+            for (var i = 0; i < lsDb.length; i++) {
+                if (lsDb[i].id === data.id) { idx = i; break; }
+            }
+            if (idx !== -1) { lsDb[idx] = data; }
+            else { lsDb.push(data); }
+        }
+        localStorage.setItem('twinPillarsQuotesDB', JSON.stringify(lsDb));
+    } catch (e) {
+        console.warn("[Quoting] localStorage backup write failed:", e);
+    }
 }
 
 function renderQuoteHistory() {
-    let db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
-    const tableBody = document.getElementById('dbTableBody');
+    var tableBody = document.getElementById('dbTableBody');
     tableBody.innerHTML = "";
 
-    [...db].reverse().forEach(quote => {
-        let workflowText = (quote.jobWorkflow && quote.jobWorkflow !== 'N/A') ? quote.jobWorkflow : '';
-        if (quote.jobWorkflow === 'Needs to be Scheduled') workflowText = `<span style="color:#e74c3c; font-weight:bold; animation: pulse 2s infinite;">Needs to be Scheduled</span>`;
-        else if (workflowText) workflowText = `<span style="color:#555; font-weight:bold;">${workflowText}</span>`;
+    try {
+        var db = firebase.firestore();
+        var ref = window.VCFirestore ? window.VCFirestore.officeQuotes(db) : db.collection("office_quotes");
+        ref.orderBy("createdAt", "desc").limit(100).get().then(function(snapshot) {
+            tableBody.innerHTML = "";
+            snapshot.forEach(function(doc) {
+                var quote = doc.data();
+                quote.id = doc.id;
+                _renderQuoteRow(tableBody, quote);
+            });
+        }).catch(function(err) {
+            console.warn("[Quoting] Firestore read failed, falling back to localStorage:", err);
+            _renderQuoteHistoryFromLocalStorage(tableBody);
+        });
+    } catch (e) {
+        console.warn("[Quoting] Firestore unavailable for history, using localStorage:", e);
+        _renderQuoteHistoryFromLocalStorage(tableBody);
+    }
+}
 
-        let statusColor = '#333';
-        if(quote.status === 'Pending') statusColor = '#f39c12'; if(quote.status === 'Approved') statusColor = '#27ae60';
-        if(quote.status === 'Rejected') statusColor = '#7f8c8d'; if(quote.status === 'Requote Requested') statusColor = '#8e44ad';
+function _renderQuoteHistoryFromLocalStorage(tableBody) {
+    var lsDb = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
+    var reversed = lsDb.slice().reverse();
+    for (var i = 0; i < reversed.length; i++) {
+        _renderQuoteRow(tableBody, reversed[i]);
+    }
+}
 
-        let statusText = `<strong style="color:${statusColor}; font-size:13px;">${quote.status}</strong>`;
-        let tableLoc = quote.locationAddress;
-        let subLocStr = "";
-        if(quote.custCity) subLocStr += quote.custCity + ", ";
-        if(quote.custState) subLocStr += quote.custState + " ";
-        if(quote.custZip) subLocStr += quote.custZip;
-        if(subLocStr.trim() !== "") tableLoc += `<br><span style="font-size:11px; color:#777;">${subLocStr}</span>`;
+function _renderQuoteRow(tableBody, quote) {
+    var workflowText = (quote.jobWorkflow && quote.jobWorkflow !== 'N/A') ? quote.jobWorkflow : '';
+    if (quote.jobWorkflow === 'Needs to be Scheduled') workflowText = '<span style="color:#e74c3c; font-weight:bold; animation: pulse 2s infinite;">Needs to be Scheduled</span>';
+    else if (workflowText) workflowText = '<span style="color:#555; font-weight:bold;">' + workflowText + '</span>';
 
-        tableBody.innerHTML += `
-            <tr>
-                <td><button class="preview-btn" onclick="previewQuote('${quote.id}')">Preview</button></td>
-                <td>${quote.quoteDate}</td>
-                <td><strong>${quote.quoteNum}</strong></td>
-                <td>${quote.customerName}</td>
-                <td>${tableLoc}</td>
-                <td>$${quote.grandTotal.toFixed(2)}</td>
-                <td>${workflowText}</td>
-                <td style="text-align: center;">${statusText}</td>
-                <td>
-                    <button class="edit-btn" onclick="loadQuoteForEditing('${quote.id}')">Edit</button>
-                    <button class="delete-btn" onclick="deleteQuote('${quote.id}')">X</button>
-                </td>
-            </tr>
-        `;
-    });
+    var statusColor = '#333';
+    if(quote.status === 'Pending') statusColor = '#f39c12';
+    if(quote.status === 'Approved') statusColor = '#27ae60';
+    if(quote.status === 'Rejected') statusColor = '#7f8c8d';
+    if(quote.status === 'Requote Requested') statusColor = '#8e44ad';
+
+    var statusText = '<strong style="color:' + statusColor + '; font-size:13px;">' + quote.status + '</strong>';
+    var tableLoc = quote.locationAddress || '';
+    var subLocStr = "";
+    if(quote.custCity) subLocStr += quote.custCity + ", ";
+    if(quote.custState) subLocStr += quote.custState + " ";
+    if(quote.custZip) subLocStr += quote.custZip;
+    if(subLocStr.trim() !== "") tableLoc += '<br><span style="font-size:11px; color:#777;">' + subLocStr + '</span>';
+
+    var gt = (typeof quote.grandTotal === 'number') ? quote.grandTotal.toFixed(2) : '0.00';
+
+    tableBody.innerHTML += '<tr>' +
+        '<td><button class="preview-btn" onclick="previewQuote(\'' + quote.id + '\')">Preview</button></td>' +
+        '<td>' + (quote.quoteDate || '') + '</td>' +
+        '<td><strong>' + (quote.quoteNum || '') + '</strong></td>' +
+        '<td>' + (quote.customerName || '') + '</td>' +
+        '<td>' + tableLoc + '</td>' +
+        '<td>$' + gt + '</td>' +
+        '<td>' + workflowText + '</td>' +
+        '<td style="text-align: center;">' + statusText + '</td>' +
+        '<td>' +
+            '<button class="edit-btn" onclick="loadQuoteForEditing(\'' + quote.id + '\')">Edit</button>' +
+            ' <button class="delete-btn" onclick="deleteQuote(\'' + quote.id + '\')">X</button>' +
+        '</td>' +
+    '</tr>';
 }
 
 function previewQuote(dbId) {
-    loadQuoteForEditing(dbId);
-    updatePreviewHTML(); 
+    try {
+        var fsDb = firebase.firestore();
+        var ref = window.VCFirestore ? window.VCFirestore.officeQuotes(fsDb) : fsDb.collection("office_quotes");
+        ref.doc(dbId).get().then(function(doc) {
+            if (doc.exists) {
+                var quote = doc.data();
+                quote.id = doc.id;
+                _populateQuoteForm(quote);
+            } else {
+                _loadQuoteFromLocalStorage(dbId);
+            }
+            _showPreviewAfterLoad();
+        }).catch(function() {
+            _loadQuoteFromLocalStorage(dbId);
+            _showPreviewAfterLoad();
+        });
+    } catch (e) {
+        _loadQuoteFromLocalStorage(dbId);
+        _showPreviewAfterLoad();
+    }
+}
+
+function _showPreviewAfterLoad() {
+    updatePreviewHTML();
     document.getElementById('resultsSection').style.display = 'block';
     document.getElementById('internalView').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function deleteQuote(dbId) {
     if(confirm("Are you sure you want to completely delete this quote?")) {
-        let db = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
-        db = db.filter(q => q.id !== dbId);
-        localStorage.setItem('twinPillarsQuotesDB', JSON.stringify(db));
-        renderQuoteHistory();
+        try {
+            var lsDb = JSON.parse(localStorage.getItem('twinPillarsQuotesDB') || '[]');
+            var filtered = [];
+            for (var i = 0; i < lsDb.length; i++) {
+                if (lsDb[i].id !== dbId) filtered.push(lsDb[i]);
+            }
+            localStorage.setItem('twinPillarsQuotesDB', JSON.stringify(filtered));
+        } catch (e) {
+            console.warn("[Quoting] localStorage delete cleanup failed:", e);
+        }
+
+        try {
+            var db = firebase.firestore();
+            var ref = window.VCFirestore ? window.VCFirestore.officeQuotes(db) : db.collection("office_quotes");
+            ref.doc(dbId).delete().then(function() {
+                renderQuoteHistory();
+            }).catch(function(err) {
+                console.warn("[Quoting] Firestore delete failed:", err);
+                renderQuoteHistory();
+            });
+        } catch (e) {
+            console.warn("[Quoting] Firestore unavailable for delete:", e);
+            renderQuoteHistory();
+        }
     }
 }
 

@@ -164,6 +164,12 @@ service cloud.firestore {
     match /tenants/{tid}/field_quotes/{document=**} {
       allow read, write: if true;
     }
+    match /tenants/{tid}/office_quotes/{document=**} {
+      allow read, write: if true;
+    }
+    match /tenants/{tid}/vendors/{document=**} {
+      allow read, write: if true;
+    }
     match /tenants/{tid}/pm_records/{document=**} {
       allow read, write: if true;
     }
