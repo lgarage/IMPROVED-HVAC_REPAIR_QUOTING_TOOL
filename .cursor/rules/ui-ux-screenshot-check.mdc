@@ -51,3 +51,22 @@ Playwright package is already installed in the project root.
 ## Do NOT skip this step
 
 Do not say "deployed and pushed" for any UI change without first verifying the screenshot looks correct. If the screenshot shows the wrong result, fix it before closing the task.
+
+---
+
+## Hard-won lessons (2026-05-17 — transparent header session)
+
+### Lesson 1: `position: sticky` always reserves physical space
+Even when `background: transparent`, a sticky element holds its height in the document flow. The body background (`#0f172a`) fills that space and creates a visible dark band. **Fix:** switch to `position: fixed` on workspace, set workspace to `height: 100dvh`, add `padding-top` to the message list so content starts below the floating bars.
+
+### Lesson 2: `el.style.right = ""` does NOT override a CSS class rule
+Clearing an inline style with `""` removes the inline value, letting the CSS class rule take over again. If a class sets `right: 6px` and you want to override it with `left`, set `el.style.right = "auto"` — not `""`.
+
+### Lesson 3: "Transparent over same-color background" looks solid
+If the page background and the area behind the transparent element are the same color (`#0f172a`), removing the fill looks identical. The transparency only becomes visible when content of a different color (e.g. message bubbles) scrolls behind the element. Show the user this by scrolling chat content behind the pills.
+
+### Lesson 4: Use `body.ws-active` CSS class, not JS `style.display`
+Toggling `display: none` via JS breaks `offsetHeight` measurements and `--vc-app-shell-height`. Instead, add/remove a body class (`document.body.classList.toggle('ws-active', screenName === 'workspace')`) and use CSS selectors to change layout per screen.
+
+### Lesson 5: The VC DEBUG overlay blocks Playwright clicks
+The debug overlay has `pointer-events: auto` and covers the lower screen. Always use `?vc_debug=0` in the Playwright URL to disable it before automating clicks.

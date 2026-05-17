@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 (ChatGPT UI redesign). Phase 64 slices ready.
-- **Last shipped (2026-05-17):** Frosted glass (backdrop-filter blur) applied to `.app-top-shell`, `.ws-pill`, and `.ct-input-row` — header and composer pills show translucent blur over scrolling content. `technician/index.html`.
-- **Prior (2026-05-17):** Idea Tracker Slack sync. Phase65-ChatGPTUI (minimal nav, waveform mic). Phase65-SpacePolish.
+- **Last shipped (2026-05-17):** HeaderV7 — floating pill chrome: `app-top-shell` + workspace nav both `position:fixed` on workspace (`body.ws-active`), transparent background, all elements (DAN D, Schedule, PLANET FITNESS, ···, +, input, mic) are independent solid pills over transparent chrome. `VC_BUILD: Phase65-HeaderV7-2026-05-17`.
+- **Prior (2026-05-17):** VC DEBUG draggable. Mic SVG icon. Phase65-ChatGPTUI.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Immediate Next Step:** Hard-refresh the field app on iPhone and confirm the frosted glass blur is visible on the header shell and both pills as you scroll chat bubbles behind them.
+- **Immediate Next Step:** Field-test HeaderV7 on iPhone — scroll chat messages upward past the PLANET FITNESS pill and DAN D/Schedule row to verify messages are visible behind the transparent chrome. Phase 64 slices (64a–64e) in `tools/slices.ts` ready to run via SDK build runner.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
