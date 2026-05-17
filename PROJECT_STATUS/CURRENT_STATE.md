@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 65 (Space Polish). Phase 64 slices ready.
-- **Last shipped (2026-05-17):** Phase65-SpacePolish — Slack-feel spacing pass: message gap 8→12px, side margins 12→16px, softer nav divider, lighter customer name, open input box, softer dock shadow.
-- **Prior (2026-05-17):** Phase 63 (Field Intelligence) + Agent Architecture Separation. Idea Tracker system.
+- **Active Phase:** Phase 65 (ChatGPT UI redesign). Phase 64 slices ready.
+- **Last shipped (2026-05-17):** Phase65-ChatGPTUI — minimal nav bar (customer name tap → job details), all messages left-justified, single-row dock (+ | input | 🎤 | ↑), waveform recording, ↑ stops+sends voice, 3-dots menu.
+- **Prior (2026-05-17):** Phase65-SpacePolish (airy spacing pass). Phase 63 (Field Intelligence).
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Field-test Phase 65 polish** — Load workspace on mobile. Messages should feel airier (more gap, wider side margins), nav less heavy, input box more open.
+- **Field-test Phase 65 ChatGPT UI** — Open workspace. Verify: (1) messages all left-aligned, (2) minimal nav shows only customer name + ⋯, (3) tap customer name → job details drop, (4) dock is single row with +/🎤/↑, (5) tap 🎤 → waveform animates → tap ↑ → sends transcript.
 - **Phase 64 (Quote Pipeline Foundation)** ready in `tools/slices.ts` — 5 slices (64a–64e). Run via SDK build runner (`vertex` → `/a`).
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.

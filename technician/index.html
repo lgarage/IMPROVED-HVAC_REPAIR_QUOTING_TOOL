@@ -1227,9 +1227,9 @@ body.vc-override-active #vcOfficeOverrideBanner {
   flex-direction: column;
   gap: 12px;
 }
-/* Reserve space so last bubbles clear the fixed composer dock (util-row + input row ≈ 106px). */
+/* Reserve space so last bubbles clear the fixed composer dock (single input row ≈ 72px). */
 #screen-workspace.screen.active #ct-message-list {
-  padding-bottom: calc(16px + 106px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(16px + 72px + env(safe-area-inset-bottom, 0px));
 }
 
 .ct-message {
@@ -1252,7 +1252,7 @@ body.vc-override-active #vcOfficeOverrideBanner {
 }
 
 .ct-message--tech {
-  align-self: flex-end;
+  align-self: flex-start;
   background: #1e3a5f;
   color: #e2e8f0;
 }
@@ -1472,11 +1472,11 @@ body.vc-override-active #vcOfficeOverrideBanner {
 .ct-input-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 26px;
-  padding: 6px 6px 6px 14px;
+  padding: 4px 4px 4px 4px;
   transition: border-color 0.15s;
 }
 .ct-input-row:focus-within {
@@ -1524,7 +1524,7 @@ body.vc-override-active #vcOfficeOverrideBanner {
   border: none;
   color: #e2e8f0;
   font-size: 16px;
-  padding: 6px 4px;
+  padding: 8px 4px;
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -1972,7 +1972,7 @@ body.vc-override-active #vcOfficeOverrideBanner {
 }
 
 .ct-message--draft {
-  align-self: flex-end;
+  align-self: flex-start;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(148, 163, 184, 0.3);
   color: #94a3b8;
@@ -2160,6 +2160,71 @@ body.vc-override-active #vcOfficeOverrideBanner {
   border-top: 1px solid rgba(148, 163, 184, 0.12);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Attachment (+) button inside input row ─────────────────── */
+.ct-attach-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 24px;
+  font-weight: 300;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+.ct-attach-btn:active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+/* ── Mic icon button ─────────────────────────────────────────── */
+.ct-mic-icon {
+  background: transparent;
+  color: #94a3b8;
+  font-size: 17px;
+}
+.ct-mic-icon:active { background: rgba(255, 255, 255, 0.1); }
+.ct-mic-icon.ct-recording {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* ── Waveform animation (shown when recording) ───────────────── */
+.ct-waveform {
+  display: none;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 28px;
+  pointer-events: none;
+}
+.ct-input-row.ct-recording .ct-waveform { display: flex; }
+.ct-input-row.ct-recording #ct-type-input { display: none; }
+.ct-waveform span {
+  display: block;
+  width: 3px;
+  background: #0ea5e9;
+  border-radius: 3px;
+  animation: ct-wave 0.9s ease-in-out infinite;
+}
+.ct-waveform span:nth-child(1) { height: 8px;  animation-delay: 0s; }
+.ct-waveform span:nth-child(2) { height: 16px; animation-delay: 0.1s; }
+.ct-waveform span:nth-child(3) { height: 24px; animation-delay: 0.2s; }
+.ct-waveform span:nth-child(4) { height: 16px; animation-delay: 0.3s; }
+.ct-waveform span:nth-child(5) { height: 8px;  animation-delay: 0.4s; }
+@keyframes ct-wave {
+  0%, 100% { transform: scaleY(0.35); opacity: 0.7; }
+  50%       { transform: scaleY(1);   opacity: 1; }
 }
 
 /* Utility row inside dock: Add Media (orange) + PTT (green) — same pill size as compile/sync */
@@ -3383,21 +3448,56 @@ body.vc-override-active #vcOfficeOverrideBanner {
 .dictation-site-nav {
   background: #0f172a;
   color: #94a3b8;
-  padding: 8px 14px 10px;
+  padding: 0;
   border-bottom: 1px solid rgba(14, 165, 233, 0.35);
 }
 /* `.workspace-site-banner-sticky` was previously `position: sticky` with a JS-measured `top` offset.
  * Removed: parent `#screen-workspace.active` is `overflow: hidden` and `height: calc(100dvh - shell)`,
  * so the banner is already always-visible by virtue of being outside the scroll container.
  * Sticky + z-index + JS offset were redundant complexity that fought box-shadows on adjacent layers. */
-.dictation-site-nav .ws-customer-row {
+
+/* ── Minimal title bar ───────────────────────────────────────── */
+.ws-minimal-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
+  gap: 8px;
+  padding: 10px 14px;
 }
-.dictation-site-nav .ws-customer-row .ws-customer { margin-bottom: 0; flex: 1; min-width: 0; }
-.dictation-site-nav .ws-customer { font-size: 18px; font-weight: 700; margin-bottom: 6px; color: #f1f5f9; }
+.ws-customer-title-btn {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.ws-customer-title-btn .ws-customer {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+/* ── Job details expandable panel ────────────────────────────── */
+.ws-job-details-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.28s ease, padding 0.28s ease;
+  padding: 0 14px;
+}
+.dictation-site-nav.ws-expanded .ws-job-details-panel {
+  max-height: 220px;
+  padding: 0 14px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+/* Keep ws-customer readable for JS writers but hide it if standalone */
+.dictation-site-nav .ws-customer { font-size: 16px; font-weight: 700; margin-bottom: 0; color: #f1f5f9; }
 /* Hamburger site-actions menu */
 .ws-site-menu-wrap {
   position: relative;
@@ -3405,35 +3505,29 @@ body.vc-override-active #vcOfficeOverrideBanner {
 }
 .ws-site-menu-btn {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   width: 36px;
   height: 36px;
   padding: 0;
-  border: 1px solid rgba(255,255,255,0.35);
-  border-radius: 8px;
-  background: rgba(255,255,255,0.12);
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: #94a3b8;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 1px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.2s;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
 }
 .ws-site-menu-btn:active,
-.ws-site-menu-btn[aria-expanded="true"] { background: rgba(255,255,255,0.25); }
-.ws-site-menu-btn__bar {
-  display: block;
-  width: 18px;
-  height: 2px;
-  border-radius: 2px;
-  background: #fff;
+.ws-site-menu-btn[aria-expanded="true"] {
+  background: rgba(255,255,255,0.12);
+  color: #e2e8f0;
 }
-.ws-site-menu-btn.site-intel--has-data {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(56, 189, 248, 0.55);
-  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.25);
-}
-.ws-site-menu-btn.site-intel--has-data .ws-site-menu-btn__bar { background: #f1f5f9; }
+.ws-site-menu-btn.site-intel--has-data { color: #38bdf8; }
 .ws-site-menu-dropdown {
   position: absolute;
   top: calc(100% + 6px);
@@ -6548,45 +6642,49 @@ button#techDisplayLabel:active { opacity: 0.75; }
 
   <div id="workspaceLockScope" class="workspace-lock-scope">
   <div class="workspace-site-banner-sticky">
-    <nav class="dictation-site-nav" aria-label="Customer and site">
-      <div class="ws-customer-row">
-        <div id="ws-customer" class="ws-customer">Select a Job</div>
+    <nav class="dictation-site-nav" aria-label="Customer and site" id="wsNavBar">
+      <!-- Hidden trigger buttons kept in DOM — JS wiring targets their IDs -->
+      <button type="button" id="wsSiteIntelBtn" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="Site-specific intel">Site Intel</button>
+      <button type="button" id="wsHistoryBtn" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="Service history">🕒 History</button>
+      <button type="button" id="btnOpenEquipmentHub" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="View site equipment">🗄️ View Site Equipment</button>
+      <button type="button" id="btnOpenFormsPanel" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="Add forms">📋 Add additional forms</button>
+
+      <!-- Minimal title bar -->
+      <div class="ws-minimal-bar">
+        <button type="button" id="wsCustomerTitleBtn" class="ws-customer-title-btn" aria-haspopup="true" aria-expanded="false" aria-label="Tap for job details">
+          <span id="ws-customer" class="ws-customer">Select a Job</span>
+        </button>
         <div class="ws-site-menu-wrap">
-          <button type="button" id="wsSiteMenuBtn" class="ws-site-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Site actions menu" title="Site Notes, History, View Site Equipment">
-            <span class="ws-site-menu-btn__bar"></span>
-            <span class="ws-site-menu-btn__bar"></span>
-            <span class="ws-site-menu-btn__bar"></span>
-          </button>
+          <button type="button" id="wsSiteMenuBtn" class="ws-site-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Actions menu">···</button>
           <div id="wsSiteMenuDropdown" class="ws-site-menu-dropdown" role="menu">
             <button type="button" class="ws-site-menu-item" id="wsSiteMenuSiteIntel" role="menuitem">🔍 Site Notes</button>
             <button type="button" class="ws-site-menu-item" id="wsSiteMenuHistory" role="menuitem">🕒 History</button>
             <button type="button" class="ws-site-menu-item" id="wsSiteMenuEquipment" role="menuitem">🗄️ View Site Equipment</button>
-            <button type="button" class="ws-site-menu-item" id="wsSiteMenuAddEquipment" role="menuitem">➕ Add additional equipment</button>
-            <button type="button" class="ws-site-menu-item" id="wsSiteMenuForms" role="menuitem">📋 Add additional forms</button>
+            <button type="button" class="ws-site-menu-item" id="wsSiteMenuAddEquipment" role="menuitem">➕ Add equipment</button>
+            <button type="button" class="ws-site-menu-item" id="wsSiteMenuForms" role="menuitem">📋 Add forms</button>
             <button type="button" class="ws-site-menu-item" id="wsSiteMenuChronicle" role="menuitem">📝 Field Chronicle</button>
           </div>
         </div>
       </div>
-      <!-- Original trigger buttons kept hidden in DOM; JS wiring targets them -->
-      <button type="button" id="wsSiteIntelBtn" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="Site-specific intel (roof access, etc.)">Site Intel</button>
-      <button type="button" id="wsHistoryBtn" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="Service history for this site">🕒 History</button>
-      <button type="button" id="btnOpenEquipmentHub" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="View and add equipment for this site">🗄️ View Site Equipment</button>
-      <button type="button" id="btnOpenFormsPanel" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="Add additional forms">📋 Add additional forms</button>
-      <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
-        Return to Schedule to pick a ticket
-      </button>
-      <div class="ws-ticket-shadow-row">
-        <div id="ws-ticket" class="ws-ticket" role="button" tabindex="0" title="Tap to view reason for call" onclick="toggleWorkspaceReasonBanner()" onkeydown="if(event.key==='Enter'||event.key===' ')toggleWorkspaceReasonBanner()">NO TICKET</div>
-        <select id="wsJobStatusInline" class="ws-job-status-inline" aria-label="Job status">
-          <option value="Completed">✅ Completed</option>
-          <option value="Needs Repair Quote">📋 Quote Needed</option>
-          <option value="Parts on Order">📦 Parts Ordered</option>
-          <option value="Dispatched" selected>🔄 In Progress</option>
-        </select>
-      </div>
-      <div id="ws-reason-for-call" class="ws-reason-for-call hidden" role="region" aria-label="Reason for call" aria-hidden="true">
-        <div class="ws-reason-for-call-label">Reason for call</div>
-        <div id="ws-reason-for-call-text" class="ws-reason-for-call-body"></div>
+
+      <!-- Expandable job details panel (tap customer name to toggle) -->
+      <div class="ws-job-details-panel" id="wsJobDetailsPanel">
+        <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
+          Return to Schedule to pick a ticket
+        </button>
+        <div class="ws-ticket-shadow-row">
+          <div id="ws-ticket" class="ws-ticket" role="button" tabindex="0" title="Tap to view reason for call" onclick="toggleWorkspaceReasonBanner()" onkeydown="if(event.key==='Enter'||event.key===' ')toggleWorkspaceReasonBanner()">NO TICKET</div>
+          <select id="wsJobStatusInline" class="ws-job-status-inline" aria-label="Job status">
+            <option value="Completed">✅ Completed</option>
+            <option value="Needs Repair Quote">📋 Quote Needed</option>
+            <option value="Parts on Order">📦 Parts Ordered</option>
+            <option value="Dispatched" selected>🔄 In Progress</option>
+          </select>
+        </div>
+        <div id="ws-reason-for-call" class="ws-reason-for-call hidden" role="region" aria-label="Reason for call" aria-hidden="true">
+          <div class="ws-reason-for-call-label">Reason for call</div>
+          <div id="ws-reason-for-call-text" class="ws-reason-for-call-body"></div>
+        </div>
       </div>
     </nav>
   </div>
@@ -6632,27 +6730,16 @@ button#techDisplayLabel:active { opacity: 0.75; }
       </div>
     </div>
     <div id="ct-composer-dock" class="ct-composer-dock" aria-label="Message composer">
-      <!-- Utility row: Add Media (orange) + PTT (green) — always visible, fixed at bottom -->
-      <div class="ct-util-row">
-        <button
-          id="ct-media-btn"
-          type="button"
-          class="ct-photo-btn"
-          aria-label="Add media"
-          aria-pressed="false"
-          title="Tap to add a photo, video, or file"
-        >📎 Add Media</button>
-        <button
-          id="ct-talk-btn"
-          type="button"
-          class="ct-ptt-btn"
-          aria-label="Hold to talk"
-          aria-pressed="false"
-          title="Hold to talk"
-        ><span class="ct-talk-indicator" aria-hidden="true"></span> Push to Talk</button>
-      </div>
       <div id="ct-action-bar" role="group" aria-label="Timeline input controls">
         <div class="ct-input-row">
+          <!-- + opens media action sheet -->
+          <button
+            id="ct-media-btn"
+            type="button"
+            class="ct-attach-btn"
+            aria-label="Add media"
+            title="Add photo, video, or file"
+          >+</button>
           <input
             id="ct-type-input"
             type="text"
@@ -6663,6 +6750,19 @@ button#techDisplayLabel:active { opacity: 0.75; }
             spellcheck="true"
             enterkeyhint="send"
           />
+          <!-- Waveform animates when mic is recording -->
+          <div class="ct-waveform" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <!-- Mic: tap to start recording; tap send to stop+transcribe+send -->
+          <button
+            id="ct-talk-btn"
+            type="button"
+            class="ct-icon-btn ct-mic-icon"
+            aria-label="Record voice note"
+            aria-pressed="false"
+            title="Tap to record"
+          >🎤</button>
           <button
             id="ct-send-btn"
             type="button"
@@ -7319,7 +7419,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase65-SpacePolish-2026-05-17";
+window.VC_BUILD = "Phase65-ChatGPTUI-2026-05-17";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -12273,13 +12373,22 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=5"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
-    <script src="../conversational_timeline.js?v=48"></script>
+    <script src="../conversational_timeline.js?v=49"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');
       var inp = document.getElementById('ct-type-input');
       if (!btn || !inp) return;
       btn.addEventListener('click', function () {
+        /* If mic is active, stop + transcribe + send the voice note */
+        var micBtn = document.getElementById('ct-talk-btn');
+        if (micBtn && micBtn.classList.contains('ct-recording')) {
+          if (window.ConversationalTimeline && window.ConversationalTimeline.stopAndSend) {
+            window.ConversationalTimeline.stopAndSend();
+            return;
+          }
+        }
+        /* Normal text send */
         inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
       });
     })();
@@ -12382,6 +12491,35 @@ window.onload = async function(){
         document.addEventListener("DOMContentLoaded", initSiteMenu);
       } else {
         initSiteMenu();
+      }
+    }());
+    </script>
+    <script>
+    /* Customer name tap → expand/collapse job details panel */
+    (function wireCustomerTap() {
+      function init() {
+        var btn = document.getElementById("wsCustomerTitleBtn");
+        var nav = document.getElementById("wsNavBar");
+        if (!btn || !nav) return;
+        if (btn.dataset.vcWired === "1") return;
+        btn.dataset.vcWired = "1";
+        btn.addEventListener("click", function () {
+          var expanded = nav.classList.toggle("ws-expanded");
+          btn.setAttribute("aria-expanded", String(expanded));
+        });
+        /* Close when tapping outside the nav */
+        document.addEventListener("click", function (e) {
+          if (nav.classList.contains("ws-expanded") &&
+              !nav.contains(e.target)) {
+            nav.classList.remove("ws-expanded");
+            btn.setAttribute("aria-expanded", "false");
+          }
+        });
+      }
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        init();
       }
     }());
     </script>

@@ -637,6 +637,7 @@
   var _draftEl = null;
   var _finalTranscript = "";
   var _interimTranscript = "";
+  var _sendOnStop = false; /* true when send btn tapped while recording → auto-send on onend */
 
   function getSpeechRecognitionClass() {
     return window.SpeechRecognition || window.webkitSpeechRecognition || null;
@@ -685,16 +686,18 @@
   function setRecordingState(active) {
     _isRecording = active;
     var btn = document.getElementById("ct-talk-btn");
-    if (!btn) return;
-    var indicator = btn.querySelector(".ct-talk-indicator");
-    if (active) {
-      btn.classList.add("ct-recording");
-      btn.setAttribute("aria-pressed", "true");
-      if (indicator) { indicator.style.background = "#ff3c3c"; }
-    } else {
-      btn.classList.remove("ct-recording");
-      btn.setAttribute("aria-pressed", "false");
-      if (indicator) { indicator.style.background = ""; }
+    var inputRow = document.querySelector(".ct-input-row");
+    if (btn) {
+      if (active) {
+        btn.classList.add("ct-recording");
+        btn.setAttribute("aria-pressed", "true");
+      } else {
+        btn.classList.remove("ct-recording");
+        btn.setAttribute("aria-pressed", "false");
+      }
+    }
+    if (inputRow) {
+      inputRow.classList.toggle("ct-recording", active);
     }
   }
 
@@ -760,12 +763,21 @@
     };
 
     _recognition.onend = function () {
+      var wasSendTriggered = _sendOnStop;
+      _sendOnStop = false;
       setRecordingState(false);
       removeDraftBubble();
       _recognition = null;
       var finalText = (_finalTranscript + _interimTranscript).trim();
       if (finalText) {
-        addEntry(finalText, "tech", currentTicketId);
+        if (wasSendTriggered) {
+          /* ↑ send tapped while recording → transcribe + send immediately */
+          addEntry(finalText, "tech", currentTicketId);
+        } else {
+          /* STT ended naturally (silence/timeout) → populate input for review */
+          var input = document.getElementById("ct-type-input");
+          if (input) { input.value = finalText; input.focus(); }
+        }
       } else if (loadEntries(currentTicketId).length === 0) {
         /* restore placeholder if no entries and nothing captured */
         var stream = getMessageStreamEl();
@@ -2360,38 +2372,15 @@
         talkBtn.style.opacity = "0.45";
         talkBtn.style.cursor = "not-allowed";
       }
-
-      var hasPointerEvents = (typeof window.PointerEvent !== "undefined");
-
-      if (hasPointerEvents) {
-        talkBtn.addEventListener("pointerdown", function (e) {
-          e.preventDefault(); /* prevents ghost click on mobile */
+      /* Click-to-toggle: tap mic to start; tap send ↑ to stop+transcribe+send */
+      talkBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        if (_isRecording) {
+          stopListening();
+        } else {
           startListening();
-        });
-        talkBtn.addEventListener("pointerup", function (e) {
-          e.preventDefault();
-          stopListening();
-        });
-        talkBtn.addEventListener("pointercancel", function () {
-          stopListening();
-        });
-        talkBtn.addEventListener("pointerleave", function () {
-          if (_isRecording) stopListening();
-        });
-      } else {
-        /* iOS Safari < 13 — pointer events not available */
-        talkBtn.addEventListener("touchstart", function (e) {
-          if (e.cancelable) e.preventDefault();
-          startListening();
-        }, { passive: false });
-        talkBtn.addEventListener("touchend", function (e) {
-          if (e.cancelable) e.preventDefault();
-          stopListening();
-        }, { passive: false });
-        talkBtn.addEventListener("touchcancel", function () {
-          stopListening();
-        });
-      }
+        }
+      });
     }
 
     if (typeInput) {
@@ -3708,6 +3697,12 @@
     init();
   }
 
+  function stopAndSend() {
+    if (!_isRecording) return;
+    _sendOnStop = true;
+    stopListening();
+  }
+
   window.ConversationalTimeline = {
     init: init,
     addEntry: addEntry,
@@ -3717,6 +3712,7 @@
     onWorkspaceClose: onWorkspaceClose,
     startListening: startListening,
     stopListening: stopListening,
+    stopAndSend: stopAndSend,
     openMediaActionSheet: openMediaActionSheet,
     capturePhotoNative: capturePhotoNative,
     captureVideoNative: captureVideoNative,
