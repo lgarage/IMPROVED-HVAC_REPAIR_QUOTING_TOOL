@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 63 complete. **Phase 64 slices authored** (AI Quote Pipeline — Foundation). **Agent Architecture Separation** shipped.
-- **Last shipped (2026-05-17):** Phase 63 slices 63g + 63h. 63g (nameplate OCR) was already built by prior SDK run — validator bug fixed. 63h (site_intelligence service history in Equipment Hub) implemented manually. Validator updated to scan JS files for dynamically-created HTML elements.
-- **Prior (2026-05-17):** Idea Tracker system. Agent Architecture Separation. Prior (2026-05-16): AI Quote Pipeline spec + Phase 64 slices.
+- **Active Phase:** Phase 63 deployed. **Phase 64 slices authored** (AI Quote Pipeline — Foundation).
+- **Last shipped (2026-05-17):** Phase 63 (Field Intelligence: Contextual Checklists). Deployed to hosting. Agent Architecture Separation shipped.
+- **Prior (2026-05-17):** Idea Tracker system. Agent Architecture Separation.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Deploy + field-test Phase 63** — `firebase deploy --only hosting` to push agent separation + nameplate OCR + equipment history view. Test compile notes, nameplate OCR, service history in Equipment Hub on mobile.
+- **Field-test Phase 63** — Test compile notes, nameplate OCR, and service history in Equipment Hub on mobile.
 - **Phase 64 (Quote Pipeline Foundation)** ready in `tools/slices.ts` — 5 slices (64a–64e). Run via SDK build runner (`vertex` → `/a`).
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
