@@ -2830,6 +2830,28 @@
       openCompileModal(_compiledDisplayText);
       /* Slice 63f: post-compile equipment classification */
       classifyEquipmentFindings(_compiledResult, entries, compileTicketId);
+      /* Slice 64g: quote data generation */
+      try {
+        var _quoteMatchedTemplates = (typeof window.getActiveFormTemplates === "function")
+          ? (window.getActiveFormTemplates() || []).filter(function (t) { return t && t.data && t.data.quoteRelevant; })
+          : [];
+        if (_quoteMatchedTemplates.length && window.VCAgents && window.VCAgents.QuoteDataBuilder) {
+          var _quoteEquipCtx = {
+            activeEquipment: (window.VCJobContext && window.VCJobContext.activeEquipment) || "",
+            nameplateFields: window._lastNameplateFields || null
+          };
+          var _quoteTicketId = compileTicketId;
+          typeof getGeminiApiKey === "function" && getGeminiApiKey().then(function (apiKey) {
+            if (!apiKey) return;
+            return window.VCAgents.QuoteDataBuilder.buildQuoteData(
+              _compiledDisplayText, _quoteMatchedTemplates, _quoteEquipCtx, apiKey
+            );
+          }).then(function (quoteData) {
+            if (!quoteData || !quoteData.repairs || !quoteData.repairs.length) return;
+            showQuoteDataCard(quoteData, _quoteTicketId);
+          }).catch(function () {});
+        }
+      } catch (_qe) {}
     }).catch(function (err) {
       var fallbackText = "── Compile Error ──\n" +
         (err && err.message ? err.message : "Unknown error") +
@@ -2946,6 +2968,119 @@
     if (container && !container.querySelector(".ct-equip-save-card")) {
       container.remove();
     }
+  }
+
+  /* ── Slice 64g: Quote data card ────────────────────────────── */
+
+  function showQuoteDataCard(quoteData, ticketId) {
+    var existing = document.getElementById("ct-quote-data-card");
+    if (existing) existing.remove();
+
+    window._pendingQuoteData = quoteData;
+    var repairs = quoteData.repairs;
+
+    var html = '<div id="ct-quote-data-card" style="background:#fefce8;border:1px solid #fde047;' +
+      'border-radius:10px;padding:14px 16px;margin-top:12px;">';
+    html += '<div style="font-weight:700;color:#713f12;margin-bottom:8px;">\uD83D\uDD16 Repair quote detected</div>';
+
+    for (var i = 0; i < repairs.length; i++) {
+      var r = repairs[i];
+      html += '<div style="font-size:13px;color:#422006;margin-bottom:6px;">' +
+        '<strong>' + (r.repairType || "Repair") + '</strong>' +
+        (r.equipmentRef ? ' \u2014 ' + r.equipmentRef : '') + '</div>';
+
+      if (r.confirmedParts && r.confirmedParts.length) {
+        for (var cp = 0; cp < r.confirmedParts.length; cp++) {
+          var p = r.confirmedParts[cp];
+          html += '<div style="font-size:12px;color:#78350f;padding-left:12px;">\u2713 ' + p.description +
+            (p.specs ? ' <span style="color:#a16207;">(' + p.specs + ')</span>' : '') + '</div>';
+        }
+      }
+      if (r.suggestedParts && r.suggestedParts.length) {
+        for (var sp = 0; sp < r.suggestedParts.length; sp++) {
+          var s = r.suggestedParts[sp];
+          html += '<div style="font-size:12px;color:#a16207;padding-left:12px;">\u25e6 ' + s.description +
+            (s.specs ? ' <span style="color:#ca8a04;">(' + s.specs + ')</span>' : '') +
+            ' <span style="font-size:10px;background:#fef08a;border-radius:3px;padding:1px 4px;">suggested</span></div>';
+        }
+      }
+
+      html += '<div style="margin-top:6px;display:flex;align-items:center;gap:8px;">' +
+        '<label style="font-size:12px;color:#713f12;font-weight:600;">Labor hours:</label>' +
+        '<input type="number" class="ct-quote-labor-input" data-repair-idx="' + i + '"' +
+        ' min="0.25" step="0.25" value="' + (r.laborHours !== null && r.laborHours !== undefined ? r.laborHours : '') + '"' +
+        ' placeholder="e.g. 2"' +
+        ' style="width:70px;padding:4px 8px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;">' +
+        '</div>';
+    }
+
+    html += '<div style="display:flex;gap:8px;margin-top:12px;">' +
+      '<button id="ct-quote-include-btn" data-ticket-id="' + (ticketId || "") + '"' +
+      ' style="background:#ca8a04;color:#fff;border:none;border-radius:8px;padding:9px 18px;' +
+      'cursor:pointer;font-size:13px;font-weight:600;">Include in Quote</button>' +
+      '<button id="ct-quote-skip-btn"' +
+      ' style="background:none;border:1px solid #d97706;border-radius:8px;padding:9px 14px;' +
+      'cursor:pointer;font-size:13px;color:#92400e;">Skip</button>' +
+      '</div></div>';
+
+    var modal = document.getElementById("ct-compile-modal");
+    if (!modal) return;
+    var modalContent = modal.querySelector(".ct-compile-content") || modal;
+    modalContent.insertAdjacentHTML("beforeend", html);
+  }
+
+  /**
+   * saveQuoteDataToTicket — persist quote_data locally.
+   * Slice 64h will wire this to Firestore.
+   */
+  function saveQuoteDataToTicket(quoteData, ticketId) {
+    try {
+      var key = "vc_quote_data_" + (ticketId || "draft");
+      localStorage.setItem(key, JSON.stringify(quoteData));
+    } catch (e) { /* quota exceeded — degrade silently */ }
+  }
+
+  /**
+   * wireQuoteCardHandlers — delegated click handlers for the quote data confirmation card.
+   * Attached to document once from init(); fires for dynamically injected card buttons.
+   */
+  function wireQuoteCardHandlers() {
+    document.addEventListener("click", function (e) {
+      var includeBtn = e.target.closest ? e.target.closest("#ct-quote-include-btn") : null;
+      if (includeBtn) {
+        e.stopPropagation();
+        var ticketId = includeBtn.getAttribute("data-ticket-id") || currentTicketId;
+        var card = document.getElementById("ct-quote-data-card");
+        if (!card || !window._pendingQuoteData) return;
+
+        var inputs = card.querySelectorAll(".ct-quote-labor-input");
+        var totalLabor = 0;
+        for (var i = 0; i < inputs.length; i++) {
+          var idx = parseInt(inputs[i].getAttribute("data-repair-idx"), 10);
+          var val = parseFloat(inputs[i].value) || null;
+          if (window._pendingQuoteData.repairs && window._pendingQuoteData.repairs[idx] !== undefined) {
+            window._pendingQuoteData.repairs[idx].laborHours = val;
+          }
+          if (val) totalLabor += val;
+        }
+        window._pendingQuoteData.totalLaborHours = totalLabor || null;
+
+        saveQuoteDataToTicket(window._pendingQuoteData, ticketId);
+
+        var successHtml = '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;' +
+          'padding:12px 16px;margin-top:12px;color:#166534;font-size:13px;">' +
+          '\u2705 Quote data saved \u2014 dispatcher will see a Draft Quote.</div>';
+        card.outerHTML = successHtml;
+        return;
+      }
+
+      var skipBtn = e.target.closest ? e.target.closest("#ct-quote-skip-btn") : null;
+      if (skipBtn) {
+        e.stopPropagation();
+        var card2 = document.getElementById("ct-quote-data-card");
+        if (card2) card2.remove();
+      }
+    }, false);
   }
 
   function writeEquipmentToSiteIntelligence(item, btn, card, capturedTicketId) {
@@ -3647,6 +3782,7 @@
     wireCompileBtn();
     wireCompileModal();
     wireNameplateHandlers();
+    wireQuoteCardHandlers();
 
     try {
       window.addEventListener("vc:contextUpdated", function (e) {
