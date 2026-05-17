@@ -78,8 +78,8 @@ body.ws-active .workspace-site-banner-sticky {
 .app-header-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: stretch;
+  gap: 8px;
   padding: 4px 14px 2px;
 }
 .app-header-row img { max-height: 40px; flex-shrink: 0; }
@@ -91,9 +91,9 @@ body.ws-active .workspace-site-banner-sticky {
 .app-header-meta {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: stretch;
   gap: 2px;
-  flex: 0 0 auto;
+  flex: 1;
   min-width: 0;
   overflow: visible;
 }
@@ -408,17 +408,17 @@ body.vc-override-pending .vc-office-override-global-strip {
   padding: 0 12px;
   border-radius: 999px;
   border: 1px solid rgba(148, 163, 184, 0.16);
-  flex: 0 1 auto;
+  width: 100%;
   min-width: 0;
-  max-width: min(52%, 200px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-align: right;
-  display: inline-flex;
+  text-align: center;
+  display: flex;
   align-items: center;
   justify-content: center;
   min-height: 34px;
+  box-sizing: border-box;
 }
 /* Shadow viewer (dispatcher iframe): searchable tech switcher — Twin Pillar orange accent */
 .vc-shadow-tech-selector {
@@ -8457,7 +8457,7 @@ async function loadUserProfile(options = {}) {
   }
   if (!window.VC_SHADOW_VIEWER) {
     const tdl = document.getElementById('techDisplayLabel');
-    if (tdl) tdl.innerText = "👤 " + currentTechProfile;
+    if (tdl) tdl.innerText = currentTechProfile.split(' ')[0];
   }
   const profileInput = document.getElementById('profileNameInput');
   if (profileInput) profileInput.value = currentTechProfile;
