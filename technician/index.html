@@ -6915,25 +6915,8 @@ button#techDisplayLabel:active { opacity: 0.75; }
     </div>
   </div>
 
-  <!-- Slice 48a: Compile Notes modal -->
-  <div id="ct-compile-modal" class="ct-compile-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ct-compile-modal-title">
-    <div class="ct-compile-backdrop" aria-hidden="true"></div>
-    <div class="ct-compile-sheet" onclick="event.stopPropagation()">
-      <div class="ct-compile-header">
-        <h2 id="ct-compile-modal-title" class="ct-compile-title">Compiled Report</h2>
-        <button type="button" class="ct-compile-close-btn" aria-label="Close">&times;</button>
-      </div>
-      <div class="ct-compile-body">
-        <p class="ct-compile-hint">Review and edit the compiled report below. Copy or submit to office when ready.</p>
-        <textarea class="ct-compile-textarea" rows="18" spellcheck="true"></textarea>
-      </div>
-      <div class="ct-compile-actions">
-        <button type="button" class="ct-compile-copy-btn">📋 Copy Summary</button>
-        <button type="button" class="ct-compile-submit-btn">Submit to Office</button>
-        <span class="ct-compile-status" aria-live="polite"></span>
-      </div>
-    </div>
-  </div>
+  <!-- Slice 48a: Compile Notes modal — moved to body root so position:fixed
+       is not clipped by backdrop-filter on workspace pill ancestors. -->
 
   <!-- Hidden fields kept for report generation / sync compat -->
   <div class="hidden" aria-hidden="true">
@@ -12526,7 +12509,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=6"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
-    <script src="../conversational_timeline.js?v=56"></script>
+    <script src="../conversational_timeline.js?v=57"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');
@@ -12820,5 +12803,25 @@ window.onload = async function(){
       console.groupEnd();
     }());
     </script>
+<!-- Compile Notes modal at body root — position:fixed must not be inside
+     any backdrop-filter ancestor or it gets clipped to that element's box -->
+<div id="ct-compile-modal" class="ct-compile-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ct-compile-modal-title">
+  <div class="ct-compile-backdrop" aria-hidden="true"></div>
+  <div class="ct-compile-sheet" onclick="event.stopPropagation()">
+    <div class="ct-compile-header">
+      <h2 id="ct-compile-modal-title" class="ct-compile-title">Compiled Report</h2>
+      <button type="button" class="ct-compile-close-btn" aria-label="Close">&times;</button>
+    </div>
+    <div class="ct-compile-body">
+      <p class="ct-compile-hint">Review and edit the compiled report below. Copy or submit to office when ready.</p>
+      <textarea class="ct-compile-textarea" rows="18" spellcheck="true"></textarea>
+    </div>
+    <div class="ct-compile-actions">
+      <button type="button" class="ct-compile-copy-btn">📋 Copy Summary</button>
+      <button type="button" class="ct-compile-submit-btn">Submit to Office</button>
+      <span class="ct-compile-status" aria-live="polite"></span>
+    </div>
+  </div>
+</div>
 </body>
 </html>
