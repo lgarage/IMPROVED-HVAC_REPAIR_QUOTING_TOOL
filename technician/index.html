@@ -2197,7 +2197,9 @@ body.vc-override-active #vcOfficeOverrideBanner {
 .ct-mic-icon {
   background: transparent;
   color: #94a3b8;
-  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .ct-mic-icon:active { background: rgba(255, 255, 255, 0.1); }
 .ct-mic-icon.ct-recording {
@@ -6769,7 +6771,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
             aria-label="Record voice note"
             aria-pressed="false"
             title="Tap to record"
-          >🎤</button>
+          ><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg></button>
           <button
             id="ct-send-btn"
             type="button"
@@ -7426,7 +7428,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase65-DebugDrag2-2026-05-17";
+window.VC_BUILD = "Phase65-MicSVG-2026-05-17";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
