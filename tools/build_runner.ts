@@ -584,8 +584,8 @@ const commands: SlashCommand[] = [
   ┌──────────────────────────────────────────────────────────┐
   │  Press S at any time to stop after the current slice.    │
   │                                                          │
-  │  • "review" slices are committed but NOT pushed.         │
-  │  • "safe" slices auto-push to main.                     │
+  │  • "review" slices: committed, pushed at end of run.     │
+  │  • "safe" slices: auto-push immediately after passing.  │
   │  • Each slice is validated before moving on.             │
   │  • Dependency order is enforced.                         │
   └──────────────────────────────────────────────────────────┘
@@ -632,6 +632,19 @@ const commands: SlashCommand[] = [
       stopAfterCurrent = false;
       if (!next) {
         console.log(`\n  All done! ${count} slices completed.\n`);
+        // Auto-push everything committed-but-not-yet-pushed (review slices held back per-slice).
+        try {
+          const unpushed = execSync("git log origin/main..HEAD --oneline", { cwd: PROJECT_ROOT, stdio: "pipe" }).toString().trim();
+          if (unpushed) {
+            console.log(`  Pushing ${unpushed.split("\n").length} commit(s) to origin/main...`);
+            execSync("git push origin main", { cwd: PROJECT_ROOT, stdio: "pipe" });
+            console.log(`  ✓ All commits pushed to origin/main.\n`);
+          } else {
+            console.log(`  Nothing new to push — already up to date.\n`);
+          }
+        } catch (e: any) {
+          console.log(`  Push failed (non-blocking): ${e.message?.slice(0, 200)}\n`);
+        }
       }
       // Auto-archive at end in case the run pushed count over the threshold
       if (SLICES.length > MAX_ACTIVE_SLICES) {
