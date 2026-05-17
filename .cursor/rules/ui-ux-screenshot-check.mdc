@@ -7,11 +7,14 @@ alwaysApply: true
 
 **Any time a UI or UX change is made to the field app or dispatcher**, you MUST take a Playwright screenshot and visually confirm the result before telling the user the change worked.
 
-## Required steps after every UI/UX edit + deploy
+## Required steps for every UI/UX change — BEFORE and AFTER
 
-1. Run the Playwright login + screenshot script (see pattern below)
-2. Read the screenshot image and visually inspect it
-3. Only then tell the user what you see — including if it looks wrong
+**You MUST take a screenshot BEFORE making any change so you can see the current state. Then make the change, deploy, and take another screenshot to verify the desired effect actually happened.**
+
+1. **BEFORE:** Run Playwright, capture the current state, read and inspect the screenshot
+2. Make the code change and deploy
+3. **AFTER:** Run Playwright again, capture the new state, read and inspect
+4. Only report the change as done once the after screenshot confirms the desired result. If it looks wrong, fix it and repeat step 3.
 
 ## Login script pattern (app requires auth)
 
