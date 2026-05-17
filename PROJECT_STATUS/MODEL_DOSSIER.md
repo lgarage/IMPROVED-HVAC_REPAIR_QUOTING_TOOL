@@ -18,14 +18,14 @@ _Fast lookup before §6B — use § Workspace enabled models for full alternates
 
 | Archetype | Recommended model | Notes |
 |-----------|------------------|-------|
-| T0 (exact replace, version bump) | **GPT-5.4 Nano** / **GPT-5.4 Mini** | Rotate between to find cheapest safe alternative |
+| T0 (exact replace, version bump) | **GPT-5.4 Mini** / **Gemini 3 Flash** | Nano demoted (overcomplicated, slow — 2026-05-17 user feedback) |
 | T1 mechanical (multi-step edits) | **Gemini 3 Flash** / **GPT-5.4 Mini** | Stronger reasoning than Composer 2; skip pure-reasoning tasks |
 | T1 nuanced / T2 | **Sonnet 4.6** | Default daily implementation; Kimi K2.5 as experimental alt |
 | T3 code-heavy multi-file | **Codex 5.3** | Prefer over Opus for pure-code T3 |
 | T3 Vertex Core / T3+ / UNCERTAIN | **Opus 4.6** | Current ceiling — Opus 4.7 last-resort escalation only (see § Currently disabled) |
 | T4 read-only / tour | **Gemini 3 Flash** / **GPT-5 Mini** | Good reasoning; skip if exhaustive deep-dive needed |
 
-_Last verified: 2026-05-15. **IMPORTANT:** Composer 2 reasoning weakness (see outcome log row 2026-05-15 auto-scroll) makes it a net time-waster despite speed. Prefer GPT-5.4 Nano / GPT-5.4 Mini / Gemini 3 Flash / GPT-5 Mini for all T0–T1. Full table: § Default "switch to" before work._
+_Last verified: 2026-05-17. **IMPORTANT:** Composer 2 reasoning weakness makes it a net time-waster despite speed. **GPT-5.4 Nano also demoted (2026-05-17)** — user reports overcomplicated + slow on real tasks. Prefer **GPT-5.4 Mini** / **Gemini 3 Flash** / **GPT-5 Mini** for all T0–T1. Full table: § Default "switch to" before work._
 
 → **Outcome log** (calibration data): see § Outcome log (newest first) below.
 
@@ -86,6 +86,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-17 | Build runner: reset failed slice 63g (invalid `-medium` model slug) | LOW | T0 | Fast | 99% | 99% | ok | ok | Cursor: **GPT-5.4 Nano**. Cleared `tools/.build_state.json` slice `63g` from `failed` → `pending` so it can retry with a valid model ladder. No code deploy changes. |
 | 2026-05-17 | Multi-task session: (1) Slack #issues-found channel rule; (2) remove invalid `-medium` model slugs from model_selector.ts + add preflight slug validation to build_runner.ts; (3) compile data preservation rules in conversational_timeline.js v45->v46; (4) equipment_manager.js locLine trailing-dash fix; (5) Agent Architecture Separation plan — identified 5 agents + shared Gemini client, full plan authored. *(5 tasks)* | LOW | T1-T2 | Strong | 88% | 95% | could_use_smaller | ok | Cursor: **Opus 4.6**. Mix of T0 slug fixes, T1 rule/guard additions, T2 prompt engineering + architecture planning. Opus was valuable for the agent architecture planning (understanding all Gemini call sites across 4 files, designing contracts, drawing the separation lines). The code fixes (slugs, locLine, data preservation) were T0-T1 and Sonnet 4.6 could handle. Lesson: sessions that mix quick fixes with architecture planning benefit from Opus staying loaded — the context accumulation from fixing bugs informs the architecture discussion. |
 | 2026-05-16 | AI Quote Pipeline: design session + spec authoring + Phase 64 slices (64a–64e). Full product design conversation (field-to-office automated repair quoting, vendor email automation, Gmail API integration), wrote `ai_quote_pipeline_spec.md`, authored 5 foundation slices in `tools/slices.ts`, updated ROADMAP + CURRENT_STATE. | LOW | T2 | Strong | 85% | 93% | could_use_smaller | ok | Cursor: **Opus 4.6** (user override from Gemini 3 Flash recommendation). Design discussion + spec writing + slice authoring — no app code, no Firestore writes. Opus 4.6 was valuable for product design depth (tracing the tech→AI→vendor→dispatcher flow, identifying the "natural feel" problem and solving it via nameplate OCR + passive capture + minimum questions). Sonnet 4.6 could handle the slice authoring portion. Lesson: product design sessions where the user wants to talk through ideas benefit from Opus 4.6's deeper reasoning; the design quality directly impacts implementation quality downstream. |
 | 2026-05-16 | fix SDK model selector ladder: remove hard-coded `claude-opus-4-7-thinking-xhigh` (non-existent slug) from `tools/model_selector.ts` and guarantee escalations using highest-ranked distinct models already in `MODEL_COST_RANK`. | LOW | T1 | Fast | 96% | 99% | ok | ok | Cursor: Sonnet 4.6 |
@@ -216,14 +217,15 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 - Recommend the **cheapest enabled model that still meets** the task's minimum tier (see **§ Default "switch to" before work**).
 - **Do not** recommend **Premium** as the model — it is a **plan/suite** label in the list, not a replaceable capability pick. Choose **GPT-5.4 Mini**, **Sonnet 4.6**, **Codex 5.3**, **Opus 4.6**, etc.
 - **Opus 4.7 is disabled.** Do not recommend it. Use **Opus 4.6** anywhere Opus 4.7 was previously the recommendation.
-- **Composer 2 demotion (2026-05-15):** Moved from default T0–T1 to fallback only due to documented reasoning gaps. Use **GPT-5.4 Nano**, **GPT-5.4 Mini**, **Gemini 3 Flash**, **GPT-5 Mini** first.
+- **Composer 2 demotion (2026-05-15):** Moved from default T0–T1 to fallback only due to documented reasoning gaps. Use **GPT-5.4 Mini**, **Gemini 3 Flash**, **GPT-5 Mini** first.
+- **GPT-5.4 Nano demotion (2026-05-17):** User feedback — overcomplicated responses, slower than expected on real tasks. Skip Nano; go straight to GPT-5.4 Mini or Gemini 3 Flash for T0.
 
 ### Currently enabled
 
 | Picker name | Tier (this workspace) | Notes |
 |-------------|----------------------|--------|
-| **GPT-5.4 Nano** | Fast | **T0 first choice** — pure mechanical edits; rotate with Mini to find sweet spot |
-| **GPT-5.4 Mini** | Fast | **T0–T1 alternate** — slightly stronger reasoning than Nano |
+| **GPT-5.4 Nano** | Fast | ~~T0 first choice~~ **DEMOTED 2026-05-17** — user: overcomplicated responses + slow on real tasks. Use only if Mini/Flash unavailable. |
+| **GPT-5.4 Mini** | Fast | **T0 first choice** — better reasoning than Nano; handles multi-step exact-replace cleanly |
 | **Gemini 3 Flash** | Fast | **T1 alternate** — reliable code edits, strong at following constraints |
 | **GPT-5 Mini** | Fast | **Experimental T1 alt** — newer GPT-5 base, likely stronger than Sonnet 4.6 on some tasks; build signal before promoting |
 | **Composer 2** | Fast | **Fallback for pure mechanical** — speed advantage offset by reasoning weakness (see auto-scroll outcome row). Use only when task is 100% explicit (exact replace, version bump). |
@@ -244,7 +246,7 @@ Use this table for **§6B1 (A)** ("switch to **X** because …"). Offer **one** 
 
 | Archetype | Recommended model (switch to this first) | Enabled alternates |
 |-----------|------------------------------------------|--------------------|
-| **T0** (exact replace, 1-line) | **GPT-5.4 Nano** | GPT-5.4 Mini, Gemini 3 Flash |
+| **T0** (exact replace, 1-line) | **GPT-5.4 Mini** | Gemini 3 Flash (Nano demoted — see enabled table) |
 | **T1** (mechanical, multi-step) | **GPT-5.4 Mini** | Gemini 3 Flash, GPT-5 Mini |
 | **T1** (nuanced single file) | **Gemini 3 Flash** | Sonnet 4.6, GPT-5 Mini |
 | **T2** | **Sonnet 4.6** | Kimi K2.5 (experimental) |

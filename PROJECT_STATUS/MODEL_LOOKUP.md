@@ -9,23 +9,23 @@
 
 | Pattern | Cheapest OK | Cheapest Failed | Floor | Verified | Last verified | Notes |
 |---------|-------------|-----------------|-------|----------|---------------|-------|
-| UI container / HTML+CSS layout | composer-2 | gpt-5.4-mini-medium | — | yes | 2026-05-15 | 41a: mini failed, spark passed; 54c: composer-2 passed |
-| CSS-only restyle / theme | gpt-5.4-nano-medium | — | — | no | 2026-05-15 | Slug updated from haiku; unverified — test on next match |
+| UI container / HTML+CSS layout | composer-2 | gpt-5.4-mini | — | yes | 2026-05-15 | 41a: mini failed, spark passed; 54c: composer-2 passed |
+| CSS-only restyle / theme | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (nano-medium invalid); unverified — test on next match |
 | Single-file JS bugfix | composer-2 | — | — | yes | 2026-05-13 | From outcome log: shadow consent race fix |
 | Multi-file UI feature (no Firestore writes) | claude-sonnet-4-6 | claude-opus-4-6 | — | yes | 2026-05-17 | Verified across 41b-57a; no cheaper model tried |
-| New JS module (IIFE, no Firestore) | gpt-5.4-mini-medium | — | — | yes | 2026-05-15 | 42a: mini passed first try |
+| New JS module (IIFE, no Firestore) | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (mini-medium invalid); re-verify on next match |
 | Speech API / media capture integration | claude-sonnet-4-6 | — | — | yes | 2026-05-15 | 41b, 44a: sonnet passed; no cheaper tried |
 | Cross-module wiring (3+ files) | claude-sonnet-4-6 | — | — | yes | 2026-05-16 | 45a, 54a, 55a: sonnet passed; 54b, 55c: sonnet failed then codex passed |
 | Pure regex / dictionary logic | gpt-5.3-codex-spark | — | — | yes | 2026-05-15 | 43a: spark passed first try |
 | Gemini prompt integration | claude-opus-4-6 | — | claude-opus-4-6 | yes | 2026-05-15 | 43b, 48a, 53a: opus passed; floor = Vertex Core |
-| Firestore multi-read (query, no writes) | gpt-5.4-mini-medium | — | — | yes | 2026-05-15 | 42a: mini passed first try |
+| Firestore multi-read (query, no writes) | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (mini-medium invalid); re-verify on next match |
 | Firestore write path (new collection/doc) | claude-opus-4-6 | claude-opus-4-6 | claude-opus-4-6 | yes | 2026-05-17 | Verified: claude-opus-4-6 passed |
 | Firestore rules / auth changes | claude-opus-4-6 | — | claude-opus-4-6 | yes | 2026-05-15 | 59b: opus passed; floor = Vertex Core |
 | Firebase config / project migration | claude-opus-4-6 | — | claude-opus-4-6 | no | 2026-05-13 | Vertex Core rule — no matching slice yet |
-| Dispatcher modal (read-only Firestore) | gpt-5.4-mini-medium | — | — | no | 2026-05-15 | Slug updated from gpt-5.4-mini; unverified |
-| Hamburger menu / nav chrome | gpt-5.4-nano-medium | — | — | no | 2026-05-15 | Slug updated from haiku; unverified |
-| Dictation hub labels / hints / copy | gpt-5.4-nano-medium | — | — | no | 2026-05-15 | Slug updated from haiku; unverified |
+| Dispatcher modal (read-only Firestore) | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (mini-medium invalid); unverified |
+| Hamburger menu / nav chrome | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (nano-medium invalid); unverified |
+| Dictation hub labels / hints / copy | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (nano-medium invalid); unverified |
 | Shadow Mode / Office Override | claude-opus-4-6 | — | claude-opus-4-6 | no | 2026-05-13 | Vertex Core rule — no matching slice yet |
-| Governance / docs-only edits | gpt-5.4-nano-medium | — | — | no | 2026-05-16 | Slug updated from haiku; unverified |
+| Governance / docs-only edits | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (nano-medium invalid); unverified |
 | Storage rules / upload paths | claude-sonnet-4-6 | — | — | yes | 2026-05-16 | Verified: claude-sonnet-4-6 passed |
 | Boot sequence / performance | claude-sonnet-4-6 | — | — | no | 2026-05-13 | Unverified — will test on next matching slice |

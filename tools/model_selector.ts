@@ -23,7 +23,6 @@ const GUARD_OVERRIDES_PATH = path.join(__dirname, "model_guard_overrides.json");
 // Invalid slugs cause immediate SDK failure — do not add "-medium" or other
 // invented suffixes. Verified 2026-05-16 from SDK error available-models list.
 const MODEL_COST_RANK: Record<string, number> = {
-  "gpt-5.4-nano": 1,           // verified SDK slug
   "composer-2": 2,
   "gpt-5.4-mini": 3,           // verified SDK slug
   "gemini-3-flash": 4,
@@ -53,19 +52,6 @@ export interface ModelGuard {
 }
 
 export const MODEL_GUARDS: Record<string, ModelGuard> = {
-  "gpt-5.4-nano": {
-    maxRiskLevel: "safe",
-    maxFiles: 4,
-    forbiddenPatterns: [
-      "Firestore write path (new collection/doc)",
-      "Firestore rules / auth changes",
-      "Firebase config / project migration",
-      "Shadow Mode / Office Override",
-      "Gemini prompt integration",
-      "Cross-module wiring (3+ files)",
-    ],
-    notes: "T0 exact-replace only. No multi-step reasoning or judgment tasks.",
-  },
   "composer-2": {
     maxRiskLevel: "safe",
     maxFiles: 4,

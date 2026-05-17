@@ -1446,7 +1446,7 @@ async function runPreflight(): Promise<boolean> {
   const VERIFIED_SDK_SLUGS = new Set([
     "default", "composer-2", "gpt-5.5", "gpt-5.3-codex", "claude-sonnet-4-6",
     "claude-opus-4-7", "grok-4.3", "gpt-5.4", "claude-opus-4-6", "claude-opus-4-5",
-    "gpt-5.2", "gemini-3.1-pro", "gpt-5.4-mini", "gpt-5.4-nano", "claude-haiku-4-5",
+    "gpt-5.2", "gemini-3.1-pro", "gpt-5.4-mini", "claude-haiku-4-5",
     "claude-sonnet-4-5", "gpt-5.2-codex", "gpt-5.1-codex-max", "gpt-5.1",
     "gemini-3-flash", "gpt-5.1-codex-mini", "claude-sonnet-4", "gpt-5-mini",
     "gemini-2.5-flash", "kimi-k2.5", "gpt-5.3-codex-spark",
