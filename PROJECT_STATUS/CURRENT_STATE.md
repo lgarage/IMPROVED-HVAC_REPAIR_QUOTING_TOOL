@@ -7,7 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 (ChatGPT UI redesign). Phase 64 slices ready.
-- **Last shipped (2026-05-17):** HeaderV7 — floating pill chrome: `app-top-shell` + workspace nav both `position:fixed` on workspace (`body.ws-active`), transparent background, all elements (DAN D, Schedule, PLANET FITNESS, ···, +, input, mic) are independent solid pills over transparent chrome. `VC_BUILD: Phase65-HeaderV7-2026-05-17`.
+- **Last shipped (2026-05-17):** Header & Composer polish — normalized header pills (DAN D, Schedule) to shared 34px height/999px radius/dark-solid style; styled `+` attachment button to match "Message Vertex" pill (dark-solid background + blur + border). `VC_BUILD: Phase65-PillPolish-2026-05-17`.
+- **Prior (2026-05-17):** HeaderV7 — floating pill chrome: `app-top-shell` + workspace nav both `position:fixed` on workspace (`body.ws-active`), transparent background, all elements (DAN D, Schedule, PLANET FITNESS, ···, +, input, mic) are independent solid pills over transparent chrome. `VC_BUILD: Phase65-HeaderV7-2026-05-17`.
 - **Prior (2026-05-17):** VC DEBUG draggable. Mic SVG icon. Phase65-ChatGPTUI.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.

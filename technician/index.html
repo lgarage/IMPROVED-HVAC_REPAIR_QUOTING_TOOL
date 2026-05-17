@@ -102,11 +102,13 @@ body.ws-active .workspace-site-banner-sticky {
   flex: 1;
   min-width: 0;
   margin: 0;
-  padding: 5px 10px;
-  border: none;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #94a3b8;
+  padding: 0 12px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+  background: rgba(30, 41, 59, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #e2e8f0;
   font-size: 13px;
   font-weight: 600;
   font-family: inherit;
@@ -115,6 +117,10 @@ body.ws-active .workspace-site-banner-sticky {
   -webkit-tap-highlight-color: transparent;
   line-height: 1.2;
   text-align: center;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .app-header-nav-item.active {
   background: #0ea5e9;
@@ -393,13 +399,15 @@ body.vc-override-pending .vc-office-override-global-strip {
   max-width: 140px;
 }
 .tech-profile-badge {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
-  color: #c89b53;
-  background: #fdfaf2;
-  padding: 3px 8px;
-  border-radius: 12px;
-  border: 1px solid #fad7a1;
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
   flex: 0 1 auto;
   min-width: 0;
   max-width: min(52%, 200px);
@@ -410,7 +418,7 @@ body.vc-override-pending .vc-office-override-global-strip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 30px;
+  min-height: 34px;
 }
 /* Shadow viewer (dispatcher iframe): searchable tech switcher — Twin Pillar orange accent */
 .vc-shadow-tech-selector {
@@ -2208,9 +2216,11 @@ body.vc-override-active #vcOfficeOverrideBanner {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: transparent;
-  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(30, 41, 59, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #e2e8f0;
   font-size: 24px;
   font-weight: 300;
   line-height: 1;
