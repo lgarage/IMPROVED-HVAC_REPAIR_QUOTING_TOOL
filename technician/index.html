@@ -52,8 +52,8 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: #0f172a;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  border-bottom: none;
   padding-top: env(safe-area-inset-top);
   overflow: visible;
 }
@@ -2163,19 +2163,25 @@ body.vc-override-active #vcOfficeOverrideBanner {
   right: 0;
   bottom: 0;
   z-index: 96;
-  background: #0f172a;
-  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  background: transparent;
+  border-top: none;
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
+}
+#ct-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
 }
 
 /* ── Attachment (+) button inside input row ─────────────────── */
 .ct-attach-btn {
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
   background: transparent;
   color: #94a3b8;
   font-size: 24px;
@@ -6766,15 +6772,15 @@ button#techDisplayLabel:active { opacity: 0.75; }
     </div>
     <div id="ct-composer-dock" class="ct-composer-dock" aria-label="Message composer">
       <div id="ct-action-bar" role="group" aria-label="Timeline input controls">
+        <!-- + as its own standalone circle bubble -->
+        <button
+          id="ct-media-btn"
+          type="button"
+          class="ct-attach-btn"
+          aria-label="Add media"
+          title="Add photo, video, or file"
+        >+</button>
         <div class="ct-input-row">
-          <!-- + opens media action sheet -->
-          <button
-            id="ct-media-btn"
-            type="button"
-            class="ct-attach-btn"
-            aria-label="Add media"
-            title="Add photo, video, or file"
-          >+</button>
           <input
             id="ct-type-input"
             type="text"
@@ -7454,7 +7460,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase65-NavPill2-2026-05-17";
+window.VC_BUILD = "Phase65-FloatingChrome-2026-05-17";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
