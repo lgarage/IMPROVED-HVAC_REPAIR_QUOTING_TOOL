@@ -3457,8 +3457,21 @@ body.vc-override-active #vcOfficeOverrideBanner {
 .dictation-site-nav {
   background: transparent;
   color: #94a3b8;
-  padding: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 6px 14px;
+  border-bottom: none;
+}
+/* Floating pill that wraps the title row + expandable details */
+.ws-pill {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow: hidden;
+  transition: border-radius 0.28s ease;
+}
+.dictation-site-nav.ws-expanded .ws-pill {
+  border-radius: 18px;
 }
 /* `.workspace-site-banner-sticky` was previously `position: sticky` with a JS-measured `top` offset.
  * Removed: parent `#screen-workspace.active` is `overflow: hidden` and `height: calc(100dvh - shell)`,
@@ -3470,7 +3483,7 @@ body.vc-override-active #vcOfficeOverrideBanner {
   display: grid;
   grid-template-columns: 36px 1fr 36px;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 8px;
 }
 .ws-nav-spacer { flex-shrink: 0; }
 .ws-customer-title-btn {
@@ -6659,6 +6672,8 @@ button#techDisplayLabel:active { opacity: 0.75; }
       <button type="button" id="btnOpenEquipmentHub" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="View site equipment">🗄️ View Site Equipment</button>
       <button type="button" id="btnOpenFormsPanel" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="Add forms">📋 Add additional forms</button>
 
+      <!-- Floating pill nav -->
+      <div class="ws-pill">
       <!-- Minimal title bar -->
       <div class="ws-minimal-bar">
         <div class="ws-nav-spacer" aria-hidden="true"></div>
@@ -6697,6 +6712,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
           <div id="ws-reason-for-call-text" class="ws-reason-for-call-body"></div>
         </div>
       </div>
+      </div><!-- /.ws-pill -->
     </nav>
   </div>
 
@@ -7430,7 +7446,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase64-Slice64h-2026-05-17";
+window.VC_BUILD = "Phase65-NavPill-2026-05-17";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
