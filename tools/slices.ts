@@ -705,8 +705,8 @@ Bump conversational_timeline.js cache-bust in technician/index.html.`,
   //  Migrate office quotes to Firestore, port standalone
   //  quoting tool features, add vendor directory.
   //  Full spec: PROJECT_STATUS/ai_quote_pipeline_spec.md
-  //  Phase B (AI field pipeline) + Phase C (email automation)
-  //  documented in the spec — not sliced yet.
+  //  Phase B slices (64f–64i) below.
+  //  Phase C (email automation) sliced after Phase B confirmed.
   // ═══════════════════════════════════════════════════════════
 
   {
@@ -1265,6 +1265,623 @@ function importLocalQuotesToFirestore():
 Bump quoting.js cache-bust. Bump VC_BUILD.`,
     outOfScope: "Deleting localStorage after import. Importing customer directory to Firestore. Importing service tickets. Changing the export/import backup buttons' behavior. Auto-triggering import on first load.",
     cacheBusts: ["quoting.js"],
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  //  Phase 64 — Phase B: AI Field Pipeline
+  //  Connects field conversation → structured quote_data →
+  //  auto-drafted office quote. No email yet (Phase C).
+  // ═══════════════════════════════════════════════════════════
+
+  {
+    id: "64f",
+    phase: 64,
+    title: "Checklist template enhancements — quoteRelevant toggle + associatedParts list",
+    dependsOn: ["64a"],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Dispatcher → Settings → Field Forms → Edit any template → confirm a 'Quote-Relevant' toggle appears below the AI Trigger Word section.",
+      "Enable 'Quote-Relevant' → confirm an 'Associated Parts' section appears with an '+ Add Part' button.",
+      "Click '+ Add Part' → fill Part Description ('Supply Fan Motor'), Specs ('3/4 HP, 208-230V, Frame 48Y'), Qty (1), check 'Always Include' → confirm a row appears in the parts list.",
+      "Add a second part without 'Always Include' checked. Save the template → Firebase Console → form_templates/{id} → confirm document has quoteRelevant: true, associatedParts: [{description, specs, qty, alwaysInclude}, ...].",
+      "Reopen template for editing → confirm quoteRelevant toggle is checked and both parts rows reload correctly.",
+      "Disable 'Quote-Relevant' → confirm associatedParts section hides → save → Firestore doc has quoteRelevant: false.",
+      "Template list view → confirm quote-relevant templates show a 'QUOTE' badge chip beside the category chip.",
+      "Template with quoteRelevant: false (or missing) → confirm NO 'QUOTE' badge appears (backward compat).",
+    ],
+    htmlTarget: "index.html",
+    filesToCreate: [],
+    filesToModify: ["settings.js", "index.html"],
+    expectedIds: ["ffbQuoteRelevantToggle", "ffbAssociatedPartsSection", "ffbAssociatedPartsRows", "ffbAddPartBtn"],
+    expectedExports: {},
+    scope: `Add quoteRelevant and associatedParts fields to the Field Form & Checklist Builder in the
+dispatcher Settings UI. These fields are the institutional knowledge layer the AI uses in slice
+64g to know which repairs trigger quotes and what parts typically accompany them.
+
+## Firestore data model additions
+
+In saveFieldFormTemplate (settings.js ~line 2616, payload built at lines 2661–2673), add to the payload:
+  quoteRelevant: document.getElementById('ffbQuoteRelevantToggle').checked,
+  associatedParts: getAssociatedPartsRows(),
+
+where getAssociatedPartsRows() reads all rows from #ffbAssociatedPartsRows and returns:
+  [ { description: string, specs: string, qty: number, alwaysInclude: boolean }, ... ]
+Only include rows where description is non-empty (trim, filter).
+
+In openFieldFormBuilderEdit (settings.js ~line 2556), after loading existing fields, restore:
+  document.getElementById('ffbQuoteRelevantToggle').checked = d.quoteRelevant || false;
+  setAssociatedPartsRows(Array.isArray(d.associatedParts) ? d.associatedParts : []);
+  toggleAssociatedPartsSection();
+
+In openFieldFormBuilderCreate (settings.js ~line 2428), reset:
+  document.getElementById('ffbQuoteRelevantToggle').checked = false;
+  setAssociatedPartsRows([]);
+  toggleAssociatedPartsSection();
+
+## Settings UI (index.html — Field Form Builder modal)
+
+In index.html, find the Field Form Builder modal section. The Additional Trigger Words section was
+added in slice 63a (search for id="ffbTriggerWordsContainer"). Below that section, add:
+
+<div style="border-top:1px solid #e2e8f0;margin-top:14px;padding-top:14px;">
+  <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;
+    color:#0ea5e9;cursor:pointer;">
+    <input type="checkbox" id="ffbQuoteRelevantToggle"
+      onchange="toggleAssociatedPartsSection()"
+      style="width:16px;height:16px;accent-color:#0ea5e9;">
+    Quote-Relevant (triggers AI repair quote when this checklist fires)
+  </label>
+  <p style="font-size:12px;color:#64748b;margin:4px 0 10px 24px;line-height:1.45;">
+    When checked, a repair quote will automatically be drafted when this checklist
+    is used during a field job. Add the parts that typically accompany this repair below.
+  </p>
+
+  <div id="ffbAssociatedPartsSection" style="display:none;">
+    <label style="display:block;font-size:13px;font-weight:600;margin:0 0 6px;color:#1e293b;">
+      Associated Parts
+    </label>
+    <p style="font-size:12px;color:#64748b;margin:0 0 8px;line-height:1.45;">
+      Parts that typically accompany this repair type. The AI will suggest these
+      on the draft quote (tech can confirm or dismiss each one).
+    </p>
+
+    <!-- Header row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 48px 80px 24px;gap:4px;
+      font-size:11px;font-weight:600;color:#94a3b8;padding:0 4px 4px;">
+      <span>Part Description</span><span>Specs</span><span>Qty</span>
+      <span style="text-align:center;">Always<br>Include</span><span></span>
+    </div>
+
+    <div id="ffbAssociatedPartsRows"></div>
+
+    <button type="button" id="ffbAddPartBtn" onclick="addAssociatedPartRow()"
+      style="margin-top:8px;background:none;border:1px dashed #cbd5e1;border-radius:8px;
+      padding:7px 16px;font-size:13px;color:#64748b;cursor:pointer;width:100%;">
+      + Add Part
+    </button>
+  </div>
+</div>
+
+## Settings JS functions (settings.js)
+
+Add these functions near the getTriggerWordChips/setTriggerWordChips block (~line 2418):
+
+function toggleAssociatedPartsSection():
+  var show = document.getElementById('ffbQuoteRelevantToggle').checked;
+  document.getElementById('ffbAssociatedPartsSection').style.display = show ? 'block' : 'none';
+
+function addAssociatedPartRow(data):
+  data = data || {};
+  var row = document.createElement('div');
+  row.className = 'ffb-part-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 48px 80px 24px;gap:4px;margin-bottom:4px;align-items:center;';
+  row.innerHTML =
+    '<input type="text" class="ffb-part-desc" placeholder="Supply Fan Motor" value="' + (data.description || '') + '"' +
+    ' style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;">' +
+    '<input type="text" class="ffb-part-specs" placeholder="3/4 HP, 48Y frame" value="' + (data.specs || '') + '"' +
+    ' style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;">' +
+    '<input type="number" class="ffb-part-qty" min="1" value="' + (data.qty || 1) + '"' +
+    ' style="padding:6px 4px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;">' +
+    '<label style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;cursor:pointer;">' +
+    '<input type="checkbox" class="ffb-part-always"' + (data.alwaysInclude ? ' checked' : '') +
+    ' style="accent-color:#0ea5e9;"> Always</label>' +
+    '<button type="button" onclick="this.closest(\'.ffb-part-row\').remove()"' +
+    ' style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:16px;line-height:1;">×</button>';
+  document.getElementById('ffbAssociatedPartsRows').appendChild(row);
+
+function setAssociatedPartsRows(parts):
+  document.getElementById('ffbAssociatedPartsRows').innerHTML = '';
+  (parts || []).forEach(function(p) { addAssociatedPartRow(p); });
+
+function getAssociatedPartsRows():
+  var rows = document.querySelectorAll('#ffbAssociatedPartsRows .ffb-part-row');
+  var result = [];
+  rows.forEach(function(row) {
+    var desc = (row.querySelector('.ffb-part-desc').value || '').trim();
+    if (!desc) return;
+    result.push({
+      description: desc,
+      specs: (row.querySelector('.ffb-part-specs').value || '').trim(),
+      qty: parseInt(row.querySelector('.ffb-part-qty').value) || 1,
+      alwaysInclude: row.querySelector('.ffb-part-always').checked
+    });
+  });
+  return result;
+
+## Template list card update
+
+In hydrateFieldFormTemplatesList (settings.js ~line 2964), in the card rendering loop (~line 3024),
+after the category chip, add a QUOTE badge if quoteRelevant is true:
+  var quoteBadge = r.quoteRelevant
+    ? '<span style="background:#fef9c3;color:#713f12;font-size:10px;font-weight:700;' +
+      'padding:2px 6px;border-radius:4px;margin-left:4px;">QUOTE</span>'
+    : '';
+Then include quoteBadge in the card HTML next to the category display.
+
+Bump settings.js cache-bust in index.html (settings.js?v=22 → v=23). Bump VC_BUILD.`,
+    outOfScope: "Changing how field_forms.js reads these template fields (that's 64g). Changing the conversational timeline. Adding quote pipeline logic. Any Firestore rules changes (office_quotes and vendors rules already added in 64a).",
+    cacheBusts: ["settings.js"],
+  },
+
+  {
+    id: "64g",
+    phase: 64,
+    title: "Quote Data Builder agent — parse compile output into structured quote_data",
+    dependsOn: ["64f"],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Field tech app → workspace on a ticket → type notes mentioning a repair ('replacing supply fan motor on RTU 3, belt drive, 3/4 HP') → hit Compile Notes.",
+      "After compile modal opens, within ~3 seconds confirm a 'Quote Data' card appears below the compiled notes: '🔖 Repair quote detected — Supply Fan Motor Replacement'.",
+      "Verify the card shows: repair type, equipment (RTU 3), labor hours input (pre-filled if mentioned, empty if not), list of parts (confirmed from speech + suggested from template).",
+      "If a quote-relevant template with associatedParts was matched during the session, confirm suggested parts (from template) appear with a 'Suggested' badge. Confirmed parts (tech mentioned them) show no badge.",
+      "Labor hours field empty → type '2' → confirm the card now has complete data.",
+      "Click 'Include in Quote' → confirm the card closes and a green success message appears: 'Quote data saved — dispatcher will see a Draft Quote.'",
+      "If NO quote-relevant checklist was triggered during the session → compile → confirm NO quote data card appears (no false positives).",
+      "Test with notes that have NO labor hours and NO equipment — confirm the card either asks for both or does not appear (graceful handling of insufficient data).",
+    ],
+    htmlTarget: "technician/index.html",
+    filesToCreate: ["agents/quote_data_builder.js"],
+    filesToModify: ["conversational_timeline.js", "technician/index.html"],
+    expectedIds: ["ct-quote-data-card"],
+    expectedExports: { "agents/quote_data_builder.js": ["buildQuoteData"] },
+    scope: `Create a new Quote Data Builder agent and wire it into the post-compile hook in
+conversational_timeline.js. When the compile finishes and a quote-relevant checklist was
+triggered during the session, this agent parses the compiled report and generates a
+structured quote_data object, then shows a confirmation card asking for any missing info
+(primarily labor hours) before the tech confirms "Include in Quote."
+
+## agents/quote_data_builder.js (new file)
+
+Create as a self-contained IIFE module (same pattern as agents/notes_parser.js):
+
+(function() {
+  "use strict";
+
+  /**
+   * buildQuoteData(compiledText, matchedTemplates, equipmentContext)
+   *
+   * Uses Gemini to parse the compiled service report and extract repair-related data.
+   * Returns a Promise resolving to a quote_data object or null if no repairs detected.
+   *
+   * @param {string} compiledText - The full compiled service report text
+   * @param {Array}  matchedTemplates - Templates that fired during this session
+   *                  Each: { id: string, data: { templateName, quoteRelevant, associatedParts, targetKeyword } }
+   * @param {Object} equipmentContext - { activeEquipment: string, nameplateFields: Object|null }
+   * @param {string} apiKey - Gemini API key
+   */
+  function buildQuoteData(compiledText, matchedTemplates, equipmentContext, apiKey) {
+    if (!compiledText || !apiKey) return Promise.resolve(null);
+
+    // Only proceed if at least one matched template is quote-relevant
+    var quoteTemplates = (matchedTemplates || []).filter(function(t) {
+      return t && t.data && t.data.quoteRelevant;
+    });
+    if (!quoteTemplates.length) return Promise.resolve(null);
+
+    var templateSummary = quoteTemplates.map(function(t) {
+      var parts = (t.data.associatedParts || []).map(function(p) {
+        return p.description + (p.specs ? ' (' + p.specs + ')' : '') + ' x' + (p.qty || 1) +
+               (p.alwaysInclude ? ' [always include]' : '');
+      }).join(', ');
+      return 'Template: ' + t.data.templateName +
+             (parts ? '. Associated parts: ' + parts : '');
+    }).join('\n');
+
+    var equipment = (equipmentContext && equipmentContext.activeEquipment) || '';
+    var nameplate = equipmentContext && equipmentContext.nameplateFields
+      ? JSON.stringify(equipmentContext.nameplateFields) : '';
+
+    var prompt = 'You are an HVAC repair quoting assistant. Read this compiled service report ' +
+      'and extract structured repair data for a quote.\n\n' +
+      'COMPILED REPORT:\n' + compiledText + '\n\n' +
+      'ACTIVE EQUIPMENT: ' + (equipment || 'unknown') + '\n' +
+      (nameplate ? 'NAMEPLATE DATA: ' + nameplate + '\n\n' : '\n') +
+      'QUOTE-RELEVANT CHECKLIST TEMPLATES THAT FIRED THIS SESSION:\n' + templateSummary + '\n\n' +
+      'Instructions:\n' +
+      '1. Identify each distinct repair the tech performed or is recommending.\n' +
+      '2. For each repair, extract: repairType (descriptive name), equipmentRef (unit name), ' +
+      'laborHours (number or null if not mentioned), ' +
+      'confirmedParts (parts the tech explicitly mentioned — array of {description, specs}), ' +
+      'fieldNotes (brief summary of findings for this repair).\n' +
+      '3. For each repair, also include the suggestedParts from the matching template ' +
+      '(alwaysInclude parts are always in, others are optional suggestions).\n' +
+      '4. If NO clear repair work was done or recommended (diagnostic only, no action needed), ' +
+      'return {"repairs": []}.\n' +
+      'Return ONLY valid JSON: {"repairs": [{"repairType": string, "equipmentRef": string, ' +
+      '"laborHours": number|null, "confirmedParts": [...], "suggestedParts": [...], ' +
+      '"fieldNotes": string}], "totalLaborHours": number|null}';
+
+    return fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.1 }
+        })
+      }
+    ).then(function(r) { return r.json(); }).then(function(resp) {
+      var text = resp && resp.candidates && resp.candidates[0] &&
+                 resp.candidates[0].content && resp.candidates[0].content.parts &&
+                 resp.candidates[0].content.parts[0] && resp.candidates[0].content.parts[0].text;
+      if (!text) return null;
+      var parsed = JSON.parse(text);
+      if (!parsed || !Array.isArray(parsed.repairs) || !parsed.repairs.length) return null;
+      return parsed;
+    }).catch(function() { return null; });
+  }
+
+  window.VCAgents = window.VCAgents || {};
+  window.VCAgents.QuoteDataBuilder = { buildQuoteData: buildQuoteData };
+}());
+
+## conversational_timeline.js — wire into post-compile hook
+
+The post-compile hook currently runs at line 2831–2832:
+  /* Slice 63f: post-compile equipment classification */
+  classifyEquipmentFindings(_compiledResult, entries, compileTicketId);
+
+Add quote data generation AFTER classifyEquipmentFindings, still inside compileNotes():
+
+  /* Slice 64g: quote data generation */
+  try {
+    var _quoteMatchedTemplates = (typeof window.getActiveFormTemplates === 'function')
+      ? (window.getActiveFormTemplates() || []).filter(function(t) { return t && t.data && t.data.quoteRelevant; })
+      : [];
+    if (_quoteMatchedTemplates.length && window.VCAgents && window.VCAgents.QuoteDataBuilder) {
+      var _quoteEquipCtx = {
+        activeEquipment: (window.VCJobContext && window.VCJobContext.activeEquipment) || '',
+        nameplateFields: window._lastNameplateFields || null
+      };
+      var _quoteTicketId = compileTicketId;
+      typeof getGeminiApiKey === 'function' && getGeminiApiKey().then(function(apiKey) {
+        if (!apiKey) return;
+        return window.VCAgents.QuoteDataBuilder.buildQuoteData(
+          _compiledResult, _quoteMatchedTemplates, _quoteEquipCtx, apiKey
+        );
+      }).then(function(quoteData) {
+        if (!quoteData || !quoteData.repairs || !quoteData.repairs.length) return;
+        showQuoteDataCard(quoteData, _quoteTicketId);
+      }).catch(function() {});
+    }
+  } catch (_qe) {}
+
+## showQuoteDataCard function (conversational_timeline.js — new function)
+
+Add near classifyEquipmentFindings (~line 2857):
+
+function showQuoteDataCard(quoteData, ticketId):
+  1. Build HTML for the confirmation card and inject it into the compile modal container
+     (append inside #ct-compile-modal or the equip-save-container sibling):
+
+  var repairs = quoteData.repairs;
+  var laborMissing = repairs.some(function(r) { return r.laborHours === null; });
+  var html = '<div id="ct-quote-data-card" style="background:#fefce8;border:1px solid #fde047;' +
+    'border-radius:10px;padding:14px 16px;margin-top:12px;">';
+  html += '<div style="font-weight:700;color:#713f12;margin-bottom:8px;">🔖 Repair quote detected</div>';
+
+  repairs.forEach(function(r, idx) {
+    html += '<div style="font-size:13px;color:#422006;margin-bottom:6px;">' +
+      '<strong>' + (r.repairType || 'Repair') + '</strong>' +
+      (r.equipmentRef ? ' — ' + r.equipmentRef : '') + '</div>';
+
+    if (r.confirmedParts && r.confirmedParts.length) {
+      r.confirmedParts.forEach(function(p) {
+        html += '<div style="font-size:12px;color:#78350f;padding-left:12px;">✓ ' + p.description +
+          (p.specs ? ' <span style="color:#a16207;">(' + p.specs + ')</span>' : '') + '</div>';
+      });
+    }
+    if (r.suggestedParts && r.suggestedParts.length) {
+      r.suggestedParts.forEach(function(p) {
+        html += '<div style="font-size:12px;color:#a16207;padding-left:12px;">◦ ' + p.description +
+          (p.specs ? ' <span style="color:#ca8a04;">(' + p.specs + ')</span>' : '') +
+          ' <span style="font-size:10px;background:#fef08a;border-radius:3px;padding:1px 4px;">suggested</span></div>';
+      });
+    }
+
+    // Labor hours input if missing
+    html += '<div style="margin-top:6px;display:flex;align-items:center;gap:8px;">' +
+      '<label style="font-size:12px;color:#713f12;font-weight:600;">Labor hours:</label>' +
+      '<input type="number" class="ct-quote-labor-input" data-repair-idx="' + idx + '"' +
+      ' min="0.25" step="0.25" value="' + (r.laborHours !== null ? r.laborHours : '') + '"' +
+      ' placeholder="e.g. 2"' +
+      ' style="width:70px;padding:4px 8px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;">' +
+      '</div>';
+  });
+
+  html += '<div style="display:flex;gap:8px;margin-top:12px;">' +
+    '<button id="ct-quote-include-btn" data-ticket-id="' + ticketId + '"' +
+    ' style="background:#ca8a04;color:#fff;border:none;border-radius:8px;padding:9px 18px;' +
+    'cursor:pointer;font-size:13px;font-weight:600;">Include in Quote</button>' +
+    '<button onclick="document.getElementById(\'ct-quote-data-card\').remove()"' +
+    ' style="background:none;border:1px solid #d97706;border-radius:8px;padding:9px 14px;' +
+    'cursor:pointer;font-size:13px;color:#92400e;">Skip</button>' +
+    '</div></div>';
+
+  2. Store quoteData on window._pendingQuoteData = quoteData so the click handler can read it.
+
+  3. Inject the HTML into the compile modal. Find the modal container (search for the element
+     that holds .ct-compile-textarea — it's inside #ct-compile-modal). Append the card HTML
+     after the equip-save-container if present, otherwise append directly to the modal body.
+     Use insertAdjacentHTML('beforeend', html) on the modal's inner container.
+
+  4. Wire the "Include in Quote" button click handler (delegated, add once near the existing
+     .ct-nameplate-save-btn / .ct-equip-save-btn delegated listeners):
+     On #ct-quote-include-btn click:
+       a. Read labor hours from each .ct-quote-labor-input and update window._pendingQuoteData.repairs[idx].laborHours.
+       b. Recalculate totalLaborHours = sum of all repair laborHours.
+       c. Call saveQuoteDataToTicket(window._pendingQuoteData, ticketId).
+       d. Replace the card HTML with a green confirmation:
+          '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 16px;' +
+          'margin-top:12px;color:#166534;font-size:13px;">✅ Quote data saved — dispatcher will see a Draft Quote.</div>'
+
+## technician/index.html — script include
+
+Add the new agent script after the other agent includes (search for "agents/nameplate_ocr.js"):
+  <script src="../agents/quote_data_builder.js?v=1"></script>
+
+Bump conversational_timeline.js?v=49 → v=50 in technician/index.html (line 12436).
+Bump VC_BUILD.`,
+    outOfScope: "Writing quote_data to Firestore (that's 64h). Sending vendor emails (Phase C). Changing the compile prompt itself. Modifying field_forms.js matching logic. Settings UI changes (done in 64f).",
+    cacheBusts: ["conversational_timeline.js"],
+  },
+
+  {
+    id: "64h",
+    phase: 64,
+    title: "Write quote_data to service call Firestore doc on tech confirmation",
+    dependsOn: ["64g"],
+    patterns: ["Firestore write path (new collection/doc)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Complete the 64g flow: tech compiles notes → quote data card appears → fill in labor hours → click 'Include in Quote'.",
+      "Firebase Console → service_calls/{ticketId} (or tenant path) → confirm the document now has a 'quote_data' field with the full repairs array and totalLaborHours.",
+      "Confirm the document also has 'quotePending: true' and 'quotePendingAt' timestamp.",
+      "Click 'Include in Quote' a second time (or refresh + re-confirm) → confirm the write is idempotent (updates the existing field, doesn't duplicate).",
+      "Compile a session with NO quote-relevant repairs → confirm NO quote_data or quotePending field is written.",
+      "If the Firestore write fails (e.g. network offline) → confirm a console warning is logged but no alert/crash in the field app.",
+      "Check that existing fields on the service call doc are NOT overwritten — the write must be a merge (set with merge:true).",
+    ],
+    filesToCreate: [],
+    filesToModify: ["conversational_timeline.js"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Implement saveQuoteDataToTicket() in conversational_timeline.js — the function that
+slice 64g's "Include in Quote" button calls. Writes the confirmed quote_data payload to the
+service call's Firestore document using a merge write so no existing fields are overwritten.
+
+## saveQuoteDataToTicket function (conversational_timeline.js — new function)
+
+Add near the existing writeEquipmentToSiteIntelligence function (~line 2978):
+
+function saveQuoteDataToTicket(quoteData, ticketId):
+  1. Validate inputs. If no quoteData or no ticketId, log warning and return.
+
+  2. Build the write payload:
+     var payload = {
+       quote_data: quoteData,
+       quotePending: true,
+       quotePendingAt: firebase.firestore.FieldValue.serverTimestamp(),
+       quoteDataUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+     };
+
+  3. Resolve the service call document reference. The service call is identified by ticketId.
+     The field app reads the schedule from service_calls via VCFirestore or direct collection access.
+     Use the same tenant-scoped path pattern as other writes in this file:
+
+     var db = firebase.firestore();
+     var scRef;
+     if (window.VCFirestore && typeof window.VCFirestore.serviceCall === 'function') {
+       scRef = window.VCFirestore.serviceCall(db, ticketId);
+     } else if (window.VCFirestore && typeof window.VCFirestore.tenantCollection === 'function') {
+       scRef = window.VCFirestore.tenantCollection(db, 'service_calls').doc(ticketId);
+     } else {
+       // Fallback: direct collection (no-auth field app uses root path)
+       scRef = db.collection('service_calls').doc(ticketId);
+     }
+
+  4. Perform the write:
+     scRef.set(payload, { merge: true })
+       .then(function() {
+         console.log('[QuotePipeline] quote_data written to ticket', ticketId);
+       })
+       .catch(function(err) {
+         console.warn('[QuotePipeline] Failed to write quote_data:', err);
+       });
+
+  Note: The write is intentionally fire-and-forget (no await). The confirmation UI in 64g
+  updates immediately on click; the Firestore write happens in the background.
+
+## Firestore rules
+
+No new rule needed — service_calls already has allow read, write: if true per the existing
+field app rules (confirmed during the Firestore rules hotfix in May 2026).
+
+Bump conversational_timeline.js?v=50 → v=51 in technician/index.html.
+Bump VC_BUILD.`,
+    outOfScope: "Showing quote notifications in the dispatcher app (that's 64i). Sending vendor emails (Phase C). Modifying the quote_data structure itself (64g defines it). Reading quote_data in the office app.",
+    cacheBusts: ["conversational_timeline.js"],
+  },
+
+  {
+    id: "64i",
+    phase: 64,
+    title: "Dispatcher quote notification + auto-draft quote from quote_data",
+    dependsOn: ["64h"],
+    patterns: ["Firestore write path (new collection/doc)", "Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Dispatcher app → Scheduled Calls or Service Calls list → find a ticket where the tech confirmed 'Include in Quote' (i.e. Firestore doc has quotePending: true) → confirm a yellow '🔖 Quote Ready' badge appears on the ticket card.",
+      "Click the '🔖 Quote Ready' badge (or a 'Create Draft Quote' button on the ticket detail) → confirm the Quoting Tool opens pre-populated: customer name, location, repair type as the first line item, parts pre-filled (confirmed + suggested from quote_data), labor hours set.",
+      "Firebase Console → tenants/{tid}/office_quotes → confirm a new document was created with status: 'Draft', linked ticketId, repairs array from quote_data.",
+      "Confirm the draft quote's repair line items show 'confirmed' vs 'suggested' source badges — confirmed parts have source:'confirmed', suggested have source:'suggested'.",
+      "Ticket with quotePending: false (or field missing) → confirm NO '🔖 Quote Ready' badge appears.",
+      "Click 'Create Draft Quote' twice → confirm a second duplicate draft is NOT created (check for existing draft with same ticketId before creating).",
+      "Verify existing ticket card fields (customer name, status, address, tech assigned) are not affected by this change.",
+    ],
+    htmlTarget: "index.html",
+    filesToCreate: [],
+    filesToModify: ["service_call.js", "quoting.js", "index.html"],
+    expectedIds: ["quote-ready-badge"],
+    expectedExports: {},
+    scope: `Wire the dispatcher app to detect when a ticket has quote_data and allow one-click
+creation of a draft quote in office_quotes Firestore. The tech-side pipeline (64g + 64h)
+writes quotePending: true and quote_data to the service call doc. This slice reads that and
+surfaces it in the dispatcher UI.
+
+## service_call.js — detect quotePending and show badge
+
+Find where service call cards are rendered in service_call.js (search for the function that
+builds card HTML for the schedule list / service call rows — it likely reads from a Firestore
+snapshot and builds a card with customer name, status, address, etc.).
+
+When building a card, check if the doc has quotePending: true. If so, add a badge:
+  var quoteBadge = data.quotePending
+    ? '<span id="quote-ready-badge" class="vc-quote-ready-badge" data-ticket-id="' + docId + '"' +
+      ' style="display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#713f12;' +
+      'font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;cursor:pointer;' +
+      'margin-left:6px;border:1px solid #fde047;">🔖 Quote Ready</span>'
+    : '';
+Append quoteBadge to the card HTML near the status/title area.
+
+Add a delegated click handler (add once, near other delegated handlers in service_call.js):
+  document.addEventListener('click', function(e) {
+    var badge = e.target.closest('.vc-quote-ready-badge');
+    if (!badge) return;
+    var ticketId = badge.getAttribute('data-ticket-id');
+    if (!ticketId) return;
+    createDraftQuoteFromTicket(ticketId);
+  });
+
+## createDraftQuoteFromTicket function (service_call.js — new)
+
+function createDraftQuoteFromTicket(ticketId):
+  1. Read the service call doc from Firestore to get quote_data:
+     var db = firebase.firestore();
+     var scRef = ... (same tenant-path resolution as in 64h — check VCFirestore.serviceCall or
+                      tenantCollection('service_calls').doc(ticketId) or root service_calls/{id});
+     scRef.get().then(function(snap) {
+       if (!snap.exists) return;
+       var data = snap.data();
+       var quoteData = data.quote_data;
+       if (!quoteData) return;
+       createOfficeDraftQuote(quoteData, ticketId, data);
+     });
+
+## createOfficeDraftQuote function (quoting.js — new)
+
+function createOfficeDraftQuote(quoteData, ticketId, ticketDoc):
+  1. Check for existing draft quote with same ticketId:
+     var db = firebase.firestore();
+     var qRef = window.VCFirestore ? window.VCFirestore.officeQuotes(db) : db.collection('office_quotes');
+     qRef.where('ticketId', '==', ticketId).where('status', '==', 'Draft').limit(1).get()
+       .then(function(existing) {
+         if (!existing.empty) {
+           // Draft already exists — open it instead of creating duplicate
+           alert('A draft quote already exists for this ticket. Opening it.');
+           // Switch to quoting tab and load existing quote
+           switchTab && switchTab('quoting');
+           var existId = existing.docs[0].id;
+           typeof loadQuoteForEditing === 'function' && loadQuoteForEditing(existId);
+           return;
+         }
+         _doCreateDraftQuote(quoteData, ticketId, ticketDoc, qRef);
+       });
+
+  2. _doCreateDraftQuote(quoteData, ticketId, ticketDoc, qRef):
+     Build the office_quotes document from quoteData:
+     var repairs = quoteData.repairs || [];
+     var lineItems = [];
+     repairs.forEach(function(r) {
+       var parts = [];
+       (r.confirmedParts || []).forEach(function(p) {
+         parts.push({ description: p.description, specs: p.specs || '', qty: 1,
+           source: 'confirmed', vendorCost: 0, markupPercent: 30, retailPrice: 0 });
+       });
+       (r.suggestedParts || []).forEach(function(p) {
+         parts.push({ description: p.description, specs: p.specs || '', qty: p.qty || 1,
+           source: 'suggested', vendorCost: 0, markupPercent: 30, retailPrice: 0 });
+       });
+       lineItems.push({
+         repairType: r.repairType || 'Repair',
+         equipment: { unitNumber: r.equipmentRef || '', model: '', serial: '', manufacturer: '' },
+         laborHours: r.laborHours || 0,
+         parts: parts,
+         fieldNotes: r.fieldNotes || ''
+       });
+     });
+
+     var quoteNum = 'QT-' + String(Date.now()).slice(-6);
+     var draft = {
+       quoteNumber: quoteNum,
+       ticketId: ticketId,
+       customerId: ticketDoc.customerId || ticketDoc.customer_id || '',
+       customerName: ticketDoc.customerName || ticketDoc.customer || '',
+       locationAddress: ticketDoc.address || ticketDoc.serviceAddress || '',
+       status: 'Draft',
+       jobWorkflow: 'N/A',
+       customerType: 'commercial',
+       laborRate: 175,
+       repairs: lineItems,
+       totalLaborHours: quoteData.totalLaborHours || 0,
+       serviceDispatchFee: 0,
+       showDispatchFeeSeparate: false,
+       showItemizedParts: true,
+       partsSummaryDescription: 'All parts and materials required to complete the repair are included in the quoted price.',
+       includeSalesTax: true,
+       salesTaxRate: 0.055,
+       subtotal: 0,
+       salesTax: 0,
+       grandTotal: 0,
+       vendorRequests: [],
+       autoGeneratedFrom: 'field_pipeline',
+       createdAt: new Date().toISOString(),
+       updatedAt: new Date().toISOString()
+     };
+
+     qRef.add(draft).then(function(docRef) {
+       console.log('[QuotePipeline] Draft quote created:', docRef.id);
+       // Switch to Quoting Tool and load the new draft
+       typeof switchTab === 'function' && switchTab('quoting');
+       typeof renderQuoteHistory === 'function' && renderQuoteHistory();
+       // Optionally load into the form for immediate review
+       typeof loadQuoteForEditing === 'function' && loadQuoteForEditing(docRef.id);
+     }).catch(function(err) {
+       console.warn('[QuotePipeline] Failed to create draft quote:', err);
+       alert('Could not create draft quote. Check console for details.');
+     });
+
+## index.html — no new elements needed
+
+The quote-ready badge is dynamically injected into service call cards by service_call.js.
+The Quoting Tool (#view-quoting) and switchTab() already exist from Phase A slices.
+
+Bump service_call.js and quoting.js cache-busts in index.html. Bump VC_BUILD.`,
+    outOfScope: "Vendor email drafting (Phase C). AI-parsed vendor pricing (Phase C). Customer PDF delivery (Phase C). Changing the quote form UI beyond loading the pre-populated draft. Modifying the field tech app (done in 64g + 64h).",
+    cacheBusts: ["service_call.js", "quoting.js"],
   },
 
   {
