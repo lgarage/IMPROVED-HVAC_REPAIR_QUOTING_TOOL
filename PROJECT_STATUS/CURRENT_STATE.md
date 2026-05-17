@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 62 complete. **Phase 63 slices authored** (Field Intelligence — Contextual Checklists + Equipment Intelligence).
-- **Last shipped (2026-05-16):** Fixed SDK model-guard bookkeeping by removing the invalid `claude-opus-4-7-thinking-xhigh` slug from `tools/model_guard_overrides.json` and `tools/model_selector.ts` (and reverting the corresponding `MODEL_LOOKUP.md` cells so guard ladder uses only enabled models).
-- **Prior (2026-05-16):** 63a–63f authored (multi-trigger words, adaptive checklists, experience-based prompting, photo auto-tie, post-compile history write) + Slice 63e shipped.
+- **Active Phase:** Phase 63 (Field Intelligence). **Phase 64 slices authored** (AI Quote Pipeline — Foundation).
+- **Last shipped (2026-05-16):** AI Quote Pipeline design spec (`PROJECT_STATUS/ai_quote_pipeline_spec.md`) + Phase 64 slices (64a–64e) + ROADMAP entry. No code change.
+- **Prior (2026-05-16):** SDK model-guard fix; 63a–63f authored + 63e shipped; 63g–63h authored.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,9 +19,8 @@
 
 ## Immediate Next Step
 
-- **Sanity-check model guards** — run the SDK guard command (`/guards`) to confirm no invalid model slugs remain.
 - **Run Phase 63 slices via SDK build runner** — `vertex` → `/a` to execute 63a–63h. 63a and 63e have no dependencies (run first). 63b→63c→63d chain. 63f depends on 63e. 63g depends on 63e. 63h depends on 63f + 63g.
-- **Test Compile Notes on phone** — hard-refresh browser, add 3+ entries, wait 5 min, tap "Compile Notes" (should be instant or near-instant). Then add more entries and tap again to verify delta compile.
+- **Phase 64 (Quote Pipeline Foundation)** ready in `tools/slices.ts` — 5 slices (64a–64e). 64a is foundation (Firestore migration); 64b–64e depend on 64a. See `PROJECT_STATUS/ai_quote_pipeline_spec.md` for full design.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 

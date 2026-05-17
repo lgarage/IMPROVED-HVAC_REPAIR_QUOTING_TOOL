@@ -700,6 +700,573 @@ Bump conversational_timeline.js cache-bust in technician/index.html.`,
     cacheBusts: ["conversational_timeline.js"],
   },
 
+  // ═══════════════════════════════════════════════════════════
+  //  Phase 64: AI Quote Pipeline — Foundation (Phase A)
+  //  Migrate office quotes to Firestore, port standalone
+  //  quoting tool features, add vendor directory.
+  //  Full spec: PROJECT_STATUS/ai_quote_pipeline_spec.md
+  //  Phase B (AI field pipeline) + Phase C (email automation)
+  //  documented in the spec — not sliced yet.
+  // ═══════════════════════════════════════════════════════════
+
+  {
+    id: "64a",
+    phase: 64,
+    title: "Migrate office quotes from localStorage to Firestore",
+    dependsOn: [],
+    patterns: ["Firestore write path (new collection/doc)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Dispatcher app → Quoting Tool → Start New Quote → fill customer name, add 2 parts, click Create Quote → verify quote saved. Open Firebase Console → tenants/TWIN_PILLARS/office_quotes → confirm a document exists with matching quoteNum, customerName, parts array, subtotal, grandTotal.",
+      "Quoting Tool → Recent Quotes Database → confirm the new quote appears in the list with correct date, customer, total, status.",
+      "Click Edit on the quote → modify labor hours → click Create Quote again → verify Firestore document updated (not duplicated).",
+      "Click Delete → confirm quote removed from Firestore and list.",
+      "Open a second browser/device → Quoting Tool → confirm the quote appears in Recent Quotes (proving Firestore sync, not localStorage-only).",
+      "Ticket Details → click Create Quote → confirm customer/location pre-fills from ticket and quote saves to Firestore.",
+      "Verify quoting.js still writes a localStorage backup copy (fallback for offline).",
+    ],
+    htmlTarget: "index.html",
+    filesToCreate: [],
+    filesToModify: ["quoting.js", "shared/firebase_logic.js", "firestore.rules", "index.html"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Migrate office quotes from browser localStorage to Firestore so quotes persist across
+devices and can be accessed by the AI quote pipeline.
+
+## Firestore collection helper (shared/firebase_logic.js)
+
+Add a new collection helper function after fieldQuotes (~line 146):
+
+  function officeQuotes(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "office_quotes");
+    }
+    return tenantCollection(db, "office_quotes");
+  }
+
+Add a new collection helper for vendors (needed for 64d but define the path now):
+
+  function vendors(db) {
+    if (isSandboxDataPath()) {
+      return sandboxDefaultSubcollection(db, "vendors");
+    }
+    return tenantCollection(db, "vendors");
+  }
+
+Add both to the VCFirestore export object (~line 771, after fieldQuotes):
+  officeQuotes: officeQuotes,
+  vendors: vendors,
+
+## Firestore rules (firestore.rules)
+
+Add after the field_quotes rule block (~line 166):
+
+  match /tenants/{tid}/office_quotes/{document=**} {
+    allow read, write: if true;
+  }
+  match /tenants/{tid}/vendors/{document=**} {
+    allow read, write: if true;
+  }
+
+## quoting.js changes
+
+The file currently uses localStorage key "twinPillarsQuotesDB" for all quote persistence.
+Migrate to Firestore while keeping localStorage as a write-through offline backup.
+
+### saveQuoteToDatabase (~line 391-416)
+
+Replace the localStorage-only save with Firestore write:
+
+1. Keep the existing gatherFormData() call and validation.
+2. After gathering data, write to Firestore:
+   - Get db reference: var db = firebase.firestore();
+   - Get collection ref: var ref = window.VCFirestore ? window.VCFirestore.officeQuotes(db) : db.collection("office_quotes");
+   - For NEW quotes (no currentQuoteId or id starts with DB-ID-):
+     * Use ref.add(quoteData) to create a new Firestore doc.
+     * Store the returned doc.id as the quote's id.
+     * Set the hidden #currentQuoteId value to the doc.id.
+     * incrementQuoteNumber() as before.
+   - For EXISTING quotes (editing):
+     * Use ref.doc(currentId).set(quoteData, { merge: true }) to update.
+3. Also write to localStorage as a backup (keep existing twinPillarsQuotesDB logic).
+4. On Firestore write error, fall back to localStorage-only and log warning.
+5. Add updatedAt: new Date().toISOString() to every saved quote.
+6. Add createdAt: new Date().toISOString() only on new quote creation.
+
+### renderQuoteHistory (~line 418-457)
+
+Replace localStorage read with Firestore query:
+
+1. var db = firebase.firestore();
+   var ref = window.VCFirestore ? window.VCFirestore.officeQuotes(db) : db.collection("office_quotes");
+2. ref.orderBy("createdAt", "desc").limit(100).get() — then render the rows.
+3. Keep the existing table HTML structure (Preview / Edit / Delete actions).
+4. Fall back to localStorage if Firestore query fails (offline resilience).
+
+### loadQuoteForEditing (~line 151-203)
+
+Update to read from Firestore by doc.id instead of scanning localStorage array.
+Fall back to localStorage search if Firestore read fails.
+
+### deleteQuote (~line 466-473)
+
+Update to delete from Firestore (ref.doc(id).delete()) AND remove from localStorage backup.
+
+### convertToQuote (service_call.js ~line 3213-3255)
+
+No changes needed — it calls startNewQuote() and populateQuoteFromServiceCall() which
+ultimately go through saveQuoteToDatabase. The Firestore write happens transparently.
+
+### Quote counter
+
+Keep tp_quote_counter in localStorage for now (simple, works offline).
+The counter is only used for QT- number generation and doesn't need Firestore.
+
+## index.html
+
+Bump quoting.js cache-bust: quoting.js?v=6 → quoting.js?v=7 (~line 9737).
+Bump firebase_logic.js cache-bust if present.
+Bump VC_BUILD.`,
+    outOfScope: "Changing the quote form UI fields (that's 64b/64c). Adding vendor directory UI (that's 64d). Changing convertToQuote logic. Migrating existing localStorage quotes (that's 64e). PDF preview changes.",
+    cacheBusts: ["quoting.js"],
+  },
+
+  {
+    id: "64b",
+    phase: 64,
+    title: "Port display toggles from standalone quoting tool",
+    dependsOn: ["64a"],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Quoting Tool → new quote → confirm 4 new toggle controls appear in Section 3 (Labor & Truck Charges): 'Show SERVICE & DISPATCH FEE as Separate Line Item' checkbox, 'Show Itemized Parts to Customer' checkbox, 'Parts Summary Description' textarea, 'Include Sales Tax (5.5%) on Quote' checkbox.",
+      "'Show Itemized Parts' unchecked → Preview Quote → customer-facing view shows parts summary text instead of individual line items. Internal view still shows full parts detail.",
+      "'Show Itemized Parts' checked → Preview Quote → customer-facing view shows individual part lines with Unit Price and Amount.",
+      "'Include Sales Tax' unchecked → Preview Quote → no tax line shown, total = subtotal. Check quote saved to Firestore with includeSalesTax: false.",
+      "'Show DISPATCH FEE as Separate Line Item' checked → Preview Quote → dispatch fee appears as its own line item in the customer view.",
+      "'Show DISPATCH FEE as Separate Line Item' unchecked → dispatch fee is NOT a separate line (rolled into total).",
+      "Edit a saved quote → confirm all toggles reload correctly from saved state.",
+      "Parts Summary Description edited → confirm custom text appears in preview when itemized parts are hidden.",
+    ],
+    htmlTarget: "index.html",
+    filesToCreate: [],
+    filesToModify: ["quoting.js", "index.html"],
+    expectedIds: ["showDispatchFeeSeparate", "showItemizedParts", "partsSummaryDescription", "includeSalesTax"],
+    expectedExports: {},
+    scope: `Add four display toggle controls to the quoting tool that match the standalone tool
+at lgarage.github.io/HVAC_REPAIR_QUOTING_TOOL/. These control how the customer-facing
+quote PDF looks without changing the internal data.
+
+## index.html UI additions (#view-quoting, ~line 4402-4789)
+
+In Section 3 (Labor & Truck Charges), after the TRUCK / DISPATCH CHARGE input (~line 4630),
+add the following controls:
+
+1. Show SERVICE & DISPATCH FEE as Separate Line Item:
+   <label style="display:flex;align-items:center;gap:8px;margin:12px 0;font-size:13px;cursor:pointer;">
+     <input type="checkbox" id="showDispatchFeeSeparate" onchange="triggerQuoteAutoSave()">
+     Show SERVICE & DISPATCH FEE as Separate Line Item
+   </label>
+
+2. Show Itemized Parts to Customer:
+   <label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer;">
+     <input type="checkbox" id="showItemizedParts" checked onchange="triggerQuoteAutoSave(); togglePartsSummary();">
+     Show Itemized Parts to Customer
+   </label>
+
+3. Parts Summary Description (shown when itemized parts are hidden):
+   <div id="partsSummaryGroup" style="display:none;margin:8px 0 12px 26px;">
+     <label style="font-size:12px;color:#64748b;display:block;margin-bottom:4px;">
+       Parts Summary Description (shown to customer instead of itemized list)
+     </label>
+     <textarea id="partsSummaryDescription" rows="2"
+       style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;resize:vertical;"
+       onchange="triggerQuoteAutoSave()"
+     >All parts and materials required to complete the repair are included in the quoted price. Only OEM-quality or equivalent components will be used.</textarea>
+   </div>
+
+4. Include Sales Tax:
+   <label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer;">
+     <input type="checkbox" id="includeSalesTax" checked onchange="triggerQuoteAutoSave()">
+     Include Sales Tax (5.5%) on Quote
+     <span style="font-size:11px;color:#94a3b8;">(uncheck for real property improvements / new construction)</span>
+   </label>
+
+## quoting.js changes
+
+### togglePartsSummary (new function)
+  function togglePartsSummary() {
+    var show = !document.getElementById('showItemizedParts').checked;
+    document.getElementById('partsSummaryGroup').style.display = show ? 'block' : 'none';
+  }
+
+### gatherFormData (~line 102-149)
+Add these fields to the returned quote object:
+  showDispatchFeeSeparate: document.getElementById('showDispatchFeeSeparate').checked,
+  showItemizedParts: document.getElementById('showItemizedParts').checked,
+  partsSummaryDescription: document.getElementById('partsSummaryDescription').value,
+  includeSalesTax: document.getElementById('includeSalesTax').checked,
+
+Update the tax calculation (~line 135-140):
+  var includeTax = document.getElementById('includeSalesTax').checked;
+  var tax = includeTax ? subtotal * 0.055 : 0;
+
+### loadQuoteForEditing (~line 151-203)
+After loading existing fields, restore toggle states:
+  document.getElementById('showDispatchFeeSeparate').checked = q.showDispatchFeeSeparate || false;
+  document.getElementById('showItemizedParts').checked = q.showItemizedParts !== false; // default true
+  document.getElementById('partsSummaryDescription').value = q.partsSummaryDescription || 'All parts and materials...';
+  document.getElementById('includeSalesTax').checked = q.includeSalesTax !== false; // default true
+  togglePartsSummary();
+
+### startNewQuote (~line 60-100)
+Reset toggles to defaults:
+  document.getElementById('showDispatchFeeSeparate').checked = false;
+  document.getElementById('showItemizedParts').checked = true;
+  document.getElementById('includeSalesTax').checked = true;
+  togglePartsSummary();
+
+### updatePreviewHTML (~line 313-381)
+Update the CUSTOMER-FACING preview (not the internal view) to respect toggles:
+
+1. If showDispatchFeeSeparate is checked, add a "SERVICE & DISPATCH FEE" line item
+   to the customer table (printTableBody) with the truck charge amount.
+   If unchecked, do NOT add it as a separate line (it's already in the total).
+
+2. If showItemizedParts is unchecked, replace the individual part rows in the
+   CUSTOMER-facing table with a single summary row:
+   <tr><td>1</td><td colspan="2">{partsSummaryDescription}</td><td>{parts total}</td><td>{parts total}</td></tr>
+   The INTERNAL view always shows full itemized parts regardless of this toggle.
+
+3. If includeSalesTax is unchecked, hide the "Sales Tax (5.5%)" row in both views
+   and set tax amount to $0.00.
+
+Bump quoting.js cache-bust in index.html. Bump VC_BUILD.`,
+    outOfScope: "Changing Firestore persistence (done in 64a). Vendor directory (64d). Quote status changes (64c). Parts grid column additions. PDF print flow changes beyond toggle-driven visibility.",
+    cacheBusts: ["quoting.js"],
+  },
+
+  {
+    id: "64c",
+    phase: 64,
+    title: "Quote status + workflow enhancements for AI pipeline",
+    dependsOn: ["64a"],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Quoting Tool → Quote Status dropdown → confirm new options appear: Draft, Awaiting Vendor Pricing, Pricing Received, Sent to Customer, Approved, Rejected, Requote Requested (7 total).",
+      "Select 'Awaiting Vendor Pricing' → confirm the status pill in the Recent Quotes Database row shows with an orange/amber style.",
+      "Select 'Sent to Customer' → confirm status saves correctly to Firestore.",
+      "Existing quotes with old statuses (Draft, Pending, Approved, Rejected) → confirm they still load and display correctly (backward compat).",
+      "Verify handleQuoteStatusChange still auto-syncs workflow dropdown when quote is Approved.",
+      "Recent Quotes Database → confirm the Status column shows the new status values correctly.",
+      "Preview Quote → confirm the new status values appear in the quote header (e.g. 'Status: AWAITING VENDOR PRICING').",
+    ],
+    htmlTarget: "index.html",
+    filesToCreate: [],
+    filesToModify: ["quoting.js", "index.html"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Update the quote status options to support the AI quote pipeline workflow.
+The pipeline spec (PROJECT_STATUS/ai_quote_pipeline_spec.md) defines these statuses:
+Draft, Awaiting Vendor Pricing, Pricing Received, Sent to Customer, Approved, Rejected, Requote Requested.
+
+## index.html changes (#view-quoting)
+
+Find the Quote Status select element (~line 4550-4560, id="quoteStatusInput").
+Replace the current options:
+  <option value="Draft">Draft</option>
+  <option value="Pending">Pending</option>
+  <option value="Approved">Approved</option>
+  <option value="Rejected">Rejected</option>
+  <option value="Requote Requested">Requote Requested</option>
+
+With the expanded set:
+  <option value="Draft">Draft</option>
+  <option value="Awaiting Vendor Pricing">Awaiting Vendor Pricing</option>
+  <option value="Pricing Received">Pricing Received</option>
+  <option value="Pending">Pending</option>
+  <option value="Sent to Customer">Sent to Customer</option>
+  <option value="Approved">Approved</option>
+  <option value="Rejected">Rejected</option>
+  <option value="Requote Requested">Requote Requested</option>
+
+Keep "Pending" for backward compatibility with existing saved quotes that use it.
+
+## quoting.js changes
+
+### handleQuoteStatusChange (~line 13-21)
+Update to handle new statuses. Specifically:
+- "Awaiting Vendor Pricing" and "Pricing Received" should NOT auto-change job workflow.
+- "Sent to Customer" should NOT auto-change job workflow.
+- "Approved" continues to work as before (enables job workflow changes).
+- Add logic: if status is "Awaiting Vendor Pricing" or "Pricing Received", show the
+  requote note history section (useful for tracking vendor communication notes).
+
+### renderQuoteHistory (~line 418-457)
+Update the status display in the Recent Quotes Database table rows to include
+color-coded status pills:
+  Draft → gray
+  Awaiting Vendor Pricing → amber/orange
+  Pricing Received → blue
+  Pending → yellow
+  Sent to Customer → purple
+  Approved → green
+  Rejected → red
+  Requote Requested → orange
+
+Use inline styles on a <span> element:
+  var statusColors = {
+    'Draft': '#94a3b8', 'Awaiting Vendor Pricing': '#f59e0b',
+    'Pricing Received': '#3b82f6', 'Pending': '#eab308',
+    'Sent to Customer': '#8b5cf6', 'Approved': '#22c55e',
+    'Rejected': '#ef4444', 'Requote Requested': '#f97316'
+  };
+  var color = statusColors[q.status] || '#94a3b8';
+  // In the row HTML: '<span style="color:' + color + ';font-weight:600;">' + q.status + '</span>'
+
+### updatePreviewHTML (~line 313-381)
+The quote header already shows "Status: {status}". Ensure the new status values
+display correctly in both internal and customer-facing preview views.
+
+Bump quoting.js cache-bust in index.html. Bump VC_BUILD.`,
+    outOfScope: "Adding vendor email send functionality (Phase C). Auto-status transitions (future). Firestore persistence changes (done in 64a). Display toggles (done in 64b).",
+    cacheBusts: ["quoting.js"],
+  },
+
+  {
+    id: "64d",
+    phase: 64,
+    title: "Vendor directory — Firestore collection + CRUD UI",
+    dependsOn: ["64a"],
+    patterns: ["Firestore write path (new collection/doc)", "Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Dispatcher app → sidebar → confirm 'Vendors' nav item appears (below Quoting Tool or in a logical position).",
+      "Click Vendors → confirm the vendor directory view loads with '+ Add Vendor' button and an empty table (or seeded data).",
+      "Click + Add Vendor → fill name, email, phone, select categories (e.g. 'Motors', 'Controls') → Save → confirm vendor appears in the list.",
+      "Firebase Console → tenants/TWIN_PILLARS/vendors → confirm the vendor document exists with correct fields.",
+      "Click Edit on a vendor → modify the email → Save → confirm Firestore document updated.",
+      "Click Delete on a vendor → confirm → verify removed from Firestore and the list.",
+      "Add 3 vendors with different categories → confirm the category filter/display works correctly on vendor cards.",
+      "Verify vendor data does NOT appear in the Quoting Tool yet (that integration is Phase B/C).",
+    ],
+    htmlTarget: "index.html",
+    filesToCreate: ["vendor_directory.js"],
+    filesToModify: ["index.html", "firestore.rules"],
+    expectedIds: ["view-vendors", "nav-vendors", "vendorListTarget", "vendorAddBtn"],
+    expectedExports: {},
+    scope: `Add a vendor directory to the dispatcher app for managing parts supplier contacts.
+This is the foundation for the AI-driven vendor email flow in Phase C.
+
+## Firestore setup
+
+The collection helper (VCFirestore.vendors) and Firestore rules were already added in 64a.
+This slice only needs to use them.
+
+## index.html — sidebar nav entry
+
+Find the sidebar nav section (~line 2660-2690). Add a Vendors entry after Quoting Tool:
+  <a id="nav-vendors" class="sidebar-nav-item" onclick="switchTab('vendors')">
+    <span class="sidebar-icon">🏢</span>
+    <span class="sidebar-label">Vendors</span>
+  </a>
+
+Ensure switchTab() in the existing JS handles 'vendors' — it likely uses a generic
+pattern that shows #view-{tabName} and hides others. Verify this works; if not,
+add 'vendors' to the tab list.
+
+## index.html — #view-vendors section
+
+Add a new view section after #view-quoting (~line 4789), before #view-invoice:
+
+<div id="view-vendors" class="app-view" style="display:none;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h2 style="color:#0ea5e9;margin:0;">🏢 Vendor Directory</h2>
+    <button id="vendorAddBtn" onclick="openVendorForm()"
+      style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:10px 20px;
+      font-size:14px;cursor:pointer;font-weight:600;">
+      + Add Vendor
+    </button>
+  </div>
+  <div id="vendorListTarget"></div>
+
+  <!-- Add/Edit Vendor Modal -->
+  <div id="vendorFormModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);
+    z-index:9999;display:none;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:500px;width:90%;
+      max-height:80vh;overflow-y:auto;">
+      <h3 id="vendorFormTitle" style="margin:0 0 16px;color:#1e293b;">Add Vendor</h3>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <input type="hidden" id="vendorEditId" value="">
+        <div>
+          <label style="font-size:13px;font-weight:600;color:#475569;">Vendor Name *</label>
+          <input type="text" id="vendorNameInput" placeholder="e.g. Johnstone Supply"
+            style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:600;color:#475569;">Email</label>
+          <input type="email" id="vendorEmailInput" placeholder="orders@vendor.com"
+            style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:600;color:#475569;">Phone</label>
+          <input type="tel" id="vendorPhoneInput" placeholder="920-555-1234"
+            style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;">
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:600;color:#475569;">Categories (select all that apply)</label>
+          <div id="vendorCategoriesContainer" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+            <!-- Rendered by JS: checkboxes for motors, capacitors, belts, coils, controls, refrigerant, sheet_metal, general_parts -->
+          </div>
+        </div>
+        <div>
+          <label style="font-size:13px;font-weight:600;color:#475569;">Notes</label>
+          <textarea id="vendorNotesInput" rows="2" placeholder="Best pricing on motors. Usually responds same day."
+            style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;resize:vertical;"></textarea>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+        <button onclick="closeVendorForm()"
+          style="background:none;border:1px solid #cbd5e1;border-radius:8px;padding:10px 20px;cursor:pointer;color:#64748b;">
+          Cancel
+        </button>
+        <button onclick="saveVendor()"
+          style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:600;">
+          Save Vendor
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+## vendor_directory.js (new file)
+
+Create vendor_directory.js in the repo root. This is a simple CRUD module:
+
+var VENDOR_CATEGORIES = [
+  { id: "motors", label: "Motors" },
+  { id: "capacitors", label: "Capacitors" },
+  { id: "belts", label: "Belts & Pulleys" },
+  { id: "coils", label: "Coils" },
+  { id: "controls", label: "Controls & Boards" },
+  { id: "refrigerant", label: "Refrigerant & Supplies" },
+  { id: "sheet_metal", label: "Sheet Metal" },
+  { id: "general_parts", label: "General Parts" }
+];
+
+Functions needed:
+
+getVendorsRef():
+  var db = firebase.firestore();
+  return window.VCFirestore ? window.VCFirestore.vendors(db) : db.collection("vendors");
+
+loadVendors():
+  Query getVendorsRef().orderBy("name").get(), render cards into #vendorListTarget.
+  Each card: vendor name (bold), email, phone, category chips, notes, Edit + Delete buttons.
+  Empty state: "No vendors added yet. Click '+ Add Vendor' to get started."
+
+openVendorForm(vendorId):
+  If vendorId provided, load vendor data into form (edit mode). Otherwise clear form (add mode).
+  Show #vendorFormModal (set display to 'flex').
+  Render category checkboxes into #vendorCategoriesContainer from VENDOR_CATEGORIES.
+
+closeVendorForm():
+  Hide #vendorFormModal, clear form fields.
+
+saveVendor():
+  Read form fields. Validate name is non-empty.
+  Build vendor object: { name, email, phone, categories: [checked category ids],
+    notes, active: true, updatedAt: new Date().toISOString() }
+  If editing (vendorEditId has value): getVendorsRef().doc(id).set(data, {merge:true})
+  If new: add createdAt, getVendorsRef().add(data)
+  On success: closeVendorForm(), loadVendors().
+
+deleteVendor(vendorId):
+  Confirm dialog. getVendorsRef().doc(vendorId).delete(). On success: loadVendors().
+
+## index.html — script include
+
+Add before the closing </body> tag, near other script includes (~line 9737):
+  <script src="vendor_directory.js?v=1"></script>
+
+Call loadVendors() in the switchTab handler or on DOMContentLoaded if the vendors tab
+is active. The simplest approach: call loadVendors() inside the switchTab function
+when tabName === 'vendors'.
+
+Bump VC_BUILD.`,
+    outOfScope: "Vendor email integration (Phase C). Vendor selection in the quoting tool (Phase B/C). AI vendor recommendation. Parts pricing history. Modifying quoting.js to use vendor data.",
+    cacheBusts: [],
+  },
+
+  {
+    id: "64e",
+    phase: 64,
+    title: "localStorage quote import tool — one-time migration",
+    dependsOn: ["64a"],
+    patterns: ["Firestore write path (new collection/doc)"],
+    riskLevel: "review",
+    reviewChecklist: [
+      "Manually add 2-3 test quotes to localStorage key 'twinPillarsQuotesDB' (or use existing saved quotes if present).",
+      "Quoting Tool → Recent Quotes Database section → confirm an 'Import Local Quotes' button appears.",
+      "Click Import → confirm a summary dialog shows: 'Found X quotes in local storage. Import to cloud?'",
+      "Confirm Import → verify all quotes appear in the Firestore-backed Recent Quotes list.",
+      "Firebase Console → office_quotes → confirm imported documents have correct data and an 'importedFrom: localStorage' field.",
+      "Click Import again → confirm the tool says 'No new quotes to import' (prevents double-import by checking existing quoteNum values in Firestore).",
+      "Verify original localStorage data is NOT deleted (kept as backup).",
+    ],
+    htmlTarget: "index.html",
+    filesToCreate: [],
+    filesToModify: ["quoting.js", "index.html"],
+    expectedIds: ["importLocalQuotesBtn"],
+    expectedExports: {},
+    scope: `Add a one-time migration utility that reads existing quotes from localStorage
+(twinPillarsQuotesDB) and writes them to the new Firestore office_quotes collection.
+
+## index.html changes
+
+In the Recent Quotes Database section of #view-quoting (~line 4730-4750), add an
+import button next to the existing Export/Import backup buttons:
+
+<button id="importLocalQuotesBtn" onclick="importLocalQuotesToFirestore()"
+  style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:8px 16px;
+  font-size:13px;cursor:pointer;margin-left:8px;">
+  ⬆ Import Local Quotes to Cloud
+</button>
+
+## quoting.js — importLocalQuotesToFirestore (new function)
+
+function importLocalQuotesToFirestore():
+  1. Read twinPillarsQuotesDB from localStorage. Parse JSON. If empty/null, alert "No local quotes found." and return.
+
+  2. Query existing Firestore office_quotes to get all quoteNum values:
+     var ref = getVendorsRef... (use the office quotes ref pattern from 64a)
+     ref.get() → build a Set of existing quoteNum values.
+
+  3. Filter localStorage quotes: only import those whose quoteNum is NOT already in Firestore.
+     If all already imported, alert "No new quotes to import. All X quotes already in cloud."
+
+  4. Show confirm dialog: "Found {count} new quotes in local storage. Import to cloud?"
+
+  5. On confirm, for each quote:
+     - Add importedFrom: "localStorage" field
+     - Add importedAt: new Date().toISOString()
+     - Add createdAt based on quoteDate or current time
+     - ref.add(quoteData)
+
+  6. Use Promise.all or sequential writes with error handling.
+
+  7. On complete: alert "Imported {count} quotes to cloud." and call renderQuoteHistory() to refresh.
+
+  8. Do NOT delete localStorage data — keep it as a backup.
+
+  9. On partial failure: alert which quotes failed and which succeeded.
+
+Bump quoting.js cache-bust. Bump VC_BUILD.`,
+    outOfScope: "Deleting localStorage after import. Importing customer directory to Firestore. Importing service tickets. Changing the export/import backup buttons' behavior. Auto-triggering import on first load.",
+    cacheBusts: ["quoting.js"],
+  },
+
   {
     id: "63h",
     phase: 63,
