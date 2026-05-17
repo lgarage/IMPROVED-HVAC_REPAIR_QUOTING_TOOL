@@ -2506,6 +2506,68 @@ function addTriggerWordFromInput() {
     input.value = "";
 }
 
+/** Phase 64f — quote-relevant toggle + associated parts helpers. */
+function toggleAssociatedPartsSection() {
+    var show = document.getElementById("ffbQuoteRelevantToggle");
+    var section = document.getElementById("ffbAssociatedPartsSection");
+    if (!show || !section) return;
+    section.style.display = show.checked ? "block" : "none";
+}
+
+function addAssociatedPartRow(data) {
+    data = data || {};
+    var container = document.getElementById("ffbAssociatedPartsRows");
+    if (!container) return;
+    var row = document.createElement("div");
+    row.className = "ffb-part-row";
+    row.style.cssText =
+        "display:grid;grid-template-columns:1fr 1fr 48px 80px 24px;gap:4px;margin-bottom:4px;align-items:center;";
+    var descVal = String(data.description || "").replace(/"/g, "&quot;");
+    var specsVal = String(data.specs || "").replace(/"/g, "&quot;");
+    var qtyVal = Number.isFinite(Number(data.qty)) && Number(data.qty) >= 1 ? String(data.qty) : "1";
+    var alwaysChecked = data.alwaysInclude ? " checked" : "";
+    row.innerHTML =
+        '<input type="text" class="ffb-part-desc" placeholder="Supply Fan Motor" value="' + descVal + '"' +
+        ' style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;">' +
+        '<input type="text" class="ffb-part-specs" placeholder="3/4 HP, 48Y frame" value="' + specsVal + '"' +
+        ' style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;">' +
+        '<input type="number" class="ffb-part-qty" min="1" value="' + qtyVal + '"' +
+        ' style="padding:6px 4px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center;">' +
+        '<label style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;cursor:pointer;">' +
+        '<input type="checkbox" class="ffb-part-always"' + alwaysChecked +
+        ' style="accent-color:#0ea5e9;"> Always</label>' +
+        '<button type="button" onclick="this.closest(\'.ffb-part-row\').remove()"' +
+        ' style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:16px;line-height:1;">×</button>';
+    container.appendChild(row);
+}
+
+function setAssociatedPartsRows(parts) {
+    var container = document.getElementById("ffbAssociatedPartsRows");
+    if (!container) return;
+    container.innerHTML = "";
+    (parts || []).forEach(function (p) { addAssociatedPartRow(p); });
+}
+
+function getAssociatedPartsRows() {
+    var rows = document.querySelectorAll("#ffbAssociatedPartsRows .ffb-part-row");
+    var result = [];
+    rows.forEach(function (row) {
+        var descEl = row.querySelector(".ffb-part-desc");
+        var desc = descEl ? String(descEl.value || "").trim() : "";
+        if (!desc) return;
+        var specsEl = row.querySelector(".ffb-part-specs");
+        var qtyEl = row.querySelector(".ffb-part-qty");
+        var alwaysEl = row.querySelector(".ffb-part-always");
+        result.push({
+            description: desc,
+            specs: specsEl ? String(specsEl.value || "").trim() : "",
+            qty: qtyEl ? (parseInt(qtyEl.value) || 1) : 1,
+            alwaysInclude: alwaysEl ? alwaysEl.checked : false,
+        });
+    });
+    return result;
+}
+
 function buildTriggerWordsArray(primaryKw, additionalWords) {
     const primary = String(primaryKw || "").trim().toLowerCase();
     const seen = new Set();
@@ -2546,6 +2608,10 @@ function openFieldFormBuilderCreate() {
     setFfbChipValues("ffbJobTypeChips", []);
     setFfbChipValues("ffbRepairTypeChips", []);
     setTriggerWordChips([]);
+    var qrtEl = document.getElementById("ffbQuoteRelevantToggle");
+    if (qrtEl) qrtEl.checked = false;
+    setAssociatedPartsRows([]);
+    toggleAssociatedPartsSection();
     if (rows) rows.innerHTML = "";
     addFieldFormBuilderRow();
     if (del) del.style.display = "none";
@@ -2603,6 +2669,10 @@ function openFieldFormBuilderEdit(docId) {
                     });
                 });
             }
+            var qrtEl = document.getElementById("ffbQuoteRelevantToggle");
+            if (qrtEl) qrtEl.checked = d.quoteRelevant || false;
+            setAssociatedPartsRows(Array.isArray(d.associatedParts) ? d.associatedParts : []);
+            toggleAssociatedPartsSection();
             if (del) del.style.display = "inline-block";
             const m = document.getElementById("fieldFormBuilderModal");
             if (m) m.style.display = "flex";
@@ -2658,6 +2728,7 @@ async function saveFieldFormTemplate() {
     const defEl = document.getElementById("ffbIsDefault");
     const sortIdxRaw = sortEl && sortEl.value !== "" ? Number(sortEl.value) : 0;
     const sortIdx = Number.isFinite(sortIdxRaw) ? sortIdxRaw : 0;
+    const qrtToggle = document.getElementById("ffbQuoteRelevantToggle");
     const payload = {
         templateName: name,
         targetKeyword: kw,
@@ -2669,6 +2740,8 @@ async function saveFieldFormTemplate() {
         assignedRepairTypes: getFfbChipValues("ffbRepairTypeChips"),
         isDefault: !!(defEl && defEl.checked),
         sortIndex: sortIdx,
+        quoteRelevant: !!(qrtToggle && qrtToggle.checked),
+        associatedParts: getAssociatedPartsRows(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
     try {
@@ -3021,12 +3094,16 @@ async function hydrateFieldFormTemplatesList() {
             const def = !!r.isDefault;
             const extraCount = Array.isArray(r.triggerWords) ? Math.max(0, r.triggerWords.length - 1) : 0;
             const kwDisplay = kw + (extraCount > 0 ? " (+" + extraCount + " more)" : "");
+            const quoteBadge = r.quoteRelevant
+                ? '<span style="background:#fef9c3;color:#713f12;font-size:10px;font-weight:700;' +
+                  'padding:2px 6px;border-radius:4px;margin-left:4px;">QUOTE</span>'
+                : "";
             html += `<div style="background:#fff;border:1px solid #e1e8ed;border-radius:10px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.04);">`;
             html += `<div style="min-width:200px;flex:1;">`;
             html += `<div style="font-weight:800;color:#0ea5e9;font-size:15px;">${nm}`;
             if (def) html += ` <span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;letter-spacing:0.5px;">DEFAULT</span>`;
             html += `</div>`;
-            html += `<div style="font-size:12px;color:#64748b;margin-top:4px;">${escapeHTML(cat)} · AI trigger: <strong style="color:#334155;">${kwDisplay}</strong> · ${nf} field(s) · `;
+            html += `<div style="font-size:12px;color:#64748b;margin-top:4px;">${escapeHTML(cat)}${quoteBadge} · AI trigger: <strong style="color:#334155;">${kwDisplay}</strong> · ${nf} field(s) · `;
             html += active
                 ? '<span style="color:#16a085;font-weight:700;">Active</span>'
                 : '<span style="color:#95a5a6;font-weight:700;">Inactive</span>';

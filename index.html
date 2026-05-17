@@ -6784,6 +6784,46 @@
             </button>
           </div>
 
+          <!-- Phase 64f: quote-relevant toggle + associated parts -->
+          <div style="border-top:1px solid #e2e8f0;margin-top:14px;padding-top:14px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;
+              color:#0ea5e9;cursor:pointer;">
+              <input type="checkbox" id="ffbQuoteRelevantToggle"
+                onchange="toggleAssociatedPartsSection()"
+                style="width:16px;height:16px;accent-color:#0ea5e9;">
+              Quote-Relevant (triggers AI repair quote when this checklist fires)
+            </label>
+            <p style="font-size:12px;color:#64748b;margin:4px 0 10px 24px;line-height:1.45;">
+              When checked, a repair quote will automatically be drafted when this checklist
+              is used during a field job. Add the parts that typically accompany this repair below.
+            </p>
+
+            <div id="ffbAssociatedPartsSection" style="display:none;">
+              <label style="display:block;font-size:13px;font-weight:600;margin:0 0 6px;color:#1e293b;">
+                Associated Parts
+              </label>
+              <p style="font-size:12px;color:#64748b;margin:0 0 8px;line-height:1.45;">
+                Parts that typically accompany this repair type. The AI will suggest these
+                on the draft quote (tech can confirm or dismiss each one).
+              </p>
+
+              <!-- Header row -->
+              <div style="display:grid;grid-template-columns:1fr 1fr 48px 80px 24px;gap:4px;
+                font-size:11px;font-weight:600;color:#94a3b8;padding:0 4px 4px;">
+                <span>Part Description</span><span>Specs</span><span>Qty</span>
+                <span style="text-align:center;">Always<br>Include</span><span></span>
+              </div>
+
+              <div id="ffbAssociatedPartsRows"></div>
+
+              <button type="button" id="ffbAddPartBtn" onclick="addAssociatedPartRow()"
+                style="margin-top:8px;background:none;border:1px dashed #cbd5e1;border-radius:8px;
+                padding:7px 16px;font-size:13px;color:#64748b;cursor:pointer;width:100%;">
+                + Add Part
+              </button>
+            </div>
+          </div>
+
           <!-- Phase 34a: form classification + assignment -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px">
             <div>
@@ -9471,7 +9511,7 @@
 
     <script src="dispatcher/js/navigation.js?v=1"></script>
     <script src="shared/repair_form_seeds.js?v=1"></script>
-    <script src="settings.js?v=22"></script>
+    <script src="settings.js?v=23"></script>
     <script src="dispatcher/js/user_import.js?v=2"></script>
     <script src="dispatcher/js/shadow_mode.js?v=10"></script>
     <script src="customer_directory.js?v=27"></script>
