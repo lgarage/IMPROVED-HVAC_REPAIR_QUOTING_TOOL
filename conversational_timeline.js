@@ -144,6 +144,9 @@
   var _lastReminderEquipment = null;
   var _lastReminderTime = 0;
 
+  /* ── transient nameplate confirmation cards (Slice 63g) ───────── */
+  var _nameplateCardsByEntryId = {};
+
   /* ── settings helpers (Slice 44a) ────────────────────────────── */
 
   var VALID_MODES = ["voice_text", "text_only", "silent"];
@@ -563,6 +566,13 @@
 
       if (item.meta && item.meta.mediaType) {
         html += renderMediaEntryHtml(item);
+        if (_nameplateCardsByEntryId[item.id]) {
+          html += buildNameplateConfirmCard(
+            _nameplateCardsByEntryId[item.id].result,
+            _nameplateCardsByEntryId[item.id].equipmentRef,
+            item.id
+          );
+        }
       } else {
         if (!item.text) continue;
         var isTech = item.role === "tech";
@@ -1083,10 +1093,10 @@
       try { document.body.removeChild(input); } catch (e) {}
       if (!file) return;
       createImageThumbnail(file, function (thumb) {
-        addMediaEntry(file, "photo", thumb, currentTicketId);
+        var entry = addMediaEntry(file, "photo", thumb, currentTicketId);
         var eqRef = (window.JobContextEngine && typeof window.JobContextEngine.getActiveEquipment === "function")
           ? window.JobContextEngine.getActiveEquipment() : null;
-        runNameplateClassification(file, eqRef || null);
+        runNameplateClassification(file, eqRef || null, entry && entry.id);
       });
     });
 
@@ -1158,10 +1168,10 @@
         });
       } else {
         createImageThumbnail(file, function (thumbDataUrl) {
-          addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
+          var entry = addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
           var eqRef = (window.JobContextEngine && typeof window.JobContextEngine.getActiveEquipment === "function")
             ? window.JobContextEngine.getActiveEquipment() : null;
-          runNameplateClassification(file, eqRef || null);
+          runNameplateClassification(file, eqRef || null, entry && entry.id);
         });
       }
     });
@@ -1197,10 +1207,10 @@
         });
       } else if (file.type.startsWith("image/")) {
         createImageThumbnail(file, function (thumbDataUrl) {
-          addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
+          var entry = addMediaEntry(file, "photo", thumbDataUrl, currentTicketId);
           var eqRef = (window.JobContextEngine && typeof window.JobContextEngine.getActiveEquipment === "function")
             ? window.JobContextEngine.getActiveEquipment() : null;
-          runNameplateClassification(file, eqRef || null);
+          runNameplateClassification(file, eqRef || null, entry && entry.id);
         });
       } else {
         /* Generic file (PDF, doc, etc.) — no thumbnail, use a placeholder */
@@ -3821,7 +3831,7 @@
    * manufacturer, model, serial, voltage, tonnage from a unit nameplate.
    * Returns Promise<object|null>.  Null means "not a nameplate" or unreadable.
    */
-  function classifyNameplate(dataUrl) {
+  function classifyNameplate(dataUrl, equipmentRef) {
     if (typeof getGeminiApiKey !== "function") return Promise.resolve(null);
 
     var base64 = dataUrl;
@@ -3832,8 +3842,8 @@
       base64 = dataUrl.slice(prefixMatch[0].length);
     }
 
-    var prompt =
-      "You are an HVAC unit data extraction assistant.\n" +
+    var systemPrompt = "You are an HVAC unit data extraction assistant.";
+    var userPrompt =
       "Look at this image. If it shows a manufacturer nameplate, data plate, or model label " +
       "for an HVAC unit (RTU, AHU, chiller, boiler, etc.), extract the following fields.\n" +
       "If the image is NOT a nameplate, return all fields as null.\n" +
@@ -3848,10 +3858,13 @@
         encodeURIComponent(key);
 
       var body = {
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
         contents: [{
           role: "user",
           parts: [
-            { text: prompt },
+            { text: userPrompt },
             { inlineData: { mimeType: mimeType, data: base64 } }
           ]
         }],
@@ -3922,11 +3935,12 @@
   /**
    * Build the nameplate confirmation card HTML.
    */
-  function buildNameplateConfirmCard(result, equipmentRef) {
+  function buildNameplateConfirmCard(result, equipmentRef, entryId) {
     var resultJson = JSON.stringify(result).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
     var eqDisplay = equipmentRef ? escapeHtml(equipmentRef) : "";
+    var entryAttr = entryId ? ' data-media-entry-id="' + escapeHtmlAttr(entryId) + '"' : "";
 
-    var html = '<div id="ct-nameplate-confirm-card" style="background:#f0f9ff;border:1px solid #7dd3fc;'
+    var html = '<div id="ct-nameplate-confirm-card"' + entryAttr + ' style="background:#f0f9ff;border:1px solid #7dd3fc;'
       + 'border-radius:10px;padding:12px 16px;font-size:13px;margin:4px 0;">'
       + '<div style="font-weight:600;color:#0369a1;margin-bottom:6px;">\uD83C\uDFF7\uFE0F Nameplate detected'
       + (eqDisplay ? ' \u2014 ' + eqDisplay : '') + '</div>'
@@ -3963,11 +3977,22 @@
    * Inject the nameplate confirmation card into the timeline stream,
    * immediately after the most recent photo entry.
    */
-  function injectNameplateCard(result, equipmentRef) {
+  function injectNameplateCard(result, equipmentRef, entryId) {
     var existing = document.getElementById("ct-nameplate-confirm-card");
     if (existing) existing.parentNode.removeChild(existing);
+    _nameplateCardsByEntryId = {};
 
-    var cardHtml = buildNameplateConfirmCard(result, equipmentRef);
+    if (entryId) {
+      _nameplateCardsByEntryId[entryId] = {
+        result: result,
+        equipmentRef: equipmentRef || null
+      };
+      renderTimeline(currentTicketId);
+      scrollToBottom();
+      return;
+    }
+
+    var cardHtml = buildNameplateConfirmCard(result, equipmentRef, "");
     var stream = getMessageStreamEl();
     if (!stream) return;
     var wrapper = document.createElement("div");
@@ -3997,13 +4022,13 @@
       var saveBtn = e.target.closest ? e.target.closest(".ct-nameplate-save-btn") : null;
       if (saveBtn) {
         e.stopPropagation();
+        var card = document.getElementById("ct-nameplate-confirm-card");
         var resultStr = saveBtn.getAttribute("data-result");
         var eqRef = saveBtn.getAttribute("data-eq") || "";
         var result;
         try { result = JSON.parse(resultStr.replace(/&quot;/g, '"').replace(/&#39;/g, "'")); } catch (ex) { return; }
 
         if (!eqRef) {
-          var card = document.getElementById("ct-nameplate-confirm-card");
           var unitInput = card ? card.querySelector(".ct-nameplate-unit-input") : null;
           eqRef = unitInput ? String(unitInput.value).trim() : "";
           if (!eqRef) {
@@ -4013,8 +4038,8 @@
         }
 
         saveNameplateToEquipment(eqRef, result);
-        var card2 = document.getElementById("ct-nameplate-confirm-card");
-        if (card2) card2.parentNode.removeChild(card2);
+        _nameplateCardsByEntryId = {};
+        if (card) card.parentNode.removeChild(card);
         return;
       }
 
@@ -4022,6 +4047,7 @@
       if (dismissBtn) {
         e.stopPropagation();
         var card3 = document.getElementById("ct-nameplate-confirm-card");
+        _nameplateCardsByEntryId = {};
         if (card3) card3.parentNode.removeChild(card3);
       }
     });
@@ -4030,15 +4056,15 @@
   /**
    * runNameplateClassification — background pipeline: read file → classify → inject card.
    */
-  function runNameplateClassification(file, equipmentRef) {
+  function runNameplateClassification(file, equipmentRef, entryId) {
     if (!file || !file.type || !file.type.startsWith("image/")) return;
     try {
       fileToClassificationDataUrl(file).then(function (dataUrl) {
         if (!dataUrl) return;
-        return classifyNameplate(dataUrl);
+        return classifyNameplate(dataUrl, equipmentRef || null);
       }).then(function (result) {
         if (!result) return;
-        injectNameplateCard(result, equipmentRef || null);
+        injectNameplateCard(result, equipmentRef || null, entryId || "");
       }).catch(function () { /* swallow — best-effort enrichment */ });
     } catch (e) { /* swallow */ }
   }

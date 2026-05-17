@@ -1689,6 +1689,16 @@
         customerId = sanitizePathSegment(activeTicket.customerName || "");
         var locEl = document.getElementById("location");
         var locLine = (locEl && locEl.value) ? String(locEl.value).trim() : "";
+        if (!locLine) {
+          var ticketName = String(activeTicket.customerName || "").trim();
+          var ticketCity = String(activeTicket.custCity || "").trim().toUpperCase();
+          var ticketAddr = String(activeTicket.locationAddress || "").trim().replace(/^UNKNOWN\s*-\s*/i, "");
+          if (ticketCity && ticketCity !== "UNKNOWN") {
+            locLine = ticketName + " - " + ticketCity + " - " + ticketAddr;
+          } else {
+            locLine = ticketName && ticketAddr ? ticketName + " - " + ticketAddr : (ticketName || ticketAddr);
+          }
+        }
         locationId = sanitizePathSegment(locLine || "");
       }
       if (!customerId || !locationId) {
@@ -1739,6 +1749,9 @@
         return collRef.doc(unitDocId).set(mergeData, { merge: true });
       }).then(function () {
         console.info("[EquipmentManager] nameplate fields saved for", equipmentRef);
+        if (window.VCEquipmentHub && typeof window.VCEquipmentHub.refresh === "function") {
+          window.VCEquipmentHub.refresh();
+        }
         if (typeof refreshEquipmentHubList === "function") {
           refreshEquipmentHubList();
         }
