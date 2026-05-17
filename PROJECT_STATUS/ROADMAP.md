@@ -19,6 +19,14 @@ A place to park ideas, feature requests, and future phases so they do not get lo
 
 ## ?? The Icebox (Raw Ideas)
 
+### On-Call Rotation & PTO Tracking (Settings Tab)
+
+**Concept.** Mechanism to manage technician on-call schedules, hours of operation, and PTO requests directly in the dispatcher settings tab.
+
+**Why Icebox.** New idea from Slack (2026-05-17). Needs investigation into current settings tab design and data model for tech availability.
+
+---
+
 ### Dispatcher ticket details modal ? explicit **Save** (scheduling confidence)
 
 **Concept.** Add a **Save** button to Ticket Details (`#ticketDetailsModal`) so dispatchers get visible `showSaveCue("? Saved")` confirmation without closing the modal. Refactor the persist body of `closeTicketDetails()` into `persistTicketDetailsModal({ closeAfter })` so Save and Close share one path. Close semantics unchanged.

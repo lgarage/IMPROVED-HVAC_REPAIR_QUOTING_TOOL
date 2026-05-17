@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 (ChatGPT UI redesign). Phase 64 slices ready.
-- **Last shipped (2026-05-17):** Phase65-ChatGPTUI — minimal nav bar (customer name tap → job details), all messages left-justified, single-row dock (+ | input | 🎤 | ↑), waveform recording, ↑ stops+sends voice, 3-dots menu.
-- **Prior (2026-05-17):** Phase65-SpacePolish (airy spacing pass). Phase 63 (Field Intelligence).
+- **Last shipped (2026-05-17):** Idea Tracker system — synced #icebox (Slack) with `IDEA_TRACKER.md` and updated Idea Tracker canvas.
+- **Prior (2026-05-17):** Phase65-ChatGPTUI (minimal nav, waveform mic). Phase65-SpacePolish (airy spacing pass). Phase 63 (Field Intelligence).
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,6 +19,7 @@
 
 ## Immediate Next Step
 
+- **Transcribe/Triage Slack Audio** — Several audio clips from today in `#icebox` need review and transcription into the tracker.
 - **Field-test Phase 65 ChatGPT UI** — Open workspace. Verify: (1) messages all left-aligned, (2) minimal nav shows only customer name + ⋯, (3) tap customer name → job details drop, (4) dock is single row with +/🎤/↑, (5) tap 🎤 → waveform animates → tap ↑ → sends transcript.
 - **Phase 64 (Quote Pipeline Foundation)** ready in `tools/slices.ts` — 5 slices (64a–64e). Run via SDK build runner (`vertex` → `/a`).
 
