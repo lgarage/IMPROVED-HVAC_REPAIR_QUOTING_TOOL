@@ -3406,13 +3406,102 @@
    * classifyNameplate — send a photo to Gemini Vision and attempt to extract
    * manufacturer, model, serial, voltage, tonnage from a unit nameplate.
    * Returns Promise<object|null>.  Null means "not a nameplate" or unreadable.
+   * Uses getGeminiApiKey() + fetch directly so the timeline is self-contained.
    */
   function classifyNameplate(dataUrl, equipmentRef) {
-    return window.VCAgents.NameplateOCR.classifyNameplate(dataUrl);
+    if (window.VCAgents && window.VCAgents.NameplateOCR &&
+        typeof window.VCAgents.NameplateOCR.classifyNameplate === "function") {
+      return window.VCAgents.NameplateOCR.classifyNameplate(dataUrl);
+    }
+
+    if (typeof getGeminiApiKey !== "function") return Promise.resolve(null);
+
+    var base64 = dataUrl;
+    var mimeType = "image/jpeg";
+    var prefixMatch = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,/);
+    if (prefixMatch) {
+      mimeType = prefixMatch[1];
+      base64 = dataUrl.slice(prefixMatch[0].length);
+    }
+
+    var classifyPrompt = "Look at this image. If it shows a manufacturer nameplate, data plate, "
+      + "or model label for an HVAC unit (RTU, AHU, chiller, boiler, etc.), extract the following fields.\n"
+      + "If the image is NOT a nameplate, return all fields as null.\n"
+      + 'Return ONLY valid JSON:\n'
+      + '{ "manufacturer": string|null, "modelNumber": string|null, "serialNumber": string|null, '
+      + '"voltage": string|null, "tonnage": string|null }';
+
+    return getGeminiApiKey().then(function (apiKey) {
+      if (!apiKey) return null;
+      var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="
+        + encodeURIComponent(apiKey);
+      var body = {
+        systemInstruction: { parts: [{ text: "You are an HVAC unit data extraction assistant." }] },
+        contents: [{ role: "user", parts: [
+          { text: classifyPrompt },
+          { inlineData: { mimeType: mimeType, data: base64 } }
+        ]}],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 512, responseMimeType: "application/json" }
+      };
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+    }).then(function (resp) {
+      if (!resp || typeof resp.ok === "undefined") return null;
+      if (!resp.ok) return null;
+      return resp.json();
+    }).then(function (data) {
+      if (!data) return null;
+      var cand = data.candidates && data.candidates[0];
+      var text = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+      if (!text) return null;
+      text = String(text).trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+      var parsed;
+      try { parsed = JSON.parse(text); } catch (e) { return null; }
+      if (!parsed.modelNumber && !parsed.serialNumber) return null;
+      return parsed;
+    }).catch(function () { return null; });
   }
 
+  /**
+   * Read an image File into a base64 data URL, down-scaled to max 1280px
+   * on the longest side to keep the Gemini Vision payload reasonable.
+   */
   function fileToClassificationDataUrl(file) {
-    return window.VCAgents.NameplateOCR.fileToClassificationDataUrl(file);
+    if (window.VCAgents && window.VCAgents.NameplateOCR &&
+        typeof window.VCAgents.NameplateOCR.fileToClassificationDataUrl === "function") {
+      return window.VCAgents.NameplateOCR.fileToClassificationDataUrl(file);
+    }
+    return new Promise(function (resolve) {
+      try {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          var img = new Image();
+          img.onload = function () {
+            try {
+              var maxDim = 1280;
+              var w = img.width, h = img.height;
+              if (w > maxDim || h > maxDim) {
+                var ratio = Math.min(maxDim / w, maxDim / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+              }
+              var canvas = document.createElement("canvas");
+              canvas.width = w;
+              canvas.height = h;
+              canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+              resolve(canvas.toDataURL("image/jpeg", 0.85));
+            } catch (ex) { resolve(null); }
+          };
+          img.onerror = function () { resolve(null); };
+          img.src = e.target.result;
+        };
+        reader.onerror = function () { resolve(null); };
+        reader.readAsDataURL(file);
+      } catch (e) { resolve(null); }
+    });
   }
 
   /**
