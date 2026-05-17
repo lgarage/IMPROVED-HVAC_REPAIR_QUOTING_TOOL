@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 (ChatGPT UI redesign). Phase 64 slices ready.
-- **Last shipped (2026-05-17):** VC DEBUG overlay is now draggable — grab the "VC DEBUG" title and drag to any screen corner. Position persists in `sessionStorage`. `VC_BUILD: Phase65-DebugDrag-2026-05-17`.
+- **Last shipped (2026-05-17):** Bottom chat composer pill is now solid-colored/opaque instead of transparent in the phone UI. `technician/index.html`.
 - **Prior (2026-05-17):** Idea Tracker Slack sync. Phase65-ChatGPTUI (minimal nav, waveform mic). Phase65-SpacePolish.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
@@ -19,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Immediate Next Step:** Hard-refresh the field app on iPhone to get `Phase65-DebugDrag`. Grab "VC DEBUG" text and drag to a corner that doesn't block the dock. Verify: buttons (Copy, −/+) still work after dragging.
+- **Immediate Next Step:** Hard-refresh the field app on iPhone and confirm the bottom chat pill now reads as a solid opaque pill behind the message input and controls.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
