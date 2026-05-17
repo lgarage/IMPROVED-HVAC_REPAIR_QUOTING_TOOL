@@ -1694,7 +1694,7 @@
           var ticketCity = String(activeTicket.custCity || "").trim().toUpperCase();
           var ticketAddr = String(activeTicket.locationAddress || "").trim().replace(/^UNKNOWN\s*-\s*/i, "");
           if (ticketCity && ticketCity !== "UNKNOWN") {
-            locLine = ticketName + " - " + ticketCity + " - " + ticketAddr;
+            locLine = ticketAddr ? ticketName + " - " + ticketCity + " - " + ticketAddr : ticketName + " - " + ticketCity;
           } else {
             locLine = ticketName && ticketAddr ? ticketName + " - " + ticketAddr : (ticketName || ticketAddr);
           }
