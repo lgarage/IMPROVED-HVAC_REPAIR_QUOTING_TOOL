@@ -335,6 +335,13 @@ body.vc-override-pending .vc-office-override-global-strip {
   font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  cursor: grab;
+  touch-action: none;
+}
+.vc-debug-overlay--dragging {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 .vc-debug-overlay__btn {
   background: rgba(56, 189, 248, 0.15);
@@ -7419,7 +7426,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase65-ChatGPTUI-2026-05-17";
+window.VC_BUILD = "Phase65-DebugDrag-2026-05-17";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -7462,7 +7469,8 @@ window.VC_BUILD = "Phase65-ChatGPTUI-2026-05-17";
             ".vc-debug-overlay__head{display:flex;justify-content:space-between;align-items:center;" +
             "gap:6px;margin-bottom:4px}" +
             ".vc-debug-overlay__title{font-weight:700;color:#38bdf8;font-size:10px;" +
-            "letter-spacing:0.04em;text-transform:uppercase}" +
+            "letter-spacing:0.04em;text-transform:uppercase;cursor:grab;touch-action:none}" +
+            ".vc-debug-overlay--dragging{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}" +
             ".vc-debug-overlay__btn{background:rgba(56,189,248,0.15);color:#38bdf8;" +
             "border:1px solid rgba(56,189,248,0.45);font-size:10px;padding:1px 6px;" +
             "border-radius:3px;cursor:pointer}" +
@@ -7508,6 +7516,58 @@ window.VC_BUILD = "Phase65-ChatGPTUI-2026-05-17";
       } catch (e3) {}
       syncVcDebugToggleUi();
     }
+    /* Draggable overlay — hold the "VC DEBUG" title and drag to any screen position.
+       Falls back gracefully if sessionStorage is unavailable. */
+    (function initVcDebugDrag() {
+      var titleEl = el.querySelector(".vc-debug-overlay__title");
+      if (!titleEl) return;
+      var startX = 0, startY = 0, origLeft = 0, origTop = 0, dragging = false;
+      var POS_KEY = "vc_debug_overlay_pos";
+      try {
+        var saved = sessionStorage.getItem(POS_KEY);
+        if (saved) {
+          var sp = JSON.parse(saved);
+          el.style.right = ""; el.style.bottom = "";
+          el.style.left = Math.max(0, Math.min(sp.left, window.innerWidth  - 40)) + "px";
+          el.style.top  = Math.max(0, Math.min(sp.top,  window.innerHeight - 20)) + "px";
+        }
+      } catch (ed0) {}
+      function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+      function dragStart(cx, cy) {
+        var r = el.getBoundingClientRect();
+        startX = cx; startY = cy; origLeft = r.left; origTop = r.top;
+        dragging = true;
+        el.style.right = ""; el.style.bottom = "";
+        el.style.left = origLeft + "px"; el.style.top = origTop + "px";
+        el.classList.add("vc-debug-overlay--dragging");
+      }
+      function dragMove(cx, cy) {
+        if (!dragging) return;
+        el.style.left = clamp(origLeft + cx - startX, 0, window.innerWidth  - el.offsetWidth)  + "px";
+        el.style.top  = clamp(origTop  + cy - startY, 0, window.innerHeight - el.offsetHeight) + "px";
+      }
+      function dragEnd() {
+        if (!dragging) return;
+        dragging = false;
+        el.classList.remove("vc-debug-overlay--dragging");
+        try { sessionStorage.setItem(POS_KEY, JSON.stringify({ left: parseInt(el.style.left) || 0, top: parseInt(el.style.top) || 0 })); } catch (ed1) {}
+      }
+      titleEl.addEventListener("touchstart", function(e) {
+        if (e.touches.length !== 1) return;
+        dragStart(e.touches[0].clientX, e.touches[0].clientY);
+        e.preventDefault();
+      }, { passive: false });
+      document.addEventListener("touchmove", function(e) {
+        if (!dragging || e.touches.length !== 1) return;
+        dragMove(e.touches[0].clientX, e.touches[0].clientY);
+        e.preventDefault();
+      }, { passive: false });
+      document.addEventListener("touchend",    dragEnd, { passive: true });
+      document.addEventListener("touchcancel", dragEnd, { passive: true });
+      titleEl.addEventListener("mousedown", function(e) { dragStart(e.clientX, e.clientY); e.preventDefault(); });
+      document.addEventListener("mousemove", function(e) { if (dragging) dragMove(e.clientX, e.clientY); });
+      document.addEventListener("mouseup", dragEnd);
+    }());
     function snapshot() {
       var lines = [];
       try {
