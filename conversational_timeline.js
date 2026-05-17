@@ -1608,6 +1608,8 @@
    */
   function processEntry(entry, ticketId) {
     if (!entry || entry.role !== "tech") return;
+    /* Media entries render their own card — skip intent pipeline entirely. */
+    if (entry.meta && entry.meta.mediaType) return;
     var id = normalizeTicketId(ticketId);
 
     var rawText = safeText(entry.text);
