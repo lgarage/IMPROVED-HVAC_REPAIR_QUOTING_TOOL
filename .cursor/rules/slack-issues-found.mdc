@@ -1,0 +1,14 @@
+---
+description: Slack issues-found channel — channel ID for direct MCP access
+alwaysApply: true
+---
+
+# Slack Issues Found
+
+When the user mentions "issues found," "issues channel," "bugs I reported," "screenshots I posted," or asks about problems they flagged, **check the Slack channel first** before looking at `KNOWN_ISSUES_ARCHIVE.md`.
+
+- **Channel:** `#issues-found` (private), Slack workspace: Vertex-Core
+- **Channel ID:** `C0B4AKT9NFL`
+- **How to read:** call `slack_get_channel_history` with `channel_id: "C0B4AKT9NFL"`
+- **Do not** list workspace channels to find it — the channel is private and will not appear in `slack_list_channels`. Use the ID directly.
+- The user posts screenshots and descriptions of bugs/issues they encounter while using the field app. These are raw reports that may later be triaged into `KNOWN_ISSUES_ARCHIVE.md` or slices.

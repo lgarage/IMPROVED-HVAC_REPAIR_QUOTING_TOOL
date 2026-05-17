@@ -18,5 +18,12 @@
       "Multi-file UI feature (no Firestore writes)": 0
     },
     "_notes_last_failure": "63d failures were validator false-positives (wrong HTML target for cache-bust check) — not real Opus failures. Reset 2026-05-16 after validator fix in commit 3fc8c7f."
+  },
+  "gpt-5.4-medium": {
+    "_failureCounts": {
+      "Multi-file UI feature (no Firestore writes)": 1,
+      "Firestore write path (new collection/doc)": 1
+    },
+    "_notes_last_failure": "slice 63g: Cannot use this model: gpt-5.4-medium. Available models: default, composer-2, gpt-5.5, gpt-5.3-codex, claude-sonnet-4-6, claude-opus-4-7, grok-4.3, gpt-5.4, claude-opus-4-6, claude-opus-4-5, gpt-5.2, gemini-3.1-pro, gpt-5.4-mini, gpt-5.4-nano, claude-haiku-4-5, claude-sonnet-4-5, gpt-5.2-codex, gpt-5.1-codex-max, gpt-5.1, gemini-3-flash, gpt-5.1-codex-mini, claude-sonnet-4, gpt-5-mini, gemini-2.5-flash, kimi-k2.5. Use Cursor.models.list() to discover valid selections. (2026-05-17)"
   }
 }
