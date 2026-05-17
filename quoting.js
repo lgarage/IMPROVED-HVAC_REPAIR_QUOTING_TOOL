@@ -15,9 +15,17 @@ function handleQuoteStatusChange() {
     const workflow = document.getElementById('jobWorkflowInput');
     const requoteContainer = document.getElementById('requoteNoteContainer');
     const historyText = document.getElementById('requoteNoteHistory').value.trim();
+
+    // Only 'Approved' unlocks job workflow; all other statuses reset it to N/A
     if (status !== 'Approved') workflow.value = 'N/A';
-    if (status === 'Requote Requested' || historyText !== "") requoteContainer.style.display = 'flex';
-    else requoteContainer.style.display = 'none';
+
+    // Show requote note history when explicitly requested, when notes exist,
+    // or when tracking vendor communication (Awaiting Vendor Pricing / Pricing Received)
+    var showNotes = status === 'Requote Requested'
+        || status === 'Awaiting Vendor Pricing'
+        || status === 'Pricing Received'
+        || historyText !== '';
+    requoteContainer.style.display = showNotes ? 'flex' : 'none';
 }
 
 function handleJobWorkflowChange() {
@@ -591,13 +599,18 @@ function _renderQuoteRow(tableBody, quote) {
     if (quote.jobWorkflow === 'Needs to be Scheduled') workflowText = '<span style="color:#e74c3c; font-weight:bold; animation: pulse 2s infinite;">Needs to be Scheduled</span>';
     else if (workflowText) workflowText = '<span style="color:#555; font-weight:bold;">' + workflowText + '</span>';
 
-    var statusColor = '#333';
-    if(quote.status === 'Pending') statusColor = '#f39c12';
-    if(quote.status === 'Approved') statusColor = '#27ae60';
-    if(quote.status === 'Rejected') statusColor = '#7f8c8d';
-    if(quote.status === 'Requote Requested') statusColor = '#8e44ad';
-
-    var statusText = '<strong style="color:' + statusColor + '; font-size:13px;">' + quote.status + '</strong>';
+    var statusColors = {
+        'Draft': '#94a3b8',
+        'Awaiting Vendor Pricing': '#f59e0b',
+        'Pricing Received': '#3b82f6',
+        'Pending': '#eab308',
+        'Sent to Customer': '#8b5cf6',
+        'Approved': '#22c55e',
+        'Rejected': '#ef4444',
+        'Requote Requested': '#f97316'
+    };
+    var statusColor = statusColors[quote.status] || '#94a3b8';
+    var statusText = '<span style="color:' + statusColor + ';font-weight:600;">' + (quote.status || '') + '</span>';
     var tableLoc = quote.locationAddress || '';
     var subLocStr = "";
     if(quote.custCity) subLocStr += quote.custCity + ", ";
