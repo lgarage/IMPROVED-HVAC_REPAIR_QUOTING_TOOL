@@ -3460,13 +3460,19 @@ body.vc-override-active #vcOfficeOverrideBanner {
   padding: 6px 14px;
   border-bottom: none;
 }
+/* Outer row: [pill] + [··· button] */
+.ws-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 /* Floating pill that wraps the title row + expandable details */
 .ws-pill {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   overflow: hidden;
   transition: border-radius 0.28s ease;
 }
@@ -3480,10 +3486,10 @@ body.vc-override-active #vcOfficeOverrideBanner {
 
 /* ── Minimal title bar ───────────────────────────────────────── */
 .ws-minimal-bar {
-  display: grid;
-  grid-template-columns: 36px 1fr 36px;
+  display: flex;
   align-items: center;
-  padding: 6px 8px;
+  justify-content: center;
+  padding: 8px 12px;
 }
 .ws-nav-spacer { flex-shrink: 0; }
 .ws-customer-title-btn {
@@ -6672,25 +6678,14 @@ button#techDisplayLabel:active { opacity: 0.75; }
       <button type="button" id="btnOpenEquipmentHub" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="View site equipment">🗄️ View Site Equipment</button>
       <button type="button" id="btnOpenFormsPanel" class="ws-site-intel-btn visually-hidden" tabindex="-1" aria-hidden="true" title="Add forms">📋 Add additional forms</button>
 
-      <!-- Floating pill nav -->
+      <!-- Floating pill nav + ··· outside -->
+      <div class="ws-nav-row">
       <div class="ws-pill">
       <!-- Minimal title bar -->
       <div class="ws-minimal-bar">
-        <div class="ws-nav-spacer" aria-hidden="true"></div>
         <button type="button" id="wsCustomerTitleBtn" class="ws-customer-title-btn" aria-haspopup="true" aria-expanded="false" aria-label="Tap for job details">
           <span id="ws-customer" class="ws-customer">Select a Job</span>
         </button>
-        <div class="ws-site-menu-wrap">
-          <button type="button" id="wsSiteMenuBtn" class="ws-site-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Actions menu">···</button>
-          <div id="wsSiteMenuDropdown" class="ws-site-menu-dropdown" role="menu">
-            <button type="button" class="ws-site-menu-item" id="wsSiteMenuSiteIntel" role="menuitem">🔍 Site Notes</button>
-            <button type="button" class="ws-site-menu-item" id="wsSiteMenuHistory" role="menuitem">🕒 History</button>
-            <button type="button" class="ws-site-menu-item" id="wsSiteMenuEquipment" role="menuitem">🗄️ View Site Equipment</button>
-            <button type="button" class="ws-site-menu-item" id="wsSiteMenuAddEquipment" role="menuitem">➕ Add equipment</button>
-            <button type="button" class="ws-site-menu-item" id="wsSiteMenuForms" role="menuitem">📋 Add forms</button>
-            <button type="button" class="ws-site-menu-item" id="wsSiteMenuChronicle" role="menuitem">📝 Field Chronicle</button>
-          </div>
-        </div>
       </div>
 
       <!-- Expandable job details panel (tap customer name to toggle) -->
@@ -6713,6 +6708,19 @@ button#techDisplayLabel:active { opacity: 0.75; }
         </div>
       </div>
       </div><!-- /.ws-pill -->
+
+      <div class="ws-site-menu-wrap">
+        <button type="button" id="wsSiteMenuBtn" class="ws-site-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Actions menu">···</button>
+        <div id="wsSiteMenuDropdown" class="ws-site-menu-dropdown" role="menu">
+          <button type="button" class="ws-site-menu-item" id="wsSiteMenuSiteIntel" role="menuitem">🔍 Site Notes</button>
+          <button type="button" class="ws-site-menu-item" id="wsSiteMenuHistory" role="menuitem">🕒 History</button>
+          <button type="button" class="ws-site-menu-item" id="wsSiteMenuEquipment" role="menuitem">🗄️ View Site Equipment</button>
+          <button type="button" class="ws-site-menu-item" id="wsSiteMenuAddEquipment" role="menuitem">➕ Add equipment</button>
+          <button type="button" class="ws-site-menu-item" id="wsSiteMenuForms" role="menuitem">📋 Add forms</button>
+          <button type="button" class="ws-site-menu-item" id="wsSiteMenuChronicle" role="menuitem">📝 Field Chronicle</button>
+        </div>
+      </div>
+      </div><!-- /.ws-nav-row -->
     </nav>
   </div>
 
@@ -7446,7 +7454,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase65-NavPill-2026-05-17";
+window.VC_BUILD = "Phase65-NavPill2-2026-05-17";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
