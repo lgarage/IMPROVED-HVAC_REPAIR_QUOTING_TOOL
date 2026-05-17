@@ -444,9 +444,10 @@ function updatePreviewHTML() {
         laborRow.innerHTML = `<td>${data.laborHours}</td><td>REPAIR LABOR</td><td>N/A</td><td></td><td>$${data.totalLaborAmount.toFixed(2)}</td>`;
         tableBody.appendChild(laborRow);
     }
-    if (data.truckCharge > 0 && data.showDispatchFeeSeparate) {
+    if (data.truckCharge > 0) {
         const truckRow = document.createElement('tr');
-        truckRow.innerHTML = `<td>1</td><td>SERVICE & DISPATCH FEE</td><td>N/A</td><td></td><td>$${data.truckCharge.toFixed(2)}</td>`;
+        const truckLabel = data.showDispatchFeeSeparate ? 'SERVICE & DISPATCH FEE' : 'Service';
+        truckRow.innerHTML = `<td>1</td><td>${truckLabel}</td><td>N/A</td><td></td><td>$${data.truckCharge.toFixed(2)}</td>`;
         tableBody.appendChild(truckRow);
     }
 
