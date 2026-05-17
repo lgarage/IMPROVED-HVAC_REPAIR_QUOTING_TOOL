@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 63 (Field Intelligence). **Phase 64 slices authored** (AI Quote Pipeline — Foundation). **Agent Architecture Separation** planned — see `.cursor/plans/agent_architecture_separation_c9da7200.plan.md`.
-- **Last shipped (2026-05-17):** Build runner retry prep — reset `tools/.build_state.json` slice `63g` to `pending` (was failing on invalid `-medium` model slug); no code deploy changes.
-- **Prior (2026-05-16):** AI Quote Pipeline design spec + Phase 64 slices (64a–64e); SDK model-guard fix; 63a–63f authored + 63e shipped; 63g–63h authored.
+- **Active Phase:** Phase 63 (Field Intelligence). **Phase 64 slices authored** (AI Quote Pipeline — Foundation). **Agent Architecture Separation** shipped.
+- **Last shipped (2026-05-17):** Agent Architecture Separation — `gemini_client.js` + 5 agent modules under `agents/` (notes_parser, equipment_classifier, nameplate_ocr, conversation_agent, location_parts_parser). `conversational_timeline.js` v46→v47 (-532 lines), `equipment_manager.js` v16→v17, `technician/index.html` inline AI replaced. `index.html` updated.
+- **Prior (2026-05-17):** Build runner retry prep — reset slice `63g` to pending. Prior (2026-05-16): AI Quote Pipeline spec + Phase 64 slices; 63a–63f + 63e shipped.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Implement Agent Architecture Separation** — 7-phase plan ready at `.cursor/plans/agent_architecture_separation_c9da7200.plan.md`. Creates `gemini_client.js` + 5 agent modules under `agents/`. Use the continuation prompt from this session.
+- **Deploy + field-test agent separation** — `firebase deploy --only hosting` to push the new agent modules. Test compile notes, nameplate OCR, location/parts parsing on mobile.
 - **Run Phase 63 slices via SDK build runner** — `vertex` → `/a` to execute remaining slices (including retrying `63g`).
 - **Phase 64 (Quote Pipeline Foundation)** ready in `tools/slices.ts` — 5 slices (64a–64e).
 

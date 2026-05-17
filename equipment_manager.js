@@ -5,11 +5,9 @@
 (function () {
   "use strict";
 
+  /* geminiModelId — delegated to shared GeminiClient */
   function geminiModelId() {
-    if (typeof GEMINI_GENERATE_MODEL !== "undefined" && GEMINI_GENERATE_MODEL) {
-      return GEMINI_GENERATE_MODEL;
-    }
-    return "gemini-2.5-flash";
+    return window.GeminiClient ? window.GeminiClient.getModel() : "gemini-2.5-flash";
   }
 
   function loadScript(src) {
@@ -441,90 +439,19 @@
   }
 
   function callGeminiVision(base64Data, mimeType, promptText) {
-    if (typeof getGeminiApiKey !== "function") {
-      return Promise.reject(
-        new Error("No Gemini API key (configure app_config/api_keys in Firestore or Settings).")
-      );
+    if (window.VCAgents && window.VCAgents.NameplateOCR) {
+      return window.VCAgents.NameplateOCR.callVisionRaw(base64Data, mimeType, promptText);
     }
-    return getGeminiApiKey().then(function (key) {
-      if (!key) {
-        return Promise.reject(
-          new Error("No Gemini API key (configure app_config/api_keys in Firestore or Settings).")
-        );
-      }
-      var url =
-        "https://generativelanguage.googleapis.com/v1beta/models/" +
-        geminiModelId() +
-        ":generateContent?key=" +
-        encodeURIComponent(key);
-
-      var body = {
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: promptText },
-              {
-                inlineData: {
-                  mimeType: mimeType || "image/jpeg",
-                  data: base64Data,
-                },
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 2048,
-          responseMimeType: "application/json",
-        },
-      };
-
-      return fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-        .then(function (res) {
-          return res.json().then(function (data) {
-            if (!res.ok) {
-              var msg =
-                (data && data.error && data.error.message) ||
-                res.statusText ||
-                "Gemini request failed";
-              throw new Error(msg);
-            }
-            return data;
-          });
-        })
-        .then(function (data) {
-          var parts =
-            data &&
-            data.candidates &&
-            data.candidates[0] &&
-            data.candidates[0].content &&
-            data.candidates[0].content.parts;
-          if (!parts || !parts.length) return "";
-          return parts
-            .map(function (p) {
-              return p.text || "";
-            })
-            .join("\n");
-        });
+    return window.GeminiClient.callVision(promptText, base64Data, mimeType || "image/jpeg", {
+      temperature: 0.2, maxOutputTokens: 2048
     });
   }
 
   function buildPlatePrompt() {
-    return [
-      "You are an expert HVAC equipment data-plate OCR assistant.",
-      "Analyze the image and extract ONLY what is visible. Return a single JSON object (no markdown) with these keys:",
-      "brand (string), model (string), serial (string), voltage (string), phase (string), refrigerant (string), unitTag (string, e.g. RTU-2 or PRV-3 if shown),",
-      "tonnageNumeric (number or null) — cooling/heating tonnage decoded from the model number if present,",
-      "manufactureYear (number or null) — Priority order: (1) If the nameplate prints an explicit manufacture/build date (e.g. DATE OF MFG., MFG DATE, BUILT, DOM), read that and output the 4-digit year. For values like \"3.24\" or \"2-26\" interpret as month-year in Western order (March 2024 → 2024); never substitute digits from the serial for this. (2) Only if no printed date exists on the plate: try the manufacturer's serial/letter date-code rules. (3) If uncertain, null. Do not derive year from unrelated lines (QR text, unrelated numbers).",
-      "ageYears (number or null) — years from manufactureYear to the current calendar year only if manufactureYear is known, else null,",
-      "serialDateNotes (string) — quote the exact label text used for the date (e.g. \"DATE OF MFG.: 3.24 → 2024\") or explain that serial-only decoding was used and why.",
-      "If a field is not on the plate, use empty string or null. Be conservative; do not invent model numbers from address text.",
-    ].join(" ");
+    if (window.VCAgents && window.VCAgents.NameplateOCR) {
+      return window.VCAgents.NameplateOCR.buildFullPlatePrompt();
+    }
+    return "You are an expert HVAC equipment data-plate OCR assistant. Analyze the image and extract ONLY what is visible. Return a single JSON object.";
   }
 
   function readContextFromDom() {

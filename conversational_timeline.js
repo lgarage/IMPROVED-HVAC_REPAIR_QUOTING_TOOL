@@ -1,5 +1,5 @@
 /**
- * Conversational Timeline — Slice 63f.
+ * Conversational Timeline — Slice 63f + Agent Architecture Separation.
  *
  * Slice 41a: localStorage-only timeline, bubble layout, workspace integration.
  * Slice 41b: Hold-to-Talk action bar + live Web Speech API STT.
@@ -1240,51 +1240,7 @@
    *   Low (<0.6) → handled async by processEntry (cloud escalation)
    */
   function generateResponse(entry, opts) {
-    if (!entry) return null;
-    var options = opts || {};
-
-    /* Media entries ------------------------------------------------ */
-    if (entry.meta && entry.meta.mediaType) {
-      if (entry.meta.mediaType === "video") return "\uD83C\uDFA5 Saved.";
-      if (entry.meta.mediaType === "file")  return "\uD83D\uDCC4 File saved.";
-      return "\uD83D\uDCF7 Saved.";
-    }
-
-    var text = safeText(entry.text);
-    if (!text) return null;
-
-    var confidence = (entry.meta && typeof entry.meta.intentConfidence === "number")
-      ? entry.meta.intentConfidence
-      : 1;
-
-    /* Low confidence — skip sync response (async escalation handles it) */
-    if (confidence < 0.6 && !options.fromEscalation) {
-      return null;
-    }
-
-    /* Equipment reference ------------------------------------------ */
-    var match = text.match(EQUIPMENT_REGEX);
-
-    /* High confidence (≥0.8) ─────────────────────────────────────── */
-    if (confidence >= 0.8) {
-      if (match) return "Got it. " + match[0] + ".";
-      return "Got it.";
-    }
-
-    /* Medium confidence (0.6–0.8) — short clarification ─────────── */
-    var entities = (entry.meta && Array.isArray(entry.meta.entities)) ? entry.meta.entities : [];
-    var hasEquipment = entities.some(function (e) { return e.type === "equipment"; });
-    var hasTemp = entities.some(function (e) { return e.type === "temperature"; });
-    var hasAmps = entities.some(function (e) { return e.type === "amp_draw"; });
-    var hasPart = entities.some(function (e) { return e.type === "part"; });
-
-    if (!hasEquipment && match) {
-      return "Got it. " + match[0] + ".";
-    }
-    if (!hasEquipment) return "Got it.";
-    if (hasPart && !hasAmps && !hasTemp) return "Reading?";
-    if (match) return "Got it. " + match[0] + ".";
-    return "Got it.";
+    return window.VCAgents.Conversation.generateResponse(entry, opts);
   }
 
   /* ── follow-up response parsing (Slice 44a) ──────────────────── */
@@ -1295,32 +1251,7 @@
    *   "yes" | "no" | "skip" | "correction" | "number" | "equipment" | "text"
    */
   function parseFollowUpResponse(text) {
-    var t = String(text || "").trim().toLowerCase();
-
-    if (/^(yes|yeah|yep|yup|correct|affirmative|that'?s right|confirmed?)$/.test(t)) {
-      return { type: "yes" };
-    }
-    if (/^(no|nope|nah|negative|incorrect)$/.test(t)) {
-      return { type: "no" };
-    }
-    if (/^(skip|next|pass|never ?mind|n\/a|none)$/.test(t)) {
-      return { type: "skip" };
-    }
-    if (/^(correction|correct that|i meant|actually)/.test(t)) {
-      return { type: "correction", value: text };
-    }
-
-    var eqMatch = String(text).match(EQUIPMENT_REGEX);
-    if (eqMatch) {
-      return { type: "equipment", value: eqMatch[0] };
-    }
-
-    var numMatch = String(text).match(/\b(\d+\.?\d*)\s*(psi|amps?|degrees?|°|rpm|cfm|volts?|watts?|hz|kw|ton|tons?)?\b/i);
-    if (numMatch) {
-      return { type: "number", value: numMatch[0] };
-    }
-
-    return { type: "text", value: text };
+    return window.VCAgents.Conversation.parseFollowUpResponse(text);
   }
 
   /**
@@ -2145,64 +2076,18 @@
    * Sends the question + job context to Gemini for a free-form answer.
    */
   function askCloudGemini(question) {
-    if (typeof getGeminiApiKey !== "function") {
-      return Promise.reject(new Error("Gemini API key not available"));
-    }
-    return getGeminiApiKey().then(function (key) {
-      if (!key) throw new Error("No Gemini API key configured");
-
-      var ticket = getActiveTicket();
-      var contextLines = [];
-      if (ticket) {
-        if (ticket.customerName) contextLines.push("Customer: " + ticket.customerName);
-        if (ticket.locationAddress || ticket.address) contextLines.push("Site: " + (ticket.locationAddress || ticket.address));
-        if (ticket.issue) contextLines.push("Issue: " + ticket.issue);
+    var ticket = getActiveTicket();
+    var activeEquip = "";
+    try {
+      if (window.JobContextEngine && typeof window.JobContextEngine.getActiveEquipment === "function") {
+        activeEquip = window.JobContextEngine.getActiveEquipment() || "";
       }
-      var activeEquip = "";
-      try {
-        if (window.JobContextEngine && typeof window.JobContextEngine.getActiveEquipment === "function") {
-          activeEquip = window.JobContextEngine.getActiveEquipment() || "";
-        }
-      } catch (e) {}
-      if (activeEquip) contextLines.push("Active equipment: " + activeEquip);
-
-      var prompt = "You are a knowledgeable HVAC field service assistant. " +
-        "A technician is on-site and has a question. Provide a concise, practical answer.\n\n";
-      if (contextLines.length) {
-        prompt += "JOB CONTEXT:\n" + contextLines.join("\n") + "\n\n";
-      }
-      prompt += "QUESTION: " + question + "\n\nAnswer concisely (1-3 sentences):";
-
-      var url =
-        "https://generativelanguage.googleapis.com/v1beta/models/" +
-        getGeminiModel() +
-        ":generateContent?key=" +
-        encodeURIComponent(key);
-
-      var body = {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 512
-        }
-      };
-
-      return fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      }).then(function (resp) {
-        if (!resp.ok) throw new Error("Gemini API error: " + resp.status);
-        return resp.json();
-      }).then(function (data) {
-        var part =
-          data.candidates &&
-          data.candidates[0] &&
-          data.candidates[0].content &&
-          data.candidates[0].content.parts &&
-          data.candidates[0].content.parts[0];
-        return (part && part.text) ? String(part.text).trim() : "";
-      });
+    } catch (e) {}
+    return window.VCAgents.Conversation.askCloudGemini(question, {
+      customerName: ticket && ticket.customerName,
+      address: ticket && (ticket.locationAddress || ticket.address),
+      issue: ticket && ticket.issue,
+      activeEquipment: activeEquip
     });
   }
 
@@ -2730,8 +2615,8 @@
   var COMPILE_MIN_ENTRIES = 3;
   var COMPILE_BG_INTERVAL_MS = 5 * 60 * 1000; /* 5 minutes — safety-net sweep */
   var COMPILE_DEBOUNCE_MS    = 45 * 1000;      /* 45 s quiet period after last entry */
-  var COMPILE_DELTA_MAX_TOKENS = 2048;         /* delta calls need far less output */
-  var COMPILE_FULL_MAX_TOKENS  = 8192;         /* full / first compile needs room */
+  var COMPILE_DELTA_MAX_TOKENS = (window.VCAgents && window.VCAgents.NotesParser) ? window.VCAgents.NotesParser.COMPILE_DELTA_MAX_TOKENS : 2048;
+  var COMPILE_FULL_MAX_TOKENS  = (window.VCAgents && window.VCAgents.NotesParser) ? window.VCAgents.NotesParser.COMPILE_FULL_MAX_TOKENS : 8192;
 
   /* Rolling background compile state */
   var _bgCompileTimer = null;
@@ -2830,79 +2715,11 @@
   }
 
   function mergeCompileResults(existing, delta) {
-    if (!existing) return delta;
-    if (!delta) return existing;
-    return {
-      equipmentFindings: (existing.equipmentFindings || []).concat(delta.equipmentFindings || []),
-      quoteRecommendations: (existing.quoteRecommendations || []).concat(delta.quoteRecommendations || []),
-      unresolvedIssues: (existing.unresolvedIssues || []).concat(delta.unresolvedIssues || []),
-      equipmentHistoryUpdates: (existing.equipmentHistoryUpdates || []).concat(delta.equipmentHistoryUpdates || []),
-      summary: delta.summary || existing.summary || ""
-    };
+    return window.VCAgents.NotesParser.mergeCompileResults(existing, delta);
   }
 
   function buildDeltaCompilePrompt(newEntries, existingResult, context) {
-    var lines = [];
-    lines.push("You are an HVAC field service report compiler processing incremental timeline entries.");
-    lines.push("MEDIA EQUIPMENT RULE: Media entries (photo/video) tagged with (equipment: X) are explicitly tied to that equipment. For any media entry WITHOUT an (equipment:) tag, associate it with the equipment or issue most recently mentioned in the timeline entries immediately before it.");
-    lines.push("");
-    lines.push("CRITICAL DATA PRESERVATION RULES — follow these exactly:");
-    lines.push("1. EXACT MEASUREMENTS: Copy filter dimensions (e.g. 16x20x2), pressures, temperatures, voltages, and quantities VERBATIM from the timeline. Never round, convert, abbreviate, or paraphrase numbers.");
-    lines.push("2. EXACT PART NAMES: Belt designations (e.g. BX56), part numbers, and model/serial numbers must appear exactly as stated. Never substitute, generalize, or infer part names.");
-    lines.push("3. EQUIPMENT LABELS: RTU labels (e.g. RTU 1, RTU 2), unit names, and system identifiers are literal — do not merge, conflate, or rename them.");
-    lines.push("4. QUANTITIES: If the technician states a specific count (e.g. 'four filters', '4 filters'), preserve the exact number. Never change quantities.");
-    lines.push("5. DO NOT INVENT: Never add part numbers, measurements, quantities, or specifications not explicitly present in the timeline entries.");
-    lines.push("");
-
-    if (existingResult && existingResult.summary) {
-      lines.push("EXISTING REPORT CONTEXT (already compiled from earlier entries):");
-      lines.push("Summary so far: " + existingResult.summary);
-      if (existingResult.equipmentFindings && existingResult.equipmentFindings.length) {
-        lines.push("Equipment already found: " + existingResult.equipmentFindings.map(function (f) { return f.equipment || ""; }).filter(Boolean).join(", "));
-      }
-      lines.push("");
-    }
-
-    lines.push("NEW TIMELINE ENTRIES (compile only these — merge context with existing report):");
-    for (var i = 0; i < newEntries.length; i++) {
-      var e = newEntries[i];
-      if (!e) continue;
-      var prefix = e.role === "system" ? "[SYSTEM]" : "[TECH]";
-      var meta = "";
-      if (e.meta && e.meta.mediaType) meta = " (media: " + e.meta.mediaType + ")";
-      var eqRef = (e.meta && (e.meta.equipmentRef || e.meta.activeEquipment)) || null;
-      if (eqRef) meta += " (equipment: " + eqRef + ")";
-      lines.push(prefix + " " + (e.ts || "") + " — " + (e.text || "") + meta);
-    }
-
-    if (context && context.ticket) {
-      lines.push("");
-      lines.push("JOB CONTEXT:");
-      if (context.ticket.customerName) lines.push("Customer: " + context.ticket.customerName);
-      if (context.ticket.address || context.ticket.locationAddress) {
-        lines.push("Location: " + (context.ticket.address || context.ticket.locationAddress));
-      }
-      if (context.ticket.issue) lines.push("Reported issue: " + context.ticket.issue);
-    }
-
-    lines.push("");
-    lines.push("OUTPUT FORMAT — Return ONLY valid JSON. Update the summary to cover ALL entries (both existing and new). Only include findings/issues found in the NEW entries above (the existing ones are already tracked):");
-    lines.push('{');
-    lines.push('  "equipmentFindings": [');
-    lines.push('    { "equipment": "string", "diagnosis": "string", "measurements": "string", "actionsTaken": "string" }');
-    lines.push('  ],');
-    lines.push('  "quoteRecommendations": [');
-    lines.push('    { "part": "string", "description": "string", "laborEstimate": "string" }');
-    lines.push('  ],');
-    lines.push('  "unresolvedIssues": [');
-    lines.push('    { "issue": "string", "severity": "low|medium|high", "notes": "string" }');
-    lines.push('  ],');
-    lines.push('  "equipmentHistoryUpdates": [');
-    lines.push('    { "equipment": "string", "dataPoints": "string" }');
-    lines.push('  ],');
-    lines.push('  "summary": "string (1-2 sentence summary covering ALL entries, including previous context)"');
-    lines.push('}');
-    return lines.join("\n");
+    return window.VCAgents.NotesParser.buildDeltaCompilePrompt(newEntries, existingResult, context);
   }
 
   function backgroundCompile() {
@@ -2945,197 +2762,17 @@
   }
 
   function buildCompilePrompt(context) {
-    var lines = [];
-    lines.push("You are an HVAC field service report compiler. Analyze the following technician timeline entries and produce a structured JSON report.");
-    lines.push("MEDIA EQUIPMENT RULE: Media entries (photo/video) tagged with (equipment: X) are explicitly tied to that equipment. For any media entry WITHOUT an (equipment:) tag, associate it with the equipment or issue most recently mentioned in the timeline entries immediately before it.");
-    lines.push("");
-    lines.push("CRITICAL DATA PRESERVATION RULES — follow these exactly:");
-    lines.push("1. EXACT MEASUREMENTS: Copy filter dimensions (e.g. 16x20x2), pressures, temperatures, voltages, and quantities VERBATIM from the timeline. Never round, convert, abbreviate, or paraphrase numbers.");
-    lines.push("2. EXACT PART NAMES: Belt designations (e.g. BX56), part numbers, and model/serial numbers must appear exactly as stated. Never substitute, generalize, or infer part names.");
-    lines.push("3. EQUIPMENT LABELS: RTU labels (e.g. RTU 1, RTU 2), unit names, and system identifiers are literal — do not merge, conflate, or rename them.");
-    lines.push("4. QUANTITIES: If the technician states a specific count (e.g. 'four filters', '4 filters'), preserve the exact number. Never change quantities.");
-    lines.push("5. DO NOT INVENT: Never add part numbers, measurements, quantities, or specifications not explicitly present in the timeline entries.");
-    lines.push("");
-    lines.push("TIMELINE ENTRIES:");
-    for (var i = 0; i < context.entries.length; i++) {
-      var e = context.entries[i];
-      if (!e) continue;
-      var prefix = e.role === "system" ? "[SYSTEM]" : "[TECH]";
-      var meta = "";
-      if (e.meta && e.meta.mediaType) meta = " (media: " + e.meta.mediaType + ")";
-      var eqRef = (e.meta && (e.meta.equipmentRef || e.meta.activeEquipment)) || null;
-      if (eqRef) meta += " (equipment: " + eqRef + ")";
-      lines.push(prefix + " " + (e.ts || "") + " — " + (e.text || "") + meta);
-    }
-
-    if (context.ticket) {
-      lines.push("");
-      lines.push("JOB CONTEXT:");
-      if (context.ticket.customerName) lines.push("Customer: " + context.ticket.customerName);
-      if (context.ticket.address || context.ticket.locationAddress) {
-        lines.push("Location: " + (context.ticket.address || context.ticket.locationAddress));
-      }
-      if (context.ticket.issue) lines.push("Reported issue: " + context.ticket.issue);
-    }
-
-    if (context.equipmentContext) {
-      lines.push("");
-      lines.push("ACTIVE EQUIPMENT: " + context.equipmentContext);
-    }
-
-    if (context.checklistState && context.checklistState.items) {
-      lines.push("");
-      lines.push("CHECKLIST STATE:");
-      var items = context.checklistState.items;
-      for (var j = 0; j < items.length; j++) {
-        var ci = items[j];
-        var status = ci.completed ? "DONE" : "PENDING";
-        lines.push("  - [" + status + "] " + (ci.label || ci.id || "item " + j));
-      }
-    }
-
-    lines.push("");
-    lines.push("OUTPUT FORMAT — Return ONLY valid JSON with this structure:");
-    lines.push('{');
-    lines.push('  "equipmentFindings": [');
-    lines.push('    { "equipment": "string", "diagnosis": "string", "measurements": "string", "actionsTaken": "string" }');
-    lines.push('  ],');
-    lines.push('  "quoteRecommendations": [');
-    lines.push('    { "part": "string", "description": "string", "laborEstimate": "string" }');
-    lines.push('  ],');
-    lines.push('  "unresolvedIssues": [');
-    lines.push('    { "issue": "string", "severity": "low|medium|high", "notes": "string" }');
-    lines.push('  ],');
-    lines.push('  "equipmentHistoryUpdates": [');
-    lines.push('    { "equipment": "string", "dataPoints": "string" }');
-    lines.push('  ],');
-    lines.push('  "summary": "string (1-2 sentence overall summary)"');
-    lines.push('}');
-
-    return lines.join("\n");
+    return window.VCAgents.NotesParser.buildCompilePrompt(context);
   }
 
-  function getGeminiModel() {
-    if (typeof GEMINI_GENERATE_MODEL !== "undefined" && GEMINI_GENERATE_MODEL) {
-      return GEMINI_GENERATE_MODEL;
-    }
-    return "gemini-2.5-flash";
-  }
-
-  function parseGeminiJsonResponse(raw) {
-    var t = String(raw || "").trim();
-    t = t.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
-    try { return JSON.parse(t); } catch (e) { return null; }
-  }
+  /* ── Gemini helpers — delegated to shared GeminiClient + VCAgents ── */
 
   function callGeminiCompile(prompt, maxTokens) {
-    if (typeof getGeminiApiKey !== "function") {
-      return Promise.reject(new Error("Gemini API key not available"));
-    }
-    return getGeminiApiKey().then(function (key) {
-      if (!key) throw new Error("No Gemini API key configured");
-      var url =
-        "https://generativelanguage.googleapis.com/v1beta/models/" +
-        getGeminiModel() +
-        ":generateContent?key=" +
-        encodeURIComponent(key);
-
-      var body = {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: maxTokens || COMPILE_FULL_MAX_TOKENS,
-          responseMimeType: "application/json"
-        }
-      };
-
-      return fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      }).then(function (resp) {
-        if (!resp.ok) {
-          return resp.text().then(function (errBody) {
-            var reason = "";
-            try {
-              var parsed = JSON.parse(errBody);
-              var errObj = parsed && parsed.error;
-              if (errObj) reason = " — " + (errObj.status || "") + ": " + (errObj.message || "");
-            } catch (e) { reason = errBody ? " — " + errBody.slice(0, 200) : ""; }
-            throw new Error("Gemini API error: " + resp.status + reason);
-          });
-        }
-        return resp.json();
-      }).then(function (data) {
-        var part =
-          data.candidates &&
-          data.candidates[0] &&
-          data.candidates[0].content &&
-          data.candidates[0].content.parts &&
-          data.candidates[0].content.parts[0];
-        var rawOut = part && part.text ? String(part.text) : "";
-        var parsed = parseGeminiJsonResponse(rawOut);
-        if (!parsed) throw new Error("Failed to parse Gemini response as JSON\n\nRaw output:\n" + rawOut.slice(0, 500));
-        return parsed;
-      });
-    });
+    return window.VCAgents.NotesParser.callCompile(prompt, maxTokens);
   }
 
   function formatCompileResultForDisplay(result) {
-    var lines = [];
-    lines.push("═══ COMPILED FIELD NOTES ═══");
-    lines.push("");
-
-    if (result.summary) {
-      lines.push("SUMMARY:");
-      lines.push(result.summary);
-      lines.push("");
-    }
-
-    if (result.equipmentFindings && result.equipmentFindings.length) {
-      lines.push("─── EQUIPMENT FINDINGS ───");
-      for (var i = 0; i < result.equipmentFindings.length; i++) {
-        var ef = result.equipmentFindings[i];
-        lines.push("");
-        lines.push("▸ " + (ef.equipment || "Unknown Equipment"));
-        if (ef.diagnosis) lines.push("  Diagnosis: " + ef.diagnosis);
-        if (ef.measurements) lines.push("  Measurements: " + ef.measurements);
-        if (ef.actionsTaken) lines.push("  Actions: " + ef.actionsTaken);
-      }
-      lines.push("");
-    }
-
-    if (result.quoteRecommendations && result.quoteRecommendations.length) {
-      lines.push("─── QUOTE RECOMMENDATIONS ───");
-      for (var j = 0; j < result.quoteRecommendations.length; j++) {
-        var qr = result.quoteRecommendations[j];
-        lines.push("  • " + (qr.part || "Item") + (qr.description ? " — " + qr.description : ""));
-        if (qr.laborEstimate) lines.push("    Labor: " + qr.laborEstimate);
-      }
-      lines.push("");
-    }
-
-    if (result.unresolvedIssues && result.unresolvedIssues.length) {
-      lines.push("─── UNRESOLVED ISSUES ───");
-      for (var k = 0; k < result.unresolvedIssues.length; k++) {
-        var ui = result.unresolvedIssues[k];
-        var sev = ui.severity ? " [" + ui.severity.toUpperCase() + "]" : "";
-        lines.push("  ⚠ " + (ui.issue || "Unknown issue") + sev);
-        if (ui.notes) lines.push("    " + ui.notes);
-      }
-      lines.push("");
-    }
-
-    if (result.equipmentHistoryUpdates && result.equipmentHistoryUpdates.length) {
-      lines.push("─── EQUIPMENT HISTORY UPDATES ───");
-      for (var m = 0; m < result.equipmentHistoryUpdates.length; m++) {
-        var eh = result.equipmentHistoryUpdates[m];
-        lines.push("  • " + (eh.equipment || "Unknown") + ": " + (eh.dataPoints || ""));
-      }
-      lines.push("");
-    }
-
-    return lines.join("\n");
+    return window.VCAgents.NotesParser.formatCompileResultForDisplay(result);
   }
 
 
@@ -3228,86 +2865,11 @@
 
   /* ── Slice 63f: Post-compile equipment classification ──────── */
 
-  function extractUniqueEquipmentRefs(entries) {
-    var seen = {};
-    var refs = [];
-    for (var i = 0; i < entries.length; i++) {
-      var e = entries[i];
-      if (!e || !e.meta) continue;
-      var ref = e.meta.equipmentRef || e.meta.activeEquipment || null;
-      if (ref && !seen[ref]) {
-        seen[ref] = true;
-        refs.push(ref);
-      }
-    }
-    return refs;
-  }
-
-  function buildEquipmentClassifyPrompt(compiledReport, equipmentRef) {
-    var lines = [];
-    lines.push("You are an HVAC service data extractor.");
-    lines.push("From this compiled field service report, extract findings specific to \"" + equipmentRef + "\" that should be saved to the unit's permanent equipment history.");
-    lines.push("");
-    lines.push("COMPILED REPORT:");
-    if (compiledReport.summary) lines.push("Summary: " + compiledReport.summary);
-    if (compiledReport.equipmentFindings && compiledReport.equipmentFindings.length) {
-      for (var i = 0; i < compiledReport.equipmentFindings.length; i++) {
-        var ef = compiledReport.equipmentFindings[i];
-        lines.push("Equipment: " + (ef.equipment || "") +
-          " | Diagnosis: " + (ef.diagnosis || "") +
-          " | Measurements: " + (ef.measurements || "") +
-          " | Actions: " + (ef.actionsTaken || ""));
-      }
-    }
-    if (compiledReport.equipmentHistoryUpdates && compiledReport.equipmentHistoryUpdates.length) {
-      for (var j = 0; j < compiledReport.equipmentHistoryUpdates.length; j++) {
-        var eh = compiledReport.equipmentHistoryUpdates[j];
-        lines.push("History update: " + (eh.equipment || "") + " — " + (eh.dataPoints || ""));
-      }
-    }
-    lines.push("");
-    lines.push("Return ONLY valid JSON for \"" + equipmentRef + "\":");
-    lines.push('{');
-    lines.push('  "measurements": ["string — e.g. amp draw 18.5A, supply temp 52°F"],');
-    lines.push('  "partsReplaced": ["string — e.g. contactor, capacitor"],');
-    lines.push('  "repairOutcome": "string — verified working / needs follow-up / etc.",');
-    lines.push('  "followUp": "string — any recommended follow-up for this unit, or empty string",');
-    lines.push('  "summary": "string — 1-2 sentence summary of work done on this unit"');
-    lines.push('}');
-    return lines.join("\n");
-  }
-
   function classifyEquipmentFindings(compiledReport, entries, capturedTicketId) {
     if (!compiledReport || !entries || !entries.length) return;
-
-    /* Capture the ticket ID at classification start — same pattern as compileTicketId
-       in compileNotes(). If the ticket switches before Promise.all resolves, the guard
-       below discards stale cards rather than appending them to the new ticket's modal. */
     var classifyTicketId = capturedTicketId || currentTicketId;
-
-    var equipRefs = extractUniqueEquipmentRefs(entries);
-    if (!equipRefs.length) return;
-
-    var classifyPromises = [];
-    for (var i = 0; i < equipRefs.length; i++) {
-      (function (ref) {
-        var prompt = buildEquipmentClassifyPrompt(compiledReport, ref);
-        classifyPromises.push(
-          callGeminiCompile(prompt, 1024).then(function (parsed) {
-            return { equipmentRef: ref, findings: parsed };
-          }).catch(function () {
-            return null;
-          })
-        );
-      })(equipRefs[i]);
-    }
-
-    Promise.all(classifyPromises).then(function (results) {
-      if (currentTicketId !== classifyTicketId) return; /* ticket switched — discard stale */
-      var valid = [];
-      for (var j = 0; j < results.length; j++) {
-        if (results[j] && results[j].findings) valid.push(results[j]);
-      }
+    window.VCAgents.EquipmentClassifier.classifyAll(compiledReport, entries).then(function (valid) {
+      if (currentTicketId !== classifyTicketId) return;
       if (!valid.length) return;
       showEquipmentSavePrompt(valid, classifyTicketId);
     });
@@ -3846,104 +3408,11 @@
    * Returns Promise<object|null>.  Null means "not a nameplate" or unreadable.
    */
   function classifyNameplate(dataUrl, equipmentRef) {
-    if (typeof getGeminiApiKey !== "function") return Promise.resolve(null);
-
-    var base64 = dataUrl;
-    var mimeType = "image/jpeg";
-    var prefixMatch = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,/);
-    if (prefixMatch) {
-      mimeType = prefixMatch[1];
-      base64 = dataUrl.slice(prefixMatch[0].length);
-    }
-
-    var systemPrompt = "You are an HVAC unit data extraction assistant.";
-    var userPrompt =
-      "Look at this image. If it shows a manufacturer nameplate, data plate, or model label " +
-      "for an HVAC unit (RTU, AHU, chiller, boiler, etc.), extract the following fields.\n" +
-      "If the image is NOT a nameplate, return all fields as null.\n" +
-      'Return ONLY valid JSON:\n' +
-      '{ "manufacturer": string|null, "modelNumber": string|null, "serialNumber": string|null, ' +
-      '"voltage": string|null, "tonnage": string|null }';
-
-    return getGeminiApiKey().then(function (key) {
-      if (!key) return null;
-      var url =
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
-        encodeURIComponent(key);
-
-      var body = {
-        systemInstruction: {
-          parts: [{ text: systemPrompt }]
-        },
-        contents: [{
-          role: "user",
-          parts: [
-            { text: userPrompt },
-            { inlineData: { mimeType: mimeType, data: base64 } }
-          ]
-        }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 512,
-          responseMimeType: "application/json"
-        }
-      };
-
-      return fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      }).then(function (resp) {
-        if (!resp.ok) return null;
-        return resp.json();
-      }).then(function (data) {
-        var parts = data && data.candidates && data.candidates[0] &&
-          data.candidates[0].content && data.candidates[0].content.parts;
-        if (!parts || !parts.length) return null;
-        var raw = (parts[0].text || "").trim();
-        raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
-        try {
-          var parsed = JSON.parse(raw);
-          if (!parsed.modelNumber && !parsed.serialNumber) return null;
-          return parsed;
-        } catch (e) { return null; }
-      });
-    }).catch(function () { return null; });
+    return window.VCAgents.NameplateOCR.classifyNameplate(dataUrl);
   }
 
-  /**
-   * Read an image File into a full-resolution data URL for Gemini Vision.
-   * Uses a canvas down-scale to max 1280px to keep the payload reasonable.
-   */
   function fileToClassificationDataUrl(file) {
-    return new Promise(function (resolve) {
-      try {
-        var reader = new FileReader();
-        reader.onload = function (e) {
-          var img = new Image();
-          img.onload = function () {
-            try {
-              var maxDim = 1280;
-              var w = img.width, h = img.height;
-              if (w > maxDim || h > maxDim) {
-                var ratio = Math.min(maxDim / w, maxDim / h);
-                w = Math.round(w * ratio);
-                h = Math.round(h * ratio);
-              }
-              var canvas = document.createElement("canvas");
-              canvas.width = w;
-              canvas.height = h;
-              canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-              resolve(canvas.toDataURL("image/jpeg", 0.85));
-            } catch (ex) { resolve(null); }
-          };
-          img.onerror = function () { resolve(null); };
-          img.src = e.target.result;
-        };
-        reader.onerror = function () { resolve(null); };
-        reader.readAsDataURL(file);
-      } catch (e) { resolve(null); }
-    });
+    return window.VCAgents.NameplateOCR.fileToClassificationDataUrl(file);
   }
 
   /**
