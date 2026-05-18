@@ -2783,6 +2783,7 @@
   var _isCompiling = false;     /* prevents overlapping compiles */
   var _compileToken = 0;        /* increments each compile start; .finally() guards against stale clears */
   var _compileSubmittedForTicket = null; /* ticketId of last successful cloud submit — used by close prompt */
+  var _submitSuccessCallback = null;    /* optional one-shot callback fired after successful submit (nav guard) */
 
   function resetCompileState() {
     _lastCompiledIndex = 0;
@@ -3657,6 +3658,12 @@
       }
       /* Mark this ticket as submitted so the close-modal prompt is suppressed */
       _compileSubmittedForTicket = ticketId;
+      /* Fire nav-guard callback if set (e.g. "submit then switch to schedule") */
+      if (_submitSuccessCallback) {
+        var cb = _submitSuccessCallback;
+        _submitSuccessCallback = null;
+        try { cb(true); } catch (e) {}
+      }
       /* Slice 50a: passive learning upload after successful submission */
       try {
         if (window.LearningSync && typeof window.LearningSync.uploadLearningData === "function") {
@@ -3676,6 +3683,11 @@
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = "Submit to Office";
+      }
+      if (_submitSuccessCallback) {
+        var cb = _submitSuccessCallback;
+        _submitSuccessCallback = null;
+        try { cb(false); } catch (e) {}
       }
     });
   }
@@ -4186,6 +4198,17 @@
     editEntry: editEntry,
     handleCorrection: handleCorrection,
     tagMedia: tagMedia,
-    compileNotes: compileNotes
+    compileNotes: compileNotes,
+    hasUnsubmittedReport: function () {
+      return !!(
+        _lastCompileResult &&
+        _compileSubmittedForTicket !== currentTicketId
+      );
+    },
+    submitAndNavigate: function (onDone) {
+      if (!_lastCompileResult) { if (onDone) onDone(false); return; }
+      _submitSuccessCallback = onDone || null;
+      submitCompileToOffice();
+    }
   };
 })();

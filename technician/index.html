@@ -7484,7 +7484,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase65-CompileRecall-2026-05-17";
+window.VC_BUILD = "Phase65-NavGuard-2026-05-17";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -8105,7 +8105,92 @@ function syncWorkspaceStickyUnderHeader() {
   window.addEventListener("load", syncWorkspaceStickyUnderHeader);
 })();
 
+var _navGuardBypassed = false;
+
+function showNavGuardSheet(targetScreen) {
+  var existing = document.getElementById('vc-nav-guard-sheet');
+  if (existing) existing.remove();
+
+  var sheet = document.createElement('div');
+  sheet.id = 'vc-nav-guard-sheet';
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.55);';
+
+  var inner = document.createElement('div');
+  inner.style.cssText = 'background:#1e293b;border-radius:16px 16px 0 0;padding:24px 20px 40px;';
+
+  var title = document.createElement('div');
+  title.textContent = 'Unsent field report';
+  title.style.cssText = 'font-size:17px;font-weight:700;color:#f1f5f9;margin-bottom:8px;';
+  inner.appendChild(title);
+
+  var msg = document.createElement('div');
+  msg.textContent = "Your compiled notes haven't been sent to the office yet. Submit before leaving?";
+  msg.style.cssText = 'font-size:14px;color:#94a3b8;margin-bottom:22px;line-height:1.5;';
+  inner.appendChild(msg);
+
+  var submitBtn = document.createElement('button');
+  submitBtn.textContent = 'Submit to Office';
+  submitBtn.style.cssText = 'width:100%;background:#2563eb;color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px;';
+  submitBtn.addEventListener('click', function () {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+    msg.textContent = 'Sending report to office…';
+    var ct = window.ConversationalTimeline;
+    if (ct && typeof ct.submitAndNavigate === 'function') {
+      ct.submitAndNavigate(function (ok) {
+        if (ok) {
+          sheet.remove();
+          _navGuardBypassed = true;
+          switchScreen(targetScreen);
+        } else {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit to Office';
+          msg.textContent = "Couldn't send. Try again or leave without sending.";
+          msg.style.color = '#f87171';
+        }
+      });
+    } else {
+      sheet.remove();
+      _navGuardBypassed = true;
+      switchScreen(targetScreen);
+    }
+  });
+  inner.appendChild(submitBtn);
+
+  var leaveBtn = document.createElement('button');
+  leaveBtn.textContent = 'Leave Without Sending';
+  leaveBtn.style.cssText = 'width:100%;background:none;border:1px solid #475569;border-radius:12px;padding:15px;font-size:16px;color:#94a3b8;cursor:pointer;';
+  leaveBtn.addEventListener('click', function () {
+    sheet.remove();
+    _navGuardBypassed = true;
+    switchScreen(targetScreen);
+  });
+  inner.appendChild(leaveBtn);
+
+  sheet.appendChild(inner);
+  document.body.appendChild(sheet);
+
+  /* Tap backdrop to dismiss without navigating */
+  sheet.addEventListener('click', function (e) {
+    if (e.target === sheet) sheet.remove();
+  });
+}
+
 function switchScreen(screenName) {
+  /* Nav guard: prompt if leaving workspace with an unsubmitted compile report */
+  if (screenName !== 'workspace' && !_navGuardBypassed) {
+    var wsEl = document.getElementById('screen-workspace');
+    var isWorkspaceActive = wsEl && wsEl.classList.contains('active');
+    if (isWorkspaceActive &&
+        window.ConversationalTimeline &&
+        typeof window.ConversationalTimeline.hasUnsubmittedReport === 'function' &&
+        window.ConversationalTimeline.hasUnsubmittedReport()) {
+      showNavGuardSheet(screenName);
+      return;
+    }
+  }
+  _navGuardBypassed = false; /* reset after each navigation */
+
   document.body.classList.toggle('ws-active', screenName === 'workspace');
   if (screenName !== 'workspace') {
     teardownWorkspaceAddendums();
@@ -12526,7 +12611,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=6"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
-    <script src="../conversational_timeline.js?v=60"></script>
+    <script src="../conversational_timeline.js?v=61"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');
