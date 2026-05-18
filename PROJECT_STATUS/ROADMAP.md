@@ -22,6 +22,7 @@ A place to park ideas, feature requests, and future phases so they do not get lo
 ### VC Admin Voice Layer — Role-Aware Conversational Control
 
 **Concept.** Extend the existing field tech app shell with role awareness so the owner/admin can open the same conversational interface from their phone and talk to the system as a manager — not a tech. Same UI, same mic, same "Got it" feel. The underlying agent switches based on role.
+Managers can also ask for a tech-phone preview of the list or form they are building so they can verify the technician-facing layout before saving.
 
 **Admin capabilities (conversational, voice-first, on the road):**
 - *"Add a supply fan motor checklist — steps are: check belt tension, verify rotation, measure amp draw, check capacitor"* ? template created in `form_templates`
@@ -41,6 +42,7 @@ A place to park ideas, feature requests, and future phases so they do not get lo
 **Why this matters:** VC becomes the operating system for the whole company. Techs talk to it in the field. Owner talks to it on the road. Same voice, same feel, different context. Long-term: add more admin "modes" (reviewing compilations, adjusting pricing, dispatch notes) without building new surfaces.
 
 **Build size:** ~3 slices — (a) role-aware sign-in + admin session flag, (b) Admin Agent conversation engine + workspace shell switch, (c) save-to-Firestore per intent type (templates, vendors, roster).
+Likely add one small preview slice for "show me what the tech sees" before save.
 
 **Prerequisite:** Current 63/64 test pass complete. No blocking technical debt.
 
