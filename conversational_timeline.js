@@ -3307,6 +3307,48 @@
     }
   }
 
+  /**
+   * Flatten the structured compile result into service-call-level text fields.
+   * Returns a merge-safe patch object for setServiceCallMerged.
+   */
+  function buildServiceCallPatchFromCompile(result, editedDisplayText, isoNow, tech) {
+    var patch = {
+      fieldReportSyncedAt: isoNow,
+      fieldReportSyncedBy: tech || ""
+    };
+
+    var diagParts = [];
+    var repairParts = [];
+    if (result.equipmentFindings && result.equipmentFindings.length) {
+      for (var i = 0; i < result.equipmentFindings.length; i++) {
+        var ef = result.equipmentFindings[i];
+        var label = ef.equipment || ("Unit " + (i + 1));
+        if (ef.diagnosis) diagParts.push(label + ": " + ef.diagnosis);
+        if (ef.actionsTaken) repairParts.push(label + ": " + ef.actionsTaken);
+      }
+    }
+    if (diagParts.length) patch.diagnosis = diagParts.join("\n");
+
+    if (repairParts.length) patch.repairsMade = repairParts.join("\n");
+
+    var recParts = [];
+    if (result.quoteRecommendations && result.quoteRecommendations.length) {
+      for (var j = 0; j < result.quoteRecommendations.length; j++) {
+        var qr = result.quoteRecommendations[j];
+        var line = qr.part || "Item";
+        if (qr.description) line += " — " + qr.description;
+        if (qr.laborEstimate) line += " (labor: " + qr.laborEstimate + ")";
+        recParts.push(line);
+      }
+    }
+    if (recParts.length) patch.recommendations = recParts.join("\n");
+
+    if (result.summary) patch.fieldReportSummary = result.summary;
+    if (editedDisplayText) patch.fieldReportFullText = editedDisplayText;
+
+    return patch;
+  }
+
   function submitCompileToOffice() {
     if (!_lastCompileResult) {
       alert("No compiled data to submit. Please compile notes first.");
@@ -3433,6 +3475,20 @@
       }
     }
 
+    /* ── Wire compiled report into service call ticket fields ──── */
+    if (ticketId && ticketId !== "draft") {
+      var scPatch = buildServiceCallPatchFromCompile(_lastCompileResult, editedText, now, techName);
+      var ticketStatus = (ticket && ticket.status) || "";
+      if (ticketStatus === "Dispatched" || ticketStatus === "" || !ticketStatus) {
+        scPatch.status = "In Progress";
+      }
+      if (typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged) {
+        writes.push(VCFirestore.setServiceCallMerged(db, ticketId, scPatch, true));
+      } else {
+        writes.push(db.collection("service_calls").doc(ticketId).set(scPatch, { merge: true }));
+      }
+    }
+
     Promise.all(writes).then(function (results) {
       showSubmitStatus("Submitted to office ✓", true);
       if (submitBtn) {
@@ -3450,6 +3506,9 @@
           });
         }
       } catch (lsErr) { /* degrade silently — learning sync is non-critical */ }
+
+      /* Auto-close modal after successful submission so tech doesn't have to tap X */
+      setTimeout(closeCompileModal, 1500);
     }).catch(function (err) {
       showSubmitStatus("Submit failed: " + (err && err.message ? err.message : "Unknown error"), false);
       if (submitBtn) {
