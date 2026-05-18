@@ -27,6 +27,22 @@ The user may want to:
 - `go ahead with #N`
 - Any message that clearly references moving to the next fix.
 
+## Presenting a fix to the user (CRITICAL)
+
+When presenting the next fix from the canvas, the agent MUST:
+
+1. **State the recommended model** from the canvas data (e.g. "This is a T0 fix. Switch to **GPT-5.4 Mini** and say proceed.")
+2. **Never ask the user to pick a model** — the canvas already has the recommendation. Just tell them.
+3. **Show the proceed pattern** so the user knows exactly what to type, e.g.: `switched to GPT-5.4 Mini — proceed`
+
+Example output:
+```
+Fix #1 is a T0 brace restoration in technician/index.html. 
+Switch to **GPT-5.4 Mini** and say proceed — or override with a different model if you prefer.
+```
+
+Do NOT say "which model would you like to use?" — the whole point of the canvas is that this decision was already made during triage.
+
 **Do NOT** batch multiple fixes into one pass, even if they seem trivial. Each fix is its own gate.
 
 ## Update the canvas on every status change (CRITICAL)
