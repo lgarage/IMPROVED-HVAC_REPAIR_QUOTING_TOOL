@@ -15,11 +15,13 @@
 
 ## Active Blocker
 
-**Fix tracker canvas:** `canvases/phase66-fix-tracker.canvas.tsx` — 6 tracked issues from overnight SDK run. Fix #1 (missing `}` in init) is a production blocker. Read the canvas for exact file/line/before/after details. Work items one at a time; wait for user go-ahead between each.
+**Fix tracker canvas:** `canvases/phase66-fix-tracker.canvas.tsx` — 5 remaining issues (Fix #1 completed). Read the canvas for exact file/line/before/after details. Work items one at a time; wait for user go-ahead between each.
 
 ## Immediate Next Step
 
-- **Fix the production blocker (Fix #1 in canvas).** Restore the missing `}` in `technician/index.html` ~line 12385 that 66a broke, then deploy and verify. Then work through remaining canvas items one at a time with user go-ahead between each. See `canvases/phase66-fix-tracker.canvas.tsx` for exact before/after code.
+- **Deploy Fix #1** — code is committed+pushed but `firebase deploy --only hosting` has not run yet. Deploy first, then verify schedule loads on mobile.
+- **Then Fix #2** (GPT-5.4 Mini) — add screen guard to `openCompileModal()` in `conversational_timeline.js`. Canvas has exact before/after.
+- **Then Fixes #3–#6** — see canvas for details and recommended models per item. User gives go-ahead between each.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
