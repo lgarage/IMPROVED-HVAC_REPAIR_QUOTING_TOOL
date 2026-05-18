@@ -27,7 +27,13 @@
   function parseJsonResponse(raw) {
     var t = String(raw || "").trim();
     t = t.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
-    try { return JSON.parse(t); } catch (e) { return null; }
+    try { return JSON.parse(t); } catch (e) {}
+    var start = t.indexOf("{");
+    var end = t.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      try { return JSON.parse(t.slice(start, end + 1)); } catch (e2) {}
+    }
+    return null;
   }
 
   function ensureApiKey() {

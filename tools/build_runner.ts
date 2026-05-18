@@ -181,6 +181,152 @@ function getNextSlice(state: BuildState): Slice | null {
   return null;
 }
 
+// ─── Playwright UI Verification ───
+//
+// When a slice sets uiChange: true, the runner:
+//   1. Takes a BEFORE screenshot from the live URL before the SDK agent runs.
+//   2. After the slice passes + deploys, takes an AFTER screenshot from the preview URL.
+//   3. Sends both to a cheap model (not a flagship) to compare and report.
+//
+// This mirrors the manual Playwright rule in .cursor/rules/ui-ux-screenshot-check.mdc
+// but runs automatically without needing the developer to do it by hand.
+
+const PLAYWRIGHT_VERIFY_MODEL = "gpt-5.4-mini"; // Fast/cheap — vision comparison is T0
+
+const LIVE_APP_URL = "https://vertex-core-db.web.app/technician/index.html?vc_debug=0";
+const PW_SCRIPT_PATH = path.join(PROJECT_ROOT, "_vc_pw_verify.mjs");
+const PW_BEFORE_SCHEDULE  = path.join(PROJECT_ROOT, "_pw_before_schedule.png");
+const PW_BEFORE_WORKSPACE = path.join(PROJECT_ROOT, "_pw_before_workspace.png");
+const PW_AFTER_SCHEDULE   = path.join(PROJECT_ROOT, "_pw_after_schedule.png");
+const PW_AFTER_WORKSPACE  = path.join(PROJECT_ROOT, "_pw_after_workspace.png");
+
+function writePwScript(url: string, schedulePath: string, workspacePath: string): void {
+  // Forward slashes for the .mjs script (works on all platforms)
+  const scheduleOut = schedulePath.replace(/\\/g, "/");
+  const workspaceOut = workspacePath.replace(/\\/g, "/");
+  const script = [
+    `import { chromium } from 'playwright';`,
+    `const browser = await chromium.launch({ headless: true });`,
+    `const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });`,
+    `const page = await ctx.newPage();`,
+    `await page.goto('${url}', { waitUntil: 'domcontentloaded', timeout: 20000 });`,
+    `await page.waitForTimeout(3000);`,
+    `try {`,
+    `  await page.locator('select').first().selectOption({ label: 'DAN DAY' });`,
+    `  await page.waitForTimeout(500);`,
+    `  await page.locator('#loginContinueBtn').click({ timeout: 5000 });`,
+    `  await page.waitForTimeout(4000);`,
+    `} catch (_e) { /* login step optional — continue even if it fails */ }`,
+    `await page.screenshot({ path: '${scheduleOut}' });`,
+    `try {`,
+    `  const jobCard = page.locator('.job-card').first();`,
+    `  if (await jobCard.isVisible({ timeout: 3000 }).catch(() => false)) {`,
+    `    await jobCard.click();`,
+    `    await page.waitForTimeout(3000);`,
+    `    await page.screenshot({ path: '${workspaceOut}' });`,
+    `  }`,
+    `} catch (_e) {}`,
+    `await browser.close();`,
+  ].join("\n");
+  fs.writeFileSync(PW_SCRIPT_PATH, script);
+}
+
+function takePlaywrightScreenshot(url: string, schedulePath: string, workspacePath: string): boolean {
+  try {
+    writePwScript(url, schedulePath, workspacePath);
+    log(`📸 Taking Playwright screenshot: ${url}`);
+    execSync(`node "${PW_SCRIPT_PATH}"`, {
+      cwd: PROJECT_ROOT,
+      stdio: "pipe",
+      timeout: 35000,
+    });
+    const ok = fs.existsSync(schedulePath);
+    if (ok) {
+      log(`📸 Screenshot saved: ${path.basename(schedulePath)}`);
+    } else {
+      log(`⚠  Schedule screenshot missing — login or network issue`);
+    }
+    return ok;
+  } catch (e: any) {
+    log(`⚠  Playwright screenshot failed (non-blocking): ${e.message?.slice(0, 200)}`);
+    return false;
+  } finally {
+    try { fs.unlinkSync(PW_SCRIPT_PATH); } catch { /* ignore */ }
+  }
+}
+
+async function verifyUiChangeWithCheapModel(slice: Slice): Promise<void> {
+  if (!fs.existsSync(PW_AFTER_SCHEDULE)) {
+    log(`⚠  AFTER screenshot missing — skipping cheap-model visual verification`);
+    return;
+  }
+
+  const hasBefore = fs.existsSync(PW_BEFORE_SCHEDULE);
+  const beforeNote = hasBefore
+    ? `BEFORE schedule screenshot: _pw_before_schedule.png`
+    : `(No BEFORE screenshot available — first run or capture failed)`;
+
+  log(`🔍 Running cheap-model visual verification with ${PLAYWRIGHT_VERIFY_MODEL}...`);
+
+  const prompt = `Pre-approved model: ${PLAYWRIGHT_VERIFY_MODEL} — proceed
+
+You are verifying a UI change in the Vertex field tech web app (a mobile service dispatch app).
+Use your file-reading tools to read the PNG screenshots, then compare them.
+
+## Change just implemented
+Slice ${slice.id}: ${slice.title}
+
+Summary of what changed:
+${slice.scope.slice(0, 600).replace(/`/g, "'")}
+
+## Screenshots to read and compare
+- ${beforeNote}
+- AFTER schedule screenshot: _pw_after_schedule.png
+- AFTER workspace screenshot (read if it exists): _pw_after_workspace.png
+
+## What to report (keep under 150 words total)
+1. Does the AFTER look visibly different from BEFORE in a way consistent with the change above?
+2. Does anything look clipped, broken, or wrong in the AFTER?
+3. One sentence describing what visually changed.
+
+End your response with EXACTLY one of these two lines:
+  PLAYWRIGHT_VERDICT: PASS — <one sentence why>
+  PLAYWRIGHT_VERDICT: FAIL — <one sentence what looks wrong>`.trim();
+
+  try {
+    const result = await Agent.prompt(prompt, {
+      apiKey: process.env.CURSOR_API_KEY!,
+      model: { id: PLAYWRIGHT_VERIFY_MODEL },
+      local: { cwd: PROJECT_ROOT },
+    });
+
+    const text = (result as any).result || "";
+    const match = text.match(/PLAYWRIGHT_VERDICT:\s*(PASS|FAIL)\s*[-\u2014]\s*(.+)/i);
+
+    if (match) {
+      const verdict = match[1].toUpperCase();
+      const reason  = match[2].trim();
+      const icon    = verdict === "PASS" ? "✓" : "⚠";
+      log(`${icon} Playwright verdict [${PLAYWRIGHT_VERIFY_MODEL}]: ${verdict} — ${reason}`);
+      if (verdict === "FAIL") {
+        console.log(`\n  ┌── Playwright UI Check: ${slice.id} — ${slice.title}`);
+        console.log(`  │  ⚠  FAIL — ${reason}`);
+        console.log(`  │  Check screenshots: _pw_before_schedule.png → _pw_after_schedule.png`);
+        console.log(`  └── Fix visually before pushing.\n`);
+      }
+    } else {
+      log(`Playwright model response (no VERDICT line): ${text.slice(0, 300)}`);
+    }
+  } catch (e: any) {
+    log(`⚠  Cheap-model UI verification failed (non-blocking): ${e.message?.slice(0, 200)}`);
+  } finally {
+    // Clean up all screenshot temp files regardless of outcome
+    for (const p of [PW_BEFORE_SCHEDULE, PW_BEFORE_WORKSPACE, PW_AFTER_SCHEDULE, PW_AFTER_WORKSPACE]) {
+      try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch { /* ignore */ }
+    }
+  }
+}
+
 // ─── Firebase Preview Deploy ───
 
 function deployPreview(sliceId: string): string | null {
@@ -311,6 +457,12 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
 
   log(`\nEscalation ladder for ${slice.id}: ${ladder.join(" → ")}`);
 
+  // Take BEFORE screenshot once, before the first attempt fires the SDK agent.
+  // Non-blocking — a failed screenshot does not prevent the slice from running.
+  if (slice.uiChange && ss.attempts === 0) {
+    takePlaywrightScreenshot(LIVE_APP_URL, PW_BEFORE_SCHEDULE, PW_BEFORE_WORKSPACE);
+  }
+
   let lastResult: RunAttemptResult | null = null;
 
   const fileCount = (slice.filesToCreate?.length || 0) + (slice.filesToModify?.length || 0);
@@ -350,6 +502,17 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
 
       const previewUrl = deployPreview(slice.id);
       ss.previewUrl = previewUrl || undefined;
+
+      // Take AFTER screenshot and run cheap-model comparison for UI-change slices.
+      // Uses the preview channel URL when available; falls back to live URL.
+      // Non-blocking — a failed check does not fail the slice.
+      if (slice.uiChange) {
+        const afterUrl = previewUrl
+          ? `${previewUrl}/technician/index.html?vc_debug=0`
+          : LIVE_APP_URL;
+        takePlaywrightScreenshot(afterUrl, PW_AFTER_SCHEDULE, PW_AFTER_WORKSPACE);
+        await verifyUiChangeWithCheapModel(slice);
+      }
 
       if (slice.riskLevel === "safe") {
         try {

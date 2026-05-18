@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 66 (Admin Conversational Checklist Builder) slices queued. Phase 65/63/64 live.
-- **Last shipped (2026-05-17):** Bug + speed fixes: (1) Schedule board now shows all assigned jobs regardless of status — removed `Completed` filter from `applyScheduleFilters`; (2) Compile modal auto-open now delays 300 ms so workspace paints first; (3) Compile result cached to `localStorage` (`vc_compile_cache_{ticketId}`) on submit — instant restore on re-open, cloud fallback only when cache is empty. `technician/index.html` + `conversational_timeline.js v62`. `VC_BUILD: Phase65-ScheduleShowAll-2026-05-17`.
-- **Prior (2026-05-17):** Phase 66 slices authored (66a–66d); Gemini JSON parsing fix; Sync Ticket fields wired; nav guard; Compiled Report auto-close; Header/Composer polish.
+- **Last shipped (2026-05-17):** SDK build runner Playwright auto-verify — `uiChange?: boolean` on `Slice` interface; runner takes BEFORE screenshot before SDK agent fires + AFTER screenshot from preview URL on pass, then calls `gpt-5.4-mini` to compare and report PASS/FAIL. Non-blocking. Phase 66 slices (66a–66d) authored with `uiChange: true` on 66a, 66b, 66d.
+- **Prior (2026-05-17):** Bug + speed fixes (schedule show-all, compile cache); Phase 66 slices authored; Gemini JSON parsing fix; Sync Ticket fields wired; nav guard; Header/Composer polish.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
