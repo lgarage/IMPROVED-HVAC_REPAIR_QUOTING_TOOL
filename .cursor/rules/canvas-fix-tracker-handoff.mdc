@@ -9,12 +9,21 @@ When creating a canvas that tracks bugs, fixes, or work items (any `.canvas.tsx`
 
 ## One-at-a-time gate (CRITICAL)
 
-When a fix tracker canvas has multiple issues, **work on exactly ONE issue at a time**. After completing each fix:
+When a fix tracker canvas has multiple issues, **work on exactly ONE issue at a time**. After completing each fix, run through this **mandatory done checklist** in order before reporting anything to the user:
 
-1. **Update the canvas** — change the completed item's `status` from `'pending'` to `'completed'` in the `.canvas.tsx` file so the user can visually track progress.
-2. **Stop** — do not start the next issue automatically.
-3. **Report** what was done (file changed, deployed, verified).
-4. **Wait** for the user to say proceed / move to next / give the go-ahead.
+```
+[ ] 1. Canvas updated — item status changed to 'completed' in the .canvas.tsx file
+[ ] 2. Code committed — git add + git commit with descriptive message
+[ ] 3. Code pushed — git push to remote
+[ ] 4. Deployed if needed — firebase deploy --only hosting (for any field app change)
+```
+
+**Do not report the fix as done until all four boxes are checked.** If you report "done" without updating the canvas, you have violated this rule. The user should never have to ask "did you update the canvas?"
+
+After the checklist:
+
+5. **Report** what was done (file changed, deployed, verified).
+6. **Wait** for the user to say proceed / move to next / give the go-ahead.
 
 The user may want to:
 - Switch models between issues (e.g. GPT-5.4 Mini for a T0 fix, then Sonnet 4.6 for a T2 investigation).
