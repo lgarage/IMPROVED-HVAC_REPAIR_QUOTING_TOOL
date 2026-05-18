@@ -1,5 +1,10 @@
 # Vertex-Core | Master AI Instructions & Guardrails
 
+> **STOP — READ BEFORE ANYTHING ELSE:**
+> 1. **Never skip `git add` + `git commit` + `git push`** after code changes. Do it automatically. The user must NEVER have to ask. See §5A.
+> 2. **Model gate (§6B1):** Do not edit files until user sends a proceed line. See §6.
+> 3. **PowerShell only (§5B):** No `&&`, no heredocs, no bash subshells.
+
 ## 1. THE DOCUMENTATION PROTOCOL (STRICT)
 
 ### 1A. Memory Architecture & Read Protocol (Two-Tier)

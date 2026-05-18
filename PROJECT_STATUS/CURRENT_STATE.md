@@ -15,7 +15,7 @@
 
 ## Active Blocker
 
-(None)
+**Fix tracker canvas:** `canvases/phase66-fix-tracker.canvas.tsx` — 6 tracked issues from overnight SDK run. Fix #1 (missing `}` in init) is a production blocker. Read the canvas for exact file/line/before/after details. Work items one at a time; wait for user go-ahead between each.
 
 ## Immediate Next Step
 
