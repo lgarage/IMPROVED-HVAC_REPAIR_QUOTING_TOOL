@@ -19,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Fix the production blocker (Fix #1 in canvas).** Restore the missing `}` in `technician/index.html` ~line 12385 that 66a broke. Then deploy. Then work through remaining canvas items one at a time with user go-ahead between each. See `canvases/phase66-fix-tracker.canvas.tsx` for exact before/after code.
+- **Fix the production blocker (Fix #1 in canvas).** Restore the missing `}` in `technician/index.html` ~line 12385 that 66a broke, then deploy and verify. Then work through remaining canvas items one at a time with user go-ahead between each. See `canvases/phase66-fix-tracker.canvas.tsx` for exact before/after code.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 

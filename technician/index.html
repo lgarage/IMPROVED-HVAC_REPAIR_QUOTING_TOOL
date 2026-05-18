@@ -12382,7 +12382,9 @@ window.onload = async function(){
     showLoginShell(cachedTechnicianRoster);
     document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
     wireAdminLoginBtn();
-    return; — start schedule immediately without blocking on the roster fetch.
+    return;
+  }
+  // Saved tech exists — start schedule immediately without blocking on the roster fetch.
   // Fetch the roster in the background only for canonicalization; update localStorage/currentTechProfile
   // if the stored name drifts from what the roster now says (e.g. after a name change in Settings).
   fetchTechnicianRosterFromCloud().then(function (roster) {
