@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 66 (Admin Conversational Checklist Builder) slices queued. Phase 65/63/64 live.
-- **Last shipped (2026-05-17):** SDK build runner Playwright auto-verify — `uiChange?: boolean` on `Slice` interface; runner takes BEFORE screenshot before SDK agent fires + AFTER screenshot from preview URL on pass, then calls `gpt-5.4-mini` to compare and report PASS/FAIL. Non-blocking. Phase 66 slices (66a–66d) authored with `uiChange: true` on 66a, 66b, 66d.
-- **Prior (2026-05-17):** Bug + speed fixes (schedule show-all, compile cache); Phase 66 slices authored; Gemini JSON parsing fix; Sync Ticket fields wired; nav guard; Header/Composer polish.
+- **Active Phase:** Phase 66 (Admin Conversational Checklist Builder) — **deployed** overnight (66a–66d all passed via SDK runner). Phase 65/63/64 live.
+- **Last shipped (2026-05-18 overnight):** Phase 66 slices 66a–66d deployed via SDK build runner. Admin PIN gate, conversation engine, Firestore save, tech preview bubble — all live. **However, 66a introduced a critical bug (see Active Blocker).**
+- **Prior (2026-05-17):** SDK Playwright auto-verify; bug/speed fixes; Gemini JSON parse; Sync Ticket; nav guard; Header/Composer polish.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Immediate Next Step:** Run Phase 66 slices via SDK build runner (`vertex` → `/a`). Start with 66a (admin PIN gate) → 66b (Admin Agent) → 66c (save) → 66d (preview). Each is `review` risk except 66d (safe). Verify 66c Firestore write in Firebase Console after run.
+- **Fix the production blocker (Fix #1 in canvas).** Restore the missing `}` in `technician/index.html` ~line 12385 that 66a broke. Then deploy. Then work through remaining canvas items one at a time with user go-ahead between each. See `canvases/phase66-fix-tracker.canvas.tsx` for exact before/after code.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
