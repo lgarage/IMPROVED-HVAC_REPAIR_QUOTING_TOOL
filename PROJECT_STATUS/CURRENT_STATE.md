@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 AI Quote Pipeline — queue verified, preflight passed, ready for overnight SDK run (`/a`). Phase 66/63 live. KI-004 core shipped.
-- **Last shipped (2026-05-18):** Build runner archive-strip fix (`loadState` no longer deletes re-queued slices) + Phase 64 active queue restored (64a–64e). Prior same day: KI-004 outbox wiring deployed (`VC_BUILD: KI004-OfflineOutboxWiring-2026-05-18`).
+- **Last shipped (2026-05-18):** Build runner archive-strip fix + Phase 64 queue restored (64a–64e). Same day: KI-004 outbox wiring; `#issues-found` triage → filed **KI-005–007** (schedule loading blocker + field UX backlog).
 - **Prior (2026-05-18):** Phase 66 complete — admin login, job creation FAB, historical mode, checklist full-list, compile guard.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
@@ -15,14 +15,16 @@
 
 ## Active Blocker
 
-None.
+**KI-005** — Field schedule/board stuck on **"Loading…"** (reported `#issues-found` 2026-05-17, persists 2026-05-18 AM). Blocks normal use until fixed or ruled cache/deploy.
 
 ## Immediate Next Step
 
-- **Tonight:** Run SDK build runner `/a` from `tools/` — Phase 64 slices 64a→64b→64c→64e→64d (all review; push at end of run).
-- **After overnight run:** Check `.build_state.json` + runner log for pass/fail; human-verify review checklist items before promoting to production.
-- **Optional (not blocking):** KI-004 URL-patch — add `contextHook` callbacks to `VCStorageOutbox.drain()` so Firestore docs get download URLs after offline replay.
-- **Deferred:** Compiled report edit persistence — save corrections back to `completed_reports` with "Edited" badge.
+- **Now (daytime):** Investigate/fix **KI-005** schedule loading — check `technician/index.html` roster/ticket listeners, force-reload + `VC_BUILD` on device; rule out stale cache vs JS error. Source: Slack `#issues-found` triage 2026-05-18.
+- **Verify on device (not blocking Phase 64):** Phase 66 — admin orange FAB job create (#5, user not tested yet); checklist full-list on trigger (#4, `checklist_reminder_engine.js?v=7`).
+- **Product/design queue:** **KI-006** past-day job UX (card tap → workspace, compiled report first, timestamped "add additional notes" in chat). **KI-007** historical-mode edit scope (#3 — what should/shouldn't be editable).
+- **Tonight at bedtime only — do not run Phase 64 before then:** SDK build runner `/a` from `tools/` — Phase 64 slices 64a→64b→64c→64e→64d (all review; push at end of run). User saves this for when they go to bed.
+- **After overnight run:** Check `.build_state.json` + runner log; human-verify review checklist; reconcile Slack #6 (what the ask changed).
+- **Optional (not blocking):** KI-004 URL-patch (`contextHook` on `VCStorageOutbox.drain()`). Deferred: compiled report edit persistence.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 

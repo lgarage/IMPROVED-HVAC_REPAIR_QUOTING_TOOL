@@ -8,6 +8,49 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
+### KI-005 — Field schedule/board stuck on "Loading…"
+
+- **Filed:** 2026-05-18 (from `#issues-found` Slack triage; user report 2026-05-17 overnight + 2026-05-18 AM).
+- **Severity:** **High / blocking** — tech cannot load schedule; `#issues-found` item #2.
+- **Symptoms:** Schedule screen shows perpetual **Loading…**; may have coincided with overnight Cursor/agent run but **still reproduces next morning** per user.
+- **Investigation checklist:**
+  - On device: debug overlay `BUILD:` line — confirm latest deploy vs stale `technician/index.html` cache (see Environmental Gotchas → entry-point HTML).
+  - Console / `__vcWriteFailures` for Firestore listener or roster fetch errors.
+  - Trace schedule init in `technician/index.html` (roster load, ticket subscription, `applyScheduleFilters`, any early `return` or uncaught exception).
+  - Check whether `navigator.onLine` / persistence `fromCache` leaves UI in loading state without error surfacing.
+  - Correlate with overnight agent edits (Slack #1 screen glitch, #6) — may be same root cause or independent.
+- **Directive fix:** TBD after repro — surface error state instead of infinite loading; ensure listener `onError` + timeout fallback.
+- **Status:** Open — **Active Blocker** in `CURRENT_STATE.md`.
+
+---
+
+### KI-006 — Past-day job UX: card tap, report-first, timestamped addendum notes
+
+- **Filed:** 2026-05-18 (`#issues-found` — user message + screenshots same day).
+- **Severity:** Medium — UX/product; not a crash.
+- **Requested behavior:**
+  1. Tap a **past/completed job card** → open workspace same as **Update / Review this job** (not a dead card).
+  2. **First screen in workspace** → **compiled report** (not chat timeline).
+  3. **Add additional notes** affordance → chat composer; messages **timestamped** so cross-day addenda are auditable.
+- **Related shipped work:** Phase 66 historical mode (selective locks + addendum section) — does **not** fully satisfy this spec.
+- **Directive fix:** Design pass then implement in field app (`technician/index.html`, `conversational_timeline.js`, historical-mode helpers). Sequence after **KI-005** unblocked.
+- **Status:** Open — spec locked from Slack; implementation not started.
+
+---
+
+### KI-007 — Repair checklist trigger may not inject full item list
+
+- **Filed:** 2026-05-18 (`#issues-found` #4; audio 2026-05-17: only "got it" for one phrase).
+- **Severity:** Medium — checklist coaching incomplete on trigger word/phrase.
+- **What shipped:** Phase 66 — `getFullChecklist()` + first-show all items in `checklist_reminder_engine.js` / `conversational_timeline.js` (`v=7` / `v=65`).
+- **Investigation checklist:**
+  - Confirm device has cache-busted scripts (not stale `v=6`).
+  - Repro: trigger phrase on equipment mention — expect **all** template steps in chat on first show, not capped journeyman subset.
+  - If still broken post-deploy: trace `scheduleChecklistReminders()` + template match path.
+- **Status:** Open — may be **deploy/cache** on user device; verify before new code.
+
+---
+
 ### KI-004 — Field-app photo uploads are silently dropped offline (Phase 33 follow-up)
 
 - **Filed:** 2026-04-25 (post-Phase 33 audit triggered by user spec "if a technician does not have a signal when they are servicing a piece of equipment, that the information will be stored in the user's phone, [and] synced when signal returns"). Scope-checked with user 2026-04-25; user chose **audit-only** treatment (file this entry + ADR-012 + ROADMAP pointer; defer implementation) and asked that the eventual fix ship as a **KI-002-style follow-up patch on Phase 33**, not a new phase.
