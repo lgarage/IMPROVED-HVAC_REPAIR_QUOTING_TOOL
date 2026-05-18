@@ -200,10 +200,18 @@ const PW_BEFORE_WORKSPACE = path.join(PROJECT_ROOT, "_pw_before_workspace.png");
 const PW_AFTER_SCHEDULE   = path.join(PROJECT_ROOT, "_pw_after_schedule.png");
 const PW_AFTER_WORKSPACE  = path.join(PROJECT_ROOT, "_pw_after_workspace.png");
 
-function writePwScript(url: string, schedulePath: string, workspacePath: string): void {
+function writePwScript(url: string, schedulePath: string, workspacePath: string, extraSteps?: string[]): void {
   // Forward slashes for the .mjs script (works on all platforms)
   const scheduleOut = schedulePath.replace(/\\/g, "/");
   const workspaceOut = workspacePath.replace(/\\/g, "/");
+
+  // If the slice provides custom interaction steps, inject them after login and
+  // before the final workspace screenshot so the cheap model sees the result of
+  // the actual click flow being tested — not just the default schedule view.
+  const customSteps = extraSteps && extraSteps.length > 0
+    ? [`try {`, ...extraSteps.map(s => `  ${s}`), `} catch (_customStep) {}`]
+    : [];
+
   const script = [
     `import { chromium } from 'playwright';`,
     `const browser = await chromium.launch({ headless: true });`,
@@ -218,6 +226,8 @@ function writePwScript(url: string, schedulePath: string, workspacePath: string)
     `  await page.waitForTimeout(4000);`,
     `} catch (_e) { /* login step optional — continue even if it fails */ }`,
     `await page.screenshot({ path: '${scheduleOut}' });`,
+    // Inject custom interaction steps here (after schedule screenshot, before workspace screenshot)
+    ...customSteps,
     `try {`,
     `  const jobCard = page.locator('.job-card').first();`,
     `  if (await jobCard.isVisible({ timeout: 3000 }).catch(() => false)) {`,
@@ -231,9 +241,9 @@ function writePwScript(url: string, schedulePath: string, workspacePath: string)
   fs.writeFileSync(PW_SCRIPT_PATH, script);
 }
 
-function takePlaywrightScreenshot(url: string, schedulePath: string, workspacePath: string): boolean {
+function takePlaywrightScreenshot(url: string, schedulePath: string, workspacePath: string, extraSteps?: string[]): boolean {
   try {
-    writePwScript(url, schedulePath, workspacePath);
+    writePwScript(url, schedulePath, workspacePath, extraSteps);
     log(`📸 Taking Playwright screenshot: ${url}`);
     execSync(`node "${PW_SCRIPT_PATH}"`, {
       cwd: PROJECT_ROOT,
@@ -460,7 +470,7 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
   // Take BEFORE screenshot once, before the first attempt fires the SDK agent.
   // Non-blocking — a failed screenshot does not prevent the slice from running.
   if (slice.uiChange && ss.attempts === 0) {
-    takePlaywrightScreenshot(LIVE_APP_URL, PW_BEFORE_SCHEDULE, PW_BEFORE_WORKSPACE);
+    takePlaywrightScreenshot(LIVE_APP_URL, PW_BEFORE_SCHEDULE, PW_BEFORE_WORKSPACE, slice.playwrightSteps);
   }
 
   let lastResult: RunAttemptResult | null = null;
@@ -510,7 +520,7 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
         const afterUrl = previewUrl
           ? `${previewUrl}/technician/index.html?vc_debug=0`
           : LIVE_APP_URL;
-        takePlaywrightScreenshot(afterUrl, PW_AFTER_SCHEDULE, PW_AFTER_WORKSPACE);
+        takePlaywrightScreenshot(afterUrl, PW_AFTER_SCHEDULE, PW_AFTER_WORKSPACE, slice.playwrightSteps);
         await verifyUiChangeWithCheapModel(slice);
       }
 

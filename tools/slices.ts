@@ -21,6 +21,7 @@ export interface Slice {
   cacheBusts: string[];     // e.g. "conversational_timeline.js?v=1"
   htmlTarget?: string;      // which HTML file to validate IDs/scripts against (default: "technician/index.html")
   uiChange?: boolean;       // if true, build runner takes before/after Playwright screenshots and verifies with a cheap model
+  playwrightSteps?: string[]; // optional JS lines injected into the generated Playwright script after login and before the final screenshot; used with uiChange:true to test a specific click flow
 }
 
 // Slices 41a–57a have been moved to slices_archive.ts (all passed).

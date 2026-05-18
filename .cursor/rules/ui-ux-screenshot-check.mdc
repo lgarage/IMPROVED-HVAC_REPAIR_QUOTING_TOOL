@@ -57,6 +57,89 @@ Do not say "deployed and pushed" for any UI change without first verifying the s
 
 ---
 
+## Interactive Playwright testing (click-through flows)
+
+Playwright is not limited to screenshots — it can click, type, navigate, and interact with any element. Use this when you need to verify behavior beyond static appearance (e.g. tap a button and confirm a sheet appears, fill a form field, test navigation transitions).
+
+### Available APIs
+
+```js
+// Click any element
+await page.click('#myButton');
+await page.locator('text=Submit').click();
+await page.locator('.job-card').first().click();
+
+// Type into fields
+await page.fill('#ct-type-input', 'AC unit not cooling');
+await page.locator('select').selectOption({ label: 'DAN DAY' });
+
+// Wait for things to appear
+await page.waitForSelector('.bottom-sheet', { timeout: 5000 });
+await page.waitForTimeout(1000); // simple delay (ms)
+
+// Assert element is visible
+const visible = await page.locator('#myModal').isVisible().catch(() => false);
+
+// Run JS in the browser context
+await page.evaluate(() => window.switchScreen('workspace'));
+
+// Take a screenshot at any point
+await page.screenshot({ path: '_ss_step1.png' });
+```
+
+### Pattern: write a targeted interaction script
+
+When testing a specific flow, write a custom `.mjs` script (don't modify the standard `_check_screenshot.mjs`):
+
+```js
+// _test_flow.mjs — one-off test, delete after reviewing
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ headless: true });
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+const page = await ctx.newPage();
+await page.goto('https://vertex-core-db.web.app/technician/index.html?vc_debug=0', { waitUntil: 'domcontentloaded', timeout: 15000 });
+await page.waitForTimeout(3000);
+await page.locator('select').first().selectOption({ label: 'DAN DAY' });
+await page.waitForTimeout(500);
+await page.locator('#loginContinueBtn').click({ timeout: 5000 });
+await page.waitForTimeout(4000);
+
+// --- custom interaction steps go here ---
+await page.locator('.job-card').first().click();
+await page.waitForTimeout(3000);
+await page.screenshot({ path: '_ss_workspace.png' });
+
+await page.locator('#navMenuBtn').click();
+await page.waitForTimeout(500);
+await page.screenshot({ path: '_ss_menu_open.png' });
+// ----------------------------------------
+
+await browser.close();
+```
+
+Run with: `node _test_flow.mjs`
+
+### SDK slices: `playwrightSteps`
+
+SDK slices that set `uiChange: true` can also provide a `playwrightSteps` array on the `Slice` definition. These are raw JS lines injected into the generated Playwright script **after login and before the final screenshot**, allowing the runner to test a specific flow automatically:
+
+```ts
+uiChange: true,
+playwrightSteps: [
+  `await page.locator('.job-card').first().click();`,
+  `await page.waitForTimeout(3000);`,
+  `await page.waitForSelector('#navMenuBtn', { timeout: 5000 });`,
+],
+```
+
+The build runner injects these steps between login and the workspace screenshot, then sends the result to the cheap model (`gpt-5.4-mini`) for visual comparison as usual.
+
+### Cleanup
+
+Always delete temporary test `.mjs` scripts and `.png` files after reviewing. Do not commit them.
+
+---
+
 ## Hard-won lessons (2026-05-17 — transparent header session)
 
 ### Lesson 1: `position: sticky` always reserves physical space
