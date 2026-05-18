@@ -266,6 +266,7 @@
    * getReminders — exported.
    * Returns up to getMaxReminders() short reminder strings for
    * checklist items not yet mentioned on the given equipment unit.
+   * Used for follow-up nudges after some items have already been addressed.
    * Format: "RTU6 capacitor?" — short, not aggressive.
    * @param {string} equipment  e.g. "RTU6"
    * @param {string} ticketId
@@ -284,6 +285,38 @@
       .map(function (item) {
         return eq + " " + item.label.toLowerCase() + "?";
       });
+  }
+
+  /**
+   * getFullChecklist — exported.
+   * Returns ALL unmentioned checklist items for the given equipment unit,
+   * ignoring the experience-level cap. Used for the initial checklist display
+   * when the tech first mentions a piece of equipment on a ticket — so the
+   * full list is visible upfront. Subsequent nudges use getReminders() (capped).
+   * @param {string} equipment  e.g. "RTU6"
+   * @param {string} ticketId
+   * @returns {{ label: string, key: string }[]}
+   */
+  function getFullChecklist(equipment, ticketId) {
+    if (!_activeWorkflow || !equipment || !ticketId) return [];
+    var eq = String(equipment).trim();
+    var state = loadState(ticketId);
+    var equipState = state[eq] || { mentionedItems: [] };
+    return checkMissing(_activeWorkflow, equipState.mentionedItems);
+  }
+
+  /**
+   * hasAnyMentioned — exported.
+   * Returns true if the tech has already addressed at least one checklist item
+   * for the given equipment on this ticket. Used by scheduleChecklistReminders
+   * to decide whether to show the full checklist (first show) or capped nudges.
+   */
+  function hasAnyMentioned(equipment, ticketId) {
+    if (!equipment || !ticketId) return false;
+    var eq = String(equipment).trim();
+    var state = loadState(ticketId);
+    var equipState = state[eq];
+    return !!(equipState && equipState.mentionedItems && equipState.mentionedItems.length > 0);
   }
 
   /* ── mention tracking ─────────────────────────────────────────── */
@@ -481,6 +514,8 @@
     loadWorkflow: loadWorkflow,
     checkMissing: checkMissing,
     getReminders: getReminders,
+    getFullChecklist: getFullChecklist,
+    hasAnyMentioned: hasAnyMentioned,
     markMentioned: markMentioned,
     updateFromEntry: updateFromEntry,
     onJobCheckin: onJobCheckin,

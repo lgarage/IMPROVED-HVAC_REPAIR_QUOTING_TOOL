@@ -1585,14 +1585,27 @@
     _lastReminderTime = Date.now();
     /* 800 ms head start so the primary "Got it." confirmation bubble appears first */
     setTimeout(function () {
-      var reminders = window.ChecklistReminderEngine.getReminders(equipment, ticketId);
-      if (!reminders || !reminders.length) return;
+      var eng = window.ChecklistReminderEngine;
+      /* First show: tech hasn't addressed any items yet — show full checklist so nothing is hidden.
+         Follow-up nudges (after items are marked): use the capped getReminders() instead. */
+      var isFirstShow = typeof eng.hasAnyMentioned === "function"
+        ? !eng.hasAnyMentioned(equipment, ticketId)
+        : false;
+      var items;
+      if (isFirstShow && typeof eng.getFullChecklist === "function") {
+        items = eng.getFullChecklist(equipment, ticketId).map(function (item) {
+          return String(equipment).trim() + " " + item.label.toLowerCase() + "?";
+        });
+      } else {
+        items = eng.getReminders(equipment, ticketId);
+      }
+      if (!items || !items.length) return;
       /* Render all reminder items as one lightweight grouped card (Slice 63c) */
       var html = '<div class="ct-checklist-remind" style="background:#fef9c3;border-radius:10px;padding:10px 14px;font-size:13px;color:#713f12;">';
       html += '<div style="font-weight:600;margin-bottom:6px;">\uD83D\uDCCB ' + escapeHtml(equipment) + ' \u2014 items to check:</div>';
       html += '<ul style="margin:0;padding-left:18px;line-height:1.6;">';
-      for (var i = 0; i < reminders.length; i++) {
-        html += '<li>' + escapeHtml(reminders[i]) + '</li>';
+      for (var i = 0; i < items.length; i++) {
+        html += '<li>' + escapeHtml(items[i]) + '</li>';
       }
       html += '</ul></div>';
       addEntry(html, "system", ticketId, { isHtml: true });
