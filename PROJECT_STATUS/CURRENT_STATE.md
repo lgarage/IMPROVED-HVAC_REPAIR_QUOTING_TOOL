@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 64 AI Quote Pipeline — active queue restored for overnight build. Phase 66/65/63 live.
-- **Last shipped (2026-05-18):** Phase 64 queue repair — restored 64a/64b/64c/64e into `tools/slices.ts` so 64d now has its full dependency chain in the active runner queue.
-- **Prior (2026-05-18):** Phase 66 complete — Admin Job Creation, historical mode, checklist full-list, compile guard.
+- **Active Phase:** Phase 64 AI Quote Pipeline — queue verified, preflight passed, ready for overnight SDK run (`/a`). Phase 66/63 live. KI-004 core shipped.
+- **Last shipped (2026-05-18):** Build runner archive-strip fix (`loadState` no longer deletes re-queued slices) + Phase 64 active queue restored (64a–64e). Prior same day: KI-004 outbox wiring deployed (`VC_BUILD: KI004-OfflineOutboxWiring-2026-05-18`).
+- **Prior (2026-05-18):** Phase 66 complete — admin login, job creation FAB, historical mode, checklist full-list, compile guard.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,9 +19,10 @@ None.
 
 ## Immediate Next Step
 
-- **KI-004 enhancement (optional T2):** The outbox currently uploads the file on drain but does not patch the Firestore doc with the download URL. Adding `contextHook` callbacks to `VCStorageOutbox.drain()` would complete the end-to-end flow (file uploaded + Firestore doc updated). Not blocking — files are preserved in Storage, just need manual re-save to get the URL into the doc.
-- **Phase 64 — AI Quote Pipeline:** Active slice queue restored (64a/64b/64c/64d/64e). Run SDK runner `/a` overnight for unattended execution.
-- **Deferred:** Compiled report edit persistence (save corrections back to `completed_reports` doc with "Edited" badge) — separate T2 item, requires new Firestore write path in `conversational_timeline.js`.
+- **Tonight:** Run SDK build runner `/a` from `tools/` — Phase 64 slices 64a→64b→64c→64e→64d (all review; push at end of run).
+- **After overnight run:** Check `.build_state.json` + runner log for pass/fail; human-verify review checklist items before promoting to production.
+- **Optional (not blocking):** KI-004 URL-patch — add `contextHook` callbacks to `VCStorageOutbox.drain()` so Firestore docs get download URLs after offline replay.
+- **Deferred:** Compiled report edit persistence — save corrections back to `completed_reports` with "Edited" badge.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
@@ -33,5 +34,4 @@ None.
 - When a blocker resolves: move from `KNOWN_ISSUES.md -> Open` to `-> Resolved`; clear **Active Blocker** here.
 - **Compress Snapshot after 3 sessions:** collapse Prior entries older than 3 sessions into a single "Prior history: see `PROJECT_MAP_HISTORY.md`" line.
 - **Hard size cap — mechanical trigger:** if this file's total line count exceeds 55, migrate the oldest Prior entries immediately before adding new content.
-
 
