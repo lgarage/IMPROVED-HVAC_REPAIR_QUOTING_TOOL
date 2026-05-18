@@ -2775,13 +2775,26 @@
 
     /* Auto-show compiled report on workspace entry so the summary is the first thing seen */
     var capturedOpenTicketId = currentTicketId;
+
+    function autoOpenAfterPaint(cb) {
+      /* Wait for the workspace to finish painting (rAF + rAF = one full
+         frame cycle) then add a small delay for iOS Safari layout settle. */
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          setTimeout(function () {
+            if (currentTicketId === capturedOpenTicketId) cb();
+          }, 150);
+        });
+      });
+    }
+
     if (capturedOpenTicketId && capturedOpenTicketId !== "draft") {
       if (!isTicketSwitch && _compiledResult) {
         /* Same ticket, result already in memory — open after paint */
         _lastCompileResult = _compiledResult;
-        setTimeout(function () {
-          if (currentTicketId === capturedOpenTicketId) openCompileModal(_compiledDisplayText);
-        }, 300);
+        autoOpenAfterPaint(function () {
+          openCompileModal(_compiledDisplayText);
+        });
       } else {
         /* Ticket switch OR same ticket with no in-memory result — check cache then cloud */
         var cached = loadCompileCache(capturedOpenTicketId);
@@ -2791,22 +2804,18 @@
           _lastCompiledIndex     = cached.compiledEntryCount || 0;
           _lastCompileResult     = _compiledResult;
           _compileSubmittedForTicket = capturedOpenTicketId;
-          setTimeout(function () {
-            if (currentTicketId === capturedOpenTicketId) {
-              openCompileModal(_compiledDisplayText);
-              runDeltaUpdateInPlace(capturedOpenTicketId);
-            }
-          }, 300);
+          autoOpenAfterPaint(function () {
+            openCompileModal(_compiledDisplayText);
+            runDeltaUpdateInPlace(capturedOpenTicketId);
+          });
         } else {
           /* No local cache — fall back to cloud query */
           tryRestoreCompiledResultFromCloud(capturedOpenTicketId, function (restored) {
             if (restored && currentTicketId === capturedOpenTicketId) {
-              setTimeout(function () {
-                if (currentTicketId === capturedOpenTicketId) {
-                  openCompileModal(_compiledDisplayText);
-                  runDeltaUpdateInPlace(capturedOpenTicketId);
-                }
-              }, 300);
+              autoOpenAfterPaint(function () {
+                openCompileModal(_compiledDisplayText);
+                runDeltaUpdateInPlace(capturedOpenTicketId);
+              });
             }
           });
         }
@@ -3000,6 +3009,9 @@
     }
     if (statusEl) statusEl.textContent = "";
     modal.classList.remove("hidden");
+    /* Force layout recalculation — iOS Safari doesn't reliably compute
+       fixed-position geometry on first show during a screen transition. */
+    void modal.offsetHeight;
     if (textarea) {
       textarea.focus();
       textarea.setSelectionRange(0, 0);
