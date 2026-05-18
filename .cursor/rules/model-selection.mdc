@@ -36,7 +36,12 @@ If `.cursorrules` §6 mandates **§6C** escalation for HIGH/UNCERTAIN, output th
 
 ## After substantive work — mandatory end-of-session writes
 
-**CRITICAL — single commit rule:** Complete **all** end-of-session file updates (dossier, CURRENT_STATE, ROADMAP, IDEA_TRACKER) **before** running `git add` + `git commit` + `git push`. Never commit the main work first and then do a trailing commit for bookkeeping files. One commit, one push, everything included.
+**CRITICAL — always commit and push.** After **every** code change that is ready to ship, run `git add` + `git commit` + `git push` **without waiting for the user to ask**. The user should never have to remind you. This applies to:
+- Bug fixes (commit + push + deploy immediately)
+- Feature work (commit + push after each logical unit)
+- End-of-session bookkeeping (one final commit with all status file updates)
+
+**Single commit rule:** Complete **all** end-of-session file updates (dossier, CURRENT_STATE, ROADMAP, IDEA_TRACKER) **before** running `git add` + `git commit` + `git push`. Never commit the main work first and then do a trailing commit for bookkeeping files. One commit, one push, everything included.
 
 6. **Append `PROJECT_STATUS/MODEL_DOSSIER.md` → § Task outcome log** when work is **substantive** and **adds signal** for future model picks (dossier § *When to log* / *Skip logging*). **Same session** as the work when possible. **Do not** log noise (typos-only, duplicate patterns with nothing new).
 

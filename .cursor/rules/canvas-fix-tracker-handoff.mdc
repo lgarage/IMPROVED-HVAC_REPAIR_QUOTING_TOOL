@@ -1,0 +1,84 @@
+---
+description: Fix tracker canvases must be self-sufficient for handoff to another session
+alwaysApply: true
+---
+
+# Canvas Fix Trackers — Actionable Handoff Rule
+
+When creating a canvas that tracks bugs, fixes, or work items (any `.canvas.tsx` with "tracker", "fix", or "issues" in the name), **every item must contain enough detail for a fresh agent session to implement the fix without re-diagnosing the problem.**
+
+## One-at-a-time gate (CRITICAL)
+
+When a fix tracker canvas has multiple issues, **work on exactly ONE issue at a time**. After completing each fix:
+
+1. **Stop** — do not start the next issue automatically.
+2. **Report** what was done (file changed, deployed, verified).
+3. **Wait** for the user to say proceed / move to next / give the go-ahead.
+
+The user may want to:
+- Switch models between issues (e.g. GPT-5.4 Mini for a T0 fix, then Sonnet 4.6 for a T2 investigation).
+- Test the fix on their device before moving on.
+- Reprioritize or skip an issue based on what they see.
+
+**The user's proceed message clears the gate for the next item.** Acceptable proceed patterns:
+- `next` / `move on` / `next issue`
+- `switched to [model] for #N — proceed`
+- `go ahead with #N`
+- Any message that clearly references moving to the next fix.
+
+**Do NOT** batch multiple fixes into one pass, even if they seem trivial. Each fix is its own gate.
+
+## Commit and push after every fix (CRITICAL)
+
+After completing each fix — **before** reporting done to the user — you MUST:
+
+1. `git add` the changed files
+2. `git commit` with a descriptive message
+3. `git push` to remote
+
+**Do not wait for the user to ask.** The user should never have to say "commit and push" — it happens automatically as part of completing the fix. If a deploy step is also needed (e.g. `firebase deploy --only hosting`), do that too before reporting done.
+
+The only exception: if the fix is purely a design discussion with no code changes, skip the commit.
+
+## Required fields per tracked item
+
+1. **File path** — exact file(s) that need editing
+2. **Line reference** — approximate line number or function name
+3. **Before** — what the broken/current code looks like (verbatim or summarized)
+4. **After** — what the fixed code should look like (verbatim when possible)
+5. **Root cause** — one sentence explaining *why* it's broken
+6. **Recommended model** — cheapest model that can handle the fix
+
+## Why
+
+A new conversation starts with zero context. If the canvas only says "fix the init flow" without the file, line, before/after, the next agent has to re-read thousands of lines to re-discover what this session already found. That wastes tokens and time.
+
+## Example — good vs bad
+
+Bad: `"Schedule broken — fix the missing brace in init"`
+
+Good:
+```
+File: technician/index.html
+Line: ~12384-12386
+Before:
+    wireAdminLoginBtn();
+    return; — start schedule immediately without blocking on the roster fetch.
+  // Fetch the roster in the background
+After:
+    wireAdminLoginBtn();
+    return;
+  }
+
+  // Saved tech exists — start schedule immediately without blocking on the roster fetch.
+  // Fetch the roster in the background
+```
+
+## When items need investigation first
+
+If the fix isn't known yet (investigation needed), say so explicitly and provide:
+- The **investigation path** (which files/functions to trace)
+- The **hypothesis** (what you think is wrong)
+- The **verification step** (how to confirm the hypothesis)
+
+This way the next session knows it's an investigation task, not a direct fix.
