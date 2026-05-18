@@ -2600,10 +2600,103 @@
     }
   }
 
+  /**
+   * Query the most recent completed_report for this ticket from the cloud and restore
+   * compile state so the next workspace open is instant (or delta-only).
+   * @param {string} ticketId
+   * @param {function(boolean)} onDone  called with true if state was restored, false otherwise
+   */
+  function tryRestoreCompiledResultFromCloud(ticketId, onDone) {
+    if (!ticketId || ticketId === "draft") { if (onDone) onDone(false); return; }
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      if (onDone) onDone(false); return;
+    }
+    var db;
+    try { db = firebase.firestore(); } catch (e) { if (onDone) onDone(false); return; }
+    var crCol;
+    try {
+      crCol = (typeof VCFirestore !== "undefined" && VCFirestore.completedReports)
+        ? VCFirestore.completedReports(db)
+        : db.collection("completed_reports");
+    } catch (e) { if (onDone) onDone(false); return; }
+
+    crCol.where("ticketId", "==", ticketId)
+      .orderBy("compiledAt", "desc")
+      .limit(1)
+      .get()
+      .then(function (snap) {
+        if (snap.empty) { if (onDone) onDone(false); return; }
+        var docData = snap.docs[0].data();
+        if (!docData || !docData.compiledResult) { if (onDone) onDone(false); return; }
+        /* Guard: discard if tech already switched to another ticket */
+        if (currentTicketId !== ticketId) { if (onDone) onDone(false); return; }
+        _compiledResult = docData.compiledResult;
+        _compiledDisplayText = docData.editedDisplayText
+          || formatCompileResultForDisplay(docData.compiledResult);
+        _lastCompiledIndex = docData.compiledEntryCount || 0;
+        _lastCompileResult = _compiledResult;
+        /* Treat as already submitted — suppress close prompt for this recall */
+        _compileSubmittedForTicket = ticketId;
+        if (onDone) onDone(true);
+      })
+      .catch(function () { if (onDone) onDone(false); });
+  }
+
+  /**
+   * If entries were added after the last cloud submit, run a delta compile in the
+   * background and update the compile modal textarea in-place (no re-open needed).
+   */
+  function runDeltaUpdateInPlace(ticketId) {
+    var entries = loadEntries(ticketId);
+    var newEntries = entries.slice(_lastCompiledIndex);
+    if (!newEntries.length || _isCompiling) return;
+
+    var modal = document.getElementById("ct-compile-modal");
+    var statusEl = modal ? modal.querySelector(".ct-compile-status") : null;
+    if (statusEl) {
+      statusEl.textContent = "Adding recent entries…";
+      statusEl.style.color = "#64748b";
+    }
+
+    var context = gatherCompileContext();
+    var prompt = buildDeltaCompilePrompt(newEntries, _compiledResult, context);
+    _isCompiling = true;
+    var myToken = ++_compileToken;
+    var snapshotIndex = entries.length;
+    var capturedTicketId = ticketId;
+
+    callGeminiCompile(prompt, COMPILE_DELTA_MAX_TOKENS).then(function (result) {
+      if (currentTicketId !== capturedTicketId || _compileToken !== myToken) return;
+      _compiledResult = mergeCompileResults(_compiledResult, result);
+      _compiledDisplayText = formatCompileResultForDisplay(_compiledResult);
+      _lastCompiledIndex = snapshotIndex;
+      _lastCompileResult = _compiledResult;
+      /* Update textarea in-place if modal still open */
+      var m = document.getElementById("ct-compile-modal");
+      if (m && !m.classList.contains("hidden")) {
+        var ta = m.querySelector(".ct-compile-textarea");
+        if (ta) ta.value = _compiledDisplayText;
+        var sEl = m.querySelector(".ct-compile-status");
+        if (sEl && !sEl.querySelector(".ct-close-prompt-row")) {
+          sEl.textContent = "Updated with new entries ✓";
+          sEl.style.color = "#16a34a";
+          setTimeout(function () { if (sEl) sEl.textContent = ""; }, 3000);
+        }
+      }
+      /* After delta, this is no longer fully "submitted" — new content not yet synced */
+      _compileSubmittedForTicket = null;
+    }).catch(function () {
+      if (statusEl && !statusEl.querySelector(".ct-close-prompt-row")) statusEl.textContent = "";
+    }).finally(function () {
+      if (_compileToken === myToken) _isCompiling = false;
+    });
+  }
+
   function onWorkspaceOpen(ticketId) {
     var newTicketId = normalizeTicketId(ticketId || resolveTicketIdFromObject(getActiveTicket()));
     /* Reset compile state when switching to a different ticket */
-    if (newTicketId !== currentTicketId) {
+    var isTicketSwitch = (newTicketId !== currentTicketId);
+    if (isTicketSwitch) {
       resetCompileState();
     }
     currentTicketId = newTicketId;
@@ -2651,6 +2744,22 @@
         });
       }
     } catch (e) { /* degrade silently */ }
+
+    /* Auto-show compiled report on workspace entry so the summary is the first thing seen */
+    var capturedOpenTicketId = currentTicketId;
+    if (!isTicketSwitch && _compiledResult && capturedOpenTicketId && capturedOpenTicketId !== "draft") {
+      /* Same ticket re-opened — result already in memory, open instantly */
+      _lastCompileResult = _compiledResult;
+      openCompileModal(_compiledDisplayText);
+    } else if (isTicketSwitch && capturedOpenTicketId && capturedOpenTicketId !== "draft") {
+      /* Different ticket — try cloud recall, then open (with delta update if needed) */
+      tryRestoreCompiledResultFromCloud(capturedOpenTicketId, function (restored) {
+        if (restored && currentTicketId === capturedOpenTicketId) {
+          openCompileModal(_compiledDisplayText);
+          runDeltaUpdateInPlace(capturedOpenTicketId);
+        }
+      });
+    }
   }
 
   function onWorkspaceClose() {
@@ -2673,12 +2782,14 @@
   var _compiledDisplayText = null; /* formatted display string */
   var _isCompiling = false;     /* prevents overlapping compiles */
   var _compileToken = 0;        /* increments each compile start; .finally() guards against stale clears */
+  var _compileSubmittedForTicket = null; /* ticketId of last successful cloud submit — used by close prompt */
 
   function resetCompileState() {
     _lastCompiledIndex = 0;
     _compiledResult = null;
     _compiledDisplayText = null;
     _isCompiling = false;
+    _compileSubmittedForTicket = null;
     if (_bgDebounceTimer) { clearTimeout(_bgDebounceTimer); _bgDebounceTimer = null; }
   }
 
@@ -2846,6 +2957,54 @@
     var modal = document.getElementById("ct-compile-modal");
     if (modal) modal.classList.add("hidden");
     removeEquipmentSavePrompt();
+  }
+
+  /**
+   * User-facing close — prompts "Submit to office?" if there's an unsubmitted result.
+   * Direct internal calls (auto-close after submit success) bypass this and call
+   * closeCompileModal() directly so no second prompt appears.
+   */
+  function maybeCloseCompileModal() {
+    if (_lastCompileResult && _compileSubmittedForTicket !== currentTicketId) {
+      showCompileClosePrompt();
+    } else {
+      closeCompileModal();
+    }
+  }
+
+  function showCompileClosePrompt() {
+    var modal = document.getElementById("ct-compile-modal");
+    if (!modal) { closeCompileModal(); return; }
+    var statusEl = modal.querySelector(".ct-compile-status");
+    if (!statusEl) { closeCompileModal(); return; }
+
+    /* Remove any existing prompt so re-tapping X doesn't stack rows */
+    var prev = statusEl.querySelector(".ct-close-prompt-row");
+    if (prev) { prev.remove(); return; } /* second tap = dismiss prompt, keep modal open */
+    statusEl.textContent = "";
+
+    var row = document.createElement("div");
+    row.className = "ct-close-prompt-row";
+    row.style.cssText = "display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px;";
+
+    var label = document.createElement("span");
+    label.textContent = "Submit to office first?";
+    label.style.cssText = "color:#1e40af;font-size:12px;font-weight:600;flex-shrink:0;";
+    row.appendChild(label);
+
+    var submitBtn = document.createElement("button");
+    submitBtn.textContent = "Submit";
+    submitBtn.style.cssText = "background:#2563eb;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;min-height:30px;";
+    submitBtn.addEventListener("click", function () { submitCompileToOffice(); });
+    row.appendChild(submitBtn);
+
+    var skipBtn = document.createElement("button");
+    skipBtn.textContent = "Not yet";
+    skipBtn.style.cssText = "background:none;border:1px solid #cbd5e1;border-radius:6px;padding:4px 10px;font-size:12px;color:#64748b;cursor:pointer;min-height:30px;";
+    skipBtn.addEventListener("click", function () { closeCompileModal(); });
+    row.appendChild(skipBtn);
+
+    statusEl.appendChild(row);
   }
 
   function compileNotes() {
@@ -3403,6 +3562,7 @@
       location: (ticket && (ticket.address || ticket.locationAddress)) || "",
       compiledAt: now,
       compiledResult: _lastCompileResult,
+      compiledEntryCount: _lastCompiledIndex,
       editedDisplayText: editedText,
       source: "conversational_timeline_compile",
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -3495,6 +3655,8 @@
         submitBtn.textContent = "Submitted ✓";
         submitBtn.disabled = true;
       }
+      /* Mark this ticket as submitted so the close-modal prompt is suppressed */
+      _compileSubmittedForTicket = ticketId;
       /* Slice 50a: passive learning upload after successful submission */
       try {
         if (window.LearningSync && typeof window.LearningSync.uploadLearningData === "function") {
@@ -3523,10 +3685,10 @@
     if (!modal) return;
 
     var closeBtn = modal.querySelector(".ct-compile-close-btn");
-    if (closeBtn) closeBtn.addEventListener("click", closeCompileModal);
+    if (closeBtn) closeBtn.addEventListener("click", maybeCloseCompileModal);
 
     var backdrop = modal.querySelector(".ct-compile-backdrop");
-    if (backdrop) backdrop.addEventListener("click", closeCompileModal);
+    if (backdrop) backdrop.addEventListener("click", maybeCloseCompileModal);
 
     var copyBtn = modal.querySelector(".ct-compile-copy-btn");
     if (copyBtn) copyBtn.addEventListener("click", copyCompileSummary);
