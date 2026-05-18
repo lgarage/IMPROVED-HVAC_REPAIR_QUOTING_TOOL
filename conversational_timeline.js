@@ -2606,6 +2606,34 @@
    * @param {string} ticketId
    * @param {function(boolean)} onDone  called with true if state was restored, false otherwise
    */
+  /* ── Compile result localStorage cache ──────────────────────────── */
+  var VC_COMPILE_CACHE_PREFIX = "vc_compile_cache_";
+
+  function saveCompileCache(ticketId, result, displayText, compiledEntryCount) {
+    if (!ticketId || ticketId === "draft") return;
+    try {
+      localStorage.setItem(
+        VC_COMPILE_CACHE_PREFIX + ticketId,
+        JSON.stringify({
+          result: result,
+          displayText: displayText,
+          compiledEntryCount: compiledEntryCount || 0,
+          submittedAt: new Date().toISOString()
+        })
+      );
+    } catch (e) { /* quota or private-mode — degrade silently */ }
+  }
+
+  function loadCompileCache(ticketId) {
+    if (!ticketId || ticketId === "draft") return null;
+    try {
+      var raw = localStorage.getItem(VC_COMPILE_CACHE_PREFIX + ticketId);
+      if (!raw) return null;
+      var cached = JSON.parse(raw);
+      return (cached && cached.result) ? cached : null;
+    } catch (e) { return null; }
+  }
+
   function tryRestoreCompiledResultFromCloud(ticketId, onDone) {
     if (!ticketId || ticketId === "draft") { if (onDone) onDone(false); return; }
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
@@ -2748,17 +2776,39 @@
     /* Auto-show compiled report on workspace entry so the summary is the first thing seen */
     var capturedOpenTicketId = currentTicketId;
     if (!isTicketSwitch && _compiledResult && capturedOpenTicketId && capturedOpenTicketId !== "draft") {
-      /* Same ticket re-opened — result already in memory, open instantly */
+      /* Same ticket re-opened — result already in memory; delay so workspace paints first */
       _lastCompileResult = _compiledResult;
-      openCompileModal(_compiledDisplayText);
+      setTimeout(function () {
+        if (currentTicketId === capturedOpenTicketId) openCompileModal(_compiledDisplayText);
+      }, 300);
     } else if (isTicketSwitch && capturedOpenTicketId && capturedOpenTicketId !== "draft") {
-      /* Different ticket — try cloud recall, then open (with delta update if needed) */
-      tryRestoreCompiledResultFromCloud(capturedOpenTicketId, function (restored) {
-        if (restored && currentTicketId === capturedOpenTicketId) {
-          openCompileModal(_compiledDisplayText);
-          runDeltaUpdateInPlace(capturedOpenTicketId);
-        }
-      });
+      /* Different ticket — check localStorage cache first (instant), fall back to cloud */
+      var cached = loadCompileCache(capturedOpenTicketId);
+      if (cached) {
+        _compiledResult        = cached.result;
+        _compiledDisplayText   = cached.displayText || formatCompileResultForDisplay(cached.result);
+        _lastCompiledIndex     = cached.compiledEntryCount || 0;
+        _lastCompileResult     = _compiledResult;
+        _compileSubmittedForTicket = capturedOpenTicketId;
+        setTimeout(function () {
+          if (currentTicketId === capturedOpenTicketId) {
+            openCompileModal(_compiledDisplayText);
+            runDeltaUpdateInPlace(capturedOpenTicketId);
+          }
+        }, 300);
+      } else {
+        /* No local cache — fall back to cloud query */
+        tryRestoreCompiledResultFromCloud(capturedOpenTicketId, function (restored) {
+          if (restored && currentTicketId === capturedOpenTicketId) {
+            setTimeout(function () {
+              if (currentTicketId === capturedOpenTicketId) {
+                openCompileModal(_compiledDisplayText);
+                runDeltaUpdateInPlace(capturedOpenTicketId);
+              }
+            }, 300);
+          }
+        });
+      }
     }
   }
 
@@ -3658,6 +3708,8 @@
       }
       /* Mark this ticket as submitted so the close-modal prompt is suppressed */
       _compileSubmittedForTicket = ticketId;
+      /* Cache compile result locally for instant restore on next workspace entry */
+      saveCompileCache(ticketId, _lastCompileResult, editedText, _lastCompiledIndex);
       /* Fire nav-guard callback if set (e.g. "submit then switch to schedule") */
       if (_submitSuccessCallback) {
         var cb = _submitSuccessCallback;
