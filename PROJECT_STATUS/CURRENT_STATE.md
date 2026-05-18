@@ -15,13 +15,13 @@
 
 ## Active Blocker
 
-None. Fixes #1–#5 deployed. Remaining tracker item (#6 Phase 66 test pass) is non-blocking.
+None. All Phase 66 items complete and verified.
 
 ## Immediate Next Step
 
-- **Canvas tracker (full path):** `C:\Users\daday\.cursor\projects\c-Projects-PROJECT-DISPATCHER-TOOL\canvases\phase66-fix-tracker.canvas.tsx` — #1–#5 marked completed. #6 pending.
-- **#6 — Manual test pass (T2, Sonnet 4.6):** Log in as DAN DAY, enter admin PIN, test: (1) checklist builder flow end-to-end, (2) create a job via FAB and confirm it appears on schedule. Verify on real device.
-- **Deferred:** Compiled report edit persistence (save corrections back to `completed_reports` doc with "Edited" badge) — requires new Firestore write path in `conversational_timeline.js`. Track as separate T2 item.
+- **Phase 66 canvas:** All 6 items complete. `phase66-fix-tracker.canvas.tsx` fully closed.
+- **Next candidates:** Phase 64 (AI Quote Pipeline — slices authored, ready to build); KI-004 offline photo outbox; Compiled report edit persistence (separate T2, Firestore write to `completed_reports`).
+- **Deferred:** Compiled report edit persistence (save corrections back to `completed_reports` doc with "Edited" badge) — separate T2 item, requires new Firestore write path in `conversational_timeline.js`.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
