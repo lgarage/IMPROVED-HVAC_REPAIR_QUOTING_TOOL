@@ -6615,6 +6615,35 @@ button#techDisplayLabel:active { opacity: 0.75; }
     <input type="text" id="loginTechManual" class="hidden" placeholder="Exact name as on dispatch (e.g. DAVE (TECH 1))" autocomplete="name">
     <p id="loginRosterHint" class="login-hint"></p>
     <button type="button" id="loginContinueBtn" class="login-btn">Continue</button>
+    <button type="button" id="loginAdminBtn"
+      style="width:100%;padding:12px;border:1px solid #f97316;border-radius:10px;
+      background:transparent;color:#f97316;font-size:15px;font-weight:600;
+      margin-top:8px;cursor:pointer;">
+      Continue as Admin
+    </button>
+  </div>
+</div>
+
+<div id="loginAdminPinModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);
+  z-index:9000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:min(320px,90vw);text-align:center;">
+    <h3 style="margin:0 0 4px;font-size:18px;color:#0f172a;">Admin PIN</h3>
+    <p style="font-size:13px;color:#64748b;margin:0 0 16px;">Enter your admin PIN to continue</p>
+    <input id="loginAdminPinInput" type="password" inputmode="numeric" maxlength="8"
+      style="width:100%;box-sizing:border-box;padding:14px;text-align:center;
+      font-size:24px;letter-spacing:8px;border:1px solid #cbd5e1;border-radius:10px;
+      margin-bottom:10px;" placeholder="••••" />
+    <p id="loginAdminPinError" style="font-size:13px;color:#ef4444;min-height:18px;margin:0 0 10px;"></p>
+    <button type="button" id="loginAdminPinSubmit"
+      style="width:100%;padding:14px;border:none;border-radius:10px;
+      background:#f97316;color:#fff;font-size:16px;font-weight:700;cursor:pointer;">
+      Submit
+    </button>
+    <button type="button" onclick="document.getElementById('loginAdminPinModal').style.display='none'"
+      style="width:100%;padding:12px;border:none;background:transparent;
+      color:#64748b;font-size:14px;margin-top:6px;cursor:pointer;">
+      Cancel
+    </button>
   </div>
 </div>
 
@@ -7488,7 +7517,8 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase65-CompileModalLayout-2026-05-17";
+window.VC_BUILD = "Phase66-Slice66a-2026-05-18";
+const VC_ADMIN_PIN = "1234"; // replace with env-configured value before production
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -8479,6 +8509,58 @@ function hideLoginShell() {
   document.getElementById('loginShell').classList.add('hidden');
 }
 
+function wireAdminLoginBtn() {
+  const adminBtn = document.getElementById('loginAdminBtn');
+  if (!adminBtn || adminBtn._vcAdminWired) return;
+  adminBtn._vcAdminWired = true;
+
+  adminBtn.onclick = function () {
+    const sel = document.getElementById('loginTechSelect');
+    const manual = document.getElementById('loginTechManual');
+    let name = '';
+    if (!sel.classList.contains('hidden') && sel.options.length) {
+      name = sel.value;
+    } else {
+      name = (manual.value || '').trim();
+    }
+    if (!name) {
+      alert('Please select your name first.');
+      return;
+    }
+    const modal = document.getElementById('loginAdminPinModal');
+    modal.style.display = 'flex';
+    document.getElementById('loginAdminPinInput').focus();
+  };
+
+  function handleAdminPinSubmit() {
+    const input = document.getElementById('loginAdminPinInput');
+    const errorEl = document.getElementById('loginAdminPinError');
+    if (input.value.trim() !== VC_ADMIN_PIN) {
+      errorEl.textContent = 'Incorrect PIN, try again';
+      input.value = '';
+      input.focus();
+      return;
+    }
+    errorEl.textContent = '';
+    document.getElementById('loginAdminPinModal').style.display = 'none';
+    localStorage.setItem('vc_admin_session', '1');
+    completeTechnicianLogin();
+  }
+
+  const submitBtn = document.getElementById('loginAdminPinSubmit');
+  if (submitBtn && !submitBtn._vcAdminWired) {
+    submitBtn._vcAdminWired = true;
+    submitBtn.onclick = handleAdminPinSubmit;
+  }
+  const pinInput = document.getElementById('loginAdminPinInput');
+  if (pinInput && !pinInput._vcAdminWired) {
+    pinInput._vcAdminWired = true;
+    pinInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') handleAdminPinSubmit();
+    });
+  }
+}
+
 async function completeTechnicianLogin() {
   const sel = document.getElementById('loginTechSelect');
   const manual = document.getElementById('loginTechManual');
@@ -8532,6 +8614,14 @@ async function loadUserProfile(options = {}) {
     const tdl = document.getElementById('techDisplayLabel');
     if (tdl) tdl.innerText = currentTechProfile.split(' ')[0];
   }
+  if (localStorage.getItem('vc_admin_session') === '1') {
+    const tdl = document.getElementById('techDisplayLabel');
+    if (tdl) {
+      tdl.innerText = 'ADMIN';
+      tdl.style.color = '#f97316';
+      tdl.style.fontWeight = '700';
+    }
+  }
   const profileInput = document.getElementById('profileNameInput');
   if (profileInput) profileInput.value = currentTechProfile;
   return new Promise((resolve) => {
@@ -8543,7 +8633,7 @@ async function switchUser() {
   unsubscribeSchedule();
   if (typeof clearVcFieldEntitlements === 'function') clearVcFieldEntitlements();
   localStorage.removeItem('tp_saved_tech');
-  currentTechProfile = '';
+  localStorage.removeItem('vc_admin_session');
   selectedScheduleDayYmd = '';
   scheduleStripDidInitialScrollToToday = false;
   cachedTechnicianRoster = await fetchTechnicianRosterFromCloud();
@@ -12247,6 +12337,7 @@ window.onload = async function(){
   }
   if (initShadowViewerFromUrl()) {
     document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
+    wireAdminLoginBtn();
     ensureWireAutosave();
     /* Shadow viewer (dispatcher phone simulator) still needs overlay wiring for hamburger actions. */
     try { wireProfilePanel(); } catch (e) {}
@@ -12275,10 +12366,8 @@ window.onload = async function(){
     cachedTechnicianRoster = await fetchTechnicianRosterFromCloud();
     showLoginShell(cachedTechnicianRoster);
     document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
-    return;
-  }
-
-  // Saved tech exists — start schedule immediately without blocking on the roster fetch.
+    wireAdminLoginBtn();
+    return; — start schedule immediately without blocking on the roster fetch.
   // Fetch the roster in the background only for canonicalization; update localStorage/currentTechProfile
   // if the stored name drifts from what the roster now says (e.g. after a name change in Settings).
   fetchTechnicianRosterFromCloud().then(function (roster) {
@@ -12311,6 +12400,7 @@ window.onload = async function(){
   }
 
   document.getElementById('loginContinueBtn').onclick = () => completeTechnicianLogin();
+  wireAdminLoginBtn();
   wireProfilePanel();
   if (typeof vcInitShadowConsent === 'function') vcInitShadowConsent();
   wireSiteHistoryPanel();
