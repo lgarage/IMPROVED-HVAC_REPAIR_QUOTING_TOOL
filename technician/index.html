@@ -673,40 +673,6 @@ body.ws-active #screen-workspace.screen.active {
 .job-card-status-select[data-status="Completed"] { border-color: #16a34a; color: #4ade80; }
 .job-card-status-select[data-status="Needs Repair Quote"] { border-color: #eab308; color: #fde047; }
 .job-card-status-select[data-status="Parts on Order"] { border-color: #f97316; color: #fdba74; }
-.job-card-meta-panel {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #7f8c8d;
-  border: 1px solid #e1e8ed;
-  border-radius: 8px;
-  padding: 0;
-  background: #fafbfc;
-}
-.job-card-meta-panel > summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 8px 10px;
-  font-weight: 700;
-  color: #5d6d7e;
-}
-.job-card-meta-panel > summary::-webkit-details-marker { display: none; }
-.job-card-meta-panel > summary::before {
-  content: "ⓘ ";
-  color: #0ea5e9;
-}
-.job-card-meta-body {
-  padding: 0 10px 10px;
-  border-top: 1px solid #ecf0f1;
-}
-.job-card-meta-row {
-  display: block;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin-top: 6px;
-  color: #95a5a6;
-  word-break: break-word;
-}
 .schedule-day-label {
   font-size: 13px; font-weight: 800; color: #0ea5e9;
   margin: 18px 0 10px 0; padding-bottom: 6px;
@@ -7518,7 +7484,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase65-ScheduleStatusUpdate-2026-05-17";
+window.VC_BUILD = "Phase65-ScheduleStatusUpdateNoInfo-2026-05-17";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -8697,18 +8663,6 @@ function renderJobListUI() {
       workDesc.length > 0
         ? `<div class="card-work-desc">${escapeHtml(workDesc)}</div>`
         : `<div class="card-work-desc" style="color:#95a5a6;font-style:italic">No work description on ticket</div>`;
-    const metaTicket = data.ticketNum != null ? escapeHtml(String(data.ticketNum)) : "—";
-    const metaType = data.jobType != null ? escapeHtml(String(data.jobType)) : "—";
-    const metaId = escapeHtml(String(data.id || ""));
-    const metaPanel = `
-      <details class="job-card-meta-panel" onclick="event.stopPropagation()">
-        <summary>Job info &amp; IDs</summary>
-        <div class="job-card-meta-body">
-          <span class="job-card-meta-row">Reference / ticket # · ${metaTicket}</span>
-          <span class="job-card-meta-row">Job type · ${metaType}</span>
-          <span class="job-card-meta-row">Record id · ${metaId}</span>
-        </div>
-      </details>`;
     let addrHtml;
     if (navAddrStr) {
       const onNav = isHistoricalDay
@@ -8747,7 +8701,6 @@ function renderJobListUI() {
           ${descBlock}
           ${ceBadge}
           ${addrHtml}
-          ${metaPanel}
           <button type="button" class="job-card-review-btn" onclick='openWorkspace(${safeId})'>🛠️ Update / Review This Job</button>
         </div>
       `
@@ -8762,7 +8715,6 @@ function renderJobListUI() {
           ${ceBadge}
           ${addrHtml}
           ${statusSelect}
-          ${metaPanel}
         </div>
       `;
     container.innerHTML += cardHTML;

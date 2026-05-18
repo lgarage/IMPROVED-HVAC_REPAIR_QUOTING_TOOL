@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 (ChatGPT UI). Phase 63/64 testing complete — live on device.
-- **Last shipped (2026-05-17):** Schedule job card status update — tappable dropdown on each card (In Progress / Completed / Quote Needed / Parts Ordered) writes directly to Firestore via `VCFirestore.setServiceCallMerged`. CSS-styled with per-status color coding. `technician/index.html`. `VC_BUILD: Phase65-ScheduleStatusUpdate-2026-05-17`.
+- **Last shipped (2026-05-17):** Schedule job card cleanup — removed the “Job info & IDs” dropdown from active cards while keeping the status selector and Firestore write. `technician/index.html`. `VC_BUILD: Phase65-ScheduleStatusUpdateNoInfo-2026-05-17`.
 - **Prior (2026-05-17):** Sync Ticket fields wired; Compiled Report auto-close; 5 bug fixes; Phase 64/63 all passed; Header/Composer polish; HeaderV7 floating pill chrome.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
@@ -19,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Immediate Next Step:** Test schedule card status dropdown on device — change status from In Progress → Completed/Quote Needed and verify Firestore update reflects in dispatcher view.
+- **Immediate Next Step:** Test schedule card layout on device — confirm the card is cleaner without the info dropdown and the status selector still writes correctly.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
