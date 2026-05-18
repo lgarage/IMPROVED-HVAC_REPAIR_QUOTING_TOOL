@@ -1376,6 +1376,100 @@ body.vc-override-active #vcOfficeOverrideBanner {
   border-color: rgba(148, 163, 184, 0.5);
 }
 
+/* Admin Job Creation FAB + bottom sheet */
+#adminCreateJobFab {
+  display: none;
+  position: fixed;
+  bottom: 28px;
+  right: 20px;
+  z-index: 900;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #f97316;
+  border: none;
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.45);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#adminCreateJobFab.visible { display: flex; align-items: center; justify-content: center; }
+
+#adminJobSheet {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: rgba(0,0,0,0.55);
+}
+#adminJobSheet.open { display: flex; }
+#adminJobSheetInner {
+  background: #1e293b;
+  border-radius: 16px 16px 0 0;
+  padding: 24px 20px 34px;
+  max-height: 85dvh;
+  overflow-y: auto;
+}
+#adminJobSheetInner h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+.ajs-field { margin-bottom: 14px; }
+.ajs-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+.ajs-field input,
+.ajs-field select,
+.ajs-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 15px;
+  color: #f1f5f9;
+  font-family: inherit;
+}
+.ajs-field textarea { resize: vertical; min-height: 60px; }
+.ajs-field input:focus,
+.ajs-field select:focus,
+.ajs-field textarea:focus { outline: none; border-color: #f97316; }
+#adminJobSubmitBtn {
+  width: 100%;
+  background: #f97316;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 6px;
+}
+#adminJobSubmitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+#adminJobCancelBtn {
+  width: 100%;
+  background: none;
+  border: 1px solid #475569;
+  border-radius: 12px;
+  padding: 15px;
+  font-size: 16px;
+  color: #94a3b8;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
 /* Slice 44a: settings bottom-sheet overlay */
 #ct-settings-overlay {
   display: none;
@@ -6744,6 +6838,63 @@ button#techDisplayLabel:active { opacity: 0.75; }
   <div id="jobListContainer">
     <div style="text-align:center; padding: 40px 20px; color:#95a5a6;">Fetching schedule...</div>
   </div>
+
+  <!-- Admin Job Creation FAB (visible only in admin session) -->
+  <button type="button" id="adminCreateJobFab" aria-label="Create new job">+</button>
+
+  <!-- Admin Job Creation Bottom Sheet -->
+  <div id="adminJobSheet" aria-hidden="true">
+    <div id="adminJobSheetInner">
+      <h3>Create Job</h3>
+      <div class="ajs-field">
+        <label for="ajsCustomer">Customer name *</label>
+        <input type="text" id="ajsCustomer" placeholder="e.g. PLANET FITNESS" autocomplete="off" />
+      </div>
+      <div class="ajs-field">
+        <label for="ajsAddress">Address</label>
+        <input type="text" id="ajsAddress" placeholder="123 Main St, City, ST 12345" autocomplete="off" />
+      </div>
+      <div style="display:flex; gap:10px;">
+        <div class="ajs-field" style="flex:1;">
+          <label for="ajsDate">Date</label>
+          <input type="date" id="ajsDate" />
+        </div>
+        <div class="ajs-field" style="flex:1;">
+          <label for="ajsTime">Start time</label>
+          <input type="time" id="ajsTime" value="08:00" />
+        </div>
+      </div>
+      <div class="ajs-field">
+        <label for="ajsTech">Assigned technician</label>
+        <select id="ajsTech"></select>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <div class="ajs-field" style="flex:1;">
+          <label for="ajsJobType">Job type</label>
+          <select id="ajsJobType">
+            <option value="Service Call">Service Call</option>
+            <option value="Quoted Repair">Quoted Repair</option>
+            <option value="Install">Install</option>
+            <option value="Preventative Maintenance">PM</option>
+            <option value="Warranty Call">Warranty Call</option>
+          </select>
+        </div>
+        <div class="ajs-field" style="flex:1;">
+          <label for="ajsPriority">Priority</label>
+          <select id="ajsPriority">
+            <option value="Normal">Normal</option>
+            <option value="Emergency">Emergency</option>
+          </select>
+        </div>
+      </div>
+      <div class="ajs-field">
+        <label for="ajsIssue">Issue / description</label>
+        <textarea id="ajsIssue" rows="2" placeholder="What needs to be done?"></textarea>
+      </div>
+      <button type="button" id="adminJobSubmitBtn">Create Job</button>
+      <button type="button" id="adminJobCancelBtn">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <div id="screen-lite" class="screen hidden">
@@ -7554,7 +7705,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase66-Fix4-HistoricalMode-2026-05-18";
+window.VC_BUILD = "Phase66-Fix5-AdminJobCreate-2026-05-18";
 const VC_ADMIN_PIN = "1234"; // replace with env-configured value before production
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
@@ -8296,6 +8447,11 @@ function switchScreen(screenName) {
   const targetNav = document.getElementById('nav-' + navKey);
   if(targetNav) targetNav.classList.add('active');
 
+  var ajsFab = document.getElementById('adminCreateJobFab');
+  if (ajsFab) {
+    ajsFab.classList.toggle('visible', screenName === 'schedule' && localStorage.getItem('vc_admin_session') === '1');
+  }
+
   if (screenName === 'history') populateHistoryCustomers();
 
   window.scrollTo(0,0);
@@ -8659,6 +8815,7 @@ async function loadUserProfile(options = {}) {
       tdl.style.fontWeight = '700';
     }
   }
+  if (typeof window.adminJobCreationShowFab === 'function') window.adminJobCreationShowFab();
   const profileInput = document.getElementById('profileNameInput');
   if (profileInput) profileInput.value = currentTechProfile;
   return new Promise((resolve) => {
@@ -8672,6 +8829,7 @@ async function switchUser() {
   if (typeof clearVcFieldEntitlements === 'function') clearVcFieldEntitlements();
   localStorage.removeItem('tp_saved_tech');
   localStorage.removeItem('vc_admin_session');
+  if (typeof window.adminJobCreationShowFab === 'function') window.adminJobCreationShowFab();
   selectedScheduleDayYmd = '';
   scheduleStripDidInitialScrollToToday = false;
   cachedTechnicianRoster = await fetchTechnicianRosterFromCloud();
@@ -8976,6 +9134,184 @@ function updateJobCardStatus(selectEl) {
     selectEl.disabled = false;
   });
 }
+
+/* ─── Admin Job Creation ─── */
+(function () {
+  var fab = document.getElementById('adminCreateJobFab');
+  var sheet = document.getElementById('adminJobSheet');
+  var submitBtn = document.getElementById('adminJobSubmitBtn');
+  var cancelBtn = document.getElementById('adminJobCancelBtn');
+  if (!fab || !sheet) return;
+
+  function isAdmin() {
+    return localStorage.getItem('vc_admin_session') === '1';
+  }
+
+  function showFabIfAdmin() {
+    fab.classList.toggle('visible', isAdmin());
+  }
+
+  function formatTime12(t24) {
+    if (!t24) return '8:00 AM';
+    var parts = t24.split(':');
+    var h = parseInt(parts[0], 10);
+    var m = parts[1] || '00';
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    if (h > 12) h -= 12;
+    if (h === 0) h = 12;
+    return h + ':' + m + ' ' + ampm;
+  }
+
+  function todayYmd() {
+    var d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
+  function populateTechSelect() {
+    var sel = document.getElementById('ajsTech');
+    if (!sel) return;
+    sel.innerHTML = '';
+    var loginSel = document.getElementById('loginTechSelect');
+    var names = [];
+    if (loginSel && loginSel.options.length) {
+      for (var i = 0; i < loginSel.options.length; i++) {
+        names.push(loginSel.options[i].value);
+      }
+    }
+    if (!names.length && currentTechProfile) {
+      names.push(currentTechProfile);
+    }
+    names.forEach(function (n) {
+      var o = document.createElement('option');
+      o.value = n;
+      o.textContent = n;
+      sel.appendChild(o);
+    });
+    if (currentTechProfile) sel.value = currentTechProfile;
+  }
+
+  function openSheet() {
+    document.getElementById('ajsDate').value = selectedScheduleDayYmd || todayYmd();
+    document.getElementById('ajsCustomer').value = '';
+    document.getElementById('ajsAddress').value = '';
+    document.getElementById('ajsTime').value = '08:00';
+    document.getElementById('ajsIssue').value = '';
+    document.getElementById('ajsJobType').value = 'Service Call';
+    document.getElementById('ajsPriority').value = 'Normal';
+    populateTechSelect();
+    sheet.classList.add('open');
+    sheet.setAttribute('aria-hidden', 'false');
+    document.getElementById('ajsCustomer').focus();
+  }
+
+  function closeSheet() {
+    sheet.classList.remove('open');
+    sheet.setAttribute('aria-hidden', 'true');
+  }
+
+  function getPrefixForJobType(type) {
+    if (type === 'Quoted Repair') return 'QR-';
+    if (type === 'Install') return 'IN-';
+    if (type === 'Preventative Maintenance') return 'PM-';
+    if (type === 'Warranty Call') return 'WC-';
+    return 'SC-';
+  }
+
+  function handleSubmit() {
+    var customer = document.getElementById('ajsCustomer').value.trim().toUpperCase();
+    if (!customer) {
+      alert('Customer name is required.');
+      return;
+    }
+    var address = document.getElementById('ajsAddress').value.trim().toUpperCase();
+    var date = document.getElementById('ajsDate').value;
+    var time24 = document.getElementById('ajsTime').value;
+    var tech = document.getElementById('ajsTech').value;
+    var jobType = document.getElementById('ajsJobType').value;
+    var priority = document.getElementById('ajsPriority').value;
+    var issue = document.getElementById('ajsIssue').value.trim();
+
+    var docId = 'SC-ID-' + Date.now();
+    var prefix = getPrefixForJobType(jobType);
+    var counter = parseInt(localStorage.getItem('tp_service_counter') || '1000', 10);
+    var ticketNum = prefix + counter;
+    localStorage.setItem('tp_service_counter', String(counter + 1));
+
+    var data = {
+      id: docId,
+      ticketNum: ticketNum,
+      date: date || todayYmd(),
+      startTime: formatTime12(time24),
+      duration: '2.0',
+      customerName: customer,
+      customerNum: 'N/A',
+      contactName: '',
+      contactPhone: '',
+      contactEmail: '',
+      locationAddress: address,
+      custCity: '',
+      custState: '',
+      custZip: '',
+      locationNum: 'N/A',
+      jobType: jobType,
+      priority: priority,
+      assignedTechs: tech ? [tech] : [],
+      primaryTech: tech || '',
+      assignedTech: tech || '',
+      status: 'Dispatched',
+      issue: issue,
+      equip: '',
+      notes: '',
+      parentId: '',
+      releasedToTech: true,
+      Total_Billable_Hours: 2,
+      adminCreatedBy: currentTechProfile || 'ADMIN',
+      adminCreatedAt: new Date().toISOString()
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating…';
+
+    var db;
+    try { db = firebase.firestore(); } catch (e) {
+      alert('Firebase unavailable.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create Job';
+      return;
+    }
+
+    var writeP = (typeof VCFirestore !== 'undefined' && VCFirestore.setServiceCallMerged)
+      ? VCFirestore.setServiceCallMerged(db, docId, data, true)
+      : db.collection('service_calls').doc(docId).set(data, { merge: true });
+
+    writeP.then(function () {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create Job';
+      closeSheet();
+      if (typeof showSaveCue === 'function') {
+        showSaveCue('✓ Job created (' + ticketNum + ')');
+      }
+    }).catch(function (err) {
+      console.error('[AdminJobCreate] Write failed:', err);
+      alert('Failed to create job. Check connection and try again.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create Job';
+    });
+  }
+
+  fab.addEventListener('click', openSheet);
+  cancelBtn.addEventListener('click', closeSheet);
+  submitBtn.addEventListener('click', handleSubmit);
+
+  sheet.addEventListener('click', function (e) {
+    if (e.target === sheet) closeSheet();
+  });
+
+  window.adminJobCreationShowFab = showFabIfAdmin;
+  showFabIfAdmin();
+})();
 
 /**
  * Live listener: jobs for this tech with date in the window (30 days back through 7 ahead).
