@@ -19,7 +19,10 @@ None. Fixes #1–#3 deployed. Remaining tracker items (#4 historical edit design
 
 ## Immediate Next Step
 
-- **Remaining canvas items** — see `canvases/phase66-fix-tracker.canvas.tsx`. #4 (historical job editing, design discussion) and #5 (admin job creation, T3/Opus 4.6) are next. #6 is a manual test pass — try the admin login + checklist builder flow on device now that #1–#3 are live.
+- **Canvas tracker (full path):** `C:\Users\daday\.cursor\projects\c-Projects-PROJECT-DISPATCHER-TOOL\canvases\phase66-fix-tracker.canvas.tsx` — #1–#3 marked completed. #4–#6 pending.
+- **#4 next — Historical job editing (design discussion, Opus 4.6):** `applyWorkspaceHistoricalMode()` in `technician/index.html` locks past-day tickets. Design session needed: decide which fields stay editable (notes/addendums, equipment findings, compiled report edits) vs. locked (status changes, new photos, sync-to-office). No code until design is agreed. Proceed gate: `switched to Opus 4.6 — proceed`.
+- **#5 after #4 — Admin job creation on mobile (T3, Opus 4.6):** Net-new feature — admin-gated bottom sheet form → Firestore write to `service_calls`. Requires Opus 4.6 for implementation.
+- **#6 — Manual test pass:** Log in as DAN DAY, enter admin PIN, test checklist builder flow end-to-end on device.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
