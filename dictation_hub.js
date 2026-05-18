@@ -2582,10 +2582,18 @@
       "." +
       ext;
     var ref = firebase.storage().ref().child(path);
+    var uploadMeta = { contentType: file.type || "image/jpeg" };
     return ref
-      .put(file, { contentType: file.type || "image/jpeg" })
+      .put(file, uploadMeta)
       .then(function () {
         return ref.getDownloadURL();
+      })
+      .catch(function (err) {
+        if (typeof VCStorageOutbox !== "undefined") {
+          VCStorageOutbox.enqueue(ref.fullPath, file, uploadMeta);
+        }
+        console.warn("[DictationHub] nameplate photo upload failed — queued for retry", err);
+        return null;
       });
   }
 

@@ -920,6 +920,7 @@
       var storageBucket = isGenericFile ? "service_call_files" : "field_evidence";
       var path = storageBucket + "/" + (ticketId || "draft") + "/" + ts + "_" + safeName;
       var storageRef = window.firebase.storage().ref().child(path);
+      var uploadMeta = { contentType: file.type || "application/octet-stream" };
       var task = storageRef.put(file);
       task.on(
         "state_changed",
@@ -930,6 +931,10 @@
           onProgress(pct, null, null);
         },
         function (err) {
+          if (typeof VCStorageOutbox !== "undefined") {
+            VCStorageOutbox.enqueue(storageRef.fullPath, file, uploadMeta);
+          }
+          console.warn("[ConvTimeline] media upload failed — queued for retry", err);
           onProgress(null, null, err);
         },
         function () {

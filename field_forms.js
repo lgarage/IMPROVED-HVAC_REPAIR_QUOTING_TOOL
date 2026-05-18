@@ -425,7 +425,16 @@
       Date.now() +
       ".jpg";
     var ref = storage.ref().child(path);
-    await ref.put(file, { contentType: file.type || "image/jpeg" });
+    var uploadMeta = { contentType: file.type || "image/jpeg" };
+    try {
+      await ref.put(file, uploadMeta);
+    } catch (_putErr) {
+      if (typeof VCStorageOutbox !== "undefined") {
+        VCStorageOutbox.enqueue(ref.fullPath, file, uploadMeta);
+      }
+      console.warn("[FieldForms] quote evidence upload failed — queued for retry", _putErr);
+      throw _putErr;
+    }
     var url = await ref.getDownloadURL();
     var refDoc = getEquipmentDocRef(equipmentId);
     if (!refDoc) throw new Error("Bad equipment path");
@@ -1334,8 +1343,16 @@
         i +
         ".jpg";
       var ref = storage.ref().child(path);
-      await ref.put(file, { contentType: file.type || "image/jpeg" });
-      urls.push(await ref.getDownloadURL());
+      var uploadMeta = { contentType: file.type || "image/jpeg" };
+      try {
+        await ref.put(file, uploadMeta);
+        urls.push(await ref.getDownloadURL());
+      } catch (_putErr) {
+        if (typeof VCStorageOutbox !== "undefined") {
+          VCStorageOutbox.enqueue(ref.fullPath, file, uploadMeta);
+        }
+        console.warn("[FieldForms] form photo upload failed — queued for retry", _putErr);
+      }
     }
     return urls;
   }
@@ -1357,8 +1374,16 @@
         i +
         ".jpg";
       var ref = storage.ref().child(path);
-      await ref.put(file, { contentType: file.type || "image/jpeg" });
-      urls.push(await ref.getDownloadURL());
+      var uploadMeta = { contentType: file.type || "image/jpeg" };
+      try {
+        await ref.put(file, uploadMeta);
+        urls.push(await ref.getDownloadURL());
+      } catch (_putErr) {
+        if (typeof VCStorageOutbox !== "undefined") {
+          VCStorageOutbox.enqueue(ref.fullPath, file, uploadMeta);
+        }
+        console.warn("[FieldForms] quote photo upload failed — queued for retry", _putErr);
+      }
     }
     return urls;
   }

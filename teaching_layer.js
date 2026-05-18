@@ -173,13 +173,21 @@
         var ts = Date.now();
         var safeName = (file.name || "media").replace(/[^a-zA-Z0-9._-]/g, "_");
         var path = "teaching_media/" + (ticketId || "general") + "/" + ts + "_" + safeName;
-        var uploadTask = storageRef.child(path).put(file);
+        var childRef = storageRef.child(path);
+        var uploadMeta = { contentType: file.type || "application/octet-stream" };
+        var uploadTask = childRef.put(file);
 
         uploadTask.then(function (snapshot) {
           snapshot.ref.getDownloadURL().then(function (url) {
             resolve(url);
           }).catch(reject);
-        }).catch(reject);
+        }).catch(function (err) {
+          if (typeof VCStorageOutbox !== "undefined") {
+            VCStorageOutbox.enqueue(childRef.fullPath, file, uploadMeta);
+          }
+          console.warn("[TeachingLayer] media upload failed — queued for retry", err);
+          reject(err);
+        });
       } catch (e) {
         reject(e);
       }
