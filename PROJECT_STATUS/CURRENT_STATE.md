@@ -7,9 +7,9 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 (ChatGPT UI). Phase 63/64 testing complete — live on device.
-- **Last shipped (2026-05-17):** Compiled Report auto-close after successful submit (1500ms delay); `conversational_timeline.js v58→v59`.
-- **Prior (2026-05-17):** 5 bug fixes in one session: (1) checklist trigger-word scan moved out of equipment-switch guard → fires on every entry; (2) spoken number normalization ("RTU seven" → "RTU7") so voice-dictated equipment names are detected; (3) trigger-word scan no longer requires equipment context upfront — resolves at callback time; (4) skip intent pipeline for photo/video/file entries (was generating "What were you working on?" on every photo); (5) compile modal moved to `<body>` root — backdrop-filter on pill ancestors was clipping `position:fixed` to a narrow left-side sliver. `conversational_timeline.js v53→v57`. `VC_BUILD: Phase65-ChecklistTriggerFix+MediaFix+CompileModalFix-2026-05-17`.
-- **Prior (2026-05-17):** Phase 64 slices 64a–64i all passed (AI Quote Pipeline). Phase 63 slices 63a–63h all passed (Field Intelligence). Header & Composer polish / HeaderV7 floating pill chrome. VC DEBUG draggable. Phase65-ChatGPTUI.
+- **Last shipped (2026-05-17):** Sync Ticket now writes compiled field report into service call ticket fields — `diagnosis`, `repairsMade`, `recommendations` populated from compile result; status auto-upgrades from "Dispatched" → "In Progress" on first sync. `conversational_timeline.js v57→v58`. `VC_BUILD: Phase65-SyncTicketFields-2026-05-17`.
+- **Prior (2026-05-17):** Compiled Report auto-close after successful submit; 5 bug fixes (checklist trigger-word, spoken number normalization, media intent skip, compile modal clipping); Phase 64/63 all passed; Header & Composer polish / HeaderV7 floating pill chrome.
+- Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -20,7 +20,7 @@
 
 ## Immediate Next Step
 
-- **Immediate Next Step:** Wire diagnosis/repairs/recommendations into the service call ticket fields on Sync. See handoff prompt below for full spec.
+- **Immediate Next Step:** Verify Sync Ticket field writes on device (SC-1002) — confirm `diagnosis`, `repairsMade`, `recommendations`, `status` populated in Firestore after Compile → Submit to Office. Then: test with a fresh ticket end-to-end.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
