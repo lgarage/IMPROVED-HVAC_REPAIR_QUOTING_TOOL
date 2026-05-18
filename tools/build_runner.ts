@@ -136,11 +136,13 @@ function loadState(): BuildState {
       ss.status = ss.attempts > 0 ? "failed" : "pending";
     }
   }
-  // Strip archived slices — they're done and don't need to be tracked
+  // Strip archived slices — they're done and don't need to be tracked.
+  // Keep state for any archived slice that is also back in active SLICES (e.g. Phase 64 re-queued from archive).
+  const activeIds = new Set(SLICES.map((s) => s.id));
   const archivedIds = new Set(ARCHIVED_SLICES.map((s) => s.id));
   let stripped = 0;
   for (const id of Object.keys(state.slices)) {
-    if (archivedIds.has(id)) {
+    if (archivedIds.has(id) && !activeIds.has(id)) {
       delete state.slices[id];
       stripped++;
     }
@@ -173,7 +175,7 @@ function canRun(slice: Slice, state: BuildState): boolean {
 
 function getNextSlice(state: BuildState): Slice | null {
   for (const slice of SLICES) {
-    const ss = state.slices[slice.id];
+    const ss = state.slices[slice.id] || { status: "pending", attempts: 0 };
     if ((ss.status === "pending" || ss.status === "failed") && canRun(slice, state)) {
       return slice;
     }

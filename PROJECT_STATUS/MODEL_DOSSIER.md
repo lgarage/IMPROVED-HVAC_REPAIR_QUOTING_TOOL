@@ -263,7 +263,7 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 | **Gemini 3 Flash** | Fast | **T1 alternate** — reliable code edits, strong at following constraints |
 | **GPT-5 Mini** | Fast | **Experimental T1 alt** — newer GPT-5 base, likely stronger than Sonnet 4.6 on some tasks; build signal before promoting |
 | **Composer 2** | Fast | **Fallback for pure mechanical** — speed advantage offset by reasoning weakness (see auto-scroll outcome row). Use only when task is 100% explicit (exact replace, version bump). |
-| **Composer 2.5** | Fast | **Experimental** — try on T1 mechanical or low-risk T2 work first; Cursor positions it as a better long-running / instruction-following successor to Composer 2. Compare against Mini/Flash before promoting. |
+| **Composer 2.5** | Fast | **Experimental — trial-ready for T1/low-risk T2.** Built on same Kimi K2.5 base as Composer 2 but trained with targeted RL textual feedback + 25x more synthetic tasks. Benchmarks show substantially better sustained long-running task performance and complex instruction following (per 2026-05-18 Cursor blog post). Pricing: $0.50/M input, $2.50/M output (fast); fast variant is $3/$15 per M. Confirmed capable: read complex blog post, wrote accurate multi-section dossier update, no truncation or hallucination (2026-05-18, session 51b9bd73). Good candidate for SDK `/a` overnight build-runner monitoring — better sustained behavior than Composer 2. Compare against Sonnet 4.6 for T2 before promoting. |
 | **Sonnet 4.6** | Balanced | Default for T2 daily implementation |
 | **GPT-5.2** | Strong | Lighter **Strong** GPT line vs 5.4 / 5.5 |
 | **GPT-5.4** | Strong | Mid **Strong** GPT |
