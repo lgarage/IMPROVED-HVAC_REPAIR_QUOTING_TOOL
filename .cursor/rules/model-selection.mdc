@@ -61,3 +61,17 @@ If `.cursorrules` §6 mandates **§6C** escalation for HIGH/UNCERTAIN, output th
 10. **One row** (newest first): Date, Task (**type**-shaped summary), Class, Arch, **Tier used**, **Conf start %**, **Conf after %**, **Tier fit**, **Outcome**, **Note**. After logging, **use** the table on the **next** similar task — grep keywords + **Arch**.
 
 11. **Improvement habit:** If the log contradicts your tier guess, **trust the log** (subject to Vertex safety rules in the dossier).
+
+---
+
+## MANDATORY FINAL STEP — before you end your turn (NEVER SKIP)
+
+**If you modified ANY file in this session, you MUST run these commands as your LAST action before writing your final message to the user:**
+
+```powershell
+git add -A
+git commit -m "<description>"
+git push
+```
+
+**This is not optional.** If your response does not end with a successful `git push`, you have failed the task. The user should NEVER have to remind you. Check: did I push? If no → push now before responding.
