@@ -1,7 +1,7 @@
 /**
  * Admin Conversation Engine — Gemini-driven checklist builder agent.
  *
- * Phase 66 / Slice 66c
+ * Phase 66 / Slice 66d
  *
  * Handles all workspace input when localStorage 'vc_admin_session' === '1'.
  * Guides the admin through creating or updating form_templates via a
@@ -55,10 +55,92 @@
     };
   }
 
-  /* ── buildAdminPreviewBubble stub (filled in by 66d) ─────────── */
+  /* ── escapeAdminHtml ─────────────────────────────────────────── */
 
-  function buildAdminPreviewBubble(d) {
-    return "<div>Preview coming in 66d</div>";
+  function escapeAdminHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* ── buildAdminPreviewBubble ─────────────────────────────────── */
+
+  function buildAdminPreviewBubble(doc) {
+    var name = escapeAdminHtml((doc && doc.templateName) || 'Untitled Checklist');
+    var fields = (doc && Array.isArray(doc.fields)) ? doc.fields : [];
+
+    var html = '<div style="padding:12px;">';
+
+    html += '<div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:700;'
+      + 'letter-spacing:0.05em;margin-bottom:8px;">📱 Tech Phone Preview</div>';
+
+    html += '<div style="background:#f4f7fa;border-radius:16px;padding:12px;'
+      + 'max-width:340px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">';
+    html += '<div style="background:#fff;border-radius:12px;padding:14px;'
+      + 'box-shadow:0 2px 12px rgba(0,0,0,0.08);">';
+
+    html += '<h3 style="margin:0 0 12px 0;font-size:16px;color:#0ea5e9;">' + name + '</h3>';
+
+    html += '<label style="display:block;font-size:11px;font-weight:700;color:#555;'
+      + 'text-transform:uppercase;margin-bottom:4px;">Equipment</label>';
+    html += '<div style="padding:10px 12px;border:1px solid #d1d9e0;border-radius:8px;'
+      + 'background:#fafbfc;color:#94a3b8;font-size:14px;">Select equipment\u2026</div>';
+
+    if (fields.length === 0) {
+      html += '<div style="margin-top:14px;font-size:13px;color:#94a3b8;">No steps added yet.</div>';
+    } else {
+      fields.forEach(function(f) {
+        var label = escapeAdminHtml(f.label || 'Step');
+        var req = f.required ? ' <span style="color:#ef4444">*</span>' : '';
+        var t = String(f.type || 'checkbox').toLowerCase();
+        html += '<div style="margin-top:12px;">';
+
+        if (t === 'checkbox') {
+          html += '<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#1e293b;">'
+            + '<input type="checkbox" disabled /> ' + label + req + '</label>';
+        } else if (t === 'toggle') {
+          html += '<div style="display:flex;align-items:center;justify-content:space-between;'
+            + 'gap:10px;font-size:14px;color:#1e293b;">'
+            + '<span>' + label + req + '</span>'
+            + '<span style="display:inline-block;width:44px;height:24px;background:#cbd5e1;'
+            + 'border-radius:24px;position:relative;flex-shrink:0;">'
+            + '<span style="position:absolute;left:2px;top:2px;width:20px;height:20px;'
+            + 'background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></span>'
+            + '</span></div>';
+        } else if (t === 'photo') {
+          html += '<label style="display:block;font-size:11px;font-weight:700;color:#555;'
+            + 'text-transform:uppercase;margin-bottom:4px;">' + label + req + '</label>'
+            + '<div style="padding:10px;border:1px dashed #cbd5e1;border-radius:8px;'
+            + 'color:#94a3b8;font-size:13px;">📷 Photo capture</div>';
+        } else if (t === 'dropdown') {
+          var opts = Array.isArray(f.options) ? f.options : [];
+          html += '<label style="display:block;font-size:11px;font-weight:700;color:#555;'
+            + 'text-transform:uppercase;margin-bottom:4px;">' + label + req + '</label>'
+            + '<select disabled style="width:100%;box-sizing:border-box;padding:10px;'
+            + 'border:1px solid #d1d9e0;border-radius:8px;font-size:14px;background:#fff;">'
+            + '<option>Select\u2026</option>';
+          opts.forEach(function(o) { html += '<option>' + escapeAdminHtml(String(o)) + '</option>'; });
+          html += '</select>';
+        } else {
+          html += '<label style="display:block;font-size:11px;font-weight:700;color:#555;'
+            + 'text-transform:uppercase;margin-bottom:4px;">' + label + req + '</label>'
+            + '<input disabled type="text" style="width:100%;box-sizing:border-box;padding:10px;'
+            + 'border:1px solid #d1d9e0;border-radius:8px;font-size:14px;" placeholder="\u2026" />';
+        }
+
+        html += '</div>';
+      });
+    }
+
+    html += '<div style="display:flex;gap:8px;margin-top:16px;">';
+    html += '<button type="button" disabled style="flex:1;padding:10px;border:1px solid #ccc;'
+      + 'border-radius:8px;background:#f4f4f4;color:#94a3b8;font-size:14px;">Cancel</button>';
+    html += '<button type="button" disabled style="flex:1;padding:10px;border:none;'
+      + 'border-radius:8px;background:#0ea5e9;color:#fff;font-size:14px;">Save</button>';
+    html += '</div>';
+
+    html += '</div></div></div>';
+    return html;
   }
 
   /* ── askAdminGemini ──────────────────────────────────────────── */
@@ -235,6 +317,10 @@
           _intent = null;
           return "Error looking up template: " + (e && e.message ? e.message : String(e));
         });
+    }
+
+    if (intent === "PREVIEW") {
+      return Promise.resolve("No checklist in progress. Start by saying 'Create a\u2026' first.");
     }
 
     if (intent === "QUERY") {
