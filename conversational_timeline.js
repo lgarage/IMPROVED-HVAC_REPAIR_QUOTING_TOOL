@@ -3001,6 +3001,8 @@
   function openCompileModal(displayText) {
     var modal = document.getElementById("ct-compile-modal");
     if (!modal) return;
+    var ws = document.getElementById("screen-workspace");
+    if (!ws || !ws.classList.contains("active")) return;
     var textarea = modal.querySelector(".ct-compile-textarea");
     var statusEl = modal.querySelector(".ct-compile-status");
     if (textarea) {
