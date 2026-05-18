@@ -655,6 +655,24 @@ body.ws-active #screen-workspace.screen.active {
   line-height: 1.45;
   margin-bottom: 10px;
 }
+.job-card-status-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 10px;
+}
+.job-card-status-select {
+  flex: 1;
+  font-size: 13px; font-weight: 700; font-family: inherit;
+  padding: 8px 10px; border-radius: 8px;
+  border: 1px solid #334155; background: #0f172a; color: #e2e8f0;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  cursor: pointer;
+}
+.job-card-status-select:focus { outline: 2px solid #0ea5e9; outline-offset: -1px; }
+.job-card-status-select[data-status="Dispatched"] { border-color: #0ea5e9; }
+.job-card-status-select[data-status="Completed"] { border-color: #16a34a; color: #4ade80; }
+.job-card-status-select[data-status="Needs Repair Quote"] { border-color: #eab308; color: #fde047; }
+.job-card-status-select[data-status="Parts on Order"] { border-color: #f97316; color: #fdba74; }
 .job-card-meta-panel {
   margin-top: 8px;
   font-size: 12px;
@@ -7500,7 +7518,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase65-SyncTicketFields-2026-05-17";
+window.VC_BUILD = "Phase65-ScheduleStatusUpdate-2026-05-17";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
  *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
@@ -8705,6 +8723,19 @@ function renderJobListUI() {
     const ceBadge = ceN
       ? `<div class="job-card-ce-wrap">${ceN === 1 ? '<span class="job-card-ce-badge">📷 1 Photo Attached</span>' : `<span class="job-card-ce-badge">📷 ${ceN} Photos Attached</span>`}</div>`
       : '';
+    const curStatus = data.status || "Dispatched";
+    function statusOpt(val, emoji, label) {
+      return `<option value="${val}"${curStatus === val ? " selected" : ""}>${emoji} ${label}</option>`;
+    }
+    const statusSelect = `
+      <div class="job-card-status-row" onclick="event.stopPropagation()">
+        <select class="job-card-status-select" data-status="${escapeHtml(curStatus)}" data-ticket-id="${escapeHtml(String(data.id || ""))}" onchange="updateJobCardStatus(this)">
+          ${statusOpt("Dispatched", "🔄", "In Progress")}
+          ${statusOpt("Completed", "✅", "Completed")}
+          ${statusOpt("Needs Repair Quote", "📋", "Quote Needed")}
+          ${statusOpt("Parts on Order", "📦", "Parts Ordered")}
+        </select>
+      </div>`;
     const cardHTML = isHistoricalDay
       ? `
         <div class="job-card job-card--historical">
@@ -8730,6 +8761,7 @@ function renderJobListUI() {
           ${descBlock}
           ${ceBadge}
           ${addrHtml}
+          ${statusSelect}
           ${metaPanel}
         </div>
       `;
@@ -8741,6 +8773,39 @@ function renderJobListUI() {
       : 'No released jobs for you on this day. Dispatch must check <strong>Release to Field app</strong> before a job appears here.';
     container.innerHTML = '<div style="text-align:center; padding: 40px; color:#95a5a6; background:#fff; border-radius:12px;">' + emptyMsg + '</div>';
   }
+}
+
+/**
+ * Update job status directly from the schedule card select.
+ * Writes to Firestore via tenant-aware bridge (VCFirestore) when available.
+ */
+function updateJobCardStatus(selectEl) {
+  var ticketId = selectEl.getAttribute("data-ticket-id");
+  var newStatus = selectEl.value;
+  if (!ticketId || !newStatus) return;
+
+  selectEl.setAttribute("data-status", newStatus);
+  selectEl.disabled = true;
+
+  var db;
+  try { db = firebase.firestore(); } catch (e) {
+    console.error("[Schedule] Firestore unavailable for status update:", e);
+    selectEl.disabled = false;
+    return;
+  }
+
+  var patch = { status: newStatus };
+  var writeP = (typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged)
+    ? VCFirestore.setServiceCallMerged(db, ticketId, patch, true)
+    : db.collection("service_calls").doc(ticketId).set(patch, { merge: true });
+
+  writeP.then(function () {
+    selectEl.disabled = false;
+  }).catch(function (err) {
+    console.error("[Schedule] Status update failed:", err);
+    alert("Status update failed. Please try again.");
+    selectEl.disabled = false;
+  });
 }
 
 /**

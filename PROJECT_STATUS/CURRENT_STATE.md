@@ -7,11 +7,10 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 (ChatGPT UI). Phase 63/64 testing complete — live on device.
-- **Last shipped (2026-05-17):** Sync Ticket now writes compiled field report into service call ticket fields — `diagnosis`, `repairsMade`, `recommendations` populated from compile result; status auto-upgrades from "Dispatched" → "In Progress" on first sync. `conversational_timeline.js v57→v58`. `VC_BUILD: Phase65-SyncTicketFields-2026-05-17`.
-- **Prior (2026-05-17):** Compiled Report auto-close after successful submit; 5 bug fixes (checklist trigger-word, spoken number normalization, media intent skip, compile modal clipping); Phase 64/63 all passed; Header & Composer polish / HeaderV7 floating pill chrome.
+- **Last shipped (2026-05-17):** Schedule job card status update — tappable dropdown on each card (In Progress / Completed / Quote Needed / Parts Ordered) writes directly to Firestore via `VCFirestore.setServiceCallMerged`. CSS-styled with per-status color coding. `technician/index.html`. `VC_BUILD: Phase65-ScheduleStatusUpdate-2026-05-17`.
+- **Prior (2026-05-17):** Sync Ticket fields wired; Compiled Report auto-close; 5 bug fixes; Phase 64/63 all passed; Header/Composer polish; HeaderV7 floating pill chrome.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
-- Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
 
 ## Active Blocker
@@ -20,7 +19,7 @@
 
 ## Immediate Next Step
 
-- **Immediate Next Step:** Verify Sync Ticket field writes on device (SC-1002) — confirm `diagnosis`, `repairsMade`, `recommendations`, `status` populated in Firestore after Compile → Submit to Office. Then: test with a fresh ticket end-to-end.
+- **Immediate Next Step:** Test schedule card status dropdown on device — change status from In Progress → Completed/Quote Needed and verify Firestore update reflects in dispatcher view.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
