@@ -238,9 +238,9 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 
 ## Workspace enabled models (PROJECT-DISPATCHER TOOL)
 
-**Last verified:** 2026-05-15 (Cursor **Settings → Models**).
+**Last verified:** 2026-05-18 (Cursor **Settings → Models**).
 
-> **2026-05-15 model expansion:** User enabled **GPT-5.4 Mini**, **GPT-5.4 Nano**, **Gemini 3 Flash**, **GPT-5 Mini**, **Kimi K2.5**. Rationale: Composer 2's reasoning weakness (see outcome log 2026-05-15 auto-scroll failure) is a net time-waster. New fast-tier models offer better reasoning for T0–T1. Build outcome log signal by rotating between them on low-risk tasks. Kimi K2.5 is experimental — test at T2 first before adding to regular rotation.
+> **2026-05-18 model expansion:** User enabled **GPT-5.4 Mini**, **GPT-5.4 Nano**, **Gemini 3 Flash**, **GPT-5 Mini**, **Kimi K2.5**, and **Composer 2.5**. Rationale: Composer 2's reasoning weakness (see outcome log 2026-05-15 auto-scroll failure) is a net time-waster, but Composer 2.5 may be worth a cautious trial because Cursor is positioning it as a better long-running / instruction-following successor. New fast-tier models offer better reasoning for T0–T1. Build outcome log signal by rotating between them on low-risk tasks. Kimi K2.5 and Composer 2.5 are both experimental — start with T1 mechanical or low-risk T2 work before adding to regular rotation.
 >
 > **Composer 2 advisory:** Still in rotation for pure mechanical edits (one-liner, exact string replace, version bump). **Do not** use for bugs, styling decisions, or any task requiring code reasoning or cross-file judgment. When in doubt between Composer 2 and alternatives, **pick Gemini 3 Flash** or **GPT-5.4 Mini**.
 
@@ -262,6 +262,7 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 | **Gemini 3 Flash** | Fast | **T1 alternate** — reliable code edits, strong at following constraints |
 | **GPT-5 Mini** | Fast | **Experimental T1 alt** — newer GPT-5 base, likely stronger than Sonnet 4.6 on some tasks; build signal before promoting |
 | **Composer 2** | Fast | **Fallback for pure mechanical** — speed advantage offset by reasoning weakness (see auto-scroll outcome row). Use only when task is 100% explicit (exact replace, version bump). |
+| **Composer 2.5** | Fast | **Experimental** — try on T1 mechanical or low-risk T2 work first; Cursor positions it as a better long-running / instruction-following successor to Composer 2. Compare against Mini/Flash before promoting. |
 | **Sonnet 4.6** | Balanced | Default for T2 daily implementation |
 | **GPT-5.2** | Strong | Lighter **Strong** GPT line vs 5.4 / 5.5 |
 | **GPT-5.4** | Strong | Mid **Strong** GPT |
@@ -280,9 +281,9 @@ Use this table for **§6B1 (A)** ("switch to **X** because …"). Offer **one** 
 | Archetype | Recommended model (switch to this first) | Enabled alternates |
 |-----------|------------------------------------------|--------------------|
 | **T0** (exact replace, 1-line) | **GPT-5.4 Mini** | Gemini 3 Flash (Nano demoted — see enabled table) |
-| **T1** (mechanical, multi-step) | **GPT-5.4 Mini** | Gemini 3 Flash, GPT-5 Mini |
-| **T1** (nuanced single file) | **Gemini 3 Flash** | Sonnet 4.6, GPT-5 Mini |
-| **T2** | **Sonnet 4.6** | Kimi K2.5 (experimental) |
+| **T1** (mechanical, multi-step) | **GPT-5.4 Mini** | Gemini 3 Flash, GPT-5 Mini, Composer 2.5 (experimental) |
+| **T1** (nuanced single file) | **Gemini 3 Flash** | Sonnet 4.6, GPT-5 Mini, Composer 2.5 (experimental) |
+| **T2** | **Sonnet 4.6** | Kimi K2.5 (experimental), Composer 2.5 (experimental) |
 | **T4** (read-only / tour) | **Gemini 3 Flash** | GPT-5 Mini |
 | **T3** (implementation / code-heavy) | **Codex 5.3** | GPT-5.5, Opus 4.6, GPT-5.4, GPT-5.2 |
 | **T3 Vertex Core** (tenant, Firestore writes, field critical path, Office Override) | **Opus 4.6** | Codex 5.3, GPT-5.5 |
@@ -320,6 +321,7 @@ If `.cursorrules` says **HIGH / UNCERTAIN → stop and escalate**, that **overri
 ## Changelog
 
 - **2026-05-15:** **Fast-tier expansion & Composer 2 demotion**. Added GPT-5.4 Nano/Mini, Gemini 3 Flash, GPT-5 Mini, Kimi K2.5. Haiku 4.5 was tried, then removed from rotation after the dossier rewrite truncation incident. Reasoning: Composer 2 failure on 2026-05-15 auto-scroll task (CSS reasoning gap) marked as net time-waster despite speed. New models offer better T0–T1 reasoning for cheaper cost than Sonnet 4.6. Tier quick card updated; "switch to" table rebuilt around rotation strategy. Kimi K2.5 experimental at T2 only until signal builds. Outcome log row added to document Composer 2 weakness.
+- **2026-05-18:** **Composer 2.5 trial track added**. Cursor is now surfacing Composer 2.5, so the dossier now treats it as an experimental fast-tier probe rather than a default replacement. Added it to the enabled-models table and trial lanes for T1 mechanical / low-risk T2 work, with Composer 2 still reserved for pure mechanical fallback only.
 - **2026-05-07:** **Opus 4.7 disabled** (cost). Opus 4.6 is new Strong ceiling for T3+/UNCERTAIN/Vertex Core. All "switch to" table entries updated. Tracking Opus 4.6 via outcome log.
 - **2026-05-02:** **Strict §6B1 flow** in `.cursorrules` §6B1 (steps 0–4, mandatory **(A)(B)(C)**); `.cursor/rules/model-selection.mdc` aligned; dossier cross-refs updated.
 - **2026-05-02:** **North star** reframed — agent notebook, **task-type** logging (not every task), **continuous improvement** / apply learned rows; §6H softened to match.
