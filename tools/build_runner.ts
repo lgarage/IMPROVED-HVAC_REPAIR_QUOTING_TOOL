@@ -611,6 +611,60 @@ function extractSliceObjectText(slicesTsText: string, sliceId: string): string |
   return text.slice(0, end + 1).trim();
 }
 
+// ── Post-run governance: update CURRENT_STATE.md so the next agent knows what happened ──
+function updateCurrentStateAfterRun(state: BuildState, sliceCount: number): void {
+  const csPath = path.join(PROJECT_ROOT, "PROJECT_STATUS", "CURRENT_STATE.md");
+  if (!fs.existsSync(csPath)) {
+    console.log(`  Skipping CURRENT_STATE update — file not found.`);
+    return;
+  }
+
+  let content = fs.readFileSync(csPath, "utf-8");
+  const timestamp = formatChicagoTimestamp();
+
+  // Build a summary of what ran
+  const passedSlices: string[] = [];
+  const failedSlices: string[] = [];
+  for (const [id, ss] of Object.entries(state.slices)) {
+    if (ss.status === "passed") passedSlices.push(id);
+    else if (ss.status === "failed") failedSlices.push(id);
+  }
+
+  const passedStr = passedSlices.length ? passedSlices.join(", ") : "none";
+  const summary = `SDK build runner completed ${sliceCount} slice(s) at ${timestamp}. Passed: ${passedStr}.${failedSlices.length ? ` Failed: ${failedSlices.join(", ")}.` : ""}`;
+
+  // Update "Last shipped" line
+  const lastShippedRe = /- \*\*Last shipped[^*]*\*\*[^\n]*/;
+  const newLastShipped = `- **Last shipped (${timestamp}):** ${summary}`;
+  if (lastShippedRe.test(content)) {
+    content = content.replace(lastShippedRe, newLastShipped);
+  }
+
+  // Update "Immediate Next Step" to reflect what the NEXT session should do
+  const nextStepRe = /- \*\*(?:Immediate Next Step|Fix)[^*]*\*\*[^\n]*/;
+  let nextStep: string;
+  if (failedSlices.length) {
+    nextStep = `- **Immediate Next Step:** Investigate failed slices (${failedSlices.join(", ")}) — check build_log.txt for errors. Then manually test passed slices on device.`;
+  } else {
+    nextStep = `- **Immediate Next Step:** Test the deployed changes on device. Verify slices ${passedStr} work correctly in the field app. Check for regressions.`;
+  }
+  if (nextStepRe.test(content)) {
+    content = content.replace(nextStepRe, nextStep);
+  }
+
+  fs.writeFileSync(csPath, content, "utf-8");
+
+  // Commit + push the governance update
+  try {
+    execSync(`git add "${csPath}"`, { cwd: PROJECT_ROOT, stdio: "pipe" });
+    execSync(`git commit -m "chore: post-run CURRENT_STATE update — ${sliceCount} slices completed"`, { cwd: PROJECT_ROOT, stdio: "pipe" });
+    execSync("git push origin main", { cwd: PROJECT_ROOT, stdio: "pipe" });
+    console.log(`  ✓ CURRENT_STATE.md updated and pushed (post-run governance).\n`);
+  } catch (e: any) {
+    console.log(`  Governance commit/push failed (non-blocking): ${e.message?.slice(0, 200)}\n`);
+  }
+}
+
 async function runArchiveRoutine(state: BuildState, force = false): Promise<number> {
   const slicesTsPath = path.join(__dirname, "slices.ts");
   const archiveTsPath = path.join(__dirname, "slices_archive.ts");
@@ -817,6 +871,14 @@ const commands: SlashCommand[] = [
           }
         } catch (e: any) {
           console.log(`  Push failed (non-blocking): ${e.message?.slice(0, 200)}\n`);
+        }
+
+        // ── Post-run governance: update CURRENT_STATE.md ──
+        // The runner must leave accurate breadcrumbs for the next agent session.
+        try {
+          updateCurrentStateAfterRun(state, count);
+        } catch (e: any) {
+          console.log(`  Governance update failed (non-blocking): ${e.message?.slice(0, 200)}\n`);
         }
       }
       // Auto-archive at end in case the run pushed count over the threshold

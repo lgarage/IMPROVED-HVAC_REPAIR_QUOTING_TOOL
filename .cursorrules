@@ -48,6 +48,8 @@ All paths below are relative to the repo root. Memory files live in `PROJECT_STA
 
 ### 1D. Handoff Plan Protocol — keeping a fresh AI on track
 
+**Golden rule:** The last significant thing discussed or completed in a session = what CURRENT_STATE's "Immediate Next Step" must say. If you discussed a bug, the next step is "fix the bug." If you shipped code, the next step is "test it." If you ran slices, the next step is "verify the results." **Never leave stale instructions from a prior session.**
+
 **When to create.** If an active phase has ≥ 2 remaining slices that require design details (schemas, pseudocode, file task list, cache-bust map) that won't fit the `CURRENT_STATE.md` 30-line cap, the AI that finishes the current slice **must** create or update `PROJECT_STATUS/<PHASE>_PLAN.md` before ending that session.
 
 **Trigger for the next AI.** `CURRENT_STATE.md → Immediate Next Step` must contain the exact line:
