@@ -6,8 +6,8 @@
 
 ## Snapshot
 
-- **Active Phase:** KI-004 Offline Photo Outbox wiring — **deployed**. Phase 66/65/63 live.
-- **Last shipped (2026-05-18):** KI-004 outbox call-site wiring — 6 remaining `ref.put()` upload sites wrapped with `VCStorageOutbox.enqueue` fallback: `dictation_hub.js` (nameplate), `field_forms.js` (quote evidence + form photos + quote photos), `conversational_timeline.js` (media capture), `teaching_layer.js` (teaching media). Cache-busted: dictation_hub v18, field_forms v7, conversational_timeline v67, teaching_layer v4. `VC_BUILD: KI004-OfflineOutboxWiring-2026-05-18`.
+- **Active Phase:** Phase 64 AI Quote Pipeline — active queue restored for overnight build. Phase 66/65/63 live.
+- **Last shipped (2026-05-18):** Phase 64 queue repair — restored 64a/64b/64c/64e into `tools/slices.ts` so 64d now has its full dependency chain in the active runner queue.
 - **Prior (2026-05-18):** Phase 66 complete — Admin Job Creation, historical mode, checklist full-list, compile guard.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
@@ -20,7 +20,7 @@ None.
 ## Immediate Next Step
 
 - **KI-004 enhancement (optional T2):** The outbox currently uploads the file on drain but does not patch the Firestore doc with the download URL. Adding `contextHook` callbacks to `VCStorageOutbox.drain()` would complete the end-to-end flow (file uploaded + Firestore doc updated). Not blocking — files are preserved in Storage, just need manual re-save to get the URL into the doc.
-- **Phase 64 — AI Quote Pipeline:** Slices authored and ready to build. Run SDK runner `/a` overnight for unattended execution.
+- **Phase 64 — AI Quote Pipeline:** Active slice queue restored (64a/64b/64c/64d/64e). Run SDK runner `/a` overnight for unattended execution.
 - **Deferred:** Compiled report edit persistence (save corrections back to `completed_reports` doc with "Edited" badge) — separate T2 item, requires new Firestore write path in `conversational_timeline.js`.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.

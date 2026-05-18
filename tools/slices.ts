@@ -4,6 +4,8 @@
  * and push safety level.
  */
 
+import { ARCHIVED_SLICES } from "./slices_archive";
+
 export interface Slice {
   id: string;
   phase: number;
@@ -27,6 +29,14 @@ export interface Slice {
 // Slices 41a–57a have been moved to slices_archive.ts (all passed).
 // Add new slices here; they will be auto-archived once they pass and
 // SLICES.length exceeds MAX_ACTIVE_SLICES in build_runner.ts.
+
+const PHASE_64_ACTIVE = ["64a", "64b", "64c", "64e"].map((id) => {
+  const slice = ARCHIVED_SLICES.find((entry) => entry.id === id);
+  if (!slice) {
+    throw new Error(`Missing archived slice ${id}`);
+  }
+  return slice;
+});
 
 export const SLICES: Slice[] = [
   // ═══════════════════════════════════════════════════════════
@@ -111,6 +121,8 @@ export const SLICES: Slice[] = [
   
 
   
+
+  ...PHASE_64_ACTIVE,
 
   {
     id: "64d",
