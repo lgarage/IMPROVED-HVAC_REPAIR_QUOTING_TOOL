@@ -1,7 +1,7 @@
 /**
  * Admin Conversation Engine — Gemini-driven checklist builder agent.
  *
- * Phase 66 / Slice 66b
+ * Phase 66 / Slice 66c
  *
  * Handles all workspace input when localStorage 'vc_admin_session' === '1'.
  * Guides the admin through creating or updating form_templates via a
@@ -112,6 +112,55 @@
       name: slugField(label),
       required: false
     };
+  }
+
+  /* ── executeAdminSave — Firestore write with confirmation gate ─ */
+
+  async function executeAdminSave() {
+    if (!_draft || !_draft.templateName) {
+      return "There\u2019s nothing to save right now.";
+    }
+
+    var docId = (_intent === "update" && _updateTargetId)
+      ? _updateTargetId
+      : (_draft.templateName.trim().toLowerCase()
+          .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60)
+         || ("template_" + Date.now()));
+
+    var tw = Array.isArray(_draft.triggerWords) ? _draft.triggerWords.slice() : [];
+    var kw = (_draft.targetKeyword || _draft.templateName).toLowerCase().trim();
+    if (tw.indexOf(kw) === -1) tw.unshift(kw);
+
+    var payload = {
+      templateName: _draft.templateName,
+      targetKeyword: kw,
+      triggerWords: tw,
+      active: true,
+      fields: Array.isArray(_draft.fields) ? _draft.fields : [],
+      formCategory: _draft.formCategory || "general",
+      assignedJobTypes: Array.isArray(_draft.assignedJobTypes) ? _draft.assignedJobTypes : [],
+      assignedRepairTypes: Array.isArray(_draft.assignedRepairTypes) ? _draft.assignedRepairTypes : [],
+      isDefault: false,
+      sortIndex: 0,
+      quoteRelevant: false,
+      associatedParts: [],
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if (_intent !== "update") {
+      payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    }
+
+    try {
+      await firebase.firestore()
+        .collection("form_templates")
+        .doc(docId)
+        .set(payload, { merge: true });
+      _state = "idle"; _intent = null; _draft = null; _updateTargetId = null;
+      return "\u2713 Checklist saved \u2014 techs will see it in the field app immediately.";
+    } catch (e) {
+      console.error("VCAdminAgent save failed", e);
+      return "Save failed \u2014 check your connection and try again.";
+    }
   }
 
   /* ── state machine ───────────────────────────────────────────── */
@@ -294,8 +343,11 @@
     var intent = cls.intent;
 
     if (intent === "CONFIRM_SAVE") {
-      // 66c will implement this
-      return Promise.resolve("Save logic coming in 66c.");
+      if (!_draft) {
+        _state = "idle";
+        return Promise.resolve("There\u2019s nothing to save right now.");
+      }
+      return executeAdminSave();
     }
 
     if (intent === "CANCEL") {
