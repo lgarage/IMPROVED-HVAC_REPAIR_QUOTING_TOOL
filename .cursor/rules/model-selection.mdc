@@ -47,7 +47,9 @@ If `.cursorrules` §6 mandates **§6C** escalation for HIGH/UNCERTAIN, output th
 
 7. **Update `PROJECT_STATUS/CURRENT_STATE.md`** after every session that ships code or makes a meaningful change — **no exceptions**. Rules:
    - Move **Last shipped** forward: one line, what changed, `VC_BUILD` stamp if applicable.
-   - Update **Immediate Next Step** to reflect what the user should do or test next.
+   - Update **Immediate Next Step** to reflect what the **next agent** should do — NOT what this session just finished. If you just ran slices, the next step is "test/verify the results" not "run slices." If you introduced a bug, the next step is "fix the bug." **Think: what does the person opening a fresh chat tomorrow need to know?**
+   - **Active Blocker** must be set if anything is broken, degraded, or blocking normal use. Clear it only when the fix is deployed and verified.
+   - **Accuracy check before writing:** Re-read your own CURRENT_STATE update and ask: "If I knew nothing else and only read this file, would I do the right thing?" If the answer is no, rewrite it.
    - **Mechanical size check:** count total lines before writing. If total line count is ≥ 55 → collapse the oldest "Prior (date):" Snapshot entries (anything beyond the last 3 sessions) into a single line "Prior history: see `PROJECT_MAP_HISTORY.md`" before adding new content. Do not add new lines until the file is under 50 total lines.
    - Do NOT maintain an "On Deck" section — that lives in `ROADMAP.md` only.
    - If nothing shipped, still update the Snapshot date and note "no code change."
