@@ -11,9 +11,10 @@ When creating a canvas that tracks bugs, fixes, or work items (any `.canvas.tsx`
 
 When a fix tracker canvas has multiple issues, **work on exactly ONE issue at a time**. After completing each fix:
 
-1. **Stop** — do not start the next issue automatically.
-2. **Report** what was done (file changed, deployed, verified).
-3. **Wait** for the user to say proceed / move to next / give the go-ahead.
+1. **Update the canvas** — change the completed item's `status` from `'pending'` to `'completed'` in the `.canvas.tsx` file so the user can visually track progress.
+2. **Stop** — do not start the next issue automatically.
+3. **Report** what was done (file changed, deployed, verified).
+4. **Wait** for the user to say proceed / move to next / give the go-ahead.
 
 The user may want to:
 - Switch models between issues (e.g. GPT-5.4 Mini for a T0 fix, then Sonnet 4.6 for a T2 investigation).
@@ -27,6 +28,14 @@ The user may want to:
 - Any message that clearly references moving to the next fix.
 
 **Do NOT** batch multiple fixes into one pass, even if they seem trivial. Each fix is its own gate.
+
+## Update the canvas on every status change (CRITICAL)
+
+After completing a fix, the agent MUST edit the canvas `.tsx` file to change that item's status:
+- `'pending'` → `'in_progress'` when starting work on an item
+- `'in_progress'` → `'completed'` when the fix is committed and pushed
+
+This keeps the canvas as a **live progress tracker** the user can glance at any time to see what's done vs. remaining. The TodoListCard in the canvas will visually reflect these changes.
 
 ## Commit and push after every fix (CRITICAL)
 
