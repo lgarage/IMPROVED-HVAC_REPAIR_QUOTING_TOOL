@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 66 (Admin Conversational Checklist Builder) — **deployed** overnight (66a–66d all passed via SDK runner). Phase 65/63/64 live.
-- **Last shipped (2026-05-18 overnight):** Phase 66 slices 66a–66d deployed via SDK build runner. Admin PIN gate, conversation engine, Firestore save, tech preview bubble — all live. **However, 66a introduced a critical bug (see Active Blocker).**
+- **Last shipped (2026-05-18):** Fixes #1–#3 from phase66-fix-tracker deployed. Init brace (Fix #1), compile modal screen guard (Fix #2), full checklist on first equipment mention (Fix #3). All committed and pushed to Firebase.
 - **Prior (2026-05-17):** SDK Playwright auto-verify; bug/speed fixes; Gemini JSON parse; Sync Ticket; nav guard; Header/Composer polish.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
@@ -15,13 +15,11 @@
 
 ## Active Blocker
 
-**Fix tracker canvas:** `canvases/phase66-fix-tracker.canvas.tsx` — 5 remaining issues (Fix #1 completed). Read the canvas for exact file/line/before/after details. Work items one at a time; wait for user go-ahead between each.
+None. Fixes #1–#3 deployed. Remaining tracker items (#4 historical edit design, #5 admin job creation T3, #6 Phase 66 test pass) are non-blocking.
 
 ## Immediate Next Step
 
-- **Deploy Fix #1** — code is committed+pushed but `firebase deploy --only hosting` has not run yet. Deploy first, then verify schedule loads on mobile.
-- **Then Fix #2** (GPT-5.4 Mini) — add screen guard to `openCompileModal()` in `conversational_timeline.js`. Canvas has exact before/after.
-- **Then Fixes #3–#6** — see canvas for details and recommended models per item. User gives go-ahead between each.
+- **Remaining canvas items** — see `canvases/phase66-fix-tracker.canvas.tsx`. #4 (historical job editing, design discussion) and #5 (admin job creation, T3/Opus 4.6) are next. #6 is a manual test pass — try the admin login + checklist builder flow on device now that #1–#3 are live.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
