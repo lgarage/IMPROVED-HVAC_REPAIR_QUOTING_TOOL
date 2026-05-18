@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 66 (Admin Conversational Checklist Builder) — **deployed** overnight (66a–66d all passed via SDK runner). Phase 65/63/64 live.
-- **Last shipped (2026-05-18):** Fixes #1–#3 from phase66-fix-tracker deployed. Init brace (Fix #1), compile modal screen guard (Fix #2), full checklist on first equipment mention (Fix #3). All committed and pushed to Firebase.
+- **Last shipped (2026-05-18):** Fix #4 — Historical mode refactor deployed. Replaced blanket `pointer-events:none` lock with selective disabling (composer/sync/status locked, nav/addendum/equipment/view-report interactive). Added addendum section HTML for post-visit notes on past tickets. `VC_BUILD: Phase66-Fix4-HistoricalMode-2026-05-18`.
 - **Prior (2026-05-17):** SDK Playwright auto-verify; bug/speed fixes; Gemini JSON parse; Sync Ticket; nav guard; Header/Composer polish.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
@@ -15,14 +15,14 @@
 
 ## Active Blocker
 
-None. Fixes #1–#3 deployed. Remaining tracker items (#4 historical edit design, #5 admin job creation T3, #6 Phase 66 test pass) are non-blocking.
+None. Fixes #1–#4 deployed. Remaining tracker items (#5 admin job creation T3, #6 Phase 66 test pass) are non-blocking.
 
 ## Immediate Next Step
 
-- **Canvas tracker (full path):** `C:\Users\daday\.cursor\projects\c-Projects-PROJECT-DISPATCHER-TOOL\canvases\phase66-fix-tracker.canvas.tsx` — #1–#3 marked completed. #4–#6 pending.
-- **#4 next — Historical job editing (design discussion, Opus 4.6):** `applyWorkspaceHistoricalMode()` in `technician/index.html` locks past-day tickets. Design session needed: decide which fields stay editable (notes/addendums, equipment findings, compiled report edits) vs. locked (status changes, new photos, sync-to-office). No code until design is agreed. Proceed gate: `switched to Opus 4.6 — proceed`.
-- **#5 after #4 — Admin job creation on mobile (T3, Opus 4.6):** Net-new feature — admin-gated bottom sheet form → Firestore write to `service_calls`. Requires Opus 4.6 for implementation.
+- **Canvas tracker (full path):** `C:\Users\daday\.cursor\projects\c-Projects-PROJECT-DISPATCHER-TOOL\canvases\phase66-fix-tracker.canvas.tsx` — #1–#4 marked completed. #5–#6 pending.
+- **#5 next — Admin job creation on mobile (T3, Opus 4.6):** Net-new feature — admin-gated bottom sheet form → Firestore write to `service_calls`. Requires Opus 4.6 for implementation.
 - **#6 — Manual test pass:** Log in as DAN DAY, enter admin PIN, test checklist builder flow end-to-end on device.
+- **Deferred:** Compiled report edit persistence (save corrections back to `completed_reports` doc with "Edited" badge) — requires new Firestore write path in `conversational_timeline.js`. Track as separate T2 item.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 

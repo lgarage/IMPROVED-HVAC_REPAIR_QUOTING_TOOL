@@ -2911,6 +2911,11 @@
   function updateCompileBtnVisibility() {
     var btn = getCompileBtn();
     if (!btn) return;
+    var wsEl = document.getElementById("screen-workspace");
+    if (wsEl && wsEl.classList.contains("is-historical-job")) {
+      btn.classList.remove("hidden");
+      return;
+    }
     var entries = loadEntries(currentTicketId);
     var techEntries = entries.filter(function (e) {
       return e && e.role === "tech" && !(e.meta && e.meta.seed);
@@ -3097,6 +3102,13 @@
     if (_compiledResult && newEntries.length === 0) {
       _lastCompileResult = _compiledResult;
       openCompileModal(_compiledDisplayText);
+      return;
+    }
+
+    /* Historical ticket with no restored report — nothing to compile */
+    var wsEl = document.getElementById("screen-workspace");
+    if (wsEl && wsEl.classList.contains("is-historical-job") && !_compiledResult && entries.length === 0) {
+      openCompileModal("No compiled report found for this past visit.\n\nIf a report was submitted, it may not have synced. Use the addendum section to add supplemental notes.");
       return;
     }
 

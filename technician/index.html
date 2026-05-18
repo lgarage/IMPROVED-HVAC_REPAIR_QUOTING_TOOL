@@ -1075,22 +1075,44 @@ body.vc-office-override #vcOfficeOverrideBanner,
 body.vc-override-active #vcOfficeOverrideBanner {
   display: none !important;
 }
-#screen-workspace.is-historical-job .workspace-lock-scope {
+/* Historical mode: selectively lock composer + sync, leave nav/addendum/equipment interactive */
+#screen-workspace.is-historical-job .ct-composer-dock {
   pointer-events: none;
+  opacity: 0.45;
   user-select: none;
-  opacity: 0.94;
 }
-/* Office Override (dispatcher iframe): allow full interaction inside lock scope on historical jobs */
-#screen-workspace.is-historical-job.vc-office-override-unlock .workspace-lock-scope {
+#screen-workspace.is-historical-job .ct-sync-btn {
+  pointer-events: none;
+  opacity: 0.45;
+}
+#screen-workspace.is-historical-job .ws-job-status-inline {
+  pointer-events: none;
+  opacity: 0.6;
+}
+/* Compile/View Report button stays interactive on historical tickets */
+#screen-workspace.is-historical-job .ct-compile-btn {
   pointer-events: auto;
-  user-select: auto;
   opacity: 1;
+}
+/* Office Override (dispatcher iframe): full interaction on historical jobs */
+#screen-workspace.is-historical-job.vc-office-override-unlock .ct-composer-dock,
+#screen-workspace.is-historical-job.vc-office-override-unlock .ct-sync-btn,
+#screen-workspace.is-historical-job.vc-office-override-unlock .ws-job-status-inline {
+  pointer-events: auto;
+  opacity: 1;
+  user-select: auto;
 }
 #screen-workspace.is-historical-job .workspace-original-fab {
   display: none !important;
 }
 #reportPreviewModal.historical-sync-disabled .report-preview-sync {
   display: none !important;
+}
+/* Addendum section always interactive on historical tickets */
+.workspace-addendum-section {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  user-select: auto !important;
 }
 .workspace-addendum-section {
   background: #fff;
@@ -7001,6 +7023,20 @@ button#techDisplayLabel:active { opacity: 0.75; }
 
   </div><!-- /workspaceLockScope -->
 
+  <!-- Addendum section: visible on historical tickets for supplemental notes -->
+  <section id="workspaceAddendumSection" class="workspace-addendum-section hidden" aria-label="Supplemental notes">
+    <h3 class="workspace-addendum-title">Add Supplemental Note</h3>
+    <p class="workspace-addendum-hint">Post-visit updates — corrections, follow-up info, or additional findings. Clearly timestamped as a later addition.</p>
+    <label for="addendumSupplementalNotes">Note</label>
+    <textarea id="addendumSupplementalNotes" rows="3" placeholder="e.g. Customer called back about the noise — it was the blower wheel, not the belt."></textarea>
+    <label for="addendumFilesInput">Attach files (optional)</label>
+    <input type="file" id="addendumFilesInput" multiple accept="image/*,video/*,application/pdf" />
+    <button type="button" class="btn btn-primary workspace-addendum-save" onclick="saveSupplementalUpdate()">Save Note</button>
+    <p id="addendumSaveStatus" class="workspace-addendum-status" aria-live="polite"></p>
+  </section>
+
+  <div id="workspaceAddendumTimeline" class="workspace-addendum-timeline-wrap hidden" aria-label="Supplemental history"></div>
+
   <!-- #generate kept hidden for JS compatibility; ct-sync-btn in timeline is the visible trigger -->
   <button id="generate" type="button" style="display:none" aria-hidden="true">Complete &amp; Sync Ticket</button>
 
@@ -7518,7 +7554,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase66-Slice66d-2026-05-18";
+window.VC_BUILD = "Phase66-Fix4-HistoricalMode-2026-05-18";
 const VC_ADMIN_PIN = "1234"; // replace with env-configured value before production
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
@@ -9126,25 +9162,44 @@ function applyWorkspaceHistoricalMode(isHistorical) {
   const gen = document.getElementById('generate');
   const syncBtn = document.getElementById('reportPreviewSyncBtn');
   if (ws) ws.classList.toggle('is-historical-job', !!isHistorical);
+
   if (banner) {
     banner.classList.toggle('hidden', !isHistorical);
     if (isHistorical && bannerText) {
       if (window.VC_OFFICE_OVERRIDE === true) {
         bannerText.textContent =
-          '⚠️ Historical record: original report fields stay locked. You can add notes in the timeline below.';
+          '⚠️ Historical record — full access via Office Override.';
       } else {
         bannerText.textContent =
-          '⚠️ Historical Record: Viewing Read-Only. Use the timeline below to add notes.';
+          '⚠️ Past visit — original conversation is locked. You can add supplemental notes, view reports, and access equipment data.';
       }
     }
   }
+
   if (gen) gen.disabled = !!isHistorical;
   if (syncBtn) syncBtn.disabled = !!isHistorical;
   const ctSyncBtn = document.getElementById('ct-sync-btn');
   if (ctSyncBtn) ctSyncBtn.disabled = !!isHistorical;
-  if (isHistorical && typeof window.lockWorkspaceControls === 'function') {
-    window.lockWorkspaceControls();
+
+  const compileBtn = document.getElementById('ct-compile-btn');
+  if (compileBtn) {
+    if (isHistorical) {
+      compileBtn.textContent = '📄 View Report';
+      compileBtn.disabled = false;
+      compileBtn.classList.remove('hidden');
+    } else {
+      compileBtn.textContent = '📋 Compile Notes';
+    }
   }
+
+  const statusInline = document.getElementById('wsJobStatusInline');
+  if (statusInline) statusInline.disabled = !!isHistorical;
+
+  const addendumSection = document.getElementById('workspaceAddendumSection');
+  if (addendumSection) addendumSection.classList.toggle('hidden', !isHistorical);
+
+  const addendumTimeline = document.getElementById('workspaceAddendumTimeline');
+  if (addendumTimeline) addendumTimeline.classList.toggle('hidden', !isHistorical);
 }
 
 function teardownWorkspaceAddendums() {
@@ -12719,7 +12774,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=7"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=3"></script>
-    <script src="../conversational_timeline.js?v=65"></script>
+    <script src="../conversational_timeline.js?v=66"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');
