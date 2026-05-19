@@ -20,7 +20,7 @@
 | Pure regex / dictionary logic | gpt-5.3-codex-spark | — | — | yes | 2026-05-15 | 43a: spark passed first try |
 | Gemini prompt integration | gpt-5.4-mini | — | claude-opus-4-6 | no | 2026-05-18 | Floor: Vertex Core — Opus minimum |
 | Firestore multi-read (query, no writes) | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (mini-medium invalid); re-verify on next match |
-| Firestore write path (new collection/doc) | composer-2.5 | gpt-5.4-mini | composer-2.5 | no | 2026-05-18 | Floor: skip Mini/Flash; C2.5 first, escalate to Sonnet/Opus |
+| Firestore write path (new collection/doc) | composer-2.5 | gpt-5.4-mini | composer-2.5 | yes | 2026-05-19 | Verified: composer-2.5 passed |
 | Firestore rules / auth changes | claude-opus-4-6 | — | claude-opus-4-6 | yes | 2026-05-15 | 59b: opus passed; floor = Vertex Core |
 | Firebase config / project migration | claude-opus-4-6 | — | claude-opus-4-6 | no | 2026-05-13 | Vertex Core rule — no matching slice yet |
 | Dispatcher modal (read-only Firestore) | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (mini-medium invalid); unverified |
