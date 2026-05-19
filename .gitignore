@@ -6,3 +6,12 @@ serviceAccount*.json
 
 # Dependencies (if you add a build step later)
 node_modules/
+
+# Firebase local deploy cache (regenerated on every deploy)
+.firebase/
+
+# Playwright / screenshot one-offs (never commit)
+_test_*.mjs
+_check_screenshot.mjs
+_ss_*.png
+_screenshot_*.png
