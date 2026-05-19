@@ -2762,7 +2762,7 @@
   /* ── Compile result localStorage cache ──────────────────────────── */
   var VC_COMPILE_CACHE_PREFIX = "vc_compile_cache_";
 
-  function saveCompileCache(ticketId, result, displayText, compiledEntryCount) {
+  function saveCompileCache(ticketId, result, displayText, compiledEntryCount, submitted) {
     if (!ticketId || ticketId === "draft") return;
     try {
       localStorage.setItem(
@@ -2771,7 +2771,8 @@
           result: result,
           displayText: displayText,
           compiledEntryCount: compiledEntryCount || 0,
-          submittedAt: new Date().toISOString()
+          submitted: !!submitted,
+          savedAt: new Date().toISOString()
         })
       );
     } catch (e) { /* quota or private-mode — degrade silently */ }
@@ -2979,7 +2980,10 @@
           _compiledDisplayText   = cached.displayText || formatCompileResultForDisplay(cached.result);
           _lastCompiledIndex     = cached.compiledEntryCount || 0;
           _lastCompileResult     = _compiledResult;
-          _compileSubmittedForTicket = capturedOpenTicketId;
+          /* Only mark as submitted if the cache was written after a successful submit,
+             not just after a compile — so the X button still prompts "Submit to office?"
+             when the user compiled but hasn't sent the report yet. */
+          _compileSubmittedForTicket = cached.submitted ? capturedOpenTicketId : null;
           autoOpenAfterPaint(function () {
             openCompileModal(_compiledDisplayText);
             runDeltaUpdateInPlace(capturedOpenTicketId);
@@ -3295,6 +3299,8 @@
     /* Case 1: report fully up to date — open instantly */
     if (_compiledResult && newEntries.length === 0) {
       _lastCompileResult = _compiledResult;
+      /* Persist so the modal auto-opens if the user navigates away and returns */
+      saveCompileCache(currentTicketId, _compiledResult, _compiledDisplayText, _lastCompiledIndex);
       openCompileModal(_compiledDisplayText);
       return;
     }
@@ -3330,6 +3336,9 @@
       _compiledDisplayText = formatCompileResultForDisplay(_compiledResult);
       _lastCompiledIndex = snapshotIndex;
       _lastCompileResult = _compiledResult;
+      /* Persist immediately so the modal auto-opens on the next job-card tap,
+         even if the user navigates away before submitting to office. */
+      saveCompileCache(compileTicketId, _compiledResult, _compiledDisplayText, _lastCompiledIndex);
       openCompileModal(_compiledDisplayText);
       /* Slice 63f: post-compile equipment classification */
       classifyEquipmentFindings(_compiledResult, entries, compileTicketId);
@@ -3943,8 +3952,9 @@
       }
       /* Mark this ticket as submitted so the close-modal prompt is suppressed */
       _compileSubmittedForTicket = ticketId;
-      /* Cache compile result locally for instant restore on next workspace entry */
-      saveCompileCache(ticketId, _lastCompileResult, editedText, _lastCompiledIndex);
+      /* Cache compile result locally for instant restore on next workspace entry.
+         submitted=true so X button just closes without re-prompting. */
+      saveCompileCache(ticketId, _lastCompileResult, editedText, _lastCompiledIndex, true);
       /* Fire nav-guard callback if set (e.g. "submit then switch to schedule") */
       if (_submitSuccessCallback) {
         var cb = _submitSuccessCallback;

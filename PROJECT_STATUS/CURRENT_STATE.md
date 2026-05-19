@@ -7,9 +7,9 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 foundation shipped. **KI-006 past-day job UX shipped** 2026-05-19. Phase 63 live. KI-004 core shipped.
-- **Last shipped (2026-05-19):** KI-006 UX polish — **View Compiled Notes** pinned to end of scrollable chat (fix: detached DOM ref); compiled report opens first; × dismisses to addendum chat; full date+time on historical bubbles (`KI006-PastDayUX4-2026-05-19`, `conversational_timeline.js?v=75`). Deployed + Playwright verified.
-- **Prior (2026-05-19):** KI-006 initial past-day card tap + addendum flow (`KI006-PastDayUX-2026-05-19`).
-- **Prior (2026-05-18 20:56:18 CDT):** Phase 64 SDK slices 64a–64e passed.
+- **Last shipped (2026-05-19):** Compile-notes-first bug fix — `saveCompileCache` now called after every `compileNotes()` success (not just submit); `submitted` flag added to cache; `onWorkspaceOpen` only marks ticket as submitted when `cached.submitted===true`. Result: compiled report modal auto-opens on any job card tap after compile, even if user never submitted. (`conversational_timeline.js?v=76`). Deployed.
+- **Prior (2026-05-19):** KI-006 UX polish — View Compiled Notes pinned; compiled report opens first; × dismisses to addendum chat; full date+time on historical bubbles (`KI006-PastDayUX4-2026-05-19`, `v=75`).
+- **Prior (2026-05-19):** KI-006 initial past-day card tap + addendum flow.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -20,7 +20,7 @@ None.
 
 ## Immediate Next Step
 
-- **User device verify:** Force-reload PWA until `BUILD: KI006-PastDayUX4-2026-05-19` — open past-day job, confirm compiled modal first, × unlocks chat, **📄 View Compiled Notes** scrolls at bottom of messages.
+- **User device verify:** On an active job with compile done — re-tap job card from schedule → compiled report modal should open automatically. Tap × → see rolling chat with timestamps. (`conversational_timeline.js?v=76`).
 - **Product queue:** issues-found tracker **#6** (historical edit matrix design) or **#11** (KI-009 May 19 Slack triage).
 - **Optional:** Phase 64 quote/vendor device smoke-test; build-runner checklist items 3–5.
 
