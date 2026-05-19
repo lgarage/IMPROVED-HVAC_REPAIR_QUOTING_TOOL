@@ -140,6 +140,31 @@
   var currentTicketId = "draft";
   var initialized = false;
 
+  function isAdminWorkspaceSession() {
+    try {
+      return localStorage.getItem("vc_admin_session") === "1" &&
+        window.VCAdminAgent &&
+        typeof window.VCAdminAgent.processAdminEntry === "function";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function deliverAdminAgentResult(result, ticketId) {
+    var id = normalizeTicketId(ticketId);
+    if (result && typeof result === "object" && result.type === "preview") {
+      if (typeof window.appendAdminHtmlBubble === "function") {
+        window.appendAdminHtmlBubble(result.html);
+      } else {
+        addEntry("Preview ready.", "system", id);
+      }
+      return;
+    }
+    if (typeof result === "string" && result.trim()) {
+      addEntry(result.trim(), "system", id);
+    }
+  }
+
   /* ── checklist reminder debounce state (Slice 63c) ───────────── */
   var _lastReminderEquipment = null;
   var _lastReminderTime = 0;
@@ -1631,6 +1656,17 @@
     var id = normalizeTicketId(ticketId);
 
     var rawText = safeText(entry.text);
+
+    /* Admin mode — full Gemini admin agent; skip EdgeIntentEngine entirely. */
+    if (isAdminWorkspaceSession()) {
+      window.VCAdminAgent.processAdminEntry(rawText).then(function (result) {
+        deliverAdminAgentResult(result, id);
+      }).catch(function (err) {
+        console.error("VCAdminAgent error", err);
+        addEntry("Something went wrong. Try again.", "system", id);
+      });
+      return;
+    }
     var textForIntent = normalizeEquipmentNumbers(rawText);
 
     /* Voice correction intercept (Slice 46a) — route to handleCorrection,

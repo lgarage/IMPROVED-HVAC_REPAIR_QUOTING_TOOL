@@ -154,12 +154,79 @@
 
   /* ── classifyAdminIntent ─────────────────────────────────────── */
 
+  function localAdminIntentHint(text) {
+    var lower = String(text || "").toLowerCase();
+    if (/what.*checklist|checklists?\s+(do\s+we|are\s+there|exist)|list.*checklist|show.*checklist|what templates|list templates|what forms/.test(lower)) {
+      return { intent: "QUERY" };
+    }
+    if (/^create\s+(a\s+)?/.test(lower) && /checklist|template|form/.test(lower)) {
+      return { intent: "CREATE_CHECKLIST" };
+    }
+    if (/^update\s+/.test(lower) && /checklist|template/.test(lower)) {
+      return { intent: "UPDATE_CHECKLIST" };
+    }
+    return null;
+  }
+
+  function fetchFormTemplatesList() {
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      return Promise.resolve([]);
+    }
+    return firebase.firestore()
+      .collection("form_templates")
+      .get()
+      .then(function (snap) {
+        var rows = [];
+        snap.forEach(function (doc) {
+          var data = doc.data() || {};
+          rows.push({
+            id: doc.id,
+            templateName: data.templateName || doc.id,
+            targetKeyword: data.targetKeyword || "",
+            fields: Array.isArray(data.fields) ? data.fields : [],
+            active: data.active !== false
+          });
+        });
+        rows.sort(function (a, b) {
+          return String(a.templateName).localeCompare(String(b.templateName));
+        });
+        return rows;
+      })
+      .catch(function (e) {
+        console.error("VCAdminAgent form_templates query", e);
+        return [];
+      });
+  }
+
+  function formatChecklistInventory(templates) {
+    if (!templates || !templates.length) {
+      return "No checklists found in the system yet. Say \"Create a supply fan motor checklist\" to add one.";
+    }
+    var lines = templates.map(function (t, i) {
+      var steps = (t.fields && t.fields.length) || 0;
+      var trigger = t.targetKeyword ? " · trigger: " + t.targetKeyword : "";
+      var status = t.active === false ? " [inactive]" : "";
+      return (i + 1) + ". " + t.templateName + trigger + " — " + steps + " step(s)" + status;
+    });
+    return "Current checklists (" + templates.length + "):\n\n" + lines.join("\n");
+  }
+
+  function isChecklistInventoryQuestion(text) {
+    return /checklist|template|form template/.test(String(text || "").toLowerCase());
+  }
+
   function classifyAdminIntent(text) {
+    var localHint = localAdminIntentHint(text);
+    if (localHint) {
+      return Promise.resolve(localHint);
+    }
+
     var prompt =
       'You are classifying an HVAC service management command. Respond with JSON only.\n' +
       'Input: "' + text.replace(/"/g, '\\"') + '"\n' +
       'Classify into one of: CREATE_CHECKLIST, UPDATE_CHECKLIST, ADD_STEP, REMOVE_STEP, ' +
       'SET_TRIGGER, PREVIEW, CONFIRM_SAVE, CANCEL, QUERY, UNKNOWN.\n' +
+      'Use QUERY for questions like "what checklists do we have" or general admin questions.\n' +
       'Also extract: { templateName, triggerWord, steps: string[], fieldToAdd, fieldToRemove }\n' +
       'Response format: { "intent": string, "templateName": string|null, "triggerWord": string|null, ' +
       '"steps": string[]|null, "fieldToAdd": string|null, "fieldToRemove": string|null }';
@@ -324,18 +391,22 @@
     }
 
     if (intent === "QUERY") {
+      if (isChecklistInventoryQuestion(text)) {
+        return fetchFormTemplatesList().then(formatChecklistInventory);
+      }
       var qPrompt =
-        "You are an expert HVAC service manager assistant. " +
-        "Answer the following question concisely:\n\n" + text;
+        "You are an expert HVAC service manager assistant in admin configuration mode. " +
+        "The user manages checklists, vendors, and technician settings for a field service company. " +
+        "Answer the following question clearly and concisely:\n\n" + text;
       return askAdminGemini(qPrompt);
     }
 
-    return Promise.resolve(
-      "Admin mode active. You can say:\n" +
-      "\u2022 \"Create a supply fan motor checklist\"\n" +
-      "\u2022 \"Update the belt replacement checklist\"\n" +
-      "\u2022 \"What templates are there?\""
-    );
+    /* Unknown — still route to full Gemini instead of a canned menu. */
+    var openPrompt =
+      "You are an expert HVAC service manager assistant in admin configuration mode. " +
+      "The user can create/update checklists (form templates), manage vendors, and configure the system. " +
+      "Respond helpfully to:\n\n" + text;
+    return askAdminGemini(openPrompt);
   }
 
   function handleCollecting(cls, text) {
