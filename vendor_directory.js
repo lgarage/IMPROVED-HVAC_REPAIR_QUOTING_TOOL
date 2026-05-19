@@ -182,6 +182,17 @@
   function closeVendorForm() {
     var modal = document.getElementById("vendorFormModal");
     if (modal) modal.style.display = "none";
+    var editIdEl = document.getElementById("vendorEditId");
+    if (editIdEl) editIdEl.value = "";
+    var nameEl = document.getElementById("vendorNameInput");
+    if (nameEl) nameEl.value = "";
+    var emailEl = document.getElementById("vendorEmailInput");
+    if (emailEl) emailEl.value = "";
+    var phoneEl = document.getElementById("vendorPhoneInput");
+    if (phoneEl) phoneEl.value = "";
+    var notesEl = document.getElementById("vendorNotesInput");
+    if (notesEl) notesEl.value = "";
+    renderCategoryCheckboxes([]);
   }
 
   /* ── Save ─────────────────────────────────────────────────────── */
