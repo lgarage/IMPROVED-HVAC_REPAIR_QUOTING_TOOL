@@ -1,0 +1,54 @@
+---
+description: Update tracker canvases with status + user test steps whenever code or UX ships
+alwaysApply: true
+---
+
+# Canvas Update on Every Ship
+
+Whenever you **ship a code change, bug fix, UX update, or doc reconciliation that affects field/dispatcher behavior**, update the relevant canvas **before** telling the user the work is done.
+
+## Which canvas
+
+| Change type | Canvas file |
+|-------------|-------------|
+| Bug / #issues-found / KI-* fix | `canvases/issues-found-fix-tracker.canvas.tsx` |
+| Phase ship, feature, build stamp | `canvases/current-state.canvas.tsx` |
+| Icebox / roadmap idea | `canvases/idea-vault.canvas.tsx` |
+
+Canvas path: `C:\Users\daday\.cursor\projects\c-Projects-PROJECT-DISPATCHER-TOOL\canvases\`
+
+## Mandatory on every update
+
+1. **Status** — set item to `in_progress` when starting, `completed` when shipped (or add a new row if none exists).
+2. **Ship metadata** — `VC_BUILD` stamp, script `?v=` bump, commit hash if known.
+3. **User test steps** — numbered steps the user can run on device to confirm the fix worked. Not agent-only Playwright notes.
+
+## User test steps format (required)
+
+Each shipped item must include **`userTestSteps`** — an array of short, ordered strings:
+
+```
+1. Force-reload PWA until BUILD shows <stamp> (VC DEBUG overlay)
+2. Log in as <tech>
+3. Do X — expect Y
+4. ...
+```
+
+Cover: **how to open the app fresh**, **where to tap**, **what should happen**, **what failure looks like**.
+
+For UI changes, note Playwright may have already verified — user steps are still required.
+
+## Done checklist (add to fix-tracker flow)
+
+```
+[ ] Canvas updated — status + userTestSteps
+[ ] Code committed + pushed (when user asks or session ships)
+[ ] Deployed if field app (firebase deploy --only hosting)
+[ ] Tell user which canvas to open and which # to test
+```
+
+**Do not report "done" without updating the canvas.** The user uses canvases to track progress and to know how to verify on device.
+
+## Pair with fix-tracker rule
+
+Fix tracker items also need file, line, before, after, root cause, model — see `canvas-fix-tracker-handoff.mdc`. **`userTestSteps` is additive and mandatory for every shipped item.**
