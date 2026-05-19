@@ -8,6 +8,25 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
+### KI-008 — Log out / switch user: cannot log back in
+
+- **Filed:** 2026-05-18 (user report in session — not yet in Slack `#issues-found`).
+- **Severity:** **High** — blocks switching users on a shared device; logout appears to work but re-login fails.
+- **Symptoms:** Tap **Log Out / Switch User** (profile panel or settings) → login shell may appear → pick name → **Continue** (or admin path) does not complete login; schedule empty/stuck, or shell dismisses without loading tickets.
+- **Affected code:** `technician/index.html` — `switchUser()` (~8826), `showLoginShell` / `hideLoginShell`, `completeTechnicianLogin()` (~8757), `loadUserProfile()` (~8800), init `loginContinueBtn` wiring (~12774 / 12810).
+- **Investigation checklist:**
+  - Repro on device: logout from schedule vs from workspace; note BUILD stamp + debug overlay state.
+  - After logout, confirm `#loginShell` visible (not `hidden`); tap Continue — does `completeTechnicianLogin` run? Any alert?
+  - Check whether `switchUser()` clears in-memory `currentTechProfile` (only removes `localStorage tp_saved_tech` today).
+  - Check whether `loginContinueBtn.onclick` is still bound after logout (init wires once; `switchUser` does not re-wire).
+  - After failed re-login: `subscribeToMyTickets` — was listener restarted? `jobListContainer` stuck on "Fetching schedule…"?
+  - Admin logout: `vc_admin_session` cleared but ADMIN pill styling on `#techDisplayLabel` may persist until re-login.
+- **Hypothesis:** `switchUser()` shows login shell then calls `switchScreen('schedule')` without resetting profile/subscription state; stale `currentTechProfile` or missing `loginContinueBtn` re-bind / missing `loadUserProfile()` resubscribe leaves user unable to complete second login.
+- **Directive fix:** Reset session state fully on logout (`currentTechProfile`, workspace close, ticket listener teardown); re-wire `loginContinueBtn` + `wireAdminLoginBtn` guards in `switchUser`; ensure `completeTechnicianLogin` → `loadUserProfile` → `subscribeToMyTickets` runs cleanly on every re-login.
+- **Status:** Open — investigation not started.
+
+---
+
 ### KI-006 — Past-day job UX: card tap, report-first, timestamped addendum notes
 
 - **Filed:** 2026-05-18 (`#issues-found` — user message + screenshots same day).

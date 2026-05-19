@@ -21,7 +21,7 @@ None.
 ## Immediate Next Step
 
 - **Device verify (issues-found canvas #4):** Admin orange FAB job create on phone.
-- **Product queue:** **KI-006** past-day job UX (card tap, report-first, timestamped addendum notes).
+- **Product queue:** **KI-008** logout/re-login broken. **KI-006** past-day job UX (card tap, report-first, timestamped addendum notes).
 - **Tonight at bedtime only:** SDK `/a` Phase 64 (64a→64b→64c→64e→64d). Do not run before bed unless user asks.
 - **After overnight run:** `.build_state.json` + runner log; reconcile what changed.
 - **Optional:** KI-004 URL-patch on outbox drain; compiled report edit persistence.
