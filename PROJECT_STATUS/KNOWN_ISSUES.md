@@ -8,18 +8,6 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
-### KI-008 — Log out / switch user — slow, no feedback (appears broken)
-
-- **Filed:** 2026-05-18 (user report in session).
-- **Severity:** **Medium** — logout works but feels broken; long delay with no UI feedback.
-- **User verify (2026-05-18):** Logout **eventually** succeeded after a long wait; admin re-login with PIN `1234` worked. Initial report ("can't log out") likely **perceived hang**, not a dead button.
-- **Symptoms:** Tap **Log Out / Switch User** → **nothing visible for several seconds** → login shell finally appears. Easy to think logout failed.
-- **Affected code:** `technician/index.html` — `switchUser()` (~8826) **`await fetchTechnicianRosterFromCloud()` before `showLoginShell()`** — blocks UI with zero loading indicator. Also: `wireProfilePanel()` only on returning-user init (~12812), not first/admin login (~12776) — may affect reaching logout on some paths.
-- **Directive fix:** (1) **`showLoginShell()` immediately** (use cached roster or empty), fetch roster in background and refresh picker. (2) Optional spinner/toast: "Signing out…". (3) Call `wireProfilePanel()` from `completeTechnicianLogin()` with idempotent guard.
-- **Status:** Open — UX fix not started; functional path confirmed on device.
-
----
-
 ### KI-006 — Past-day job UX: card tap, report-first, timestamped addendum notes
 
 - **Filed:** 2026-05-18 (`#issues-found` — user message + screenshots same day).
@@ -136,8 +124,11 @@ These are not bugs but recurring traps — keep them in mind whenever editing th
 
 ### KI-007 — Repair checklist trigger may not inject full item list
 
-- **Resolved:** 2026-05-18 — `isFirstShow` race in `scheduleChecklistReminders()`: snapshot at call time before `updateFromEntry` marks same-message items. Commit `658c08b` · `conversational_timeline.js?v=69` · `VC_BUILD: ChecklistFirstShowFix-2026-05-18`.
-- **Verification:** Playwright 5/5 items on trigger phrase; user device-confirmed same day — full checklist on first show.
+- **Resolved:** 2026-05-18 — `isFirstShow` race in `scheduleChecklistReminders()`. Commit `658c08b` · user device-verified.
+
+### KI-008 — Log out / switch user — slow, no feedback
+
+- **Resolved:** 2026-05-18 — `#vcLogoutOverlay` spinner + "Signing out…" (min 450ms); login shell shows immediately; roster fetch in background; `wireProfilePanel()` idempotent guard + call from `completeTechnicianLogin()`. `VC_BUILD: LogoutSpinner-2026-05-18`. Playwright verified. User device verify pending.
 
 ### KI-002 — Sync Risk Audit (2026-04-25): silent-failure & cache-versioning repair backlog
 

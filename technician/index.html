@@ -592,6 +592,22 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
   display: flex; align-items: center; justify-content: center; padding: 24px;
 }
 .login-shell.hidden { display: none !important; }
+.vc-logout-overlay {
+  position: fixed; inset: 0; z-index: 400;
+  background: rgba(15, 23, 42, 0.78);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; color: #f8fafc; pointer-events: auto;
+}
+.vc-logout-overlay.hidden { display: none !important; }
+.vc-logout-spinner {
+  width: 36px; height: 36px;
+  border: 3px solid rgba(255,255,255,0.25);
+  border-top-color: #0ea5e9;
+  border-radius: 50%;
+  animation: vc-logout-spin 0.75s linear infinite;
+}
+.vc-logout-overlay-text { font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
+@keyframes vc-logout-spin { to { transform: rotate(360deg); } }
 .login-card {
   width: 100%; max-width: 400px; background: #fff; border-radius: 16px; padding: 28px 24px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.08); border: 1px solid #e1e8ed;
@@ -7705,7 +7721,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "ChecklistFirstShowFix-2026-05-18";
+window.VC_BUILD = "LogoutSpinner-2026-05-18";
 const VC_ADMIN_PIN = "1234"; // replace with env-configured value before production
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
@@ -8702,6 +8718,26 @@ function hideLoginShell() {
   document.getElementById('loginShell').classList.add('hidden');
 }
 
+function showLogoutSpinner() {
+  var el = document.getElementById('vcLogoutOverlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'vcLogoutOverlay';
+    el.className = 'vc-logout-overlay';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-busy', 'true');
+    el.innerHTML = '<div class="vc-logout-spinner" aria-hidden="true"></div><div class="vc-logout-overlay-text">Signing out…</div>';
+    document.body.appendChild(el);
+  }
+  el.classList.remove('hidden');
+}
+
+function hideLogoutSpinner() {
+  var el = document.getElementById('vcLogoutOverlay');
+  if (el) el.classList.add('hidden');
+}
+
 function wireAdminLoginBtn() {
   const adminBtn = document.getElementById('loginAdminBtn');
   if (!adminBtn || adminBtn._vcAdminWired) return;
@@ -8794,6 +8830,7 @@ async function completeTechnicianLogin() {
   ensureWireAutosave();
   if (typeof wireCoachingInbox === 'function') wireCoachingInbox();
   if (typeof writeLivePresence === 'function') writeLivePresence();
+  if (typeof wireProfilePanel === 'function') wireProfilePanel();
 }
 
 /* ---------- user profile ---------- */
@@ -8824,17 +8861,43 @@ async function loadUserProfile(options = {}) {
 }
 
 async function switchUser() {
-  _adminGreetingShown = false;
-  unsubscribeSchedule();
-  if (typeof clearVcFieldEntitlements === 'function') clearVcFieldEntitlements();
-  localStorage.removeItem('tp_saved_tech');
-  localStorage.removeItem('vc_admin_session');
-  if (typeof window.adminJobCreationShowFab === 'function') window.adminJobCreationShowFab();
-  selectedScheduleDayYmd = '';
-  scheduleStripDidInitialScrollToToday = false;
-  cachedTechnicianRoster = await fetchTechnicianRosterFromCloud();
-  showLoginShell(cachedTechnicianRoster);
-  switchScreen('schedule');
+  if (switchUser._inProgress) return;
+  switchUser._inProgress = true;
+  var logoutStarted = Date.now();
+  showLogoutSpinner();
+  try {
+    _adminGreetingShown = false;
+    unsubscribeSchedule();
+    if (typeof clearVcFieldEntitlements === 'function') clearVcFieldEntitlements();
+    localStorage.removeItem('tp_saved_tech');
+    localStorage.removeItem('vc_admin_session');
+    currentTechProfile = '';
+    var tdl = document.getElementById('techDisplayLabel');
+    if (tdl) {
+      tdl.innerText = '…';
+      tdl.style.color = '';
+      tdl.style.fontWeight = '';
+    }
+    if (typeof window.adminJobCreationShowFab === 'function') window.adminJobCreationShowFab();
+    selectedScheduleDayYmd = '';
+    scheduleStripDidInitialScrollToToday = false;
+    /* Login shell immediately — roster refresh runs in background (KI-008). */
+    showLoginShell(cachedTechnicianRoster || []);
+    document.getElementById('loginContinueBtn').onclick = function () { completeTechnicianLogin(); };
+    switchScreen('schedule');
+    var spinnerMs = Math.max(0, 450 - (Date.now() - logoutStarted));
+    setTimeout(hideLogoutSpinner, spinnerMs);
+    fetchTechnicianRosterFromCloud().then(function (roster) {
+      cachedTechnicianRoster = roster;
+      setupLoginForm(roster);
+    });
+  } catch (e) {
+    console.error('[switchUser]', e);
+    hideLogoutSpinner();
+    alert('Sign-out hit a snag — try again.');
+  } finally {
+    switchUser._inProgress = false;
+  }
 }
 
 /* ---------- cloud tickets (real-time; assignments from Dispatch appear immediately) ---------- */
@@ -12631,7 +12694,8 @@ function wireProfilePanel() {
   var logoutBtn = document.getElementById('vcProfilePanelLogout');
   var googRadio = document.getElementById('vcProfileMapPrefGoogle');
   var applRadio = document.getElementById('vcProfileMapPrefApple');
-  if (!panel) return;
+  if (!panel || panel._vcProfileWired) return;
+  panel._vcProfileWired = true;
 
   function openProfilePanel() {
     var nameEl = document.getElementById('vcProfilePanelName');

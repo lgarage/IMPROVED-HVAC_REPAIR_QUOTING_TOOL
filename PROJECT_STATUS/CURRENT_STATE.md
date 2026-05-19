@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 AI Quote Pipeline — queue verified, preflight passed, ready for overnight SDK run (`/a`). Phase 66/63 live. KI-004 core shipped.
-- **Last shipped (2026-05-18):** KI-007 checklist first-show race fix — user device-verified. Full checklist on trigger phrase (`VC_BUILD: ChecklistFirstShowFix-2026-05-18`).
+- **Last shipped (2026-05-18):** KI-008 logout UX — "Signing out…" spinner overlay + instant login shell (`VC_BUILD: LogoutSpinner-2026-05-18`). Playwright verified.
 - **Prior (2026-05-18):** Phase 66 complete — admin login, job creation FAB, historical mode, checklist full-list, compile guard.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
@@ -21,7 +21,8 @@ None.
 ## Immediate Next Step
 
 - **Device verify (issues-found canvas #4):** Admin orange FAB job create on phone.
-- **Product queue:** **KI-008** slow logout UX (instant login shell + spinner). **KI-006** past-day job UX.
+- **Device verify (KI-008):** Logout spinner — tap name pill → Log Out → confirm "Signing out…" then login shell.
+- **Product queue:** **KI-006** past-day job UX.
 - **Tonight at bedtime only:** SDK `/a` Phase 64 (64a→64b→64c→64e→64d). Do not run before bed unless user asks.
 - **After overnight run:** `.build_state.json` + runner log; reconcile what changed.
 - **Optional:** KI-004 URL-patch on outbox drain; compiled report edit persistence.
