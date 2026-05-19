@@ -7,7 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 AI Quote Pipeline — queue verified, preflight passed, ready for overnight SDK run (`/a`). Phase 66/63 live. KI-004 core shipped.
-- **Last shipped (2026-05-18):** Admin checklist UI — inventory reply is styled cards with **Edit** buttons; in-chat editor (name, trigger, steps) saves to `form_templates`. User messages show **Admin** label. `VC_BUILD: AdminChecklistUI-2026-05-18`.
+- **Last shipped (2026-05-18):** Admin checklist save fix — `form_templates` write allowed without Firebase Auth; immediate toast + confirmation; editor closes on save; **Sync Ticket** hidden in admin workspace. `VC_BUILD: AdminSaveFix-2026-05-18`.
+- **Prior (2026-05-18):** Admin checklist cards + editor; admin full AI chat; debug overlay drag.
 - **Prior (2026-05-18):** Admin workspace full AI (`VCAdminAgent` bypasses intent engine); admin job tech roster picker.
 - **Prior (2026-05-18):** Admin job create assigned-tech dropdown loads full roster; voice search CRM numbers.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.

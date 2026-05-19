@@ -365,8 +365,11 @@
     _draft.triggerWords = [_draft.targetKeyword];
     _intent = "update";
     _updateTargetId = docId;
-    _state = "confirming";
     return executeAdminSave();
+  }
+
+  function refreshChecklistInventory() {
+    return fetchFormTemplatesList().then(formatChecklistInventory);
   }
 
   function cancelEdit() {
@@ -431,9 +434,24 @@
 
   /* ── executeAdminSave — Firestore write with confirmation gate ─ */
 
+  function firestoreSaveWithTimeout(docRef, payload, timeoutMs) {
+    var ms = timeoutMs || 12000;
+    return Promise.race([
+      docRef.set(payload, { merge: true }),
+      new Promise(function (_resolve, reject) {
+        setTimeout(function () {
+          reject(new Error("SAVE_TIMEOUT"));
+        }, ms);
+      })
+    ]);
+  }
+
   async function executeAdminSave() {
     if (!_draft || !_draft.templateName) {
       return "There\u2019s nothing to save right now.";
+    }
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      return "Save failed \u2014 Firebase is not available.";
     }
 
     var docId = (_intent === "update" && _updateTargetId)
@@ -455,10 +473,10 @@
       formCategory: _draft.formCategory || "general",
       assignedJobTypes: Array.isArray(_draft.assignedJobTypes) ? _draft.assignedJobTypes : [],
       assignedRepairTypes: Array.isArray(_draft.assignedRepairTypes) ? _draft.assignedRepairTypes : [],
-      isDefault: false,
-      sortIndex: 0,
-      quoteRelevant: false,
-      associatedParts: [],
+      isDefault: _draft.isDefault === true,
+      sortIndex: typeof _draft.sortIndex === "number" ? _draft.sortIndex : 0,
+      quoteRelevant: _draft.quoteRelevant === true,
+      associatedParts: Array.isArray(_draft.associatedParts) ? _draft.associatedParts : [],
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     if (_intent !== "update") {
@@ -466,15 +484,26 @@
     }
 
     try {
-      await firebase.firestore()
-        .collection("form_templates")
-        .doc(docId)
-        .set(payload, { merge: true });
-      _state = "idle"; _intent = null; _draft = null; _updateTargetId = null;
-      return "\u2713 Checklist saved \u2014 techs will see it in the field app immediately.";
+      await firestoreSaveWithTimeout(
+        firebase.firestore().collection("form_templates").doc(docId),
+        payload,
+        12000
+      );
+      _state = "idle";
+      _intent = null;
+      _draft = null;
+      _updateTargetId = null;
+      return "\u2713 Saved \"" + payload.templateName + "\" \u2014 " + payload.fields.length + " step(s). Techs will see it immediately.";
     } catch (e) {
       console.error("VCAdminAgent save failed", e);
-      return "Save failed \u2014 check your connection and try again.";
+      var code = e && (e.code || e.message);
+      if (code === "permission-denied") {
+        return "Save blocked by Firestore rules. Deploy updated rules or save from Dispatch.";
+      }
+      if (code === "SAVE_TIMEOUT") {
+        return "Save timed out \u2014 check your connection and try again.";
+      }
+      return "Save failed \u2014 " + (e && e.message ? e.message : "try again.");
     }
   }
 
@@ -728,6 +757,7 @@
   window.VCAdminAgent.beginEditTemplate = beginEditTemplate;
   window.VCAdminAgent.saveFromEditorEl = saveFromEditorEl;
   window.VCAdminAgent.cancelEdit = cancelEdit;
+  window.VCAdminAgent.refreshChecklistInventory = refreshChecklistInventory;
   window.VCAdminAgent.buildEditorStepRowHtml = buildEditorStepRowHtml;
 
   window.VCAdminAgent.getAdminDraftTemplate = function () {
