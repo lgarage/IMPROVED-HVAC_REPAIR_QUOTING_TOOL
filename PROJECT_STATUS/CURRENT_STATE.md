@@ -22,8 +22,7 @@ None.
 
 ## Immediate Next Step
 
-- **Device verify:** Admin FAB → tap mic → speak → tap again → **picker if 2+ CRM locations** (e.g. Planet Fitness Green Bay).
-- **Product queue:** **KI-006** past-day job UX.
+- **Product queue:** **KI-006** past-day job UX (issues-found tracker **#5** next).
 - **Tonight at bedtime only:** SDK `/a` Phase 64 (64a→64b→64c→64e→64d). Do not run before bed unless user asks.
 - **After overnight run:** `.build_state.json` + runner log; reconcile what changed.
 - **Optional:** KI-004 URL-patch on outbox drain; compiled report edit persistence.
