@@ -27,7 +27,27 @@ _Fast lookup before §6B — use § Workspace enabled models for full alternates
 
 _Last verified: 2026-05-17. **IMPORTANT:** Composer 2 reasoning weakness makes it a net time-waster despite speed. **GPT-5.4 Nano also demoted (2026-05-17)** — user reports overcomplicated + slow on real tasks. Prefer **GPT-5.4 Mini** / **Gemini 3 Flash** / **GPT-5 Mini** for all T0–T1. Full table: § Default "switch to" before work._
 
-→ **Outcome log** (calibration data): see § Outcome log (newest first) below.
+→ **Outcome log** (calibration data): see § Outcome log (newest first) below. **Quick compare:** § Model scorecard (lean).
+
+---
+
+## Model scorecard (lean)
+
+_Avg **Conf after %** from § Outcome log (active table, May 2026). Not lab benchmarks — agent post-ship confidence. **(n)** = logged rows._
+
+| Job shape | C2.5 | Sonnet 4.6 | Opus 4.6 | Default pick |
+|-----------|------|------------|----------|--------------|
+| **All logged** | **95%** (9) | 92% (59) | 92% (21) | — |
+| Admin / Phase 66 | 94% (5) | **97%** (4) | 94% (2) | Sonnet; C2.5 alternate |
+| Governance / triage | **96%** (3) | 96% (2) | 95% (1) | C2.5 or Sonnet |
+| Traced field bugfix | **97%** (2) | ~93% (18)† | 92% (1) | C2.5 if root cause known |
+| Build runner / slices | — | **96%** (16) | 92% (6) | Sonnet |
+| UI / CSS layout | — | 92% (7) | — | Sonnet (rework risk) |
+| Firestore / Vertex HIGH | 90% (1) | 93% (4) | **93%** (8) | Opus first write; C2.5 unproven |
+
+†Sonnet field cluster includes Phase65 header **rework 82%**; other field rows mostly 93–97%.
+
+**C2.5 gaps (use Sonnet/Opus):** `build_runner.ts`, hard UI/layout, net-new Firestore writes. **Refresh:** re-aggregate when **≥3** new log rows touch a cell (do not duplicate rows here).
 
 ---
 
@@ -48,6 +68,7 @@ _Last verified: 2026-05-17. **IMPORTANT:** Composer 2 reasoning weakness makes i
 3. **Cursor name:** **Note** column **must** include the effective model, e.g. `Cursor: Composer 2` or `Cursor: Opus 4.7` (from gate: recommended, Override, or Pre-approved).
 4. **Sync with `.cursorrules`:** Skipping without a valid **skip** when you **should** have captured a new task type is inconsistent with **§6H**.
 5. **Grouping rule:** When **≥ 2 tasks** share the **same cluster** (same domain + Arch range + risk level, no new tier lesson), **collapse them into one representative row** — do not log each task separately. Label the row with the **cluster name** (e.g. `Field app: Dictation hub — …`) and append `*(N tasks)*` to the Task cell. Use **averaged** Conf start/after. Only split out a new row when a task **raises the risk tier, changes Arch, or reveals a different tier-fit lesson** for that cluster. Defined clusters: **(a) Field app: Forms panel / hamburger forms**, **(b) Field app: Workspace chrome / nav menus**, **(c) Field app: Small UI removals / copy cleanup**, **(d) Field app: Dictation hub (labels, examples, Improve-with-AI)**, **(e) Governance / dossier / rules**.
+6. **User directive (2026-05-18):** Log **every substantive change** — **success or failure** — so confidence scores reflect real capability. On **fail**, **partial**, or **rework**, still append a row with honest **Conf after** and **Outcome**; do not only log wins. If a fix shipped only after a wrong first pass, capture that in **Note** (root cause + what failed first).
 
 ### Default success (user silent)
 
@@ -86,6 +107,9 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-18 | Governance: issues-found tracker **#4** closed (admin FAB create job) — user device verify; `issues-found-fix-tracker.canvas.tsx` + `CURRENT_STATE.md` only; no app code. | LOW | T4 | Fast | 95% | 98% | ok | ok | Cursor: **Composer 2.5** (estimated). Housekeeping after user confirmed orange FAB flow. **User logging policy:** dossier must reflect closes, not only code ships. |
+| 2026-05-18 | Field app: Admin checklist builder cluster — inventory cards + in-chat editor; `form_templates` read/write from unauthenticated field app. **Save failed first:** UI stuck "Saving…" until `firestore.rules` allowed writes without `request.auth`; then toast + editor close + hide Sync Ticket in admin workspace. **Edit failed first:** second Firestore `.get()` hung "Loading…"; fixed `_templateCacheByDocId` from list fetch + 10s timeout + `.finally()` on Edit. `AdminChecklistUI` / `AdminSaveFix` / `AdminEditLoad` builds. Playwright + user verify after rules deploy. | HIGH | T2–T3 | Fast | 80% | 90% | ok | partial→ok | Cursor: **Composer 2.5** (estimated). **Lessons:** (1) unauthenticated Firestore writes — verify rules before UI polish; (2) don't re-fetch on Edit what inventory already loaded; (3) world-writable `form_templates` is intentional debt until auth. Conf after lowered vs peer admin rows because first-pass save missed rules. |
+| 2026-05-18 | Field app: VC DEBUG overlay drag — grip on header bar, pointer capture, position in `sessionStorage`. `DebugOverlayDrag-2026-05-18`. | LOW | T1 | Fast | 90% | 96% | ok | ok | Cursor: **Composer 2.5** (estimated). Single-file overlay UX; no Firestore. |
 | 2026-05-18 | Field app: Admin workspace full AI — `processEntry` bypasses EdgeIntentEngine when `vc_admin_session`; `VCAdminAgent` QUERY lists `form_templates`; UNKNOWN → Gemini; admin `openWorkspace` sets ticket + timeline. Playwright verified checklist inventory (not "Got it."). `VC_BUILD: AdminAgentFullAI-2026-05-18`. | LOW | T2 | Fast | 86% | 94% | ok | ok | Cursor: **Composer 2.5**. Root cause: mic/send path hit `addEntry`→intent engine; Enter-only admin intercept was incomplete. Three-file fix (timeline + admin_agent + index). |
 | 2026-05-18 | Field app: Admin job create tech roster — `populateTechSelect` now uses `cachedTechnicianRoster` + `fetchTechnicianRosterForShadow` fallback instead of empty `#loginTechSelect`; async load with placeholder; auto-login admin path verified (3 techs). `VC_BUILD: AdminJobTechRoster-2026-05-18`. | LOW | T1 | Fast | 88% | 95% | ok | ok | Cursor: **Composer 2.5**. Single-function roster wiring in admin job IIFE; Playwright auto-login path confirmed full roster. Matches admin sign-in gate T2 pattern but simpler — T1/Fast correct. |
 | 2026-05-18 | Admin job create voice customer search — hold-to-speak on field app admin sheet; shared `voice_customer_search.js` (CRM token match + Google Places + location picker modal); mirrors dispatcher mic. `VC_BUILD: AdminJobVoiceSearch-2026-05-18`. | LOW | T2 | Fast | 85% | 92% | ok | ok | Cursor: **Composer 2.5**. New shared module + field app wiring; Playwright mic visible. User device verify pending (hold-speak multi-location). |
@@ -270,7 +294,7 @@ When picking a tier, score the task against these (mentally — no spreadsheet r
 | **Gemini 3 Flash** | Fast | **T1 alternate** — reliable code edits, strong at following constraints |
 | **GPT-5 Mini** | Fast | **Experimental T1 alt** — newer GPT-5 base, likely stronger than Sonnet 4.6 on some tasks; build signal before promoting |
 | **Composer 2** | Fast | **Fallback for pure mechanical** — speed advantage offset by reasoning weakness (see auto-scroll outcome row). Use only when task is 100% explicit (exact replace, version bump). |
-| **Composer 2.5** | Fast | **Promoted T1 + T2 + T4 alternate** (still experimental at T3+ / Vertex Core). Kimi K2.5 base + RL textual feedback. **Rolling calibration (2026-05-18, 4 tasks):** avg Conf after **97%** (99% KI-007 T2 cross-file timing fix w/ user verify, 97% T1 EdgeIntent w/ user verify, 94% T4–T2 Slack triage cluster, ~97% T4 dossier trial). Tier fit **4/4 ok**, zero Composer-2-class reasoning failures. **Good at:** traced behavioral fixes (single- and cross-file), multi-step triage → docs → canvas, external-doc → dossier rewrite. **T2 proven:** KI-007 (`conversational_timeline.js` + `checklist_reminder_engine.js` interaction). **Not yet proven:** build-tooling multi-file (`build_runner.ts`), net-new features, Vertex Core Firestore writes. Pricing: $0.50/$2.50 per M (fast $3/$15). Prefer over Composer 2 for traced diagnosis+patch; viable Sonnet 4.6 alternate on low-risk T2 field-app timing/state bugs. |
+| **Composer 2.5** | Fast | **T1 + T2 + T4 alternate** (experimental at T3+ / Vertex). See **§ Model scorecard (lean)** — 9 rows, **95%** avg Conf after, 0 rework/fail. Good: admin cluster, triage/docs, traced patches. Not proven: build runner, hard UI, first-pass Firestore writes. Prefer over Composer 2 for diagnosis+patch. |
 | **Sonnet 4.6** | Balanced | Default for T2 daily implementation |
 | **GPT-5.2** | Strong | Lighter **Strong** GPT line vs 5.4 / 5.5 |
 | **GPT-5.4** | Strong | Mid **Strong** GPT |
@@ -291,7 +315,7 @@ Use this table for **§6B1 (A)** ("switch to **X** because …"). Offer **one** 
 | **T0** (exact replace, 1-line) | **GPT-5.4 Mini** | Gemini 3 Flash (Nano demoted — see enabled table) |
 | **T1** (mechanical, multi-step) | **GPT-5.4 Mini** | Gemini 3 Flash, GPT-5 Mini, **Composer 2.5** (promoted for traced diagnosis+patch) |
 | **T1** (nuanced single file) | **Gemini 3 Flash** | Sonnet 4.6, GPT-5 Mini, **Composer 2.5** (promoted when root cause already traced) |
-| **T2** | **Sonnet 4.6** | Kimi K2.5 (experimental), **Composer 2.5** (promoted — low-risk T2 field-app; KI-007 device-verified) |
+| **T2** | **Sonnet 4.6** | Kimi K2.5 (experimental), **Composer 2.5** (low-risk field-app; see scorecard) |
 | **T4** (read-only / tour) | **Gemini 3 Flash** | GPT-5 Mini, **Composer 2.5** (promoted for multi-step triage + docs) |
 | **T3** (implementation / code-heavy) | **Codex 5.3** | GPT-5.5, Opus 4.6, GPT-5.4, GPT-5.2 |
 | **T3 Vertex Core** (tenant, Firestore writes, field critical path, Office Override) | **Opus 4.6** | Codex 5.3, GPT-5.5 |
@@ -328,6 +352,8 @@ If `.cursorrules` says **HIGH / UNCERTAIN → stop and escalate**, that **overri
 
 ## Changelog
 
+- **2026-05-18:** **§ Model scorecard (lean)** — one comparison table (Conf after % by job shape); trimmed Composer 2.5 enabled-model blurb to point here.
+- **2026-05-18:** **Outcome log — log failures too.** User directive: append rows for substantive work whether **ok** or not; **§ Logging discipline** item 6. Backfilled admin checklist cluster (`partial→ok`, Conf after 90%), VC DEBUG drag, tracker #4 close.
 - **2026-05-15:** **Fast-tier expansion & Composer 2 demotion**. Added GPT-5.4 Nano/Mini, Gemini 3 Flash, GPT-5 Mini, Kimi K2.5. Haiku 4.5 was tried, then removed from rotation after the dossier rewrite truncation incident. Reasoning: Composer 2 failure on 2026-05-15 auto-scroll task (CSS reasoning gap) marked as net time-waster despite speed. New models offer better T0–T1 reasoning for cheaper cost than Sonnet 4.6. Tier quick card updated; "switch to" table rebuilt around rotation strategy. Kimi K2.5 experimental at T2 only until signal builds. Outcome log row added to document Composer 2 weakness.
 - **2026-05-18:** **Composer 2.5 T2 promotion.** After 4 tasks (avg Conf after **97%**, tier fit **4/4 ok**): KI-007 T2 cross-file timing fix user device-verified (99% Conf after, explicit user confirm). Promoted to **T2 alternate** for low-risk field-app behavioral fixes (timing/state races across 2 modules). Still default Sonnet 4.6 for T2; C2.5 viable when user overrides or task is traced diagnosis+patch shape. Not yet proven at T3+ / Vertex Core / net-new features.
 - **2026-05-18:** **Composer 2.5 calibration update.** After 3 tasks (T4 dossier trial, T4–T2 #issues-found cluster, T1 EdgeIntent fix w/ user verify): avg Conf after **95%**, tier fit **3/3 ok**. Promoted to regular **T1 alternate** (traced diagnosis+patch) and **T4 alternate** (multi-step triage). Sonnet 4.6 cross-validated same audit shape in Phase 64 overnight prep cluster (build_runner fix).
