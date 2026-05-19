@@ -115,7 +115,7 @@ These are not bugs but recurring traps — keep them in mind whenever editing th
 
 ### KI-005 — Field schedule/board stuck on "Loading…"
 
-- **Resolved:** 2026-05-18 — user confirmed schedule loads normally same day; no repro after morning report. **Most likely fix:** Phase 66 restoration of missing `}` in `technician/index.html` init (~12384) so `loadUserProfile` / `subscribeToMyTickets` run for returning users (see `phase66-fix-tracker.canvas.tsx` #1). **If it returns:** force-reload PWA, check debug overlay `BUILD:` + `__vcWriteFailures`, trace schedule init and add spinner timeout + error surface.
+- **Resolved:** 2026-05-18 — user confirmed schedule loads normally same day; no repro after morning report. **Most likely fix:** Phase 66 restoration of missing `}` in `technician/index.html` init (~12384) so `loadUserProfile` / `subscribeToMyTickets` run for returning users (missing `}` restored in `technician/index.html` init ~12384, shipped 2026-05-18). **If it returns:** force-reload PWA, check debug overlay `BUILD:` + `__vcWriteFailures`, trace schedule init and add spinner timeout + error surface.
 - **Verification:** User report 2026-05-18 PM — "not stuck on loading anymore today."
 
 ### KI-007 — Repair checklist trigger may not inject full item list

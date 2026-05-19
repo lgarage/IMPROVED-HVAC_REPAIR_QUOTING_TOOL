@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 foundation shipped. **KI-006 past-day job UX shipped** 2026-05-19. Phase 63 live. KI-004 core shipped.
-- **Last shipped (2026-05-19):** KI-006 — past-day card tap, compiled report first, chat addendum with date stamps (`KI006-PastDayUX-2026-05-19`). Deployed + Playwright verified.
-- **Prior (2026-05-19):** Status reconciliation — issues-found tracker + docs aligned to Slack/git.
+- **Last shipped (2026-05-19):** KI-006 UX polish — **View Compiled Notes** pinned to end of scrollable chat (fix: detached DOM ref); compiled report opens first; × dismisses to addendum chat; full date+time on historical bubbles (`KI006-PastDayUX4-2026-05-19`, `conversational_timeline.js?v=75`). Deployed + Playwright verified.
+- **Prior (2026-05-19):** KI-006 initial past-day card tap + addendum flow (`KI006-PastDayUX-2026-05-19`).
 - **Prior (2026-05-18 20:56:18 CDT):** Phase 64 SDK slices 64a–64e passed.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
@@ -20,7 +20,7 @@ None.
 
 ## Immediate Next Step
 
-- **User device verify:** KI-006 on physical iPhone — force-reload PWA, open yesterday job, confirm report-first + addendum chat flow.
+- **User device verify:** Force-reload PWA until `BUILD: KI006-PastDayUX4-2026-05-19` — open past-day job, confirm compiled modal first, × unlocks chat, **📄 View Compiled Notes** scrolls at bottom of messages.
 - **Product queue:** issues-found tracker **#6** (historical edit matrix design) or **#11** (KI-009 May 19 Slack triage).
 - **Optional:** Phase 64 quote/vendor device smoke-test; build-runner checklist items 3–5.
 

@@ -1137,8 +1137,15 @@ body.vc-override-active #vcOfficeOverrideBanner {
   user-select: none;
 }
 #screen-workspace.is-historical-job .ct-sync-btn {
-  pointer-events: none;
-  opacity: 0.45;
+  display: none !important;
+}
+#screen-workspace.is-historical-job .ct-post-chat-actions {
+  padding: 10px 0 6px;
+  margin-top: 4px;
+}
+#screen-workspace.is-historical-job .ct-post-chat-actions .ct-compile-btn {
+  flex: 1 1 100%;
+  width: 100%;
 }
 #screen-workspace.is-historical-job .ws-job-status-inline {
   pointer-events: none;
@@ -7116,7 +7123,6 @@ button#techDisplayLabel:active { opacity: 0.75; }
   </div>
   <div id="workspaceHistoricalBanner" class="workspace-historical-banner hidden" role="status">
     <span id="workspaceHistoricalBannerText" class="workspace-historical-banner__text">⚠️ Historical Record: Viewing Read-Only. Use the timeline below to add notes.</span>
-    <button type="button" id="workspaceHistoricalAddNotesBtn" class="workspace-historical-banner__cta" onclick="openHistoricalAddendumChat()">Add Additional Notes</button>
   </div>
 
   <div id="vcLiteReadonlyWorkspace" class="vc-lite-readonly-workspace hidden" aria-label="Read-only job overview">
@@ -7915,7 +7921,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "KI006-PastDayUX-2026-05-19";
+window.VC_BUILD = "KI006-PastDayUX4-2026-05-19";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
@@ -9983,7 +9989,7 @@ function applyWorkspaceHistoricalMode(isHistorical) {
           '⚠️ Historical record — full access via Office Override.';
       } else {
         bannerText.textContent =
-          '⚠️ Past visit — original notes are locked. Review the compiled report first, then add follow-up notes in chat.';
+          '⚠️ Past visit — review the compiled report first (opens automatically). Close it with × to add follow-up notes in chat.';
       }
     }
   }
@@ -9996,7 +10002,7 @@ function applyWorkspaceHistoricalMode(isHistorical) {
   const compileBtn = document.getElementById('ct-compile-btn');
   if (compileBtn) {
     if (isHistorical) {
-      compileBtn.textContent = '📄 View Report';
+      compileBtn.textContent = '📄 View Compiled Notes';
       compileBtn.disabled = false;
       compileBtn.classList.remove('hidden');
     } else {
@@ -10018,19 +10024,16 @@ function openHistoricalAddendumChat() {
   var ws = document.getElementById('screen-workspace');
   if (!ws || !ws.classList.contains('is-historical-job')) return;
   ws.classList.add('is-historical-addendum-mode');
-  var compileModal = document.getElementById('ct-compile-modal');
-  if (compileModal && !compileModal.classList.contains('hidden')) {
-    if (window.ConversationalTimeline && typeof window.ConversationalTimeline.closeCompileModal === 'function') {
-      window.ConversationalTimeline.closeCompileModal();
-    } else {
-      compileModal.classList.add('hidden');
-    }
+  if (window.ConversationalTimeline && typeof window.ConversationalTimeline.pinPostChatActions === 'function') {
+    window.ConversationalTimeline.pinPostChatActions();
   }
-  var list = document.getElementById('ct-message-list');
-  if (list && list.scrollIntoView) {
-    list.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (window.ConversationalTimeline && typeof window.ConversationalTimeline.updateCompileBtnVisibility === 'function') {
+    window.ConversationalTimeline.updateCompileBtnVisibility();
   }
-  var draft = document.getElementById('ct-draft-input');
+  if (window.ConversationalTimeline && typeof window.ConversationalTimeline.scrollToBottom === 'function') {
+    window.ConversationalTimeline.scrollToBottom();
+  }
+  var draft = document.getElementById('ct-type-input');
   if (draft) {
     setTimeout(function () { draft.focus(); }, 350);
   }
@@ -13653,7 +13656,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=7"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=4"></script>
-    <script src="../conversational_timeline.js?v=72"></script>
+    <script src="../conversational_timeline.js?v=75"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');
@@ -14134,7 +14137,6 @@ window.onload = async function(){
     </div>
     <div class="ct-compile-actions">
       <button type="button" class="ct-compile-copy-btn">📋 Copy Summary</button>
-      <button type="button" class="ct-compile-add-notes-btn hidden">Add Additional Notes</button>
       <button type="button" class="ct-compile-submit-btn">Submit to Office</button>
       <span class="ct-compile-status" aria-live="polite"></span>
     </div>

@@ -139,6 +139,8 @@
   var LS_VOCAB_KEY = "vc_ct_vocab_corrections";
   var currentTicketId = "draft";
   var initialized = false;
+  /** Cached ref — getElementById misses #ct-post-chat-actions while detached. */
+  var _postChatActionsEl = null;
 
   function isAdminWorkspaceSession() {
     try {
@@ -431,7 +433,8 @@
   }
 
   function formatEntryTime(isoString, item) {
-    if (item && item.meta && item.meta.addendum) {
+    var useFullStamp = isHistoricalWorkspace() || (item && item.meta && item.meta.addendum);
+    if (useFullStamp) {
       try {
         var d = new Date(isoString);
         return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
@@ -595,7 +598,7 @@
             "</span>" +
             '<span class="ct-message__meta">' +
               escapeHtml(typeLabel) + " \u00b7 " +
-              escapeHtml(formatTime(item.ts)) +
+              escapeHtml(formatEntryTime(item.ts, item)) +
               escapeHtml(sizeLabel) +
               escapeHtml(statusLabel) +
               equipBadge +
@@ -611,6 +614,36 @@
     );
   }
 
+  /** Keep Compile/Sync row at the end of the scrollable conversation. */
+  function getPostChatActionsEl() {
+    if (_postChatActionsEl && _postChatActionsEl.parentNode) {
+      return _postChatActionsEl;
+    }
+    var live = document.getElementById("ct-post-chat-actions");
+    if (live) {
+      _postChatActionsEl = live;
+      return live;
+    }
+    return _postChatActionsEl;
+  }
+
+  /** Remove action row from stream before innerHTML so it is not destroyed. */
+  function detachPostChatActions() {
+    var actions = getPostChatActionsEl();
+    if (actions && actions.parentNode) {
+      actions.parentNode.removeChild(actions);
+    }
+    return actions;
+  }
+
+  function pinPostChatActions() {
+    var stream = getMessageStreamEl();
+    var actions = getPostChatActionsEl();
+    if (stream && actions && actions.parentNode !== stream) {
+      stream.appendChild(actions);
+    }
+  }
+
   function renderTimeline(ticketId) {
     var id = normalizeTicketId(ticketId);
     var list = getListElement();
@@ -620,8 +653,10 @@
     var entries = loadEntries(id);
 
     if (!entries.length) {
-      /* Never set list.innerHTML — #ct-post-chat-actions is a sibling of this stream. */
+      /* Never set list.innerHTML — #ct-post-chat-actions is re-pinned after stream updates. */
+      detachPostChatActions();
       stream.innerHTML = '<p class="ct-empty">No messages yet. Additions are persisted per ticket.</p>';
+      pinPostChatActions();
       scrollToBottom();
       updateCompileBtnVisibility();
       return;
@@ -681,8 +716,10 @@
         }
       }
     }
-    /* Bubbles only — preserves #ct-compile-btn / #ct-sync-btn outside this node (Mobile UI v7). */
+    /* Bubbles only — Compile/Sync re-pinned to stream tail after innerHTML swap. */
+    detachPostChatActions();
     stream.innerHTML = html;
+    pinPostChatActions();
     scrollToBottom();
     updateCompileBtnVisibility();
   }
@@ -858,7 +895,9 @@
         /* restore placeholder if no entries and nothing captured */
         var stream = getMessageStreamEl();
         if (stream && !stream.querySelector(".ct-message")) {
+          detachPostChatActions();
           stream.innerHTML = '<p class="ct-empty">No messages yet. Additions are persisted per ticket.</p>';
+          pinPostChatActions();
         }
       }
     };
@@ -2922,7 +2961,7 @@
             if (currentTicketId !== capturedOpenTicketId) return;
             var body = restored
               ? _compiledDisplayText
-              : "No compiled report found for this past visit.\n\nTap \"Add Additional Notes\" to record follow-up in chat — each note is date-stamped.";
+              : "No compiled report found for this past visit.\n\nClose (×) to add follow-up notes in the chat below — each message is date-stamped.";
             openCompileModal(body, { historical: true });
           });
         });
@@ -3029,6 +3068,11 @@
   }
 
   function getCompileBtn() {
+    var actions = getPostChatActionsEl();
+    if (actions) {
+      var nested = actions.querySelector("#ct-compile-btn");
+      if (nested) return nested;
+    }
     return document.getElementById("ct-compile-btn");
   }
 
@@ -3037,7 +3081,9 @@
     if (!btn) return;
     var wsEl = document.getElementById("screen-workspace");
     if (wsEl && wsEl.classList.contains("is-historical-job")) {
+      btn.textContent = _compiledDisplayText ? "\ud83d\udcc4 View Compiled Notes" : "\ud83d\udcc4 Compiled Notes";
       btn.classList.remove("hidden");
+      pinPostChatActions();
       return;
     }
     var entries = loadEntries(currentTicketId);
@@ -3049,6 +3095,7 @@
     } else {
       btn.classList.add("hidden");
     }
+    pinPostChatActions();
   }
 
   function gatherCompileContext() {
@@ -3152,20 +3199,18 @@
     var titleEl = modal.querySelector(".ct-compile-title");
     var hintEl = modal.querySelector(".ct-compile-hint");
     var submitBtn = modal.querySelector(".ct-compile-submit-btn");
-    var addNotesBtn = modal.querySelector(".ct-compile-add-notes-btn");
     if (textarea) {
       textarea.value = displayText || "";
       textarea.readOnly = !!historical;
     }
     if (statusEl) statusEl.textContent = "";
-    if (titleEl) titleEl.textContent = historical ? "Compiled Report" : "Compiled Report";
+    if (titleEl) titleEl.textContent = "Compiled Report";
     if (hintEl) {
       hintEl.textContent = historical
-        ? "Review the report from this visit. Tap Add Additional Notes to record follow-up in chat with a date stamp."
+        ? "Review the compiled notes from this visit. Close (×) to return to the conversation and add follow-up notes."
         : "Review and edit the compiled report below. Copy or submit to office when ready.";
     }
     if (submitBtn) submitBtn.style.display = historical ? "none" : "";
-    if (addNotesBtn) addNotesBtn.classList.toggle("hidden", !historical);
     modal.classList.remove("hidden");
     /* Force layout recalculation — iOS Safari doesn't reliably compute
        fixed-position geometry on first show during a screen transition. */
@@ -3176,10 +3221,17 @@
     }
   }
 
-  function closeCompileModal() {
+  function closeCompileModal(opts) {
+    opts = opts || {};
     var modal = document.getElementById("ct-compile-modal");
     if (modal) modal.classList.add("hidden");
     removeEquipmentSavePrompt();
+    if (opts.enableAddendum && isHistoricalWorkspace()) {
+      if (typeof window.openHistoricalAddendumChat === "function") {
+        window.openHistoricalAddendumChat();
+      }
+    }
+    updateCompileBtnVisibility();
   }
 
   /**
@@ -3189,7 +3241,7 @@
    */
   function maybeCloseCompileModal() {
     if (isHistoricalWorkspace()) {
-      closeCompileModal();
+      closeCompileModal({ enableAddendum: true });
       return;
     }
     if (_lastCompileResult && _compileSubmittedForTicket !== currentTicketId) {
@@ -3932,26 +3984,32 @@
     if (!modal) return;
 
     var closeBtn = modal.querySelector(".ct-compile-close-btn");
-    if (closeBtn) closeBtn.addEventListener("click", maybeCloseCompileModal);
+    if (closeBtn) {
+      closeBtn.addEventListener("click", function () {
+        if (isHistoricalWorkspace()) {
+          closeCompileModal({ enableAddendum: true });
+        } else {
+          maybeCloseCompileModal();
+        }
+      });
+    }
 
     var backdrop = modal.querySelector(".ct-compile-backdrop");
-    if (backdrop) backdrop.addEventListener("click", maybeCloseCompileModal);
+    if (backdrop) {
+      backdrop.addEventListener("click", function () {
+        if (isHistoricalWorkspace()) {
+          closeCompileModal({ enableAddendum: true });
+        } else {
+          maybeCloseCompileModal();
+        }
+      });
+    }
 
     var copyBtn = modal.querySelector(".ct-compile-copy-btn");
     if (copyBtn) copyBtn.addEventListener("click", copyCompileSummary);
 
     var submitBtn = modal.querySelector(".ct-compile-submit-btn");
     if (submitBtn) submitBtn.addEventListener("click", submitCompileToOffice);
-
-    var addNotesBtn = modal.querySelector(".ct-compile-add-notes-btn");
-    if (addNotesBtn) {
-      addNotesBtn.addEventListener("click", function () {
-        closeCompileModal();
-        if (typeof window.openHistoricalAddendumChat === "function") {
-          window.openHistoricalAddendumChat();
-        }
-      });
-    }
   }
 
   function wireMediaViewer() {
@@ -4364,6 +4422,7 @@
     wireMediaViewer();
     wireMediaSwipeDelete();
     wireCompileBtn();
+    _postChatActionsEl = document.getElementById("ct-post-chat-actions");
     wireCompileModal();
     wireNameplateHandlers();
     wireQuoteCardHandlers();
@@ -4445,6 +4504,8 @@
     tagMedia: tagMedia,
     compileNotes: compileNotes,
     closeCompileModal: closeCompileModal,
+    pinPostChatActions: pinPostChatActions,
+    updateCompileBtnVisibility: updateCompileBtnVisibility,
     hasUnsubmittedReport: function () {
       return !!(
         _lastCompileResult &&
