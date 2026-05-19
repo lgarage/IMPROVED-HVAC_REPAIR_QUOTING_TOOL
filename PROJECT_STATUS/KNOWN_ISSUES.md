@@ -22,17 +22,6 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ---
 
-### KI-007 — Repair checklist trigger may not inject full item list
-
-- **Filed:** 2026-05-18 (`#issues-found` #4; audio 2026-05-17: only "got it" for one phrase).
-- **Severity:** Medium — checklist coaching incomplete on trigger word/phrase.
-- **Root cause (2026-05-18):** `isFirstShow` was evaluated inside the 800 ms `setTimeout` in `scheduleChecklistReminders()`, after `updateFromEntry()` had already marked items from the same message — forced capped `getReminders()` (journeyman → 2 items) instead of `getFullChecklist()`.
-- **Fix shipped:** Snapshot `isFirstShow` at call time (before `updateFromEntry`). `conversational_timeline.js?v=69` · `VC_BUILD: ChecklistFirstShowFix-2026-05-18`.
-- **Verification:** Playwright automated — 5/5 checklist items in yellow card after `"RTU7 supply fan motor is seized"`. **User device verify pending** — force-reload PWA, say trigger phrase on a real job, confirm all template steps appear on first show.
-- **Status:** Fix deployed — awaiting user device confirm; reopen if still capped after force-reload.
-
----
-
 ### KI-004 — Field-app photo uploads are silently dropped offline (Phase 33 follow-up)
 
 - **Filed:** 2026-04-25 (post-Phase 33 audit triggered by user spec "if a technician does not have a signal when they are servicing a piece of equipment, that the information will be stored in the user's phone, [and] synced when signal returns"). Scope-checked with user 2026-04-25; user chose **audit-only** treatment (file this entry + ADR-012 + ROADMAP pointer; defer implementation) and asked that the eventual fix ship as a **KI-002-style follow-up patch on Phase 33**, not a new phase.
@@ -130,8 +119,13 @@ These are not bugs but recurring traps — keep them in mind whenever editing th
 
 ### KI-005 — Field schedule/board stuck on "Loading…"
 
-- **Resolved:** 2026-05-18 — user confirmed schedule loads normally same day; no repro after morning report. **Most likely fix:** Phase 66 restoration of missing `}` in `technician/index.html` init (~12384) so `loadUserProfile` / `subscribeToMyTickets` run for returning users (see `phase66-fix-tracker.canvas.tsx` #1). **Alternate explanations not ruled out:** stale `technician/index.html` cache overnight, transient Firestore/network, or concurrent agent run. **If it returns:** force-reload PWA, check debug overlay `BUILD:` + `__vcWriteFailures`, trace schedule init and add spinner timeout + error surface.
+- **Resolved:** 2026-05-18 — user confirmed schedule loads normally same day; no repro after morning report. **Most likely fix:** Phase 66 restoration of missing `}` in `technician/index.html` init (~12384) so `loadUserProfile` / `subscribeToMyTickets` run for returning users (see `phase66-fix-tracker.canvas.tsx` #1). **If it returns:** force-reload PWA, check debug overlay `BUILD:` + `__vcWriteFailures`, trace schedule init and add spinner timeout + error surface.
 - **Verification:** User report 2026-05-18 PM — "not stuck on loading anymore today."
+
+### KI-007 — Repair checklist trigger may not inject full item list
+
+- **Resolved:** 2026-05-18 — `isFirstShow` race in `scheduleChecklistReminders()`: snapshot at call time before `updateFromEntry` marks same-message items. Commit `658c08b` · `conversational_timeline.js?v=69` · `VC_BUILD: ChecklistFirstShowFix-2026-05-18`.
+- **Verification:** Playwright 5/5 items on trigger phrase; user device-confirmed same day — full checklist on first show.
 
 ### KI-002 — Sync Risk Audit (2026-04-25): silent-failure & cache-versioning repair backlog
 
