@@ -152,11 +152,12 @@
 
   function deliverAdminAgentResult(result, ticketId) {
     var id = normalizeTicketId(ticketId);
-    if (result && typeof result === "object" && result.type === "preview") {
+    if (result && typeof result === "object" && result.html &&
+        (result.type === "preview" || result.type === "inventory" || result.type === "editor")) {
       if (typeof window.appendAdminHtmlBubble === "function") {
         window.appendAdminHtmlBubble(result.html);
       } else {
-        addEntry("Preview ready.", "system", id);
+        addEntry("Ready.", "system", id);
       }
       return;
     }
@@ -624,7 +625,9 @@
           html +=
             '<div class="ct-message ct-message--tech" data-entry-id="' + escapeHtml(item.id) + '" data-tappable-entry="true">' +
               '<span class="ct-message__body">' + escapeHtml(item.text) + "</span>" +
-              '<span class="ct-message__meta">Technician \u00b7 ' +
+              '<span class="ct-message__meta">' +
+                (isAdminWorkspaceSession() ? "Admin" : "Technician") +
+                " \u00b7 " +
                 escapeHtml(formatTime(item.ts)) +
                 editedBadge +
               "</span>" +

@@ -7834,7 +7834,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "AdminAgentFullAI-2026-05-18";
+window.VC_BUILD = "AdminChecklistUI-2026-05-18";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
@@ -13477,7 +13477,7 @@ window.onload = async function(){
     <script src="../agents/nameplate_ocr.js?v=1"></script>
     <script src="../agents/quote_data_builder.js?v=1"></script>
     <script src="../agents/conversation_agent.js?v=1"></script>
-    <script src="../agents/admin_agent.js?v=3"></script>
+    <script src="../agents/admin_agent.js?v=4"></script>
     <script src="../agents/location_parts_parser.js?v=1"></script>
     <script src="../equipment_manager.js?v=17"></script>
     <script src="../equipment_smart_select.js?v=2"></script>
@@ -13494,7 +13494,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=7"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=4"></script>
-    <script src="../conversational_timeline.js?v=70"></script>
+    <script src="../conversational_timeline.js?v=71"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');
@@ -13516,6 +13516,15 @@ window.onload = async function(){
     </script>
     <script>
     /* ── Admin bubble helpers ────────────────────────────────────────── */
+    function deliverAdminAgentUiResult(result) {
+      if (result && typeof result === 'object' && result.html &&
+          (result.type === 'preview' || result.type === 'inventory' || result.type === 'editor')) {
+        appendAdminHtmlBubble(result.html);
+      } else if (typeof result === 'string' && result) {
+        appendAdminBubble(result);
+      }
+    }
+
     function handleAdminWorkspaceMessage(trimmedText) {
       if (!trimmedText) return;
       var stream = document.getElementById('ct-message-stream');
@@ -13531,18 +13540,76 @@ window.onload = async function(){
         stream.appendChild(userDiv);
         stream.scrollTop = stream.scrollHeight;
       }
-      window.VCAdminAgent.processAdminEntry(trimmedText).then(function (result) {
-        if (result && typeof result === 'object' && result.type === 'preview') {
-          appendAdminHtmlBubble(result.html);
-        } else if (typeof result === 'string') {
-          appendAdminBubble(result);
-        }
-      }).catch(function (err) {
+      window.VCAdminAgent.processAdminEntry(trimmedText).then(deliverAdminAgentUiResult).catch(function (err) {
         appendAdminBubble('Something went wrong. Try again.');
         console.error('VCAdminAgent error', err);
       });
     }
     window.handleAdminWorkspaceMessage = handleAdminWorkspaceMessage;
+
+    function wireAdminChecklistUi() {
+      if (window._vcAdminChecklistUiWired) return;
+      window._vcAdminChecklistUiWired = true;
+      var stream = document.getElementById('ct-message-stream');
+      if (!stream) return;
+      stream.addEventListener('click', function (e) {
+        if (localStorage.getItem('vc_admin_session') !== '1' || !window.VCAdminAgent) return;
+        var editBtn = e.target.closest('[data-vc-admin-edit]');
+        if (editBtn) {
+          e.preventDefault();
+          var docId = editBtn.getAttribute('data-doc-id');
+          editBtn.disabled = true;
+          editBtn.textContent = 'Loading…';
+          window.VCAdminAgent.beginEditTemplate(docId).then(deliverAdminAgentUiResult).catch(function () {
+            appendAdminBubble('Could not open editor. Try again.');
+          });
+          return;
+        }
+        var saveBtn = e.target.closest('[data-vc-admin-save]');
+        if (saveBtn) {
+          e.preventDefault();
+          var editor = saveBtn.closest('.vc-admin-editor');
+          if (!editor) return;
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Saving…';
+          window.VCAdminAgent.saveFromEditorEl(editor).then(function (result) {
+            deliverAdminAgentUiResult(result);
+            if (typeof result === 'string' && result.indexOf('\u2713') === 0) {
+              return window.VCAdminAgent.processAdminEntry('what checklists do we have').then(deliverAdminAgentUiResult);
+            }
+          }).catch(function () {
+            appendAdminBubble('Save failed. Try again.');
+          });
+          return;
+        }
+        var cancelBtn = e.target.closest('[data-vc-admin-cancel-edit]');
+        if (cancelBtn) {
+          e.preventDefault();
+          window.VCAdminAgent.cancelEdit().then(function (msg) { appendAdminBubble(msg); });
+          return;
+        }
+        var addBtn = e.target.closest('[data-vc-admin-add-step]');
+        if (addBtn) {
+          e.preventDefault();
+          var editorAdd = addBtn.closest('.vc-admin-editor');
+          var stepsEl = editorAdd && editorAdd.querySelector('[data-vc-steps]');
+          if (!stepsEl || !window.VCAdminAgent.buildEditorStepRowHtml) return;
+          var idx = stepsEl.querySelectorAll('.vc-admin-step-row').length;
+          stepsEl.insertAdjacentHTML('beforeend', window.VCAdminAgent.buildEditorStepRowHtml('', idx));
+          return;
+        }
+        var removeBtn = e.target.closest('[data-vc-admin-remove-step]');
+        if (removeBtn) {
+          e.preventDefault();
+          var row = removeBtn.closest('.vc-admin-step-row');
+          var stepsWrap = removeBtn.closest('[data-vc-steps]');
+          if (row && stepsWrap && stepsWrap.querySelectorAll('.vc-admin-step-row').length > 1) {
+            row.parentNode.removeChild(row);
+          }
+        }
+      });
+    }
+    wireAdminChecklistUi();
 
     function appendAdminBubble(text) {
       var stream = document.getElementById('ct-message-stream');
@@ -13567,7 +13634,7 @@ window.onload = async function(){
       div.style.cssText = 'margin-bottom:10px;max-width:95%;align-self:flex-start;';
       var bubble = document.createElement('div');
       bubble.className = 'ct-bubble';
-      bubble.style.cssText = 'background:#1e293b;border-radius:14px;overflow:hidden;padding:0;';
+      bubble.style.cssText = 'background:#1e293b;border-radius:14px;overflow:hidden;padding:12px;';
       bubble.innerHTML = html;
       div.appendChild(bubble);
       stream.appendChild(div);

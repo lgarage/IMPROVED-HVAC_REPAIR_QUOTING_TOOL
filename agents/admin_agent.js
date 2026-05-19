@@ -202,13 +202,179 @@
     if (!templates || !templates.length) {
       return "No checklists found in the system yet. Say \"Create a supply fan motor checklist\" to add one.";
     }
-    var lines = templates.map(function (t, i) {
+    return { type: "inventory", html: buildChecklistInventoryHtml(templates) };
+  }
+
+  function buildChecklistInventoryHtml(templates) {
+    var count = templates.length;
+    var html =
+      '<div class="vc-admin-inventory" style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">' +
+      '<span style="font-size:11px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:0.06em;">' +
+      "Field checklists</span>" +
+      '<span style="font-size:12px;font-weight:600;color:#cbd5e1;background:#0f172a;border:1px solid #334155;' +
+      'padding:4px 10px;border-radius:999px;">' + count + " total</span>" +
+      "</div>";
+
+    templates.forEach(function (t) {
       var steps = (t.fields && t.fields.length) || 0;
-      var trigger = t.targetKeyword ? " · trigger: " + t.targetKeyword : "";
-      var status = t.active === false ? " [inactive]" : "";
-      return (i + 1) + ". " + t.templateName + trigger + " — " + steps + " step(s)" + status;
+      var name = escapeAdminHtml(t.templateName);
+      var trigger = escapeAdminHtml(t.targetKeyword || "\u2014");
+      var inactive = t.active === false;
+      html +=
+        '<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:12px 14px;' +
+        "margin-bottom:10px;" + (inactive ? "opacity:0.7;" : "") + '">' +
+        '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">' +
+        '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:15px;font-weight:700;color:#f8fafc;line-height:1.35;margin-bottom:8px;">' +
+        name + "</div>" +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
+        '<span style="font-size:11px;color:#94a3b8;background:#1e293b;border:1px solid #334155;' +
+        'padding:3px 8px;border-radius:6px;">Trigger: ' + trigger + "</span>" +
+        '<span style="font-size:11px;color:#94a3b8;background:#1e293b;border:1px solid #334155;' +
+        'padding:3px 8px;border-radius:6px;">' + steps + " step" + (steps === 1 ? "" : "s") + "</span>";
+      if (inactive) {
+        html +=
+          '<span style="font-size:11px;color:#fca5a5;background:#1e293b;border:1px solid #7f1d1d;' +
+          'padding:3px 8px;border-radius:6px;">Inactive</span>';
+      }
+      html +=
+        "</div></div>" +
+        '<button type="button" data-vc-admin-edit data-doc-id="' + escapeAdminHtml(t.id) + '" ' +
+        'style="flex-shrink:0;padding:8px 14px;border:1px solid #f97316;border-radius:8px;' +
+        'background:rgba(249,115,22,0.12);color:#fb923c;font-size:13px;font-weight:700;cursor:pointer;">' +
+        "Edit</button>" +
+        "</div></div>";
     });
-    return "Current checklists (" + templates.length + "):\n\n" + lines.join("\n");
+
+    html +=
+      '<p style="margin:4px 0 0;font-size:12px;color:#64748b;line-height:1.45;">' +
+      "Tap <strong style=\"color:#94a3b8;font-weight:600;\">Edit</strong> to change steps on your phone, " +
+      'or say &ldquo;Create a checklist for&hellip;&rdquo; to add a new one.</p>' +
+      "</div>";
+    return html;
+  }
+
+  function buildEditorStepRowHtml(label, idx) {
+    return (
+      '<div class="vc-admin-step-row" data-step-idx="' + idx + '" ' +
+      'style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+      '<span style="flex-shrink:0;width:22px;font-size:12px;font-weight:700;color:#64748b;text-align:center;">' +
+      (idx + 1) + ".</span>" +
+      '<input type="text" data-vc-step-label value="' + escapeAdminHtml(label || "") + '" ' +
+      'placeholder="Step description" ' +
+      'style="flex:1;box-sizing:border-box;padding:10px 12px;border:1px solid #334155;border-radius:8px;' +
+      'background:#0f172a;color:#f1f5f9;font-size:14px;" />' +
+      '<button type="button" data-vc-admin-remove-step aria-label="Remove step" ' +
+      'style="flex-shrink:0;width:36px;height:36px;border:1px solid #475569;border-radius:8px;' +
+      'background:#1e293b;color:#94a3b8;font-size:16px;cursor:pointer;">\u00d7</button>' +
+      "</div>"
+    );
+  }
+
+  function buildChecklistEditorHtml(docId, draft) {
+    var fields = (draft && Array.isArray(draft.fields)) ? draft.fields : [];
+    var html =
+      '<div class="vc-admin-editor" data-doc-id="' + escapeAdminHtml(docId) + '" ' +
+      'style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;">' +
+      '<div style="font-size:11px;font-weight:700;color:#f97316;text-transform:uppercase;' +
+      'letter-spacing:0.06em;margin-bottom:10px;">Edit checklist</div>' +
+      '<label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Name</label>' +
+      '<input type="text" data-vc-field="templateName" value="' +
+      escapeAdminHtml((draft && draft.templateName) || "") + '" ' +
+      'style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:10px;border:1px solid #334155;' +
+      'border-radius:8px;background:#0f172a;color:#f1f5f9;font-size:14px;" />' +
+      '<label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Trigger word</label>' +
+      '<input type="text" data-vc-field="targetKeyword" value="' +
+      escapeAdminHtml((draft && draft.targetKeyword) || "") + '" ' +
+      'placeholder="e.g. supply fan motor" ' +
+      'style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:12px;border:1px solid #334155;' +
+      'border-radius:8px;background:#0f172a;color:#f1f5f9;font-size:14px;" />' +
+      '<div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:6px;">Steps</div>' +
+      '<div data-vc-steps>';
+
+    if (!fields.length) {
+      html += buildEditorStepRowHtml("", 0);
+    } else {
+      fields.forEach(function (f, i) {
+        html += buildEditorStepRowHtml((f && f.label) || "", i);
+      });
+    }
+
+    html +=
+      "</div>" +
+      '<button type="button" data-vc-admin-add-step ' +
+      'style="width:100%;margin:10px 0 14px;padding:10px;border:1px dashed #475569;border-radius:8px;' +
+      'background:transparent;color:#94a3b8;font-size:14px;font-weight:600;cursor:pointer;">+ Add step</button>' +
+      '<div style="display:flex;gap:8px;">' +
+      '<button type="button" data-vc-admin-save ' +
+      'style="flex:1;padding:12px;border:none;border-radius:10px;background:#f97316;color:#fff;' +
+      'font-size:15px;font-weight:700;cursor:pointer;">Save</button>' +
+      '<button type="button" data-vc-admin-cancel-edit ' +
+      'style="flex:1;padding:12px;border:1px solid #475569;border-radius:10px;background:#1e293b;' +
+      'color:#cbd5e1;font-size:15px;font-weight:600;cursor:pointer;">Cancel</button>' +
+      "</div></div>";
+    return html;
+  }
+
+  function readEditorPayload(editorEl) {
+    if (!editorEl) return null;
+    var nameInp = editorEl.querySelector('[data-vc-field="templateName"]');
+    var triggerInp = editorEl.querySelector('[data-vc-field="targetKeyword"]');
+    var name = nameInp ? String(nameInp.value || "").trim() : "";
+    var trigger = triggerInp ? String(triggerInp.value || "").trim() : "";
+    var fields = [];
+    var rows = editorEl.querySelectorAll("[data-vc-step-label]");
+    rows.forEach(function (inp) {
+      var label = String(inp.value || "").trim();
+      if (label) fields.push(stepToField(label));
+    });
+    return { templateName: name, targetKeyword: trigger, fields: fields };
+  }
+
+  function beginEditTemplate(docId) {
+    if (!docId) return Promise.resolve("No checklist selected.");
+    return firebase.firestore()
+      .collection("form_templates")
+      .doc(docId)
+      .get()
+      .then(function (snap) {
+        if (!snap.exists) return "That checklist was not found.";
+        _state = "collecting";
+        _intent = "update";
+        _draft = Object.assign(blankDraft(), snap.data());
+        _updateTargetId = docId;
+        return { type: "editor", html: buildChecklistEditorHtml(docId, _draft) };
+      })
+      .catch(function (e) {
+        return "Could not load checklist: " + (e && e.message ? e.message : String(e));
+      });
+  }
+
+  function saveFromEditorEl(editorEl) {
+    var docId = editorEl && editorEl.getAttribute("data-doc-id");
+    var payload = readEditorPayload(editorEl);
+    if (!payload || !payload.templateName) {
+      return Promise.resolve("Checklist name is required.");
+    }
+    if (!payload.fields.length) {
+      return Promise.resolve("Add at least one step before saving.");
+    }
+    _draft = Object.assign(blankDraft(), payload);
+    _draft.targetKeyword = (payload.targetKeyword || payload.templateName).toLowerCase().trim();
+    _draft.triggerWords = [_draft.targetKeyword];
+    _intent = "update";
+    _updateTargetId = docId;
+    _state = "confirming";
+    return executeAdminSave();
+  }
+
+  function cancelEdit() {
+    _state = "idle";
+    _intent = null;
+    _draft = null;
+    _updateTargetId = null;
+    return Promise.resolve("Edit cancelled.");
   }
 
   function isChecklistInventoryQuestion(text) {
@@ -559,6 +725,10 @@
   /* ── exports ─────────────────────────────────────────────────── */
 
   window.VCAdminAgent.processAdminEntry = processAdminEntry;
+  window.VCAdminAgent.beginEditTemplate = beginEditTemplate;
+  window.VCAdminAgent.saveFromEditorEl = saveFromEditorEl;
+  window.VCAdminAgent.cancelEdit = cancelEdit;
+  window.VCAdminAgent.buildEditorStepRowHtml = buildEditorStepRowHtml;
 
   window.VCAdminAgent.getAdminDraftTemplate = function () {
     return _draft;
