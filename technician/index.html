@@ -7827,7 +7827,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "AdminJobVoiceTap-2026-05-18";
+window.VC_BUILD = "AdminJobVoiceGooglePicker-2026-05-18";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
@@ -13299,7 +13299,7 @@ window.onload = async function(){
     <!-- Slice 56a: offline Storage upload outbox (KI-004) — chip hidden until module populates it -->
     <div id="vcPendingSyncChip" role="status" aria-live="polite" style="display:none"></div>
     <script src="../customer_directory.js?v=28"></script>
-    <script src="../shared/voice_customer_search.js?v=2"></script>
+    <script src="../shared/voice_customer_search.js?v=3"></script>
     <script>
       if (typeof initAdminVoiceSearch === 'function') initAdminVoiceSearch();
     </script>

@@ -12,8 +12,6 @@
   var currentResults = [];
   var cfg = null;
 
-  var STOP_WORDS = { IN: 1, AT: 1, THE: 1, AND: 1, ON: 1, A: 1 };
-
   function getNotify() {
     if (cfg && typeof cfg.notify === "function") return cfg.notify;
     if (typeof showSaveCue === "function") return showSaveCue;
@@ -38,8 +36,33 @@
     return String(q || "").toUpperCase().split(/[\s,]+/).map(function (w) {
       return w.trim();
     }).filter(function (w) {
-      return w.length >= 2 && !STOP_WORDS[w];
+      return w.length >= 2;
     });
+  }
+
+  /** City/area tokens after "in" (e.g. "planet fitness in green bay" → GREEN, BAY). */
+  function cityTokensFromQuery(query) {
+    var parts = String(query || "").toUpperCase().split(/\s+IN\s+/);
+    if (parts.length < 2) return [];
+    return tokenizeQuery(parts[parts.length - 1]);
+  }
+
+  /** Narrow Google hits to the city the user spoke, when they said "… in …". */
+  function filterGoogleByQueryTokens(results, query) {
+    var cityTokens = cityTokensFromQuery(query);
+    if (!cityTokens.length) return results;
+    var filtered = results.filter(function (r) {
+      var hay = (
+        String(r.rawAddress || r.street || "") + " " +
+        String(r.city || "") + " " +
+        String(r.state || "")
+      ).toUpperCase();
+      for (var i = 0; i < cityTokens.length; i++) {
+        if (hay.indexOf(cityTokens[i]) === -1) return false;
+      }
+      return true;
+    });
+    return filtered.length ? filtered : results;
   }
 
   function initRecognition() {
@@ -100,40 +123,6 @@
     };
   }
 
-  function queryMatchesHaystack(haystack, q, tokens) {
-    if (haystack.indexOf(q) !== -1) return true;
-    if (!tokens || !tokens.length) tokens = tokenizeQuery(q);
-    if (!tokens.length) return false;
-    for (var t = 0; t < tokens.length; t++) {
-      if (haystack.indexOf(tokens[t]) === -1) return false;
-    }
-    return true;
-  }
-
-  function customerNameMatchesTokens(custName, tokens) {
-    var cn = String(custName || "").toUpperCase();
-    if (!tokens.length) return false;
-    var hit = 0;
-    for (var i = 0; i < tokens.length; i++) {
-      if (cn.indexOf(tokens[i]) !== -1) hit++;
-    }
-    return hit >= Math.min(2, tokens.length);
-  }
-
-  function locationMatchesCityTokens(loc, cityTokens) {
-    if (!cityTokens.length) return true;
-    var place = (
-      String(loc.city || "") + " " +
-      String(loc.street || "") + " " +
-      String(loc.state || "") + " " +
-      String(loc.zip || "")
-    ).toUpperCase();
-    for (var i = 0; i < cityTokens.length; i++) {
-      if (place.indexOf(cityTokens[i]) === -1) return false;
-    }
-    return true;
-  }
-
   function dedupeResults(list) {
     var seen = {};
     var out = [];
@@ -146,51 +135,9 @@
     return out;
   }
 
-  /**
-   * When the user says "planet fitness in green bay", include every CRM location for that
-   * customer whose city/address matches the city tokens — not just the first strict match.
-   */
-  function expandMultiLocationMatches(matches, query) {
-    var db = typeof getCustomerDB === "function" ? getCustomerDB() : {};
-    var tokens = tokenizeQuery(query);
-    if (!tokens.length) return matches;
-
-    var expanded = matches.slice();
-    var custName;
-    var cust;
-    var locId;
-    var loc;
-
-    for (custName in db) {
-      cust = db[custName];
-      if (!cust || !cust.locations) continue;
-      if (!customerNameMatchesTokens(custName, tokens)) continue;
-
-      var locIds = Object.keys(cust.locations);
-      if (locIds.length < 2) continue;
-
-      var cityTokens = [];
-      locIds.forEach(function (id) {
-        var c = String((cust.locations[id] && cust.locations[id].city) || "").toUpperCase();
-        tokens.forEach(function (t) {
-          if (c.indexOf(t) !== -1 && cityTokens.indexOf(t) === -1) cityTokens.push(t);
-        });
-      });
-
-      locIds.forEach(function (id) {
-        loc = cust.locations[id];
-        if (!loc) return;
-        if (!locationMatchesCityTokens(loc, cityTokens)) return;
-        expanded.push(buildLocationResult(custName, cust, id, loc));
-      });
-    }
-
-    return dedupeResults(expanded);
-  }
-
   function searchInternal(query) {
     var q = String(query || "").trim().toUpperCase();
-    var tokens = tokenizeQuery(q);
+    if (!q) return [];
     var db = typeof getCustomerDB === "function" ? getCustomerDB() : {};
     var matches = [];
 
@@ -199,20 +146,19 @@
       if (!cust || !cust.locations) continue;
       for (var locId in cust.locations) {
         var loc = cust.locations[locId];
-        var haystack = (
-          custName + " " +
-          String(loc.contact || "") + " " +
-          String(loc.street || "") + " " +
-          String(loc.city || "") + " " +
-          String(loc.state || "")
-        ).toUpperCase();
-        if (queryMatchesHaystack(haystack, q, tokens)) {
+        var contactName = String(loc.contact || "").toUpperCase();
+        var streetAddr = String(loc.street || "").toUpperCase();
+        var cn = String(custName).toUpperCase();
+
+        // Match dispatcher service_call.js — full query substring on name/contact/street only.
+        // "planet fitness in green bay" does NOT match CRM name "PLANET FITNESS" → Google picker.
+        if (cn.indexOf(q) !== -1 || contactName.indexOf(q) !== -1 || streetAddr.indexOf(q) !== -1) {
           matches.push(buildLocationResult(custName, cust, locId, loc));
         }
       }
     }
 
-    return expandMultiLocationMatches(dedupeResults(matches), query);
+    return dedupeResults(matches);
   }
 
   async function ensureCustomerDbLoaded() {
@@ -296,7 +242,7 @@
           "<span class=\"vc-voice-result-meta\">Loc #: " + escapeHtml(result.locId || "") + "</span>";
       } else {
         row.innerHTML =
-          "<strong>" + escapeHtml(result.custName) + "</strong> <span class=\"vc-voice-result-tag\">(Google)</span>" +
+          "<strong>" + escapeHtml(result.custName) + "</strong> <span class=\"vc-voice-result-tag\">(New from Google)</span>" +
           "<span class=\"vc-voice-result-addr\">📍 " + escapeHtml(result.rawAddress || "") + "</span>";
       }
       row.addEventListener("click", function () { selectResult(index); });
@@ -304,6 +250,7 @@
     });
     modal.classList.add("open");
     modal.setAttribute("aria-hidden", "false");
+    if (modal.parentNode !== document.body) document.body.appendChild(modal);
     getNotify()("Pick the correct location");
   }
 
@@ -337,29 +284,29 @@
     await ensureCustomerDbLoaded();
     var internalMatches = searchInternal(query);
 
-    if (internalMatches.length > 1) {
-      currentResults = internalMatches;
-      showResultsModal("Multiple Locations Found", "We found multiple locations in your CRM. Select the correct one:");
-      return;
-    }
     if (internalMatches.length === 1) {
       if (cfg && typeof cfg.onApply === "function") cfg.onApply(internalMatches[0]);
       resetMicBtn();
       getNotify()("✓ " + internalMatches[0].custName);
       return;
     }
+    if (internalMatches.length > 1) {
+      currentResults = internalMatches;
+      showResultsModal("Internal Database Matches", "We found multiple locations in your CRM for this search. Please select the correct one:");
+      return;
+    }
 
     try {
-      var googleResults = await searchGoogle(query);
-      if (googleResults.length > 1) {
-        currentResults = googleResults;
-        showResultsModal("Google Maps Results", "Select the correct location:");
-        return;
-      }
+      var googleResults = filterGoogleByQueryTokens(await searchGoogle(query), query);
       if (googleResults.length === 1) {
         if (cfg && typeof cfg.onApply === "function") cfg.onApply(googleResults[0]);
         resetMicBtn();
         getNotify()("✓ " + googleResults[0].custName);
+        return;
+      }
+      if (googleResults.length > 1) {
+        currentResults = googleResults;
+        showResultsModal("Google Maps Results", "This customer isn't in your CRM yet. Google found a few matches. Select one to add them to your system:");
         return;
       }
       alert("No matches found for \"" + query + "\". Try again or type manually.");
