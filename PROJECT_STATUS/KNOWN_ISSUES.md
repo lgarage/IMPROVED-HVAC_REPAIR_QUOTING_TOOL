@@ -8,22 +8,20 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
-### KI-008 — Log out / switch user: cannot log back in
+### KI-008 — Cannot log out / switch user
 
 - **Filed:** 2026-05-18 (user report in session — not yet in Slack `#issues-found`).
-- **Severity:** **High** — blocks switching users on a shared device; logout appears to work but re-login fails.
-- **Symptoms:** Tap **Log Out / Switch User** (profile panel or settings) → login shell may appear → pick name → **Continue** (or admin path) does not complete login; schedule empty/stuck, or shell dismisses without loading tickets.
-- **Affected code:** `technician/index.html` — `switchUser()` (~8826), `showLoginShell` / `hideLoginShell`, `completeTechnicianLogin()` (~8757), `loadUserProfile()` (~8800), init `loginContinueBtn` wiring (~12774 / 12810).
+- **Severity:** **High** — user cannot log out at all on device.
+- **Symptoms:** Tap **Log Out / Switch User** (or try to reach logout) → nothing happens; user stays logged in. No login shell appears.
+- **Affected code:** `technician/index.html` — `wireProfilePanel()` (~12627), `switchUser()` (~8826), init (~12770–12776 vs ~12812), `completeTechnicianLogin()` (~8757). Logout buttons: `#vcProfilePanelLogout`, `#screen-profile` inline button (~7366).
+- **Root cause (likely):** `wireProfilePanel()` — which wires `#techDisplayLabel` → profile panel → logout — is **only** called on the returning-user init path (`tp_saved_tech` already in localStorage). First-login and admin-login paths call `completeTechnicianLogin()` but **never** call `wireProfilePanel()`, so the name pill may not open the profile panel and logout is unreachable. `#screen-profile` logout button exists but **no nav** calls `switchScreen('profile')`.
+- **Secondary hypothesis:** `switchUser()` `await fetchTechnicianRosterFromCloud()` before `showLoginShell()` — if roster fetch hangs, logout appears to do nothing until it resolves.
 - **Investigation checklist:**
-  - Repro on device: logout from schedule vs from workspace; note BUILD stamp + debug overlay state.
-  - After logout, confirm `#loginShell` visible (not `hidden`); tap Continue — does `completeTechnicianLogin` run? Any alert?
-  - Check whether `switchUser()` clears in-memory `currentTechProfile` (only removes `localStorage tp_saved_tech` today).
-  - Check whether `loginContinueBtn.onclick` is still bound after logout (init wires once; `switchUser` does not re-wire).
-  - After failed re-login: `subscribeToMyTickets` — was listener restarted? `jobListContainer` stuck on "Fetching schedule…"?
-  - Admin logout: `vc_admin_session` cleared but ADMIN pill styling on `#techDisplayLabel` may persist until re-login.
-- **Hypothesis:** `switchUser()` shows login shell then calls `switchScreen('schedule')` without resetting profile/subscription state; stale `currentTechProfile` or missing `loginContinueBtn` re-bind / missing `loadUserProfile()` resubscribe leaves user unable to complete second login.
-- **Directive fix:** Reset session state fully on logout (`currentTechProfile`, workspace close, ticket listener teardown); re-wire `loginContinueBtn` + `wireAdminLoginBtn` guards in `switchUser`; ensure `completeTechnicianLogin` → `loadUserProfile` → `subscribeToMyTickets` runs cleanly on every re-login.
-- **Status:** Open — investigation not started.
+  - On device: tap `#techDisplayLabel` (name pill) — does profile panel open?
+  - Debug: `typeof wireProfilePanel` / was init first-login path (no saved tech on cold load)?
+  - If panel opens and logout tapped: does `switchUser` run? Network stall on roster fetch?
+- **Directive fix:** Call `wireProfilePanel()` from `completeTechnicianLogin()` (and ensure idempotent guard). Optionally show login shell immediately in `switchUser()` before roster fetch. Add logout entry to hamburger/menu if profile pill is blocked on mobile.
+- **Status:** Open — root cause traced in code; fix not started.
 
 ---
 
