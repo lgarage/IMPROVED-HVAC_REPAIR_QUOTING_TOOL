@@ -430,12 +430,38 @@
     }
   }
 
+  function formatEntryTime(isoString, item) {
+    if (item && item.meta && item.meta.addendum) {
+      try {
+        var d = new Date(isoString);
+        return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+      } catch (e) {
+        return formatTime(isoString);
+      }
+    }
+    return formatTime(isoString);
+  }
+
+  function isHistoricalWorkspace() {
+    var ws = document.getElementById("screen-workspace");
+    return !!(ws && ws.classList.contains("is-historical-job"));
+  }
+
+  function isHistoricalAddendumMode() {
+    var ws = document.getElementById("screen-workspace");
+    return !!(ws && ws.classList.contains("is-historical-job") && ws.classList.contains("is-historical-addendum-mode"));
+  }
+
   /* ── entry model ──────────────────────────────────────────────── */
 
   function createEntry(role, text, meta) {
     var normalizedRole = role === "system" ? "system" : "tech";
     var trimmed = safeText(text);
     if (!trimmed) return null;
+    if (isHistoricalAddendumMode() && normalizedRole === "tech") {
+      meta = meta || {};
+      meta.addendum = true;
+    }
     return {
       id: createId(),
       ts: new Date().toISOString(),
@@ -602,9 +628,15 @@
     }
 
     var html = "";
+    var addendumDividerShown = false;
     for (var i = 0; i < entries.length; i++) {
       var item = entries[i];
       if (!item) continue;
+
+      if (item.meta && item.meta.addendum && !addendumDividerShown) {
+        html += '<div class="ct-addendum-divider">Additional notes (follow-up visit)</div>';
+        addendumDividerShown = true;
+      }
 
       if (item.meta && item.meta.mediaType) {
         html += renderMediaEntryHtml(item);
@@ -628,7 +660,7 @@
               '<span class="ct-message__meta">' +
                 (isAdminWorkspaceSession() ? "Admin" : "Technician") +
                 " \u00b7 " +
-                escapeHtml(formatTime(item.ts)) +
+                escapeHtml(formatEntryTime(item.ts, item)) +
                 editedBadge +
               "</span>" +
             "</div>";
@@ -643,7 +675,7 @@
               '<div class="ct-vertex-icon" aria-hidden="true">V</div>' +
               '<div class="ct-msg-content">' +
                 '<span class="ct-message__body">' + bodyHtml + "</span>" +
-                '<span class="ct-message__meta">' + escapeHtml(formatTime(item.ts)) + "</span>" +
+                '<span class="ct-message__meta">' + escapeHtml(formatEntryTime(item.ts, item)) + "</span>" +
               "</div>" +
             "</div>";
         }
@@ -1657,6 +1689,22 @@
     /* Media entries render their own card — skip intent pipeline entirely. */
     if (entry.meta && entry.meta.mediaType) return;
     var id = normalizeTicketId(ticketId);
+
+    /* Historical follow-up notes — save locally + cloud addendum; no intent engine. */
+    if (isHistoricalAddendumMode()) {
+      try {
+        if (typeof window.saveAddendumChatNote === "function") {
+          window.saveAddendumChatNote(entry.text);
+        }
+      } catch (e) { /* non-fatal */ }
+      addEntry(
+        "Follow-up note saved \u00b7 " + formatEntryTime(entry.ts, entry),
+        "system",
+        id,
+        { addendumAck: true }
+      );
+      return;
+    }
 
     var rawText = safeText(entry.text);
 
@@ -2855,7 +2903,30 @@
     }
 
     if (capturedOpenTicketId && capturedOpenTicketId !== "draft") {
-      if (!isTicketSwitch && _compiledResult) {
+      if (isHistoricalWorkspace()) {
+        var histCached = loadCompileCache(capturedOpenTicketId);
+        if (histCached) {
+          _compiledResult        = histCached.result;
+          _compiledDisplayText   = histCached.displayText || formatCompileResultForDisplay(histCached.result);
+          _lastCompiledIndex     = histCached.compiledEntryCount || 0;
+          _lastCompileResult     = _compiledResult;
+          _compileSubmittedForTicket = capturedOpenTicketId;
+        }
+        autoOpenAfterPaint(function () {
+          if (currentTicketId !== capturedOpenTicketId) return;
+          if (_compiledDisplayText) {
+            openCompileModal(_compiledDisplayText, { historical: true });
+            return;
+          }
+          tryRestoreCompiledResultFromCloud(capturedOpenTicketId, function (restored) {
+            if (currentTicketId !== capturedOpenTicketId) return;
+            var body = restored
+              ? _compiledDisplayText
+              : "No compiled report found for this past visit.\n\nTap \"Add Additional Notes\" to record follow-up in chat — each note is date-stamped.";
+            openCompileModal(body, { historical: true });
+          });
+        });
+      } else if (!isTicketSwitch && _compiledResult) {
         /* Same ticket, result already in memory — open after paint */
         _lastCompileResult = _compiledResult;
         autoOpenAfterPaint(function () {
@@ -3069,18 +3140,32 @@
 
   var _lastCompileResult = null;
 
-  function openCompileModal(displayText) {
+  function openCompileModal(displayText, opts) {
+    opts = opts || {};
     var modal = document.getElementById("ct-compile-modal");
     if (!modal) return;
     var ws = document.getElementById("screen-workspace");
     if (!ws || !ws.classList.contains("active")) return;
+    var historical = opts.historical === true || isHistoricalWorkspace();
     var textarea = modal.querySelector(".ct-compile-textarea");
     var statusEl = modal.querySelector(".ct-compile-status");
+    var titleEl = modal.querySelector(".ct-compile-title");
+    var hintEl = modal.querySelector(".ct-compile-hint");
+    var submitBtn = modal.querySelector(".ct-compile-submit-btn");
+    var addNotesBtn = modal.querySelector(".ct-compile-add-notes-btn");
     if (textarea) {
       textarea.value = displayText || "";
-      textarea.readOnly = false;
+      textarea.readOnly = !!historical;
     }
     if (statusEl) statusEl.textContent = "";
+    if (titleEl) titleEl.textContent = historical ? "Compiled Report" : "Compiled Report";
+    if (hintEl) {
+      hintEl.textContent = historical
+        ? "Review the report from this visit. Tap Add Additional Notes to record follow-up in chat with a date stamp."
+        : "Review and edit the compiled report below. Copy or submit to office when ready.";
+    }
+    if (submitBtn) submitBtn.style.display = historical ? "none" : "";
+    if (addNotesBtn) addNotesBtn.classList.toggle("hidden", !historical);
     modal.classList.remove("hidden");
     /* Force layout recalculation — iOS Safari doesn't reliably compute
        fixed-position geometry on first show during a screen transition. */
@@ -3103,6 +3188,10 @@
    * closeCompileModal() directly so no second prompt appears.
    */
   function maybeCloseCompileModal() {
+    if (isHistoricalWorkspace()) {
+      closeCompileModal();
+      return;
+    }
     if (_lastCompileResult && _compileSubmittedForTicket !== currentTicketId) {
       showCompileClosePrompt();
     } else {
@@ -3853,6 +3942,16 @@
 
     var submitBtn = modal.querySelector(".ct-compile-submit-btn");
     if (submitBtn) submitBtn.addEventListener("click", submitCompileToOffice);
+
+    var addNotesBtn = modal.querySelector(".ct-compile-add-notes-btn");
+    if (addNotesBtn) {
+      addNotesBtn.addEventListener("click", function () {
+        closeCompileModal();
+        if (typeof window.openHistoricalAddendumChat === "function") {
+          window.openHistoricalAddendumChat();
+        }
+      });
+    }
   }
 
   function wireMediaViewer() {
@@ -4345,6 +4444,7 @@
     handleCorrection: handleCorrection,
     tagMedia: tagMedia,
     compileNotes: compileNotes,
+    closeCompileModal: closeCompileModal,
     hasUnsubmittedReport: function () {
       return !!(
         _lastCompileResult &&

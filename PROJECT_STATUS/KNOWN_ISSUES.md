@@ -8,20 +8,6 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
-### KI-006 — Past-day job UX: card tap, report-first, timestamped addendum notes
-
-- **Filed:** 2026-05-18 (`#issues-found` — user message + screenshots same day).
-- **Severity:** Medium — UX/product; not a crash.
-- **Requested behavior:**
-  1. Tap a **past/completed job card** → open workspace same as **Update / Review this job** (not a dead card).
-  2. **First screen in workspace** → **compiled report** (not chat timeline).
-  3. **Add additional notes** affordance → chat composer; messages **timestamped** so cross-day addenda are auditable.
-- **Related shipped work:** Phase 66 historical mode (selective locks + addendum section) — does **not** fully satisfy this spec.
-- **Directive fix:** Design pass then implement in field app (`technician/index.html`, `conversational_timeline.js`, historical-mode helpers).
-- **Status:** Open — spec locked from Slack; implementation not started.
-
----
-
 ### KI-009 — May 19 field reports (untriaged)
 
 - **Filed:** 2026-05-19 (reconciliation pass — `#issues-found` posts with no text caption).
@@ -139,6 +125,10 @@ These are not bugs but recurring traps — keep them in mind whenever editing th
 ### KI-008 — Log out / switch user — slow, no feedback
 
 - **Resolved:** 2026-05-18 — `#vcLogoutOverlay` spinner + "Signing out…" (min 450ms); login shell shows immediately; roster fetch in background; `wireProfilePanel()` idempotent guard + call from `completeTechnicianLogin()`. `VC_BUILD: LogoutSpinner-2026-05-18`. Playwright verified. User device verify pending.
+
+### KI-006 — Past-day job UX: card tap, report-first, timestamped addendum notes
+
+- **Resolved:** 2026-05-19 — card tap opens workspace; compiled report modal shows first; "Add Additional Notes" unlocks chat composer with full date+time stamps; notes sync to Firestore `addendums`. `VC_BUILD: KI006-PastDayUX-2026-05-19` · `conversational_timeline.js?v=72`. Playwright verified on deployed hosting.
 
 ### KI-002 — Sync Risk Audit (2026-04-25): silent-failure & cache-versioning repair backlog
 

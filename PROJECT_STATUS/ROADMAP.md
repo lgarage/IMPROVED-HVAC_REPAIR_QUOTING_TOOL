@@ -13,7 +13,7 @@ A place to park ideas, feature requests, and future phases so they do not get lo
 * ~~**Phases 41–57 — Conversational Field Capture (New Field Tech UX).**~~ ? All 28 slices (41a–57a) passed via SDK build runner v2.1 on 2026-05-14. Includes integration smoke test, offline graceful degradation, Firebase deploy, Firestore rules, auth verification, offline photo outbox (KI-004), SW cache hygiene, dispatcher ticket Save button. See `NEW_FIELDTECH_UX_PLAN.md` for slice detail.
 * ~~**Phase 63 — Field Intelligence: Contextual Checklists.**~~ ? Shipped 2026-05-17. 6 slices (63a–63f) + manual completion of 63g/63h. Includes multi-trigger words, adaptive reminders, nameplate OCR, and equipment history.
 * ~~**Phase 64 — AI Quote Pipeline (Foundation).**~~ ? Shipped 2026-05-18 (SDK slices 64a–64e). Firestore `office_quotes` + vendor directory + localStorage import tool + quoting UI port. **On-device smoke-test still open.** Phases B (AI field pipeline) and C (email automation): `PROJECT_STATUS/ai_quote_pipeline_spec.md`.
-* **KI-006 — Past-day job UX.** Card tap opens workspace; compiled report first; timestamped addendum notes via chat. Spec locked from Slack 2026-05-18. See `KNOWN_ISSUES.md` · issues-found tracker **#5**. Re-gate ? **Sonnet 4.6**.
+* ~~**KI-006 — Past-day job UX.**~~ ? Shipped 2026-05-19. Card tap, report-first, timestamped chat addendum.
 * **Firestore rules re-tightening (post-59b revert):** Requires anonymous-auth or custom-token flow for field techs before `request.auth != null` can be applied to data paths. 59b reverted 2026-05-15 — see `firestore.rules` header.
 * **Command Map (TV Mode):** Large-scale map and pulse feed for office monitors.
 * **Field Inventory (Truck Stock):** Parts and materials ledger for technicians.

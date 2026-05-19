@@ -6,10 +6,10 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 64 foundation **shipped** (64a–64e passed 2026-05-18). Phase 63 live. KI-004 core shipped. **Product queue:** KI-006 past-day job UX.
-- **Last shipped (2026-05-19):** Status reconciliation — issues-found tracker + `CURRENT_STATE` / `ROADMAP` / `KNOWN_ISSUES` aligned to Slack + git + `.build_state.json`.
-- **Prior (2026-05-18 20:56:18 CDT):** SDK build runner — Phase 64 slices 64a, 64b, 64c, 64d, 64e passed.
-- **Prior (2026-05-18):** Admin checklist cards + editor; admin full AI chat; debug overlay drag; KI-008 logout spinner.
+- **Active Phase:** Phase 64 foundation shipped. **KI-006 past-day job UX shipped** 2026-05-19. Phase 63 live. KI-004 core shipped.
+- **Last shipped (2026-05-19):** KI-006 — past-day card tap, compiled report first, chat addendum with date stamps (`KI006-PastDayUX-2026-05-19`). Deployed + Playwright verified.
+- **Prior (2026-05-19):** Status reconciliation — issues-found tracker + docs aligned to Slack/git.
+- **Prior (2026-05-18 20:56:18 CDT):** Phase 64 SDK slices 64a–64e passed.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -20,12 +20,11 @@ None.
 
 ## Immediate Next Step
 
-- **Product queue:** **KI-006** past-day job UX — issues-found tracker **#5** (implement card tap → report-first → timestamped addendum notes).
-- **Device verify:** Phase 64 quote migration + vendor directory on phone/dispatcher; finish build-runner morning checklist items 3–5 (`.build_state.json` — 2/5 passed 2026-05-19).
-- **Triage:** KI-009 — May 19 `#issues-found` audio + screenshots (tracker **#11**).
-- **Optional:** KI-004 URL-patch on outbox drain; tracker **#7** screen glitch if user reproduces.
+- **User device verify:** KI-006 on physical iPhone — force-reload PWA, open yesterday job, confirm report-first + addendum chat flow.
+- **Product queue:** issues-found tracker **#6** (historical edit matrix design) or **#11** (KI-009 May 19 Slack triage).
+- **Optional:** Phase 64 quote/vendor device smoke-test; build-runner checklist items 3–5.
 
-> **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker canvas: `canvases/issues-found-fix-tracker.canvas.tsx`.
+> **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
 
 ## Update Protocol
 

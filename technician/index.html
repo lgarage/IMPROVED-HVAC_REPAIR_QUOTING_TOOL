@@ -794,13 +794,13 @@ body.ws-active #screen-workspace.screen.active {
   opacity: 0.85;
 }
 .job-card--historical {
-  cursor: default;
+  cursor: pointer;
   border-left-color: #95a5a6;
   opacity: 0.98;
 }
 .job-card--historical:active {
-  transform: none;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  transform: scale(0.99);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 .job-card-review-btn {
   width: 100%;
@@ -1157,7 +1157,40 @@ body.vc-override-active #vcOfficeOverrideBanner {
   opacity: 1;
   user-select: auto;
 }
-#screen-workspace.is-historical-job .workspace-original-fab {
+#screen-workspace.is-historical-job.is-historical-addendum-mode .ct-composer-dock {
+  pointer-events: auto;
+  opacity: 1;
+  user-select: auto;
+}
+#screen-workspace.is-historical-job.is-historical-addendum-mode .ct-message-list-wrap {
+  scroll-margin-top: 72px;
+}
+.ct-addendum-divider {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin: 16px 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(14, 165, 233, 0.08);
+  border: 1px dashed rgba(14, 165, 233, 0.35);
+}
+.ct-compile-add-notes-btn {
+  background: #0ea5e9;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 44px;
+}
+.ct-compile-add-notes-btn.hidden { display: none; }
+#screen-workspace.is-historical-job .workspace-addendum-section {
   display: none !important;
 }
 /* Admin session — checklist config, not compile/sync to office */
@@ -6983,7 +7016,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
 
   <div class="schedule-day-strip-wrap">
     <div class="schedule-day-toolbar">
-      <p class="schedule-day-hint">Swipe dates left/right. Past days show history (tap <strong>Update / Review</strong> to add notes). Future days are your active schedule.</p>
+      <p class="schedule-day-hint">Swipe dates left/right. Past days show history — <strong>tap any job card</strong> to review the report and add notes.</p>
       <button type="button" id="scheduleGoToTodayBtn" class="schedule-go-today" title="Jump to today on the timeline">Today</button>
     </div>
     <div id="scheduleDayStrip" class="schedule-day-strip" role="tablist" aria-label="Pick a day"></div>
@@ -7083,6 +7116,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
   </div>
   <div id="workspaceHistoricalBanner" class="workspace-historical-banner hidden" role="status">
     <span id="workspaceHistoricalBannerText" class="workspace-historical-banner__text">⚠️ Historical Record: Viewing Read-Only. Use the timeline below to add notes.</span>
+    <button type="button" id="workspaceHistoricalAddNotesBtn" class="workspace-historical-banner__cta" onclick="openHistoricalAddendumChat()">Add Additional Notes</button>
   </div>
 
   <div id="vcLiteReadonlyWorkspace" class="vc-lite-readonly-workspace hidden" aria-label="Read-only job overview">
@@ -7881,7 +7915,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase64-Slice64e-2026-05-19";
+window.VC_BUILD = "KI006-PastDayUX-2026-05-19";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
@@ -9331,7 +9365,7 @@ function renderJobListUI() {
       </div>`;
     const cardHTML = isHistoricalDay
       ? `
-        <div class="job-card job-card--historical">
+        <div class="job-card job-card--historical" onclick='openWorkspace(${safeId})' role="button" tabindex="0">
           <div class="card-header">
             <span class="card-time">${data.startTime || '8:00 AM'}</span>
             <span class="${badgeClass}">${escapeHtml(String(data.priority || "Normal"))}</span>
@@ -9340,7 +9374,7 @@ function renderJobListUI() {
           ${descBlock}
           ${ceBadge}
           ${addrHtml}
-          <button type="button" class="job-card-review-btn" onclick='openWorkspace(${safeId})'>🛠️ Update / Review This Job</button>
+          <button type="button" class="job-card-review-btn" onclick='event.stopPropagation();openWorkspace(${safeId})'>🛠️ Update / Review This Job</button>
         </div>
       `
       : `
@@ -9936,7 +9970,10 @@ function applyWorkspaceHistoricalMode(isHistorical) {
   const bannerText = document.getElementById('workspaceHistoricalBannerText');
   const gen = document.getElementById('generate');
   const syncBtn = document.getElementById('reportPreviewSyncBtn');
-  if (ws) ws.classList.toggle('is-historical-job', !!isHistorical);
+  if (ws) {
+    ws.classList.toggle('is-historical-job', !!isHistorical);
+    if (!isHistorical) ws.classList.remove('is-historical-addendum-mode');
+  }
 
   if (banner) {
     banner.classList.toggle('hidden', !isHistorical);
@@ -9946,7 +9983,7 @@ function applyWorkspaceHistoricalMode(isHistorical) {
           '⚠️ Historical record — full access via Office Override.';
       } else {
         bannerText.textContent =
-          '⚠️ Past visit — original conversation is locked. You can add supplemental notes, view reports, and access equipment data.';
+          '⚠️ Past visit — original notes are locked. Review the compiled report first, then add follow-up notes in chat.';
       }
     }
   }
@@ -9971,11 +10008,59 @@ function applyWorkspaceHistoricalMode(isHistorical) {
   if (statusInline) statusInline.disabled = !!isHistorical;
 
   const addendumSection = document.getElementById('workspaceAddendumSection');
-  if (addendumSection) addendumSection.classList.toggle('hidden', !isHistorical);
+  if (addendumSection) addendumSection.classList.add('hidden');
 
   const addendumTimeline = document.getElementById('workspaceAddendumTimeline');
   if (addendumTimeline) addendumTimeline.classList.toggle('hidden', !isHistorical);
 }
+
+function openHistoricalAddendumChat() {
+  var ws = document.getElementById('screen-workspace');
+  if (!ws || !ws.classList.contains('is-historical-job')) return;
+  ws.classList.add('is-historical-addendum-mode');
+  var compileModal = document.getElementById('ct-compile-modal');
+  if (compileModal && !compileModal.classList.contains('hidden')) {
+    if (window.ConversationalTimeline && typeof window.ConversationalTimeline.closeCompileModal === 'function') {
+      window.ConversationalTimeline.closeCompileModal();
+    } else {
+      compileModal.classList.add('hidden');
+    }
+  }
+  var list = document.getElementById('ct-message-list');
+  if (list && list.scrollIntoView) {
+    list.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  var draft = document.getElementById('ct-draft-input');
+  if (draft) {
+    setTimeout(function () { draft.focus(); }, 350);
+  }
+}
+window.openHistoricalAddendumChat = openHistoricalAddendumChat;
+
+async function saveAddendumChatNote(text) {
+  var trimmed = String(text || '').trim();
+  if (!trimmed) return;
+  var ticketId = document.getElementById('ticketSelector') && document.getElementById('ticketSelector').value;
+  if (!ticketId || !currentTechProfile) return;
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+  try {
+    var db = firebase.firestore();
+    var addRef =
+      typeof VCFirestore !== 'undefined'
+        ? VCFirestore.serviceCallSubcollection(db, ticketId, 'addendums')
+        : db.collection('service_calls').doc(ticketId).collection('addendums');
+    await addRef.add({
+      techName: currentTechProfile,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      text: trimmed,
+      fileUrls: [],
+      source: 'historical_chat_addendum'
+    });
+  } catch (e) {
+    console.warn('[Addendum chat] cloud save failed', e);
+  }
+}
+window.saveAddendumChatNote = saveAddendumChatNote;
 
 function teardownWorkspaceAddendums() {
   if (workspaceAddendumUnsub) { workspaceAddendumUnsub(); workspaceAddendumUnsub = null; }
@@ -13568,7 +13653,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=7"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=4"></script>
-    <script src="../conversational_timeline.js?v=71"></script>
+    <script src="../conversational_timeline.js?v=72"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');
@@ -14049,6 +14134,7 @@ window.onload = async function(){
     </div>
     <div class="ct-compile-actions">
       <button type="button" class="ct-compile-copy-btn">📋 Copy Summary</button>
+      <button type="button" class="ct-compile-add-notes-btn hidden">Add Additional Notes</button>
       <button type="button" class="ct-compile-submit-btn">Submit to Office</button>
       <span class="ct-compile-status" aria-live="polite"></span>
     </div>
