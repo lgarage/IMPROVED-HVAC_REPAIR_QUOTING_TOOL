@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 AI Quote Pipeline — queue verified, preflight passed, ready for overnight SDK run (`/a`). Phase 66/63 live. KI-004 core shipped.
-- **Last shipped (2026-05-18):** Admin voice search — CRM lookup now matches dispatcher (full phrase on name/contact/street only); "planet fitness in green bay" falls through to Google location picker. `voice_customer_search.js?v=3`, `VC_BUILD: AdminJobVoiceGooglePicker-2026-05-18`.
+- **Last shipped (2026-05-18):** Admin job create — voice search now carries CRM customer/location numbers (CST-/LOC-) into the created job, same as dispatcher; Google picks reconcile to existing CRM when address matches. `VC_BUILD: AdminJobCustNum-2026-05-18`.
 - **Prior (2026-05-18):** Phase 66 complete — admin login, job creation FAB, historical mode, checklist full-list, compile guard.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.

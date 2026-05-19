@@ -1540,7 +1540,13 @@ body.vc-override-active #vcOfficeOverrideBanner {
 .vc-voice-result-meta { display: block; font-size: 12px; color: #94a3b8; }
 .vc-voice-result-addr { display: block; font-size: 12px; color: #cbd5e1; margin-top: 4px; }
 .vc-voice-result-tag { font-size: 11px; color: #f39c12; font-weight: 700; }
-.ajs-voice-cancel-btn {
+.ajs-cust-meta-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #2ecc71;
+  font-weight: 600;
+}
+.ajs-cust-meta-hint.is-new { color: #f39c12; }
   width: 100%;
   padding: 12px;
   border-radius: 10px;
@@ -6961,6 +6967,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
           <input type="text" id="ajsCustomer" placeholder="e.g. PLANET FITNESS" autocomplete="off" />
           <button type="button" id="ajsMicBtn" class="ajs-voice-btn">🎤 Tap to speak customer name</button>
         </div>
+        <p id="ajsCustMetaHint" class="ajs-cust-meta-hint" hidden></p>
       </div>
       <div class="ajs-field">
         <label for="ajsAddress">Address</label>
@@ -7827,7 +7834,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "AdminJobVoiceGooglePicker-2026-05-18";
+window.VC_BUILD = "AdminJobCustNum-2026-05-18";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
@@ -9375,14 +9382,118 @@ function updateJobCardStatus(selectEl) {
     if (currentTechProfile) sel.value = currentTechProfile;
   }
 
+  var adminJobCustomerMeta = null;
+
+  function resetAdminJobCustomerMeta() {
+    adminJobCustomerMeta = null;
+    var hint = document.getElementById('ajsCustMetaHint');
+    if (hint) {
+      hint.hidden = true;
+      hint.textContent = '';
+      hint.classList.remove('is-new');
+    }
+  }
+
+  function showAdminJobCustomerMetaHint(meta, isNew) {
+    var hint = document.getElementById('ajsCustMetaHint');
+    if (!hint || !meta) return;
+    var parts = [];
+    if (meta.customerNum && meta.customerNum !== 'N/A') parts.push('Customer #: ' + meta.customerNum);
+    if (meta.locationNum && meta.locationNum !== 'N/A') parts.push('Location #: ' + meta.locationNum);
+    if (!parts.length) return;
+    hint.textContent = parts.join(' · ');
+    hint.hidden = false;
+    hint.classList.toggle('is-new', !!isNew);
+  }
+
+  function resolveAdminJobMetaFromCrm(customerName, addressLine) {
+    if (typeof getCustomerDB !== 'function') return null;
+    var db = getCustomerDB();
+    var name = String(customerName || '').trim().toUpperCase();
+    if (!name || !db[name] || !db[name].id) return null;
+
+    var meta = {
+      customerNum: db[name].id,
+      locationNum: 'N/A',
+      contactName: '',
+      contactPhone: '',
+      contactEmail: '',
+      custCity: '',
+      custState: '',
+      custZip: '',
+      locationStreet: String(addressLine || '').trim().toUpperCase()
+    };
+
+    var streetGuess = meta.locationStreet.split(',')[0].trim().toUpperCase();
+    var locs = db[name].locations || {};
+    for (var locId in locs) {
+      var loc = locs[locId];
+      if (!loc) continue;
+      var locStreet = String(loc.street || '').trim().toUpperCase();
+      if (!locStreet) continue;
+      if (streetGuess === locStreet || meta.locationStreet.indexOf(locStreet) !== -1 || locStreet.indexOf(streetGuess) !== -1) {
+        meta.locationNum = locId;
+        meta.contactName = String(loc.contact || '').trim().toUpperCase();
+        meta.contactPhone = String(loc.phone || '').trim();
+        meta.contactEmail = String(loc.email || '').trim();
+        meta.custCity = String(loc.city || '').trim().toUpperCase();
+        meta.custState = String(loc.state || '').trim().toUpperCase();
+        meta.custZip = String(loc.zip || '').trim().toUpperCase();
+        meta.locationStreet = locStreet;
+        break;
+      }
+    }
+    return meta;
+  }
+
   function applyVoiceResultToAdminJob(data) {
+    var street = String(data.street || '').trim().toUpperCase();
+    var city = String(data.city || '').trim().toUpperCase();
+    var state = String(data.state || '').trim().toUpperCase();
+    var zip = String(data.zip || '').trim().toUpperCase();
+
     document.getElementById('ajsCustomer').value = data.custName || '';
-    var parts = [data.street, data.city, data.state, data.zip].filter(function (p) {
+    var parts = [street, city, state, zip].filter(function (p) {
       return p && String(p).trim();
     });
-    document.getElementById('ajsAddress').value = parts.join(', ').toUpperCase();
+    document.getElementById('ajsAddress').value = parts.join(', ');
+
+    if (data.source === 'internal') {
+      adminJobCustomerMeta = {
+        customerNum: data.custId || 'N/A',
+        locationNum: data.locId || 'N/A',
+        contactName: String(data.contact || '').trim().toUpperCase(),
+        contactPhone: String(data.phone || '').trim(),
+        contactEmail: String(data.email || '').trim(),
+        custCity: city,
+        custState: state,
+        custZip: zip,
+        locationStreet: street
+      };
+      showAdminJobCustomerMetaHint(adminJobCustomerMeta, false);
+      if (typeof showVcFieldToast === 'function') {
+        showVcFieldToast('✓ ' + (data.custName || 'Customer') + ' (' + adminJobCustomerMeta.customerNum + ')');
+      }
+      return;
+    }
+
+    var nextCust = parseInt(localStorage.getItem('tp_cust_counter') || '1000', 10);
+    var nextLoc = parseInt(localStorage.getItem('tp_loc_counter') || '1000', 10);
+    adminJobCustomerMeta = {
+      customerNum: 'CST-' + nextCust,
+      locationNum: 'LOC-' + nextLoc,
+      contactName: '',
+      contactPhone: '',
+      contactEmail: '',
+      custCity: city,
+      custState: state,
+      custZip: zip,
+      locationStreet: street,
+      isNewFromGoogle: true
+    };
+    showAdminJobCustomerMetaHint(adminJobCustomerMeta, true);
     if (typeof showVcFieldToast === 'function') {
-      showVcFieldToast('✓ ' + (data.custName || 'Location selected'));
+      showVcFieldToast('✓ New customer #' + adminJobCustomerMeta.customerNum);
     }
   }
 
@@ -9405,6 +9516,7 @@ function updateJobCardStatus(selectEl) {
     document.getElementById('ajsDate').value = selectedScheduleDayYmd || todayYmd();
     document.getElementById('ajsCustomer').value = '';
     document.getElementById('ajsAddress').value = '';
+    resetAdminJobCustomerMeta();
     document.getElementById('ajsTime').value = '08:00';
     document.getElementById('ajsIssue').value = '';
     document.getElementById('ajsJobType').value = 'Service Call';
@@ -9442,6 +9554,11 @@ function updateJobCardStatus(selectEl) {
     var priority = document.getElementById('ajsPriority').value;
     var issue = document.getElementById('ajsIssue').value.trim();
 
+    var crmMeta = adminJobCustomerMeta || resolveAdminJobMetaFromCrm(customer, address);
+    var streetLine = crmMeta && crmMeta.locationStreet
+      ? crmMeta.locationStreet
+      : address.split(',')[0].trim().toUpperCase();
+
     var docId = 'SC-ID-' + Date.now();
     var prefix = getPrefixForJobType(jobType);
     var counter = parseInt(localStorage.getItem('tp_service_counter') || '1000', 10);
@@ -9455,15 +9572,15 @@ function updateJobCardStatus(selectEl) {
       startTime: formatTime12(time24),
       duration: '2.0',
       customerName: customer,
-      customerNum: 'N/A',
-      contactName: '',
-      contactPhone: '',
-      contactEmail: '',
-      locationAddress: address,
-      custCity: '',
-      custState: '',
-      custZip: '',
-      locationNum: 'N/A',
+      customerNum: (crmMeta && crmMeta.customerNum) ? crmMeta.customerNum : 'N/A',
+      contactName: (crmMeta && crmMeta.contactName) ? crmMeta.contactName : '',
+      contactPhone: (crmMeta && crmMeta.contactPhone) ? crmMeta.contactPhone : '',
+      contactEmail: (crmMeta && crmMeta.contactEmail) ? crmMeta.contactEmail : '',
+      locationAddress: streetLine,
+      custCity: (crmMeta && crmMeta.custCity) ? crmMeta.custCity : '',
+      custState: (crmMeta && crmMeta.custState) ? crmMeta.custState : '',
+      custZip: (crmMeta && crmMeta.custZip) ? crmMeta.custZip : '',
+      locationNum: (crmMeta && crmMeta.locationNum) ? crmMeta.locationNum : 'N/A',
       jobType: jobType,
       priority: priority,
       assignedTechs: tech ? [tech] : [],
@@ -13299,7 +13416,7 @@ window.onload = async function(){
     <!-- Slice 56a: offline Storage upload outbox (KI-004) — chip hidden until module populates it -->
     <div id="vcPendingSyncChip" role="status" aria-live="polite" style="display:none"></div>
     <script src="../customer_directory.js?v=28"></script>
-    <script src="../shared/voice_customer_search.js?v=3"></script>
+    <script src="../shared/voice_customer_search.js?v=4"></script>
     <script>
       if (typeof initAdminVoiceSearch === 'function') initAdminVoiceSearch();
     </script>

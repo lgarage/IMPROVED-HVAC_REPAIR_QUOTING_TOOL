@@ -221,6 +221,39 @@
     });
   }
 
+  function enrichResultFromCrm(result) {
+    if (!result || typeof getCustomerDB !== "function") return result;
+    var db = getCustomerDB();
+    var name = String(result.custName || "").trim().toUpperCase();
+    if (!name || !db[name] || !db[name].id) return result;
+
+    var out = Object.assign({}, result);
+    out.custId = db[name].id;
+    var resStreet = String(result.street || "").trim().toUpperCase();
+    var locs = db[name].locations || {};
+
+    for (var locId in locs) {
+      var loc = locs[locId];
+      if (!loc) continue;
+      var locStreet = String(loc.street || "").trim().toUpperCase();
+      if (!locStreet || !resStreet) continue;
+      if (locStreet === resStreet || resStreet.indexOf(locStreet) !== -1 || locStreet.indexOf(resStreet) !== -1) {
+        out.source = "internal";
+        out.locId = locId;
+        out.contact = loc.contact || "";
+        out.phone = loc.phone || "";
+        out.email = loc.email || "";
+        out.street = locStreet;
+        out.city = String(loc.city || result.city || "").toUpperCase();
+        out.state = String(loc.state || result.state || "").toUpperCase();
+        out.zip = String(loc.zip || result.zip || "").toUpperCase();
+        return out;
+      }
+    }
+
+    return out;
+  }
+
   function showResultsModal(titleText, subtitleText) {
     var modal = document.getElementById(cfg.modalId);
     var listContainer = document.getElementById(cfg.listId);
@@ -231,15 +264,16 @@
     if (p) p.textContent = subtitleText;
     listContainer.innerHTML = "";
     currentResults.forEach(function (result, index) {
+      var display = result.source === "google" ? enrichResultFromCrm(result) : result;
       var row = document.createElement("button");
       row.type = "button";
-      row.className = "vc-voice-result-row" + (result.source === "internal" ? " vc-voice-result-row--internal" : "");
-      if (result.source === "internal") {
+      row.className = "vc-voice-result-row" + (display.source === "internal" ? " vc-voice-result-row--internal" : "");
+      if (display.source === "internal") {
         row.innerHTML =
-          "<strong>" + escapeHtml(result.custName) + "</strong>" +
-          "<span class=\"vc-voice-result-meta\">Contact: " + escapeHtml(result.contact || "None") + "</span>" +
-          "<span class=\"vc-voice-result-addr\">📍 " + escapeHtml(result.street + ", " + result.city + ", " + result.state + " " + result.zip) + "</span>" +
-          "<span class=\"vc-voice-result-meta\">Loc #: " + escapeHtml(result.locId || "") + "</span>";
+          "<strong>" + escapeHtml(display.custName) + "</strong>" +
+          "<span class=\"vc-voice-result-meta\">Contact: " + escapeHtml(display.contact || "None") + "</span>" +
+          "<span class=\"vc-voice-result-addr\">📍 " + escapeHtml(display.street + ", " + display.city + ", " + display.state + " " + display.zip) + "</span>" +
+          "<span class=\"vc-voice-result-meta\">Cust #: " + escapeHtml(display.custId || "") + " · Loc #: " + escapeHtml(display.locId || "") + "</span>";
       } else {
         row.innerHTML =
           "<strong>" + escapeHtml(result.custName) + "</strong> <span class=\"vc-voice-result-tag\">(New from Google)</span>" +
@@ -273,6 +307,9 @@
 
   function selectResult(index) {
     var selected = currentResults[index];
+    if (selected && selected.source === "google") {
+      selected = enrichResultFromCrm(selected);
+    }
     closeModal();
     if (selected && cfg && typeof cfg.onApply === "function") {
       cfg.onApply(selected);
@@ -299,9 +336,10 @@
     try {
       var googleResults = filterGoogleByQueryTokens(await searchGoogle(query), query);
       if (googleResults.length === 1) {
-        if (cfg && typeof cfg.onApply === "function") cfg.onApply(googleResults[0]);
+        var singleGoogle = enrichResultFromCrm(googleResults[0]);
+        if (cfg && typeof cfg.onApply === "function") cfg.onApply(singleGoogle);
         resetMicBtn();
-        getNotify()("✓ " + googleResults[0].custName);
+        getNotify()("✓ " + singleGoogle.custName);
         return;
       }
       if (googleResults.length > 1) {
