@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 AI Quote Pipeline — queue verified, preflight passed, ready for overnight SDK run (`/a`). Phase 66/63 live. KI-004 core shipped.
-- **Last shipped (2026-05-18):** KI-008 logout UX — "Signing out…" spinner overlay + instant login shell (`VC_BUILD: LogoutSpinner-2026-05-18`). Playwright verified.
+- **Last shipped (2026-05-18):** Admin job create — hold-to-speak customer name (CRM + Google location picker, same as dispatcher). `shared/voice_customer_search.js`, `VC_BUILD: AdminJobVoiceSearch-2026-05-18`.
 - **Prior (2026-05-18):** Phase 66 complete — admin login, job creation FAB, historical mode, checklist full-list, compile guard.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
@@ -20,8 +20,7 @@ None.
 
 ## Immediate Next Step
 
-- **Device verify (issues-found canvas #4):** Admin orange FAB job create on phone.
-- **Device verify (KI-008):** Logout spinner — tap name pill → Log Out → confirm "Signing out…" then login shell.
+- **Device verify:** Admin FAB → hold mic → say "planet fitness in green bay" → pick location if multiple → create job.
 - **Product queue:** **KI-006** past-day job UX.
 - **Tonight at bedtime only:** SDK `/a` Phase 64 (64a→64b→64c→64e→64d). Do not run before bed unless user asks.
 - **After overnight run:** `.build_state.json` + runner log; reconcile what changed.
