@@ -33,7 +33,7 @@ _Last verified: 2026-05-17. **IMPORTANT:** Composer 2 reasoning weakness makes i
 
 ## Model scorecard (lean)
 
-_Avg **Conf after %** from § Outcome log (active table, May 2026). Not lab benchmarks — agent post-ship confidence. **(n)** = logged rows._
+_Avg **Conf after %** from § Outcome log (active table, May 2026). Not lab benchmarks — agent post-ship confidence. **(n)** = logged rows. **C2.5 counts exclude SDK-automated rows** (see note below)._
 
 | Job shape | C2.5 | Sonnet 4.6 | Opus 4.6 | Default pick |
 |-----------|------|------------|----------|--------------|
@@ -43,11 +43,13 @@ _Avg **Conf after %** from § Outcome log (active table, May 2026). Not lab benc
 | Traced field bugfix | **97%** (2) | ~93% (18)† | 92% (1) | C2.5 if root cause known |
 | Build runner / slices | — | **96%** (16) | 92% (6) | Sonnet |
 | UI / CSS layout | — | 92% (7) | — | Sonnet (rework risk) |
-| Firestore / Vertex HIGH | 90% (1) | 93% (4) | **93%** (8) | Opus first write; C2.5 unproven |
+| Firestore / Vertex HIGH | ⚠️ unproven (0 real) | 93% (4) | **93%** (8) | Opus first write; do NOT use C2.5 |
 
 †Sonnet field cluster includes Phase65 header **rework 82%**; other field rows mostly 93–97%.
 
 **C2.5 gaps (use Sonnet/Opus):** `build_runner.ts`, hard UI/layout, net-new Firestore writes. **Refresh:** re-aggregate when **≥3** new log rows touch a cell (do not duplicate rows here).
+
+**⚠️ SDK-automated rows (64a/64d/64e) are NOT C2.5 capability signal.** Audit (2026-05-19) found those commits were build-stamp + version-bump only (3–12 line diffs). The auto-logger stamped a fixed `82%→90%` regardless of actual output. These rows are kept for build history but **excluded from all C2.5 scorecard counts**. The `Firestore / Vertex HIGH: 90% (1)` row was the admin checklist save (which failed first-pass) — C2.5 has zero verified net-new Firestore write successes.
 
 **SDK runner (2026-05-18):** **Cheapest-first** per `MODEL_LOOKUP` pattern; escalate on fail. `composer-2.5` runs **before** Sonnet/Opus, **after** Mini/Flash. **Auto-log:** each slice pass/fail appends a row below (tag `SDK automated` in Note) — live sessions grep these with `MODEL_LOOKUP` pattern rows.
 
@@ -121,7 +123,7 @@ If the user **does not** say the change failed, was wrong, or needs rework:
 | 2026-05-18 | Field app: VC DEBUG overlay drag — grip on header bar, pointer capture, position in `sessionStorage`. `DebugOverlayDrag-2026-05-18`. | LOW | T1 | Fast | 90% | 96% | ok | ok | Cursor: **Composer 2.5** (estimated). Single-file overlay UX; no Firestore. |
 | 2026-05-18 | Field app: Admin workspace full AI — `processEntry` bypasses EdgeIntentEngine when `vc_admin_session`; `VCAdminAgent` QUERY lists `form_templates`; UNKNOWN → Gemini; admin `openWorkspace` sets ticket + timeline. Playwright verified checklist inventory (not "Got it."). `VC_BUILD: AdminAgentFullAI-2026-05-18`. | LOW | T2 | Fast | 86% | 94% | ok | ok | Cursor: **Composer 2.5**. Root cause: mic/send path hit `addEntry`→intent engine; Enter-only admin intercept was incomplete. Three-file fix (timeline + admin_agent + index). |
 | 2026-05-18 | Field app: Admin job create tech roster — `populateTechSelect` now uses `cachedTechnicianRoster` + `fetchTechnicianRosterForShadow` fallback instead of empty `#loginTechSelect`; async load with placeholder; auto-login admin path verified (3 techs). `VC_BUILD: AdminJobTechRoster-2026-05-18`. | LOW | T1 | Fast | 88% | 95% | ok | ok | Cursor: **Composer 2.5**. Single-function roster wiring in admin job IIFE; Playwright auto-login path confirmed full roster. Matches admin sign-in gate T2 pattern but simpler — T1/Fast correct. |
-| 2026-05-18 | Admin job create voice customer search — hold-to-speak on field app admin sheet; shared `voice_customer_search.js` (CRM token match + Google Places + location picker modal); mirrors dispatcher mic. `VC_BUILD: AdminJobVoiceSearch-2026-05-18`. | LOW | T2 | Fast | 85% | 92% | ok | ok | Cursor: **Composer 2.5**. New shared module + field app wiring; Playwright mic visible. User device verify pending (hold-speak multi-location). |
+| 2026-05-18 | Admin job create voice customer search — hold-to-speak on field app admin sheet; shared `voice_customer_search.js` (CRM token match + Google Places + location picker modal); mirrors dispatcher mic. `VC_BUILD: AdminJobVoiceSearch-2026-05-18`. | LOW | T2 | Fast | 85% | **⚠️ unverified** | ok | unverified | Cursor: **Composer 2.5**. New shared module + field app wiring; Playwright mic visible only. **No user device verify** — hold-speak + multi-location picker never tested on real phone. Conf after score is not meaningful until device-verified. |
 | 2026-05-18 | Phase 64 overnight prep cluster — validated 64d dependency blocker (64a missing from active queue); restored 64a–64e in `slices.ts`; fixed `build_runner.ts` loadState archive-strip crash (`/plan` was throwing); verified `/plan` + `/preflight`; refreshed `CURRENT_STATE.md` + phase tracker canvas. *(6 tasks)* | LOW | T1–T4 | Balanced | 88% | 96% | ok | ok | Cursor: **Sonnet 4.6** (this session). **Not Composer 2.5** — cross-validates the audit shape C2.5 handles well (#issues-found row): codebase/readiness diagnosis was accurate, fix shipped, runner unblocked. Lesson: build_runner re-queue from archive needs both active `SLICES` entry AND loadState guard — queue repair alone insufficient. |
 | 2026-05-18 | Composer 2.5 trial — dossier onboarding from Cursor blog post; updated enabled-models table, switch-to lanes, changelog; no truncation/hallucination. | LOW | T4 | Fast | 92% | 97% | ok | ok | Cursor: **Composer 2.5**. First trial (session 51b9bd73). External-doc synthesis → accurate multi-section markdown. **Calibration seed:** establishes C2.5 T4 governance baseline at 97% Conf after. |
 | 2026-05-18 | Field app: EdgeIntent cloud-escalation fallback — low-confidence notes no longer reply "What were you working on?" when Gemini returns null/empty JSON; fall back to `generateResponse(..., { fromEscalation: true }) \|\| "Got it."`; `normalizeEquipmentNumbers` before `EdgeIntentEngine.parse`. `conversational_timeline.js?v=68`, `VC_BUILD: IntentEscalationFallback-2026-05-18`. User device-verified "Got it." | LOW | T1 | Fast | 86% | 97% | ok | ok | Cursor: **Composer 2.5**. Diagnosis + patch in one session (traced `processEntry` → `escalateToCloud` → hardcoded WWYWO; matched 2026-05-15 dossier row for Gemini 403 symptom). Single-file behavioral fix + cache-bust — no Firestore. **First Composer 2.5 field-app ship with user verify.** Lesson: WWYWO is escalation failure UX, not missing `EdgeIntentEngine` wiring; T1 correct when root cause is already traced. Prefer **Composer 2.5** over Composer 2 for this shape of fix. |
@@ -356,6 +358,7 @@ If `.cursorrules` says **HIGH / UNCERTAIN → stop and escalate**, that **overri
 
 ## Changelog
 
+- **2026-05-19:** **C2.5 audit (Sonnet 4.6).** Reviewed all 12 C2.5 dossier rows against actual git diffs. Findings: (1) SDK-automated rows 64a/64d/64e were build-stamp-only commits (3–12 line diffs), not real capability signal — scorecard now excludes them and adds warning. (2) `Firestore / Vertex HIGH` cell corrected to `⚠️ unproven (0 real)` — the 90% (1) row was a first-pass failure on firestore.rules. (3) Voice search row flagged unverified — Conf after score removed until device-tested. (4) Interactive session scores (9 rows) confirmed broadly accurate, slight optimistic lean ~2–3 pts. C2.5 standing: solid T1-T2 traced patches + T4 governance; do not use for net-new Firestore writes.
 - **2026-05-18:** **SDK runner:** cheapest-first ladders (Mini/Flash per pattern); `composer-2.5` ranked above Mini but below Sonnet/Opus; escalate on fail only.
 - **2026-05-18:** **§ Model scorecard (lean)** — one comparison table (Conf after % by job shape); trimmed Composer 2.5 enabled-model blurb to point here.
 - **2026-05-18:** **Outcome log — log failures too.** User directive: append rows for substantive work whether **ok** or not; **§ Logging discipline** item 6. Backfilled admin checklist cluster (`partial→ok`, Conf after 90%), VC DEBUG drag, tracker #4 close.
