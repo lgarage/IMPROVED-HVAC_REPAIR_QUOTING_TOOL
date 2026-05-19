@@ -8,20 +8,15 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
-### KI-008 — Cannot log out / switch user
+### KI-008 — Log out / switch user — slow, no feedback (appears broken)
 
-- **Filed:** 2026-05-18 (user report in session — not yet in Slack `#issues-found`).
-- **Severity:** **High** — user cannot log out at all on device.
-- **Symptoms:** Tap **Log Out / Switch User** (or try to reach logout) → nothing happens; user stays logged in. No login shell appears.
-- **Affected code:** `technician/index.html` — `wireProfilePanel()` (~12627), `switchUser()` (~8826), init (~12770–12776 vs ~12812), `completeTechnicianLogin()` (~8757). Logout buttons: `#vcProfilePanelLogout`, `#screen-profile` inline button (~7366).
-- **Root cause (likely):** `wireProfilePanel()` — which wires `#techDisplayLabel` → profile panel → logout — is **only** called on the returning-user init path (`tp_saved_tech` already in localStorage). First-login and admin-login paths call `completeTechnicianLogin()` but **never** call `wireProfilePanel()`, so the name pill may not open the profile panel and logout is unreachable. `#screen-profile` logout button exists but **no nav** calls `switchScreen('profile')`.
-- **Secondary hypothesis:** `switchUser()` `await fetchTechnicianRosterFromCloud()` before `showLoginShell()` — if roster fetch hangs, logout appears to do nothing until it resolves.
-- **Investigation checklist:**
-  - On device: tap `#techDisplayLabel` (name pill) — does profile panel open?
-  - Debug: `typeof wireProfilePanel` / was init first-login path (no saved tech on cold load)?
-  - If panel opens and logout tapped: does `switchUser` run? Network stall on roster fetch?
-- **Directive fix:** Call `wireProfilePanel()` from `completeTechnicianLogin()` (and ensure idempotent guard). Optionally show login shell immediately in `switchUser()` before roster fetch. Add logout entry to hamburger/menu if profile pill is blocked on mobile.
-- **Status:** Open — root cause traced in code; fix not started.
+- **Filed:** 2026-05-18 (user report in session).
+- **Severity:** **Medium** — logout works but feels broken; long delay with no UI feedback.
+- **User verify (2026-05-18):** Logout **eventually** succeeded after a long wait; admin re-login with PIN `1234` worked. Initial report ("can't log out") likely **perceived hang**, not a dead button.
+- **Symptoms:** Tap **Log Out / Switch User** → **nothing visible for several seconds** → login shell finally appears. Easy to think logout failed.
+- **Affected code:** `technician/index.html` — `switchUser()` (~8826) **`await fetchTechnicianRosterFromCloud()` before `showLoginShell()`** — blocks UI with zero loading indicator. Also: `wireProfilePanel()` only on returning-user init (~12812), not first/admin login (~12776) — may affect reaching logout on some paths.
+- **Directive fix:** (1) **`showLoginShell()` immediately** (use cached roster or empty), fetch roster in background and refresh picker. (2) Optional spinner/toast: "Signing out…". (3) Call `wireProfilePanel()` from `completeTechnicianLogin()` with idempotent guard.
+- **Status:** Open — UX fix not started; functional path confirmed on device.
 
 ---
 

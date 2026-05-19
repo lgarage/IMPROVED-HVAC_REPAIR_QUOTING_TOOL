@@ -21,7 +21,7 @@ None.
 ## Immediate Next Step
 
 - **Device verify (issues-found canvas #4):** Admin orange FAB job create on phone.
-- **Product queue:** **KI-008** cannot log out (wireProfilePanel missing on first-login path). **KI-006** past-day job UX.
+- **Product queue:** **KI-008** slow logout UX (instant login shell + spinner). **KI-006** past-day job UX.
 - **Tonight at bedtime only:** SDK `/a` Phase 64 (64a→64b→64c→64e→64d). Do not run before bed unless user asks.
 - **After overnight run:** `.build_state.json` + runner log; reconcile what changed.
 - **Optional:** KI-004 URL-patch on outbox drain; compiled report edit persistence.
