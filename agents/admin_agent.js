@@ -21,6 +21,7 @@
   var _intent = null;           // "create" | "update"
   var _draft = null;            // in-progress template object
   var _updateTargetId = null;   // docId when updating an existing template
+  var _templateCacheByDocId = {}; // last fetchFormTemplatesList snapshot for fast Edit
 
   /* ── private helpers ─────────────────────────────────────────── */
 
@@ -156,7 +157,7 @@
 
   function localAdminIntentHint(text) {
     var lower = String(text || "").toLowerCase();
-    if (/what.*checklist|checklists?\s+(do\s+we|are\s+there|exist)|list.*checklist|show.*checklist|what templates|list templates|what forms/.test(lower)) {
+    if (/what.*checklist|checklists?\s+(do\s+we|are\s+there|exist|in the system)|list.*checklist|show.*checklist|what templates|list templates|what forms|field checklists/.test(lower)) {
       return { intent: "QUERY" };
     }
     if (/^create\s+(a\s+)?/.test(lower) && /checklist|template|form/.test(lower)) {
@@ -168,34 +169,67 @@
     return null;
   }
 
+  function normalizeTemplateData(data) {
+    if (!data || typeof data !== "object") return blankDraft();
+    var d = Object.assign(blankDraft(), data);
+    d.templateName = String(d.templateName || "").trim();
+    d.targetKeyword = String(d.targetKeyword || "").trim();
+    if (!Array.isArray(d.fields)) d.fields = [];
+    d.fields = d.fields.map(function (f) {
+      if (!f || typeof f !== "object") return stepToField(String(f || ""));
+      var label = String(f.label || "").trim();
+      if (!label) return null;
+      return {
+        label: label,
+        type: f.type || "checkbox",
+        name: f.name || slugField(label),
+        required: !!f.required
+      };
+    }).filter(Boolean);
+    return d;
+  }
+
+  function firestoreGetWithTimeout(docRef, timeoutMs) {
+    var ms = timeoutMs || 10000;
+    return Promise.race([
+      docRef.get(),
+      new Promise(function (_resolve, reject) {
+        setTimeout(function () { reject(new Error("LOAD_TIMEOUT")); }, ms);
+      })
+    ]);
+  }
+
   function fetchFormTemplatesList() {
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
       return Promise.resolve([]);
     }
-    return firebase.firestore()
-      .collection("form_templates")
-      .get()
-      .then(function (snap) {
-        var rows = [];
-        snap.forEach(function (doc) {
-          var data = doc.data() || {};
-          rows.push({
-            id: doc.id,
-            templateName: data.templateName || doc.id,
-            targetKeyword: data.targetKeyword || "",
-            fields: Array.isArray(data.fields) ? data.fields : [],
-            active: data.active !== false
-          });
-        });
-        rows.sort(function (a, b) {
-          return String(a.templateName).localeCompare(String(b.templateName));
-        });
-        return rows;
+    return Promise.race([
+      firebase.firestore().collection("form_templates").get(),
+      new Promise(function (_resolve, reject) {
+        setTimeout(function () { reject(new Error("FETCH_TIMEOUT")); }, 15000);
       })
-      .catch(function (e) {
-        console.error("VCAdminAgent form_templates query", e);
-        return [];
+    ]).then(function (snap) {
+      var rows = [];
+      _templateCacheByDocId = {};
+      snap.forEach(function (doc) {
+        var data = doc.data() || {};
+        _templateCacheByDocId[doc.id] = data;
+        rows.push({
+          id: doc.id,
+          templateName: data.templateName || doc.id,
+          targetKeyword: data.targetKeyword || "",
+          fields: Array.isArray(data.fields) ? data.fields : [],
+          active: data.active !== false
+        });
       });
+      rows.sort(function (a, b) {
+        return String(a.templateName).localeCompare(String(b.templateName));
+      });
+      return rows;
+    }).catch(function (e) {
+      console.error("VCAdminAgent form_templates query", e);
+      return [];
+    });
   }
 
   function formatChecklistInventory(templates) {
@@ -332,23 +366,49 @@
     return { templateName: name, targetKeyword: trigger, fields: fields };
   }
 
+  function openEditorFromTemplateData(docId, data) {
+    _state = "collecting";
+    _intent = "update";
+    _draft = normalizeTemplateData(data);
+    _updateTargetId = docId;
+    try {
+      return { type: "editor", html: buildChecklistEditorHtml(docId, _draft) };
+    } catch (buildErr) {
+      console.error("VCAdminAgent buildChecklistEditorHtml", buildErr);
+      _state = "idle";
+      _intent = null;
+      _draft = null;
+      _updateTargetId = null;
+      return "Could not open editor — " + (buildErr.message || "invalid template data");
+    }
+  }
+
   function beginEditTemplate(docId) {
     if (!docId) return Promise.resolve("No checklist selected.");
-    return firebase.firestore()
-      .collection("form_templates")
-      .doc(docId)
-      .get()
-      .then(function (snap) {
-        if (!snap.exists) return "That checklist was not found.";
-        _state = "collecting";
-        _intent = "update";
-        _draft = Object.assign(blankDraft(), snap.data());
-        _updateTargetId = docId;
-        return { type: "editor", html: buildChecklistEditorHtml(docId, _draft) };
-      })
-      .catch(function (e) {
-        return "Could not load checklist: " + (e && e.message ? e.message : String(e));
-      });
+
+    if (_templateCacheByDocId[docId]) {
+      return Promise.resolve(openEditorFromTemplateData(docId, _templateCacheByDocId[docId]));
+    }
+
+    if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
+      return Promise.resolve("Firebase is not available — try again in a moment.");
+    }
+
+    return firestoreGetWithTimeout(
+      firebase.firestore().collection("form_templates").doc(docId),
+      10000
+    ).then(function (snap) {
+      if (!snap.exists) return "That checklist was not found.";
+      var data = snap.data() || {};
+      _templateCacheByDocId[docId] = data;
+      return openEditorFromTemplateData(docId, data);
+    }).catch(function (e) {
+      var msg = e && e.message ? e.message : String(e);
+      if (msg === "LOAD_TIMEOUT") {
+        return "Loading timed out — check your connection and tap Edit again.";
+      }
+      return "Could not load checklist: " + msg;
+    });
   }
 
   function saveFromEditorEl(editorEl) {
@@ -493,6 +553,7 @@
       _intent = null;
       _draft = null;
       _updateTargetId = null;
+      _templateCacheByDocId[docId] = Object.assign({}, payload);
       return "\u2713 Saved \"" + payload.templateName + "\" \u2014 " + payload.fields.length + " step(s). Techs will see it immediately.";
     } catch (e) {
       console.error("VCAdminAgent save failed", e);
