@@ -23,9 +23,9 @@ const MAX_ACTIVE_SLICES = 20;
 // Minimum model tier per slice riskLevel — prevents cheap/fast models from
 // running slices that require judgment or multi-file reasoning.
 const RISK_LEVEL_FLOOR: Record<string, string> = {
-  safe: "",                    // no floor — model selector decides freely
-  review: "composer-2.5",      // try C2.5 first; escalate to Sonnet/Opus on fail
-  critical: "composer-2.5",    // same — dossier scorecard backs C2.5 before premium tiers
+  safe: "",                    // cheapest per pattern (MODEL_LOOKUP) tries first
+  review: "",                  // same — escalate on fail; C2.5 before Sonnet in ladder
+  critical: "",                // same — Opus only reached after cheaper rungs fail
 };
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -1719,32 +1719,39 @@ async function runPreflight(): Promise<boolean> {
     allGood = false;
   }
 
-  // 12. Escalation ladders — C2.5 first + at least one higher rung (Sonnet/Opus path)
+  // 12. Escalation ladders — cheapest-first, sorted by cost, C2.5 before Sonnet/Opus
   let ladderOk = true;
   const pendingSlices = SLICES.filter((s) => {
     if (!stateExists) return true;
     const st = loadState().slices[s.id]?.status;
     return st !== "passed";
   });
+  const sonnetSlug = "claude-sonnet-4-6";
+  const c25Rank = MODEL_COST_RANK[COMPOSER_25_SLUG] || 0;
+  const sonnetRank = MODEL_COST_RANK[sonnetSlug] || 99;
   for (const slice of pendingSlices) {
-    const raw = buildEscalationLadder(slice.patterns);
-    const riskFloor = RISK_LEVEL_FLOOR[slice.riskLevel || "safe"] || "";
-    const floorRank = riskFloor ? MODEL_COST_RANK[riskFloor] || 0 : 0;
-    const ladder = riskFloor
-      ? raw.filter((m) => (MODEL_COST_RANK[m] || 0) >= floorRank)
-      : raw;
-    if (ladder[0] !== COMPOSER_25_SLUG) {
-      console.log(`  ✗ Slice ${slice.id}: ladder must start with ${COMPOSER_25_SLUG}, got ${ladder[0] || "(empty)"}`);
-      ladderOk = false;
-    }
+    const ladder = buildEscalationLadder(slice.patterns);
     if (ladder.length < 2) {
       console.log(`  ✗ Slice ${slice.id}: ladder has only ${ladder.length} rung — no escalation path`);
       ladderOk = false;
+      continue;
     }
-    const c25Rank = MODEL_COST_RANK[COMPOSER_25_SLUG] || 0;
-    const hasHigher = ladder.some((m) => (MODEL_COST_RANK[m] || 0) > c25Rank);
-    if (!hasHigher) {
-      console.log(`  ✗ Slice ${slice.id}: no model ranked above ${COMPOSER_25_SLUG} in ladder`);
+    for (let j = 1; j < ladder.length; j++) {
+      const prev = MODEL_COST_RANK[ladder[j - 1]] ?? 0;
+      const cur = MODEL_COST_RANK[ladder[j]] ?? 0;
+      if (cur < prev) {
+        console.log(`  ✗ Slice ${slice.id}: ladder not cost-sorted at ${ladder[j - 1]} → ${ladder[j]}`);
+        ladderOk = false;
+      }
+    }
+    const sonnetIdx = ladder.indexOf(sonnetSlug);
+    const c25Idx = ladder.indexOf(COMPOSER_25_SLUG);
+    if (sonnetIdx >= 0 && c25Idx >= 0 && c25Idx > sonnetIdx) {
+      console.log(`  ✗ Slice ${slice.id}: ${COMPOSER_25_SLUG} must run before ${sonnetSlug}`);
+      ladderOk = false;
+    }
+    if ((MODEL_COST_RANK[ladder[0]] ?? 0) >= sonnetRank) {
+      console.log(`  ✗ Slice ${slice.id}: first rung must be cheaper than ${sonnetSlug}`);
       ladderOk = false;
     }
   }
@@ -1752,7 +1759,7 @@ async function runPreflight(): Promise<boolean> {
     console.log("  ✓ Escalation ladders (no pending slices)");
   } else if (ladderOk) {
     console.log(
-      `  ✓ Escalation ladders OK (${pendingSlices.length} pending) — ${COMPOSER_25_SLUG} first, then escalates on fail`
+      `  ✓ Escalation ladders OK (${pendingSlices.length} pending) — cheapest first, escalate on fail`
     );
     for (const slice of pendingSlices.slice(0, 3)) {
       const ladder = buildEscalationLadder(slice.patterns);

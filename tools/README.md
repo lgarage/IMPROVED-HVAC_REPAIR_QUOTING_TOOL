@@ -65,10 +65,10 @@ An automated build tool that builds the New Field Tech UX in phases using the Cu
 The tool picks the **cheapest model** that can do each task. If it fails, it tries the next one up:
 
 ```
-Composer 2.5 (first) → GPT-5.4 Mini → Gemini Flash → … → Sonnet 4.6 → … → Opus 4.6
+Cheapest for pattern (Mini / Flash / Composer 2) → … → Composer 2.5 → Sonnet 4.6 → Opus 4.6
 ```
 
-Every slice **starts on Composer 2.5**, then escalates to Sonnet/Opus if validation fails. Firestore **rules/auth** slices still escalate to Opus when C2.5 fails.
+Each slice **starts with the cheapest model** that fits its task pattern (`MODEL_LOOKUP.md`). On failure it steps up the cost ladder. **Composer 2.5 runs before Sonnet/Opus**, never before Mini/Flash.
 
 The tool learns: if a cheap model works, it remembers. If it fails, it bumps up. Over time it gets better at picking the right model.
 

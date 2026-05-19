@@ -24,10 +24,10 @@ const GUARD_OVERRIDES_PATH = path.join(__dirname, "model_guard_overrides.json");
 // invented suffixes. Verified 2026-05-16 from SDK error available-models list.
 const MODEL_COST_RANK: Record<string, number> = {
   "composer-2": 2,
-  "composer-2.5": 3,           // verified SDK slug — default first rung before Sonnet/Opus (2026-05-18)
-  "gpt-5.4-mini": 4,
-  "gemini-3-flash": 5,
-  "gpt-5-mini": 6,
+  "gpt-5.4-mini": 3,
+  "gemini-3-flash": 4,
+  "gpt-5-mini": 5,
+  "composer-2.5": 6,           // verified SDK slug — after Mini/Flash; before Sonnet/Opus
   "gpt-5.3-codex-spark": 7,
   "claude-sonnet-4-6": 8,
   "kimi-k2.5": 9,
@@ -38,7 +38,7 @@ const MODEL_COST_RANK: Record<string, number> = {
   "claude-opus-4-6": 14,
 };
 
-/** SDK policy: always try Composer 2.5 before Sonnet/Opus unless already first. */
+/** Inserted before Sonnet/Opus on escalation — not before cheaper Fast-tier models. */
 const COMPOSER_25_SLUG = "composer-2.5";
 
 // ── Per-model capability guard rails ─────────────────────────────────────────
@@ -77,7 +77,7 @@ export const MODEL_GUARDS: Record<string, ModelGuard> = {
       "Shadow Mode / Office Override",
     ],
     notes:
-      "SDK first rung (dossier ~95% Conf after on admin/T2). Escalate to Sonnet 4.6 → Opus 4.6 on fail.",
+      "After Mini/Flash on escalation ladder; before Sonnet/Opus (dossier ~95% on admin/T2).",
   },
   "gpt-5.4-mini": {
     maxRiskLevel: "safe",
@@ -347,7 +347,7 @@ export function parseLookupTable(): LookupRow[] {
 
 export function selectModel(taskPatterns: string[]): string {
   const table = parseLookupTable();
-  let bestModel = COMPOSER_25_SLUG;
+  let bestModel = "gpt-5.4-mini";
   let bestRank = 0;
 
   for (const pattern of taskPatterns) {
@@ -544,21 +544,39 @@ export function buildEscalationLadder(taskPatterns: string[]): string[] {
   return normalizeSdkLadder([...new Set(ladder)]);
 }
 
-/** Composer 2.5 first; Sonnet before Opus when both appear (user policy 2026-05-18). */
+/**
+ * Cheapest-first order; C2.5 before Sonnet/Opus; Sonnet before Opus.
+ * Does not prepend C2.5 ahead of Mini/Flash (cost policy 2026-05-18).
+ */
 function normalizeSdkLadder(ladder: string[]): string[] {
-  if (!MODEL_COST_RANK[COMPOSER_25_SLUG]) return ladder;
   const sonnet = "claude-sonnet-4-6";
   const opus = "claude-opus-4-6";
-  let out = ladder.filter((m) => m !== COMPOSER_25_SLUG);
-  if (out.length === 0) out = [sonnet, opus];
-  out = [COMPOSER_25_SLUG, ...out];
+  const c25 = COMPOSER_25_SLUG;
+  let out = [...new Set(ladder)];
+
+  const maxRank = out.length
+    ? Math.max(...out.map((m) => MODEL_COST_RANK[m] ?? 0))
+    : 0;
+  const sonnetRank = MODEL_COST_RANK[sonnet] ?? 99;
+
+  // Ensure we can escalate past mid-tier to C2.5 → Sonnet → Opus when needed
+  if (maxRank < sonnetRank) {
+    if (MODEL_COST_RANK[c25] && !out.includes(c25)) out.push(c25);
+    if (!out.includes(sonnet)) out.push(sonnet);
+    if (!out.includes(opus)) out.push(opus);
+  } else {
+    const premIdx = out.findIndex((m) => m === sonnet || m === opus);
+    if (premIdx >= 0 && MODEL_COST_RANK[c25] && !out.includes(c25)) {
+      out.splice(premIdx, 0, c25);
+    }
+  }
+
   if (out.includes(opus) && !out.includes(sonnet)) {
     const i = out.indexOf(opus);
     out.splice(i, 0, sonnet);
   }
-  for (const m of [sonnet, opus]) {
-    if (!out.includes(m)) out.push(m);
-  }
+
+  out.sort((a, b) => (MODEL_COST_RANK[a] ?? 99) - (MODEL_COST_RANK[b] ?? 99));
   return [...new Set(out)];
 }
 

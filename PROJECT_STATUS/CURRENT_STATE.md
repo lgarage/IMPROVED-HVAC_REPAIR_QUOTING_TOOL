@@ -23,7 +23,7 @@ None.
 ## Immediate Next Step
 
 - **Product queue:** **KI-006** past-day job UX (issues-found tracker **#5** next).
-- **Tonight at bedtime only:** `cd tools` → `npm start` → `/a` (Phase 64 only). Each slice tries **Composer 2.5** first, then Sonnet/Opus on fail. Do not run before bed unless user asks.
+- **Tonight at bedtime only:** `cd tools` → `npm start` → `/a` (Phase 64 only). Cheapest model per slice first (Mini/Flash), escalates on fail (→ C2.5 → Sonnet → Opus). Do not run before bed unless user asks.
 - **After overnight run:** `.build_state.json` + runner log; reconcile what changed.
 - **Optional:** KI-004 URL-patch on outbox drain; compiled report edit persistence.
 

@@ -9,17 +9,17 @@
 
 | Pattern | Cheapest OK | Cheapest Failed | Floor | Verified | Last verified | Notes |
 |---------|-------------|-----------------|-------|----------|---------------|-------|
-| UI container / HTML+CSS layout | composer-2.5 | gpt-5.4-mini | — | no | 2026-05-18 | SDK: C2.5 first rung; was composer-2 |
+| UI container / HTML+CSS layout | composer-2 | gpt-5.4-mini | — | yes | 2026-05-15 | 41a: mini failed, spark passed; 54c: composer-2 passed |
 | CSS-only restyle / theme | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (nano-medium invalid); unverified — test on next match |
-| Single-file JS bugfix | composer-2.5 | — | — | no | 2026-05-18 | SDK: C2.5 first; was composer-2 |
-| Multi-file UI feature (no Firestore writes) | composer-2.5 | claude-opus-4-6 | — | no | 2026-05-18 | SDK: try C2.5 before Sonnet |
+| Single-file JS bugfix | composer-2 | — | — | yes | 2026-05-13 | From outcome log: shadow consent race fix |
+| Multi-file UI feature (no Firestore writes) | gpt-5.4-mini | — | — | no | 2026-05-18 | SDK: try Mini first; escalate → C2.5 → Sonnet |
 | New JS module (IIFE, no Firestore) | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (mini-medium invalid); re-verify on next match |
 | Speech API / media capture integration | claude-sonnet-4-6 | — | — | yes | 2026-05-15 | 41b, 44a: sonnet passed; no cheaper tried |
-| Cross-module wiring (3+ files) | composer-2.5 | — | — | no | 2026-05-18 | SDK: try C2.5 before Sonnet |
+| Cross-module wiring (3+ files) | gpt-5.4-mini | — | — | no | 2026-05-18 | SDK: try Mini first; escalate on fail |
 | Pure regex / dictionary logic | gpt-5.3-codex-spark | — | — | yes | 2026-05-15 | 43a: spark passed first try |
-| Gemini prompt integration | composer-2.5 | — | composer-2.5 | no | 2026-05-18 | SDK: C2.5 first; escalate to Opus on fail |
+| Gemini prompt integration | gpt-5.4-mini | — | — | no | 2026-05-18 | SDK: cheap first; C2.5 before Sonnet/Opus on ladder |
 | Firestore multi-read (query, no writes) | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (mini-medium invalid); re-verify on next match |
-| Firestore write path (new collection/doc) | composer-2.5 | — | composer-2.5 | no | 2026-05-18 | SDK: C2.5 → Sonnet → Opus; cleared opus-as-failed floor |
+| Firestore write path (new collection/doc) | gpt-5.4-mini | — | — | no | 2026-05-18 | SDK: Mini first; step up on fail (do not floor at Opus) |
 | Firestore rules / auth changes | claude-opus-4-6 | — | claude-opus-4-6 | yes | 2026-05-15 | 59b: opus passed; floor = Vertex Core |
 | Firebase config / project migration | claude-opus-4-6 | — | claude-opus-4-6 | no | 2026-05-13 | Vertex Core rule — no matching slice yet |
 | Dispatcher modal (read-only Firestore) | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (mini-medium invalid); unverified |
