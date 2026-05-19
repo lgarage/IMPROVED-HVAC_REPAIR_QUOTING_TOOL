@@ -6,15 +6,13 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 64 AI Quote Pipeline — **SDK ready tonight:** 5 slices queued (64a→64b→64c→64e→64d), preflight ✓, passed Phase 66 archived out of active queue. Phase 63 live. KI-004 core shipped.
-- **Last shipped (2026-05-18 20:56:18 CDT):** SDK build runner completed 5 slice(s) at 2026-05-18 20:56:18 CDT. Passed: 64d, 64a, 64b, 64c, 64e.
-- **Prior (2026-05-18):** Admin checklist cards + editor; admin full AI chat; debug overlay drag.
-- **Prior (2026-05-18):** Admin workspace full AI (`VCAdminAgent` bypasses intent engine); admin job tech roster picker.
-- **Prior (2026-05-18):** Admin job create assigned-tech dropdown loads full roster; voice search CRM numbers.
+- **Active Phase:** Phase 64 foundation **shipped** (64a–64e passed 2026-05-18). Phase 63 live. KI-004 core shipped. **Product queue:** KI-006 past-day job UX.
+- **Last shipped (2026-05-19):** Status reconciliation — issues-found tracker + `CURRENT_STATE` / `ROADMAP` / `KNOWN_ISSUES` aligned to Slack + git + `.build_state.json`.
+- **Prior (2026-05-18 20:56:18 CDT):** SDK build runner — Phase 64 slices 64a, 64b, 64c, 64d, 64e passed.
+- **Prior (2026-05-18):** Admin checklist cards + editor; admin full AI chat; debug overlay drag; KI-008 logout spinner.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
-- **Immediate Next Step:** Test the deployed changes on device. Verify slices 64d, 64a, 64b, 64c, 64e work correctly in the field app. Check for regressions.
 
 ## Active Blocker
 
@@ -22,12 +20,12 @@ None.
 
 ## Immediate Next Step
 
-- **Product queue:** **KI-006** past-day job UX (issues-found tracker **#5** next).
-- **Tonight at bedtime only:** `cd tools` → `npm start` → `/a` (Phase 64 only). Cheapest eligible model first; **pattern Floor** skips doomed Mini/Flash (e.g. 64a starts at **composer-2.5**). Escalates on fail; each slice updates **`MODEL_LOOKUP.md`** + appends **`MODEL_DOSSIER.md`** (SDK automated row). Do not run before bed unless user asks.
-- **After overnight run:** `.build_state.json` + runner log; reconcile what changed.
-- **Optional:** KI-004 URL-patch on outbox drain; compiled report edit persistence.
+- **Product queue:** **KI-006** past-day job UX — issues-found tracker **#5** (implement card tap → report-first → timestamped addendum notes).
+- **Device verify:** Phase 64 quote migration + vendor directory on phone/dispatcher; finish build-runner morning checklist items 3–5 (`.build_state.json` — 2/5 passed 2026-05-19).
+- **Triage:** KI-009 — May 19 `#issues-found` audio + screenshots (tracker **#11**).
+- **Optional:** KI-004 URL-patch on outbox drain; tracker **#7** screen glitch if user reproduces.
 
-> **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
+> **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker canvas: `canvases/issues-found-fix-tracker.canvas.tsx`.
 
 ## Update Protocol
 

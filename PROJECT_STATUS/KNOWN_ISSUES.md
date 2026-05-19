@@ -22,6 +22,16 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ---
 
+### KI-009 — May 19 field reports (untriaged)
+
+- **Filed:** 2026-05-19 (reconciliation pass — `#issues-found` posts with no text caption).
+- **Severity:** Unknown until triaged.
+- **Reports:** One audio clip (~10:49 CDT) + three iOS screenshots posted same morning; user did not describe the issue in text.
+- **Status:** Open — listen/view in Slack, describe repro, then either close as duplicate, fold into KI-006/#7, or promote to a new fix with tracker item.
+- **Tracker:** issues-found **#11**.
+
+---
+
 ### KI-004 — Field-app photo uploads are silently dropped offline (Phase 33 follow-up)
 
 - **Filed:** 2026-04-25 (post-Phase 33 audit triggered by user spec "if a technician does not have a signal when they are servicing a piece of equipment, that the information will be stored in the user's phone, [and] synced when signal returns"). Scope-checked with user 2026-04-25; user chose **audit-only** treatment (file this entry + ADR-012 + ROADMAP pointer; defer implementation) and asked that the eventual fix ship as a **KI-002-style follow-up patch on Phase 33**, not a new phase.
