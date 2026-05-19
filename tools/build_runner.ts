@@ -29,6 +29,7 @@ import {
 } from "./model_selector";
 import { validateSlice } from "./validator";
 import { buildPrompt } from "./prompt_builder";
+import { appendDossierFromSlice, commitSdkLearnings } from "./dossier_logger";
 
 const MAX_ACTIVE_SLICES = 20;
 
@@ -506,6 +507,7 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
   }
 
   let lastResult: RunAttemptResult | null = null;
+  const failedModels: string[] = [];
 
   const fileCount = (slice.filesToCreate?.length || 0) + (slice.filesToModify?.length || 0);
 
@@ -583,9 +585,19 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
       recentSliceDurations.push(sliceDuration);
       if (recentSliceDurations.length > 5) recentSliceDurations.shift();
       log(`✓ Slice ${slice.id} PASSED on ${model} (${Math.round(sliceDuration / 1000)}s)`);
+      appendDossierFromSlice(slice, {
+        passed: true,
+        model,
+        attemptIndex: i,
+        ladder,
+        failedModels: failedModels.length ? [...failedModels] : undefined,
+      });
+      commitSdkLearnings(slice.id, log);
       currentSliceId = "";
       return true;
     }
+
+    failedModels.push(model);
 
     // Record this model's failure for every pattern on the slice
     for (const pattern of slice.patterns) {
@@ -618,6 +630,15 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
   recentSliceDurations.push(sliceDuration);
   if (recentSliceDurations.length > 5) recentSliceDurations.shift();
   log(`✗✗ Slice ${slice.id} FAILED after ${ladder.length} attempts (${ladder.join(" → ")}) (${Math.round(sliceDuration / 1000)}s)`);
+  const lastModel = ladder[ladder.length - 1] || "unknown";
+  appendDossierFromSlice(slice, {
+    passed: false,
+    model: lastModel,
+    attemptIndex: ladder.length - 1,
+    ladder,
+    failReason: lastResult?.errors?.[0],
+  });
+  commitSdkLearnings(slice.id, log);
   currentSliceId = "";
   return false;
 }

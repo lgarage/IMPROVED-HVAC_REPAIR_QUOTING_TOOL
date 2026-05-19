@@ -1,7 +1,7 @@
 # Model Lookup Table (Automation)
 
 > **Purpose:** Compact lookup for the SDK build runner. One row per task pattern. Max 50 rows.
-> **Updated by:** `tools/build_runner.ts` after each slice. Manual edits welcome.
+> **Updated by:** `tools/build_runner.ts` after each slice. Same run also appends **`MODEL_DOSSIER.md` § Task outcome log** (via `dossier_logger.ts`) for live-session model gates. Manual edits welcome.
 > **Rule:** When a cheaper model succeeds on a pattern, update "Cheapest OK." When a model fails, record in "Cheapest Failed" and ratchet up unverified rows. Never lower below "Floor."
 > **Verified:** `yes` = a model at this tier actually passed for this pattern. `no` = optimistic guess, never tested at this tier.
 > **Cheapest Failed:** The most expensive model that FAILED for this pattern. When **Verified** = yes, SDK skips cheaper tiers (starts at next rung up).

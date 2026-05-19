@@ -79,6 +79,7 @@ The tool learns: if a cheap model works, it remembers. If it fails, it bumps up.
 | `build_runner.ts` | The main tool (this is what you run) |
 | `slices.ts` | All 18 slice definitions (what to build, in what order) |
 | `model_selector.ts` | Picks the cheapest model, builds escalation ladder |
+| `dossier_logger.ts` | After each slice, appends § Task outcome log row to `MODEL_DOSSIER.md` |
 | `validator.ts` | Checks if the build worked (syntax, HTML, exports) |
 | `prompt_builder.ts` | Generates the prompt each AI agent receives |
 | `package.json` | Dependencies (Cursor SDK, TypeScript) |
@@ -91,4 +92,5 @@ The tool learns: if a cheap model works, it remembers. If it fails, it bumps up.
 |------|-----------|
 | `PROJECT_STATUS/NEW_FIELDTECH_UX_PLAN.md` | Full build plan (phases, scope, dependencies) |
 | `PROJECT_STATUS/MODEL_LOOKUP.md` | Model-per-task-pattern table (the tool reads + updates this) |
+| `PROJECT_STATUS/MODEL_DOSSIER.md` | Live-session calibration log — SDK appends one row per slice pass/fail |
 | `PROJECT_STATUS/new_fieldtech_ux.md` | The original spec (moves to ARCHIVE when done) |

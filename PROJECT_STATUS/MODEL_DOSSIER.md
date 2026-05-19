@@ -49,7 +49,7 @@ _Avg **Conf after %** from § Outcome log (active table, May 2026). Not lab benc
 
 **C2.5 gaps (use Sonnet/Opus):** `build_runner.ts`, hard UI/layout, net-new Firestore writes. **Refresh:** re-aggregate when **≥3** new log rows touch a cell (do not duplicate rows here).
 
-**SDK runner (2026-05-18):** **Cheapest-first** per `MODEL_LOOKUP` pattern; escalate on fail. `composer-2.5` runs **before** Sonnet/Opus, **after** Mini/Flash.
+**SDK runner (2026-05-18):** **Cheapest-first** per `MODEL_LOOKUP` pattern; escalate on fail. `composer-2.5` runs **before** Sonnet/Opus, **after** Mini/Flash. **Auto-log:** each slice pass/fail appends a row below (tag `SDK automated` in Note) — live sessions grep these with `MODEL_LOOKUP` pattern rows.
 
 ---
 

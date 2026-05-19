@@ -23,7 +23,7 @@ None.
 ## Immediate Next Step
 
 - **Product queue:** **KI-006** past-day job UX (issues-found tracker **#5** next).
-- **Tonight at bedtime only:** `cd tools` → `npm start` → `/a` (Phase 64 only). Cheapest eligible model first; **pattern Floor** skips doomed Mini/Flash (e.g. 64a starts at **composer-2.5**). Escalates on fail. Do not run before bed unless user asks.
+- **Tonight at bedtime only:** `cd tools` → `npm start` → `/a` (Phase 64 only). Cheapest eligible model first; **pattern Floor** skips doomed Mini/Flash (e.g. 64a starts at **composer-2.5**). Escalates on fail; each slice updates **`MODEL_LOOKUP.md`** + appends **`MODEL_DOSSIER.md`** (SDK automated row). Do not run before bed unless user asks.
 - **After overnight run:** `.build_state.json` + runner log; reconcile what changed.
 - **Optional:** KI-004 URL-patch on outbox drain; compiled report edit persistence.
 
