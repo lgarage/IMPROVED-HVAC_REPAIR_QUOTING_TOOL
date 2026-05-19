@@ -14,7 +14,7 @@ import * as readline from "readline";
 import { execSync } from "child_process";
 import { SLICES, type Slice } from "./slices";
 import { ARCHIVED_SLICES } from "./slices_archive";
-import { selectModel, updateLookupRow, buildEscalationLadder, MODEL_COST_RANK, checkModelGuard, recordModelGuardFailure, resolvedGuard, MODEL_GUARDS } from "./model_selector";
+import { selectModel, updateLookupRow, buildEscalationLadder, MODEL_COST_RANK, COMPOSER_25_SLUG, checkModelGuard, recordModelGuardFailure, resolvedGuard, MODEL_GUARDS } from "./model_selector";
 import { validateSlice } from "./validator";
 import { buildPrompt } from "./prompt_builder";
 
@@ -485,7 +485,8 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
     // Per-model guard check — skip this rung if the model's guard forbids it.
     const guardResult = checkModelGuard(model, slice.riskLevel || "safe", fileCount, slice.patterns);
     if (!guardResult.allowed) {
-      log(`🛡  Guard blocked ${model} for slice ${slice.id}: ${guardResult.reason}`);
+      const skipNext = ladder[i + 1] ? ` → next: ${ladder[i + 1]}` : " (no more rungs)";
+      log(`🛡  Guard blocked ${model} for slice ${slice.id}: ${guardResult.reason}${skipNext}`);
       continue;
     }
 
@@ -567,9 +568,16 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
     recordModelGuardFailure(model, slice.id, slice.patterns, failReason);
 
     if (i < ladder.length - 1) {
-      log(`✗ ${model} failed for slice ${slice.id}. Escalating to ${ladder[i + 1]}...`);
+      const next = ladder[i + 1];
+      log(
+        `✗ ${model} failed for slice ${slice.id} (rung ${i + 1}/${ladder.length}). ` +
+          `Escalating → ${next} (rung ${i + 2}/${ladder.length})...`
+      );
+      if (lastResult?.errors?.length) {
+        log(`   Reason: ${lastResult.errors[0]?.slice(0, 300)}`);
+      }
     } else {
-      log(`✗ ${model} failed for slice ${slice.id}. No more models to try.`);
+      log(`✗ ${model} failed for slice ${slice.id}. No more models in ladder.`);
     }
   }
 
@@ -1708,6 +1716,52 @@ async function runPreflight(): Promise<boolean> {
     console.log(`  ✗ Unverified model slugs (will fail at runtime): ${unverifiedSlugs.join(", ")}`);
     console.log("    Fix: remove these from MODEL_COST_RANK in model_selector.ts,");
     console.log("    or add them to VERIFIED_SDK_SLUGS after confirming via Cursor.models.list().");
+    allGood = false;
+  }
+
+  // 12. Escalation ladders — C2.5 first + at least one higher rung (Sonnet/Opus path)
+  let ladderOk = true;
+  const pendingSlices = SLICES.filter((s) => {
+    if (!stateExists) return true;
+    const st = loadState().slices[s.id]?.status;
+    return st !== "passed";
+  });
+  for (const slice of pendingSlices) {
+    const raw = buildEscalationLadder(slice.patterns);
+    const riskFloor = RISK_LEVEL_FLOOR[slice.riskLevel || "safe"] || "";
+    const floorRank = riskFloor ? MODEL_COST_RANK[riskFloor] || 0 : 0;
+    const ladder = riskFloor
+      ? raw.filter((m) => (MODEL_COST_RANK[m] || 0) >= floorRank)
+      : raw;
+    if (ladder[0] !== COMPOSER_25_SLUG) {
+      console.log(`  ✗ Slice ${slice.id}: ladder must start with ${COMPOSER_25_SLUG}, got ${ladder[0] || "(empty)"}`);
+      ladderOk = false;
+    }
+    if (ladder.length < 2) {
+      console.log(`  ✗ Slice ${slice.id}: ladder has only ${ladder.length} rung — no escalation path`);
+      ladderOk = false;
+    }
+    const c25Rank = MODEL_COST_RANK[COMPOSER_25_SLUG] || 0;
+    const hasHigher = ladder.some((m) => (MODEL_COST_RANK[m] || 0) > c25Rank);
+    if (!hasHigher) {
+      console.log(`  ✗ Slice ${slice.id}: no model ranked above ${COMPOSER_25_SLUG} in ladder`);
+      ladderOk = false;
+    }
+  }
+  if (pendingSlices.length === 0) {
+    console.log("  ✓ Escalation ladders (no pending slices)");
+  } else if (ladderOk) {
+    console.log(
+      `  ✓ Escalation ladders OK (${pendingSlices.length} pending) — ${COMPOSER_25_SLUG} first, then escalates on fail`
+    );
+    for (const slice of pendingSlices.slice(0, 3)) {
+      const ladder = buildEscalationLadder(slice.patterns);
+      console.log(`      ${slice.id}: ${ladder.join(" → ")}`);
+    }
+    if (pendingSlices.length > 3) {
+      console.log(`      … +${pendingSlices.length - 3} more (run /plan for full list)`);
+    }
+  } else {
     allGood = false;
   }
 
