@@ -366,6 +366,38 @@ body.vc-override-pending .vc-office-override-global-strip {
   align-items: center;
   gap: 6px;
   margin-bottom: 4px;
+  min-height: 40px;
+  padding: 2px 0;
+  cursor: grab;
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+.vc-debug-overlay__head:active,
+.vc-debug-overlay--dragging .vc-debug-overlay__head {
+  cursor: grabbing;
+}
+.vc-debug-overlay__drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  margin: -4px 2px -4px -4px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #94a3b8;
+  font-size: 16px;
+  line-height: 1;
+  letter-spacing: -2px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.vc-debug-overlay__drag-handle:active {
+  background: rgba(56, 189, 248, 0.28);
 }
 .vc-debug-overlay__title {
   font-weight: 700;
@@ -373,8 +405,12 @@ body.vc-override-pending .vc-office-override-global-strip {
   font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  flex: 1;
+  min-width: 0;
   cursor: grab;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .vc-debug-overlay--dragging {
   cursor: grabbing !important;
@@ -386,9 +422,12 @@ body.vc-override-pending .vc-office-override-global-strip {
   color: #38bdf8;
   border: 1px solid rgba(56, 189, 248, 0.45);
   font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 3px;
+  padding: 6px 8px;
+  min-height: 32px;
+  min-width: 32px;
+  border-radius: 6px;
   cursor: pointer;
+  touch-action: manipulation;
 }
 .vc-debug-overlay__btn:active {
   background: rgba(56, 189, 248, 0.35);
@@ -6828,6 +6867,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
      without a Mac for remote DevTools. -->
 <div id="vcDebugOverlay" class="vc-debug-overlay" hidden>
   <div class="vc-debug-overlay__head">
+    <span class="vc-debug-overlay__drag-handle" aria-label="Drag to move" title="Drag to move">⠿</span>
     <span class="vc-debug-overlay__title">VC DEBUG</span>
     <span class="vc-debug-overlay__actions">
       <button type="button" class="vc-debug-overlay__btn" id="vcDebugCopyBtn">Copy</button>
@@ -7834,7 +7874,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "AdminChecklistUI-2026-05-18";
+window.VC_BUILD = "DebugOverlayDrag-2026-05-18";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
@@ -7874,6 +7914,7 @@ const VC_ADMIN_PIN = "1234"; // replace with env-configured value before product
         inj.className = "vc-debug-overlay";
         inj.innerHTML =
           '<div class="vc-debug-overlay__head">' +
+          '<span class="vc-debug-overlay__drag-handle" aria-label="Drag to move" title="Drag to move">⠿</span>' +
           '<span class="vc-debug-overlay__title">VC DEBUG</span>' +
           '<span class="vc-debug-overlay__actions">' +
           '<button type="button" class="vc-debug-overlay__btn" id="vcDebugCopyBtn">Copy</button>' +
@@ -7890,13 +7931,17 @@ const VC_ADMIN_PIN = "1234"; // replace with env-configured value before product
             "box-shadow:0 2px 8px rgba(0,0,0,0.45);pointer-events:auto;white-space:pre-wrap;" +
             "word-break:break-word;user-select:text;-webkit-user-select:text}" +
             ".vc-debug-overlay__head{display:flex;justify-content:space-between;align-items:center;" +
-            "gap:6px;margin-bottom:4px}" +
-            ".vc-debug-overlay__title{font-weight:700;color:#38bdf8;font-size:10px;" +
+            "gap:6px;margin-bottom:4px;min-height:40px;padding:2px 0;cursor:grab;touch-action:none}" +
+            ".vc-debug-overlay__drag-handle{display:flex;align-items:center;justify-content:center;" +
+            "flex-shrink:0;width:36px;min-width:36px;height:36px;margin:-4px 2px -4px -4px;" +
+            "border-radius:6px;background:rgba(56,189,248,0.12);color:#94a3b8;font-size:16px;" +
+            "cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}" +
+            ".vc-debug-overlay__title{font-weight:700;color:#38bdf8;font-size:10px;flex:1;" +
             "letter-spacing:0.04em;text-transform:uppercase;cursor:grab;touch-action:none}" +
             ".vc-debug-overlay--dragging{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}" +
             ".vc-debug-overlay__btn{background:rgba(56,189,248,0.15);color:#38bdf8;" +
-            "border:1px solid rgba(56,189,248,0.45);font-size:10px;padding:1px 6px;" +
-            "border-radius:3px;cursor:pointer}" +
+            "border:1px solid rgba(56,189,248,0.45);font-size:10px;padding:6px 8px;" +
+            "min-height:32px;min-width:32px;border-radius:6px;cursor:pointer;touch-action:manipulation}" +
             ".vc-debug-overlay__btn:active{background:rgba(56,189,248,0.35)}" +
             ".vc-debug-overlay__actions{display:flex;gap:4px;align-items:center;flex-shrink:0}" +
             ".vc-debug-overlay--minimized #vcDebugOverlayBody{display:none!important}" +
@@ -7939,57 +7984,74 @@ const VC_ADMIN_PIN = "1234"; // replace with env-configured value before product
       } catch (e3) {}
       syncVcDebugToggleUi();
     }
-    /* Draggable overlay — hold the "VC DEBUG" title and drag to any screen position.
-       Falls back gracefully if sessionStorage is unavailable. */
+    /* Draggable overlay — drag from grip, title, or header bar (not Copy/+/− buttons). */
     (function initVcDebugDrag() {
-      var titleEl = el.querySelector(".vc-debug-overlay__title");
-      if (!titleEl) return;
+      var headEl = el.querySelector(".vc-debug-overlay__head");
+      if (!headEl) return;
       var startX = 0, startY = 0, origLeft = 0, origTop = 0, dragging = false;
       var POS_KEY = "vc_debug_overlay_pos";
+      function canStartDragFrom(target) {
+        if (!target || !headEl.contains(target)) return false;
+        if (target.closest && target.closest(".vc-debug-overlay__btn")) return false;
+        return true;
+      }
       try {
         var saved = sessionStorage.getItem(POS_KEY);
         if (saved) {
           var sp = JSON.parse(saved);
-          el.style.right = "auto"; el.style.bottom = "auto";
-          el.style.left = Math.max(0, Math.min(sp.left, window.innerWidth  - 40)) + "px";
-          el.style.top  = Math.max(0, Math.min(sp.top,  window.innerHeight - 20)) + "px";
+          el.style.right = "auto";
+          el.style.bottom = "auto";
+          el.style.left = Math.max(0, Math.min(sp.left, window.innerWidth - 40)) + "px";
+          el.style.top = Math.max(0, Math.min(sp.top, window.innerHeight - 20)) + "px";
         }
       } catch (ed0) {}
       function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
       function dragStart(cx, cy) {
         var r = el.getBoundingClientRect();
-        startX = cx; startY = cy; origLeft = r.left; origTop = r.top;
+        startX = cx;
+        startY = cy;
+        origLeft = r.left;
+        origTop = r.top;
         dragging = true;
-        el.style.right = "auto"; el.style.bottom = "auto";
-        el.style.left = origLeft + "px"; el.style.top = origTop + "px";
+        el.style.right = "auto";
+        el.style.bottom = "auto";
+        el.style.left = origLeft + "px";
+        el.style.top = origTop + "px";
         el.classList.add("vc-debug-overlay--dragging");
       }
       function dragMove(cx, cy) {
         if (!dragging) return;
-        el.style.left = clamp(origLeft + cx - startX, 0, window.innerWidth  - el.offsetWidth)  + "px";
-        el.style.top  = clamp(origTop  + cy - startY, 0, window.innerHeight - el.offsetHeight) + "px";
+        el.style.left = clamp(origLeft + cx - startX, 0, window.innerWidth - el.offsetWidth) + "px";
+        el.style.top = clamp(origTop + cy - startY, 0, window.innerHeight - el.offsetHeight) + "px";
       }
       function dragEnd() {
         if (!dragging) return;
         dragging = false;
         el.classList.remove("vc-debug-overlay--dragging");
-        try { sessionStorage.setItem(POS_KEY, JSON.stringify({ left: parseInt(el.style.left) || 0, top: parseInt(el.style.top) || 0 })); } catch (ed1) {}
+        try {
+          sessionStorage.setItem(POS_KEY, JSON.stringify({
+            left: parseInt(el.style.left, 10) || 0,
+            top: parseInt(el.style.top, 10) || 0
+          }));
+        } catch (ed1) {}
       }
-      titleEl.addEventListener("touchstart", function(e) {
-        if (e.touches.length !== 1) return;
-        dragStart(e.touches[0].clientX, e.touches[0].clientY);
+      headEl.addEventListener("pointerdown", function (e) {
+        if (!canStartDragFrom(e.target)) return;
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        dragStart(e.clientX, e.clientY);
+        try { headEl.setPointerCapture(e.pointerId); } catch (capErr) {}
         e.preventDefault();
-      }, { passive: false });
-      document.addEventListener("touchmove", function(e) {
-        if (!dragging || e.touches.length !== 1) return;
-        dragMove(e.touches[0].clientX, e.touches[0].clientY);
+      });
+      headEl.addEventListener("pointermove", function (e) {
+        if (!dragging) return;
+        dragMove(e.clientX, e.clientY);
         e.preventDefault();
-      }, { passive: false });
-      document.addEventListener("touchend",    dragEnd, { passive: true });
-      document.addEventListener("touchcancel", dragEnd, { passive: true });
-      titleEl.addEventListener("mousedown", function(e) { dragStart(e.clientX, e.clientY); e.preventDefault(); });
-      document.addEventListener("mousemove", function(e) { if (dragging) dragMove(e.clientX, e.clientY); });
-      document.addEventListener("mouseup", dragEnd);
+      });
+      headEl.addEventListener("pointerup", function (e) {
+        dragEnd();
+        try { headEl.releasePointerCapture(e.pointerId); } catch (capErr2) {}
+      });
+      headEl.addEventListener("pointercancel", dragEnd);
     }());
     function snapshot() {
       var lines = [];
