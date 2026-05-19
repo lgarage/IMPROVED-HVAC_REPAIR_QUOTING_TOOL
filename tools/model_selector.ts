@@ -24,18 +24,22 @@ const GUARD_OVERRIDES_PATH = path.join(__dirname, "model_guard_overrides.json");
 // invented suffixes. Verified 2026-05-16 from SDK error available-models list.
 const MODEL_COST_RANK: Record<string, number> = {
   "composer-2": 2,
-  "gpt-5.4-mini": 3,           // verified SDK slug
-  "gemini-3-flash": 4,
-  "gpt-5-mini": 5,
-  "gpt-5.3-codex-spark": 6,
-  "claude-sonnet-4-6": 7,
-  "kimi-k2.5": 8,
-  "gpt-5.3-codex": 9,
-  "gpt-5.2": 10,
-  "gpt-5.4": 11,               // verified SDK slug
-  "gpt-5.5": 12,               // verified SDK slug
-  "claude-opus-4-6": 13,
+  "composer-2.5": 3,           // verified SDK slug — default first rung before Sonnet/Opus (2026-05-18)
+  "gpt-5.4-mini": 4,
+  "gemini-3-flash": 5,
+  "gpt-5-mini": 6,
+  "gpt-5.3-codex-spark": 7,
+  "claude-sonnet-4-6": 8,
+  "kimi-k2.5": 9,
+  "gpt-5.3-codex": 10,
+  "gpt-5.2": 11,
+  "gpt-5.4": 12,
+  "gpt-5.5": 13,
+  "claude-opus-4-6": 14,
 };
+
+/** SDK policy: always try Composer 2.5 before Sonnet/Opus unless already first. */
+const COMPOSER_25_SLUG = "composer-2.5";
 
 // ── Per-model capability guard rails ─────────────────────────────────────────
 // maxRiskLevel: highest slice riskLevel this model is allowed to run.
@@ -64,6 +68,16 @@ export const MODEL_GUARDS: Record<string, ModelGuard> = {
       "Cross-module wiring (3+ files)",
     ],
     notes: "T0-T1 mechanical. Known reasoning weakness — skip multi-step logic.",
+  },
+  "composer-2.5": {
+    maxRiskLevel: "critical",
+    maxFiles: 15,
+    forbiddenPatterns: [
+      "Firebase config / project migration",
+      "Shadow Mode / Office Override",
+    ],
+    notes:
+      "SDK first rung (dossier ~95% Conf after on admin/T2). Escalate to Sonnet 4.6 → Opus 4.6 on fail.",
   },
   "gpt-5.4-mini": {
     maxRiskLevel: "safe",
@@ -333,7 +347,7 @@ export function parseLookupTable(): LookupRow[] {
 
 export function selectModel(taskPatterns: string[]): string {
   const table = parseLookupTable();
-  let bestModel = "composer-2";
+  let bestModel = COMPOSER_25_SLUG;
   let bestRank = 0;
 
   for (const pattern of taskPatterns) {
@@ -527,7 +541,25 @@ export function buildEscalationLadder(taskPatterns: string[]): string[] {
     if (!ladder.includes(name)) ladder.push(name);
   }
 
-  return [...new Set(ladder)];
+  return normalizeSdkLadder([...new Set(ladder)]);
 }
 
-export { MODEL_COST_RANK };
+/** Composer 2.5 first; Sonnet before Opus when both appear (user policy 2026-05-18). */
+function normalizeSdkLadder(ladder: string[]): string[] {
+  if (!MODEL_COST_RANK[COMPOSER_25_SLUG]) return ladder;
+  const sonnet = "claude-sonnet-4-6";
+  const opus = "claude-opus-4-6";
+  let out = ladder.filter((m) => m !== COMPOSER_25_SLUG);
+  if (out.length === 0) out = [sonnet, opus];
+  out = [COMPOSER_25_SLUG, ...out];
+  if (out.includes(opus) && !out.includes(sonnet)) {
+    const i = out.indexOf(opus);
+    out.splice(i, 0, sonnet);
+  }
+  for (const m of [sonnet, opus]) {
+    if (!out.includes(m)) out.push(m);
+  }
+  return [...new Set(out)];
+}
+
+export { MODEL_COST_RANK, COMPOSER_25_SLUG };

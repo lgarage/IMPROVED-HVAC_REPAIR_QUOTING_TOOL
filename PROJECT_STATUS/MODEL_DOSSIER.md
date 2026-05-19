@@ -49,6 +49,8 @@ _Avg **Conf after %** from § Outcome log (active table, May 2026). Not lab benc
 
 **C2.5 gaps (use Sonnet/Opus):** `build_runner.ts`, hard UI/layout, net-new Firestore writes. **Refresh:** re-aggregate when **≥3** new log rows touch a cell (do not duplicate rows here).
 
+**SDK runner (2026-05-18):** `composer-2.5` is the **first rung** on every slice (`tools/model_selector.ts` + `RISK_LEVEL_FLOOR`); escalates to Sonnet 4.6 → Opus 4.6 on fail.
+
 ---
 
 ## Task outcome log (calibration)
@@ -352,6 +354,7 @@ If `.cursorrules` says **HIGH / UNCERTAIN → stop and escalate**, that **overri
 
 ## Changelog
 
+- **2026-05-18:** **SDK runner:** `composer-2.5` added to `MODEL_COST_RANK`, guards, preflight slugs; first rung before Sonnet/Opus; `RISK_LEVEL_FLOOR` lowered to C2.5 for review/critical slices.
 - **2026-05-18:** **§ Model scorecard (lean)** — one comparison table (Conf after % by job shape); trimmed Composer 2.5 enabled-model blurb to point here.
 - **2026-05-18:** **Outcome log — log failures too.** User directive: append rows for substantive work whether **ok** or not; **§ Logging discipline** item 6. Backfilled admin checklist cluster (`partial→ok`, Conf after 90%), VC DEBUG drag, tracker #4 close.
 - **2026-05-15:** **Fast-tier expansion & Composer 2 demotion**. Added GPT-5.4 Nano/Mini, Gemini 3 Flash, GPT-5 Mini, Kimi K2.5. Haiku 4.5 was tried, then removed from rotation after the dossier rewrite truncation incident. Reasoning: Composer 2 failure on 2026-05-15 auto-scroll task (CSS reasoning gap) marked as net time-waster despite speed. New models offer better T0–T1 reasoning for cheaper cost than Sonnet 4.6. Tier quick card updated; "switch to" table rebuilt around rotation strategy. Kimi K2.5 experimental at T2 only until signal builds. Outcome log row added to document Composer 2 weakness.

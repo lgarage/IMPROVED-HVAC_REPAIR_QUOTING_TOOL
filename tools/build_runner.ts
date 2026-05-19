@@ -24,8 +24,8 @@ const MAX_ACTIVE_SLICES = 20;
 // running slices that require judgment or multi-file reasoning.
 const RISK_LEVEL_FLOOR: Record<string, string> = {
   safe: "",                    // no floor — model selector decides freely
-  review: "claude-sonnet-4-6", // Sonnet 4.6 minimum for review-tier slices
-  critical: "claude-opus-4-6", // Opus 4.6 minimum for critical slices
+  review: "composer-2.5",      // try C2.5 first; escalate to Sonnet/Opus on fail
+  critical: "composer-2.5",    // same — dossier scorecard backs C2.5 before premium tiers
 };
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -1694,7 +1694,7 @@ async function runPreflight(): Promise<boolean> {
   // The SDK rejects unknown slugs immediately; catching this at startup prevents wasted runs.
   // Update VERIFIED_SDK_SLUGS when Cursor.models.list() returns new entries.
   const VERIFIED_SDK_SLUGS = new Set([
-    "default", "composer-2", "gpt-5.5", "gpt-5.3-codex", "claude-sonnet-4-6",
+    "default", "composer-2", "composer-2.5", "gpt-5.5", "gpt-5.3-codex", "claude-sonnet-4-6",
     "claude-opus-4-7", "grok-4.3", "gpt-5.4", "claude-opus-4-6", "claude-opus-4-5",
     "gpt-5.2", "gemini-3.1-pro", "gpt-5.4-mini", "claude-haiku-4-5",
     "claude-sonnet-4-5", "gpt-5.2-codex", "gpt-5.1-codex-max", "gpt-5.1",
