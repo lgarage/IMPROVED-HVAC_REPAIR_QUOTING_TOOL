@@ -7834,7 +7834,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "AdminJobCustNum-2026-05-18";
+window.VC_BUILD = "AdminJobTechRoster-2026-05-18";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
@@ -9359,27 +9359,64 @@ function updateJobCardStatus(selectEl) {
       String(d.getDate()).padStart(2, '0');
   }
 
-  function populateTechSelect() {
+  function resolveAdminJobRosterNames() {
+    if (cachedTechnicianRoster && cachedTechnicianRoster.length) {
+      return Promise.resolve(dedupeSortTechNames(cachedTechnicianRoster.slice()));
+    }
+    var fetchFn = typeof fetchTechnicianRosterForShadow === 'function'
+      ? fetchTechnicianRosterForShadow
+      : fetchTechnicianRosterFromCloud;
+    return fetchFn().then(function (names) {
+      var sorted = dedupeSortTechNames(names || []);
+      if (sorted.length) cachedTechnicianRoster = sorted;
+      return sorted;
+    });
+  }
+
+  function fillAjsTechSelect(names, preferredTech) {
     var sel = document.getElementById('ajsTech');
     if (!sel) return;
     sel.innerHTML = '';
-    var loginSel = document.getElementById('loginTechSelect');
-    var names = [];
-    if (loginSel && loginSel.options.length) {
-      for (var i = 0; i < loginSel.options.length; i++) {
-        names.push(loginSel.options[i].value);
-      }
-    }
-    if (!names.length && currentTechProfile) {
-      names.push(currentTechProfile);
-    }
+    var placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = names.length ? '— Select technician —' : '(No roster loaded)';
+    sel.appendChild(placeholder);
     names.forEach(function (n) {
       var o = document.createElement('option');
       o.value = n;
       o.textContent = n;
       sel.appendChild(o);
     });
-    if (currentTechProfile) sel.value = currentTechProfile;
+    if (!names.length && currentTechProfile) {
+      var fallback = document.createElement('option');
+      fallback.value = currentTechProfile;
+      fallback.textContent = currentTechProfile;
+      sel.appendChild(fallback);
+    }
+    var pick = preferredTech || currentTechProfile || '';
+    if (pick) {
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === pick) {
+          sel.value = pick;
+          break;
+        }
+      }
+    }
+  }
+
+  function populateTechSelect(preferredTech) {
+    var sel = document.getElementById('ajsTech');
+    if (!sel) return Promise.resolve();
+    sel.disabled = true;
+    sel.innerHTML = '<option value="">Loading technicians…</option>';
+    return resolveAdminJobRosterNames().then(function (names) {
+      fillAjsTechSelect(names, preferredTech);
+      sel.disabled = false;
+    }).catch(function (err) {
+      console.error('[AdminJob] roster fetch', err);
+      fillAjsTechSelect([], preferredTech);
+      sel.disabled = false;
+    });
   }
 
   var adminJobCustomerMeta = null;
@@ -9521,10 +9558,11 @@ function updateJobCardStatus(selectEl) {
     document.getElementById('ajsIssue').value = '';
     document.getElementById('ajsJobType').value = 'Service Call';
     document.getElementById('ajsPriority').value = 'Normal';
-    populateTechSelect();
     sheet.classList.add('open');
     sheet.setAttribute('aria-hidden', 'false');
-    document.getElementById('ajsCustomer').focus();
+    populateTechSelect().then(function () {
+      document.getElementById('ajsCustomer').focus();
+    });
   }
 
   function closeSheet() {

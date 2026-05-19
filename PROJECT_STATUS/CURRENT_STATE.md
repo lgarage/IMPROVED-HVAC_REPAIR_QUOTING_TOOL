@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 AI Quote Pipeline — queue verified, preflight passed, ready for overnight SDK run (`/a`). Phase 66/63 live. KI-004 core shipped.
-- **Last shipped (2026-05-18):** Admin job create — voice search now carries CRM customer/location numbers (CST-/LOC-) into the created job, same as dispatcher; Google picks reconcile to existing CRM when address matches. `VC_BUILD: AdminJobCustNum-2026-05-18`.
-- **Prior (2026-05-18):** Phase 66 complete — admin login, job creation FAB, historical mode, checklist full-list, compile guard.
+- **Last shipped (2026-05-18):** Admin job create — assigned-tech dropdown now loads full roster from Firestore/Settings (not empty login shell); auto-login admins see all technicians. `VC_BUILD: AdminJobTechRoster-2026-05-18`.
+- **Prior (2026-05-18):** Admin job create — voice search CRM customer/location numbers; Phase 66 complete.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
