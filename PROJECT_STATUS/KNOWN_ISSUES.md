@@ -8,22 +8,6 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
-### KI-005 — Field schedule/board stuck on "Loading…"
-
-- **Filed:** 2026-05-18 (from `#issues-found` Slack triage; user report 2026-05-17 overnight + 2026-05-18 AM).
-- **Severity:** **High / blocking** — tech cannot load schedule; `#issues-found` item #2.
-- **Symptoms:** Schedule screen shows perpetual **Loading…**; may have coincided with overnight Cursor/agent run but **still reproduces next morning** per user.
-- **Investigation checklist:**
-  - On device: debug overlay `BUILD:` line — confirm latest deploy vs stale `technician/index.html` cache (see Environmental Gotchas → entry-point HTML).
-  - Console / `__vcWriteFailures` for Firestore listener or roster fetch errors.
-  - Trace schedule init in `technician/index.html` (roster load, ticket subscription, `applyScheduleFilters`, any early `return` or uncaught exception).
-  - Check whether `navigator.onLine` / persistence `fromCache` leaves UI in loading state without error surfacing.
-  - Correlate with overnight agent edits (Slack #1 screen glitch, #6) — may be same root cause or independent.
-- **Directive fix:** TBD after repro — surface error state instead of infinite loading; ensure listener `onError` + timeout fallback.
-- **Status:** Open — **Active Blocker** in `CURRENT_STATE.md`.
-
----
-
 ### KI-006 — Past-day job UX: card tap, report-first, timestamped addendum notes
 
 - **Filed:** 2026-05-18 (`#issues-found` — user message + screenshots same day).
@@ -33,7 +17,7 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
   2. **First screen in workspace** → **compiled report** (not chat timeline).
   3. **Add additional notes** affordance → chat composer; messages **timestamped** so cross-day addenda are auditable.
 - **Related shipped work:** Phase 66 historical mode (selective locks + addendum section) — does **not** fully satisfy this spec.
-- **Directive fix:** Design pass then implement in field app (`technician/index.html`, `conversational_timeline.js`, historical-mode helpers). Sequence after **KI-005** unblocked.
+- **Directive fix:** Design pass then implement in field app (`technician/index.html`, `conversational_timeline.js`, historical-mode helpers).
 - **Status:** Open — spec locked from Slack; implementation not started.
 
 ---
@@ -145,6 +129,11 @@ These are not bugs but recurring traps — keep them in mind whenever editing th
 ---
 
 ## Resolved (Reference)
+
+### KI-005 — Field schedule/board stuck on "Loading…"
+
+- **Resolved:** 2026-05-18 — user confirmed schedule loads normally same day; no repro after morning report. **Most likely fix:** Phase 66 restoration of missing `}` in `technician/index.html` init (~12384) so `loadUserProfile` / `subscribeToMyTickets` run for returning users (see `phase66-fix-tracker.canvas.tsx` #1). **Alternate explanations not ruled out:** stale `technician/index.html` cache overnight, transient Firestore/network, or concurrent agent run. **If it returns:** force-reload PWA, check debug overlay `BUILD:` + `__vcWriteFailures`, trace schedule init and add spinner timeout + error surface.
+- **Verification:** User report 2026-05-18 PM — "not stuck on loading anymore today."
 
 ### KI-002 — Sync Risk Audit (2026-04-25): silent-failure & cache-versioning repair backlog
 

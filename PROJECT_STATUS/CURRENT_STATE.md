@@ -7,33 +7,30 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 AI Quote Pipeline — queue verified, preflight passed, ready for overnight SDK run (`/a`). Phase 66/63 live. KI-004 core shipped.
-- **Last shipped (2026-05-18):** Intent escalation fallback — cloud empty/error → local "Got it." (not "What were you working on?"); spoken RTU numbers normalized before `EdgeIntentEngine.parse`. `VC_BUILD: IntentEscalationFallback-2026-05-18`, `conversational_timeline.js?v=68`.
+- **Last shipped (2026-05-18):** Intent escalation fallback (`VC_BUILD: IntentEscalationFallback-2026-05-18`). **KI-005** schedule loading — user-verified resolved (cause of overnight stall unclear; likely Phase 66 init brace fix).
 - **Prior (2026-05-18):** Phase 66 complete — admin login, job creation FAB, historical mode, checklist full-list, compile guard.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
+- **Fix tracker canvas:** `issues-found-fix-tracker.canvas.tsx` (#issues-found backlog).
 
 ## Active Blocker
 
-**KI-005** — Field schedule/board stuck on **"Loading…"** (reported `#issues-found` 2026-05-17, persists 2026-05-18 AM). Blocks normal use until fixed or ruled cache/deploy.
+None.
 
 ## Immediate Next Step
 
-- **Now (daytime):** Investigate/fix **KI-005** schedule loading — check `technician/index.html` roster/ticket listeners, force-reload + `VC_BUILD` on device; rule out stale cache vs JS error. Source: Slack `#issues-found` triage 2026-05-18.
-- **Verify on device (not blocking Phase 64):** Phase 66 — admin orange FAB job create (#5, user not tested yet); checklist full-list on trigger (#4, `checklist_reminder_engine.js?v=7`).
-- **Product/design queue:** **KI-006** past-day job UX (card tap → workspace, compiled report first, timestamped "add additional notes" in chat). **KI-007** historical-mode edit scope (#3 — what should/shouldn't be editable).
-- **Tonight at bedtime only — do not run Phase 64 before then:** SDK build runner `/a` from `tools/` — Phase 64 slices 64a→64b→64c→64e→64d (all review; push at end of run). User saves this for when they go to bed.
-- **After overnight run:** Check `.build_state.json` + runner log; human-verify review checklist; reconcile Slack #6 (what the ask changed).
-- **Optional (not blocking):** KI-004 URL-patch (`contextHook` on `VCStorageOutbox.drain()`). Deferred: compiled report edit persistence.
+- **Device verify (issues-found canvas #3, #4):** Checklist full-list on trigger phrase (`checklist_reminder_engine.js?v=7`); admin orange FAB job create on phone.
+- **Product queue:** **KI-006** past-day job UX (card tap, report-first, timestamped addendum notes). **KI-007** checklist if verify fails.
+- **Tonight at bedtime only:** SDK `/a` Phase 64 (64a→64b→64c→64e→64d). Do not run before bed unless user asks.
+- **After overnight run:** `.build_state.json` + runner log; reconcile what changed.
+- **Optional:** KI-004 URL-patch on outbox drain; compiled report edit persistence.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Do not duplicate here.
 
 ## Update Protocol
 
 - Update **Snapshot / Active Blocker / Immediate Next Step** at end of every session.
-- **Accuracy rule:** "Immediate Next Step" must describe what the NEXT session should do — not what this session just completed. Ask yourself: "If a fresh agent reads only this file, will it do the right thing?" If no, rewrite.
-- When a phase ships: one-line pointer here; full detail -> `PROJECT_MAP.md` + `PROJECT_MAP_HISTORY.md`.
-- When a blocker resolves: move from `KNOWN_ISSUES.md -> Open` to `-> Resolved`; clear **Active Blocker** here.
-- **Compress Snapshot after 3 sessions:** collapse Prior entries older than 3 sessions into a single "Prior history: see `PROJECT_MAP_HISTORY.md`" line.
-- **Hard size cap — mechanical trigger:** if this file's total line count exceeds 55, migrate the oldest Prior entries immediately before adding new content.
-
+- **Accuracy rule:** "Immediate Next Step" must describe what the **NEXT** session should do — not what this session just completed.
+- When a blocker resolves: move `KNOWN_ISSUES.md` entry to **Resolved**; clear **Active Blocker** here.
+- **Hard size cap:** if total lines ≥ 55, collapse oldest Prior entries into `PROJECT_MAP_HISTORY.md`.
