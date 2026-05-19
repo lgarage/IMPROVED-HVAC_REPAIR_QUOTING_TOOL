@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 AI Quote Pipeline — queue verified, preflight passed, ready for overnight SDK run (`/a`). Phase 66/63 live. KI-004 core shipped.
-- **Last shipped (2026-05-18):** Build runner archive-strip fix + Phase 64 queue restored (64a–64e). Same day: KI-004 outbox wiring; `#issues-found` triage → filed **KI-005–007** (schedule loading blocker + field UX backlog).
+- **Last shipped (2026-05-18):** Intent escalation fallback — cloud empty/error → local "Got it." (not "What were you working on?"); spoken RTU numbers normalized before `EdgeIntentEngine.parse`. `VC_BUILD: IntentEscalationFallback-2026-05-18`, `conversational_timeline.js?v=68`.
 - **Prior (2026-05-18):** Phase 66 complete — admin login, job creation FAB, historical mode, checklist full-list, compile guard.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.

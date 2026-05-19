@@ -1631,6 +1631,7 @@
     var id = normalizeTicketId(ticketId);
 
     var rawText = safeText(entry.text);
+    var textForIntent = normalizeEquipmentNumbers(rawText);
 
     /* Voice correction intercept (Slice 46a) — route to handleCorrection,
        skip the standard Vertex confirmation response for the command itself. */
@@ -1639,7 +1640,7 @@
       return;
     }
     var parsed = null;
-    var parsedText = rawText;
+    var parsedText = textForIntent;
     var parsedEntities = [];
 
     if (
@@ -1648,7 +1649,7 @@
       typeof window.EdgeIntentEngine.parse === "function"
     ) {
       try {
-        parsed = window.EdgeIntentEngine.parse(rawText);
+        parsed = window.EdgeIntentEngine.parse(textForIntent);
       } catch (e) {
         parsed = null;
       }
@@ -1789,10 +1790,18 @@
           if (hasData) {
             escalationResponse = "Got it.";
           } else {
-            escalationResponse = "What were you working on?";
+            escalationResponse = generateResponse({
+              role: entry.role,
+              text: responseTextForIntent,
+              meta: metaForResponse
+            }, { fromEscalation: true }) || "Got it.";
           }
         } else {
-          escalationResponse = "What were you working on?";
+          escalationResponse = generateResponse({
+            role: entry.role,
+            text: responseTextForIntent,
+            meta: metaForResponse
+          }, { fromEscalation: true }) || "Got it.";
         }
         setTimeout(function () {
           addEntry(escalationResponse, "system", id);
