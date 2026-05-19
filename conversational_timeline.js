@@ -1588,14 +1588,14 @@
     /* Mark immediately (before async delay) to block concurrent rapid mentions */
     _lastReminderEquipment = equipment;
     _lastReminderTime = Date.now();
+    var eng = window.ChecklistReminderEngine;
+    /* Snapshot first-show NOW — updateFromEntry() on the same message runs synchronously
+       before this 800 ms delay and would mark matched items, falsely forcing capped nudges. */
+    var isFirstShow = typeof eng.hasAnyMentioned === "function"
+      ? !eng.hasAnyMentioned(equipment, ticketId)
+      : false;
     /* 800 ms head start so the primary "Got it." confirmation bubble appears first */
     setTimeout(function () {
-      var eng = window.ChecklistReminderEngine;
-      /* First show: tech hasn't addressed any items yet — show full checklist so nothing is hidden.
-         Follow-up nudges (after items are marked): use the capped getReminders() instead. */
-      var isFirstShow = typeof eng.hasAnyMentioned === "function"
-        ? !eng.hasAnyMentioned(equipment, ticketId)
-        : false;
       var items;
       if (isFirstShow && typeof eng.getFullChecklist === "function") {
         items = eng.getFullChecklist(equipment, ticketId).map(function (item) {

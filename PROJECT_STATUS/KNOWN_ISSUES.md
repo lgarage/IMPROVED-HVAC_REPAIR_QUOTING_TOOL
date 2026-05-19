@@ -26,12 +26,10 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 - **Filed:** 2026-05-18 (`#issues-found` #4; audio 2026-05-17: only "got it" for one phrase).
 - **Severity:** Medium — checklist coaching incomplete on trigger word/phrase.
-- **What shipped:** Phase 66 — `getFullChecklist()` + first-show all items in `checklist_reminder_engine.js` / `conversational_timeline.js` (`v=7` / `v=65`).
-- **Investigation checklist:**
-  - Confirm device has cache-busted scripts (not stale `v=6`).
-  - Repro: trigger phrase on equipment mention — expect **all** template steps in chat on first show, not capped journeyman subset.
-  - If still broken post-deploy: trace `scheduleChecklistReminders()` + template match path.
-- **Status:** Open — may be **deploy/cache** on user device; verify before new code.
+- **Root cause (2026-05-18):** `isFirstShow` was evaluated inside the 800 ms `setTimeout` in `scheduleChecklistReminders()`, after `updateFromEntry()` had already marked items from the same message — forced capped `getReminders()` (journeyman → 2 items) instead of `getFullChecklist()`.
+- **Fix shipped:** Snapshot `isFirstShow` at call time (before `updateFromEntry`). `conversational_timeline.js?v=69` · `VC_BUILD: ChecklistFirstShowFix-2026-05-18`.
+- **Verification:** Playwright automated — 5/5 checklist items in yellow card after `"RTU7 supply fan motor is seized"`. **User device verify pending** — force-reload PWA, say trigger phrase on a real job, confirm all template steps appear on first show.
+- **Status:** Fix deployed — awaiting user device confirm; reopen if still capped after force-reload.
 
 ---
 

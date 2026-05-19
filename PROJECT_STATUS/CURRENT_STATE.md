@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 AI Quote Pipeline — queue verified, preflight passed, ready for overnight SDK run (`/a`). Phase 66/63 live. KI-004 core shipped.
-- **Last shipped (2026-05-18):** Intent escalation fallback (`VC_BUILD: IntentEscalationFallback-2026-05-18`). **KI-005** schedule loading — user-verified resolved (cause of overnight stall unclear; likely Phase 66 init brace fix).
+- **Last shipped (2026-05-18):** KI-007 checklist first-show race fix — `isFirstShow` snapshot before `updateFromEntry` (`VC_BUILD: ChecklistFirstShowFix-2026-05-18`, `conversational_timeline.js?v=69`). Playwright: 5/5 items on trigger phrase.
 - **Prior (2026-05-18):** Phase 66 complete — admin login, job creation FAB, historical mode, checklist full-list, compile guard.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
@@ -20,8 +20,9 @@ None.
 
 ## Immediate Next Step
 
-- **Device verify (issues-found canvas #3, #4):** Checklist full-list on trigger phrase (`checklist_reminder_engine.js?v=7`); admin orange FAB job create on phone.
-- **Product queue:** **KI-006** past-day job UX (card tap, report-first, timestamped addendum notes). **KI-007** checklist if verify fails.
+- **Device verify (issues-found canvas #4):** Admin orange FAB job create on phone.
+- **Device verify (KI-007):** Trigger phrase on real job → full checklist (not 1–2 items). Force-reload PWA if stale cache.
+- **Product queue:** **KI-006** past-day job UX (card tap, report-first, timestamped addendum notes).
 - **Tonight at bedtime only:** SDK `/a` Phase 64 (64a→64b→64c→64e→64d). Do not run before bed unless user asks.
 - **After overnight run:** `.build_state.json` + runner log; reconcile what changed.
 - **Optional:** KI-004 URL-patch on outbox drain; compiled report edit persistence.
