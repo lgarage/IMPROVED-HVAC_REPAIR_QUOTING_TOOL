@@ -83,12 +83,14 @@ export const MODEL_GUARDS: Record<string, ModelGuard> = {
     maxRiskLevel: "safe",
     maxFiles: 8,
     forbiddenPatterns: [
+      "Firestore write path (new collection/doc)",
       "Firestore rules / auth changes",
       "Firebase config / project migration",
       "Shadow Mode / Office Override",
       "Gemini prompt integration",
+      "Cross-module wiring (3+ files)",
     ],
-    notes: "T0-T1. Read-only Firestore and single-file bugfixes OK.",
+    notes: "T0-T1. No net-new Firestore writes or cross-module wiring — see MODEL_LOOKUP Floor.",
   },
   "gemini-3-flash": {
     maxRiskLevel: "safe",
@@ -108,11 +110,13 @@ export const MODEL_GUARDS: Record<string, ModelGuard> = {
     maxRiskLevel: "review",
     maxFiles: 10,
     forbiddenPatterns: [
+      "Firestore write path (new collection/doc)",
       "Firestore rules / auth changes",
       "Firebase config / project migration",
       "Shadow Mode / Office Override",
+      "Gemini prompt integration",
     ],
-    notes: "T1 reasoning capable. Avoid all Vertex Core paths.",
+    notes: "T1 reasoning. No Firestore writes or Gemini prompt paths.",
   },
   "gpt-5.3-codex-spark": {
     maxRiskLevel: "review",
@@ -345,37 +349,80 @@ export function parseLookupTable(): LookupRow[] {
   return rows;
 }
 
+/** Hard minimum tier for a slice from MODEL_LOOKUP Floor + verified Cheapest Failed. */
+export interface PatternMinimum {
+  floorRank: number;
+  floorModel: string;
+  sources: string[];
+}
+
+export function getPatternMinimum(taskPatterns: string[]): PatternMinimum {
+  const table = parseLookupTable();
+  let floorRank = 0;
+  let floorModel = "";
+  const sources: string[] = [];
+
+  for (const pattern of taskPatterns) {
+    const row = table.find((r) => r.pattern === pattern);
+    if (!row) continue;
+
+    if (row.floor) {
+      const fr = MODEL_COST_RANK[row.floor] || 0;
+      if (fr > floorRank) {
+        floorRank = fr;
+        floorModel = row.floor;
+        sources.push(`${pattern} floor→${row.floor}`);
+      }
+    }
+
+    // Verified failure at tier — do not retry cheaper models for this pattern
+    if (row.cheapestFailed && row.verified) {
+      const failedRank = MODEL_COST_RANK[row.cheapestFailed] || 0;
+      const nextUp = getNextTierUp(row.cheapestFailed);
+      const bumpRank = nextUp ? MODEL_COST_RANK[nextUp] || failedRank : failedRank;
+      if (bumpRank > floorRank) {
+        floorRank = bumpRank;
+        floorModel = nextUp || row.cheapestFailed;
+        sources.push(`${pattern} verified-fail@${row.cheapestFailed}→start≥${floorModel}`);
+      }
+    }
+  }
+
+  if (floorRank > 0 && !floorModel) {
+    floorModel = "claude-sonnet-4-6";
+  }
+  return { floorRank, floorModel, sources };
+}
+
 export function selectModel(taskPatterns: string[]): string {
   const table = parseLookupTable();
+  const min = getPatternMinimum(taskPatterns);
+
   let bestModel = "gpt-5.4-mini";
-  let bestRank = 0;
+  let bestRank = MODEL_COST_RANK[bestModel] || 3;
 
   for (const pattern of taskPatterns) {
     const row = table.find((r) => r.pattern === pattern);
     if (!row) {
-      if (MODEL_COST_RANK["claude-sonnet-4-6"] > bestRank) {
+      const sonnetRank = MODEL_COST_RANK["claude-sonnet-4-6"] || 8;
+      if (sonnetRank > bestRank) {
         bestModel = "claude-sonnet-4-6";
-        bestRank = MODEL_COST_RANK["claude-sonnet-4-6"];
+        bestRank = sonnetRank;
       }
       continue;
     }
 
-    // Floor is a hard minimum (Vertex Core safety rules etc.)
-    if (row.floor) {
-      const floorRank = MODEL_COST_RANK[row.floor] || 2;
-      if (floorRank > bestRank) {
-        bestModel = row.floor;
-        bestRank = floorRank;
-      }
-    }
-
-    const okRank = MODEL_COST_RANK[row.cheapestOk] || 2;
+    const okRank = MODEL_COST_RANK[row.cheapestOk] || 3;
     if (okRank > bestRank) {
       bestModel = row.cheapestOk;
       bestRank = okRank;
     }
   }
 
+  // Never start below pattern Floor (cheapestOk cannot override Floor downward)
+  if (min.floorRank > 0 && bestRank < min.floorRank) {
+    return min.floorModel;
+  }
   return bestModel;
 }
 
@@ -498,24 +545,14 @@ function getNextTierUp(model: string): string | null {
  * Respects floor constraints and cheapestFailed from all matched patterns.
  */
 export function buildEscalationLadder(taskPatterns: string[]): string[] {
-  const base = selectModel(taskPatterns);
-  const baseRank = MODEL_COST_RANK[base] || 1;
+  const min = getPatternMinimum(taskPatterns);
+  const floorRank = min.floorRank;
 
-  const table = parseLookupTable();
-  let floorRank = 0;
-  for (const pattern of taskPatterns) {
-    const row = table.find((r) => r.pattern === pattern);
-    if (row?.floor) {
-      const fr = MODEL_COST_RANK[row.floor] || 0;
-      if (fr > floorRank) floorRank = fr;
-    }
-    // Also respect cheapestFailed as a soft floor — don't start below it
-    if (row?.cheapestFailed) {
-      const cfr = MODEL_COST_RANK[row.cheapestFailed] || 0;
-      if (cfr >= baseRank && cfr > floorRank) {
-        floorRank = cfr;
-      }
-    }
+  let base = selectModel(taskPatterns);
+  let baseRank = MODEL_COST_RANK[base] || 1;
+  if (floorRank > 0 && baseRank < floorRank) {
+    base = min.floorModel;
+    baseRank = floorRank;
   }
 
   const ladder: string[] = [base];
@@ -531,36 +568,54 @@ export function buildEscalationLadder(taskPatterns: string[]): string[] {
     }
   }
 
-  // Guarantee at least 4 rungs (base + 3 escalations) by adding the highest-ranked
-  // distinct models we already know about. Never hard-code a possibly-missing slug.
   const sortedDesc = Object.entries(MODEL_COST_RANK)
     .sort((a, b) => b[1] - a[1])
     .map(([name]) => name);
   for (const name of sortedDesc) {
     if (ladder.length >= 4) break;
-    if (!ladder.includes(name)) ladder.push(name);
+    if (!ladder.includes(name) && (MODEL_COST_RANK[name] ?? 0) >= floorRank) {
+      ladder.push(name);
+    }
   }
 
-  return normalizeSdkLadder([...new Set(ladder)]);
+  let out = normalizeSdkLadder([...new Set(ladder)], floorRank);
+  out = out.filter((m) => (MODEL_COST_RANK[m] ?? 0) >= floorRank);
+  if (out.length === 0 && floorRank > 0) {
+    out = [min.floorModel];
+  }
+  return out;
+}
+
+/** Drop models that MODEL_GUARDS forbid for this slice (no wasted SDK runs). */
+export function filterLadderByGuards(
+  ladder: string[],
+  riskLevel: string,
+  fileCount: number,
+  patterns: string[]
+): string[] {
+  return ladder.filter((model) => {
+    const g = checkModelGuard(model, riskLevel, fileCount, patterns);
+    return g.allowed;
+  });
 }
 
 /**
  * Cheapest-first order; C2.5 before Sonnet/Opus; Sonnet before Opus.
  * Does not prepend C2.5 ahead of Mini/Flash (cost policy 2026-05-18).
  */
-function normalizeSdkLadder(ladder: string[]): string[] {
+function normalizeSdkLadder(ladder: string[], minRank = 0): string[] {
   const sonnet = "claude-sonnet-4-6";
   const opus = "claude-opus-4-6";
   const c25 = COMPOSER_25_SLUG;
-  let out = [...new Set(ladder)];
+  let out = [...new Set(ladder)].filter((m) => (MODEL_COST_RANK[m] ?? 0) >= minRank);
 
   const maxRank = out.length
     ? Math.max(...out.map((m) => MODEL_COST_RANK[m] ?? 0))
-    : 0;
+    : minRank;
   const sonnetRank = MODEL_COST_RANK[sonnet] ?? 99;
 
-  // Ensure we can escalate past mid-tier to C2.5 → Sonnet → Opus when needed
-  if (maxRank < sonnetRank) {
+  // Only add cheap→premium tail when pattern floor allows trying below Sonnet
+  if (minRank < sonnetRank && maxRank < sonnetRank) {
     if (MODEL_COST_RANK[c25] && !out.includes(c25)) out.push(c25);
     if (!out.includes(sonnet)) out.push(sonnet);
     if (!out.includes(opus)) out.push(opus);

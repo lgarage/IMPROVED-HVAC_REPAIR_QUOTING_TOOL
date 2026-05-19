@@ -14,7 +14,19 @@ import * as readline from "readline";
 import { execSync } from "child_process";
 import { SLICES, type Slice } from "./slices";
 import { ARCHIVED_SLICES } from "./slices_archive";
-import { selectModel, updateLookupRow, buildEscalationLadder, MODEL_COST_RANK, COMPOSER_25_SLUG, checkModelGuard, recordModelGuardFailure, resolvedGuard, MODEL_GUARDS } from "./model_selector";
+import {
+  selectModel,
+  updateLookupRow,
+  buildEscalationLadder,
+  getPatternMinimum,
+  filterLadderByGuards,
+  MODEL_COST_RANK,
+  COMPOSER_25_SLUG,
+  checkModelGuard,
+  recordModelGuardFailure,
+  resolvedGuard,
+  MODEL_GUARDS,
+} from "./model_selector";
 import { validateSlice } from "./validator";
 import { buildPrompt } from "./prompt_builder";
 
@@ -27,6 +39,26 @@ const RISK_LEVEL_FLOOR: Record<string, string> = {
   review: "",                  // same — escalate on fail; C2.5 before Sonnet in ladder
   critical: "",                // same — Opus only reached after cheaper rungs fail
 };
+
+/** Ladder after pattern Floor, risk floor, and MODEL_GUARDS (no doomed Mini/Flash runs). */
+function resolveSliceLadder(slice: Slice): string[] {
+  const fileCount = (slice.filesToCreate?.length || 0) + (slice.filesToModify?.length || 0);
+  const rawLadder = buildEscalationLadder(slice.patterns);
+
+  const riskFloor = RISK_LEVEL_FLOOR[slice.riskLevel || "safe"] || "";
+  const riskFloorRank = riskFloor ? MODEL_COST_RANK[riskFloor] || 0 : 0;
+  let ladder = riskFloor
+    ? [
+        ...rawLadder.filter((m) => (MODEL_COST_RANK[m] || 0) >= riskFloorRank),
+        ...(!rawLadder.some((m) => (MODEL_COST_RANK[m] || 0) >= riskFloorRank)
+          ? [riskFloor]
+          : []),
+      ].filter((m, i, arr) => arr.indexOf(m) === i)
+    : rawLadder;
+
+  ladder = filterLadderByGuards(ladder, slice.riskLevel || "safe", fileCount, slice.patterns);
+  return ladder;
+}
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const STATE_FILE = path.join(__dirname, ".build_state.json");
@@ -450,21 +482,19 @@ async function runSliceAttempt(
 async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<boolean> {
   const ss = state.slices[slice.id];
   const rawLadder = buildEscalationLadder(slice.patterns);
+  const patternMin = getPatternMinimum(slice.patterns);
+  const ladder = resolveSliceLadder(slice);
 
-  // Enforce riskLevel floor — drop any model below the minimum tier.
-  const riskFloor = RISK_LEVEL_FLOOR[slice.riskLevel || "safe"] || "";
-  const floorRank = riskFloor ? (MODEL_COST_RANK[riskFloor] || 0) : 0;
-  const ladder = riskFloor
-    ? [
-        ...rawLadder.filter((m) => (MODEL_COST_RANK[m] || 0) >= floorRank),
-        ...(!rawLadder.some((m) => (MODEL_COST_RANK[m] || 0) >= floorRank)
-          ? [riskFloor]
-          : []),
-      ].filter((m, i, arr) => arr.indexOf(m) === i) // dedupe
-    : rawLadder;
-
-  if (riskFloor && rawLadder[0] !== ladder[0]) {
-    log(`⚠  riskLevel "${slice.riskLevel}" floor applied — starting at ${ladder[0]} (skipped ${rawLadder.filter((m) => (MODEL_COST_RANK[m] || 0) < floorRank).join(", ")})`);
+  if (patternMin.floorRank > 0) {
+    log(
+      `Pattern minimum for ${slice.id}: ${patternMin.floorModel} (${patternMin.sources.join("; ")})`
+    );
+  }
+  if (rawLadder[0] !== ladder[0]) {
+    const skipped = rawLadder.filter((m) => !ladder.includes(m));
+    if (skipped.length) {
+      log(`⚠  Ladder adjusted — starting at ${ladder[0]} (skipped: ${skipped.join(", ")})`);
+    }
   }
 
   log(`\nEscalation ladder for ${slice.id}: ${ladder.join(" → ")}`);
@@ -951,7 +981,7 @@ const commands: SlashCommand[] = [
       let next = getNextSlice(simState);
       let count = 0;
       while (next) {
-        const ladder = buildEscalationLadder(next.patterns);
+        const ladder = resolveSliceLadder(next);
         console.log(
           `  ${++count}. Slice ${next.id}: ${next.title}\n` +
             `     Escalation: ${ladder.join(" → ")}\n` +
@@ -980,7 +1010,7 @@ const commands: SlashCommand[] = [
         console.log(`\n  Slice '${id}' not found.\n`);
         return;
       }
-      const ladder = buildEscalationLadder(slice.patterns);
+      const ladder = resolveSliceLadder(slice);
       console.log(`\n  ═══ Slice ${slice.id}: ${slice.title} ═══\n`);
       console.log(`  Phase:       ${slice.phase}`);
       console.log(`  Risk:        ${slice.riskLevel}`);
@@ -1719,7 +1749,7 @@ async function runPreflight(): Promise<boolean> {
     allGood = false;
   }
 
-  // 12. Escalation ladders — cheapest-first, sorted by cost, C2.5 before Sonnet/Opus
+  // 12. Escalation ladders — pattern Floor + guards, cost-sorted, C2.5 before Sonnet/Opus
   let ladderOk = true;
   const pendingSlices = SLICES.filter((s) => {
     if (!stateExists) return true;
@@ -1727,14 +1757,23 @@ async function runPreflight(): Promise<boolean> {
     return st !== "passed";
   });
   const sonnetSlug = "claude-sonnet-4-6";
-  const c25Rank = MODEL_COST_RANK[COMPOSER_25_SLUG] || 0;
   const sonnetRank = MODEL_COST_RANK[sonnetSlug] || 99;
   for (const slice of pendingSlices) {
-    const ladder = buildEscalationLadder(slice.patterns);
+    const patternMin = getPatternMinimum(slice.patterns);
+    const ladder = resolveSliceLadder(slice);
     if (ladder.length < 2) {
       console.log(`  ✗ Slice ${slice.id}: ladder has only ${ladder.length} rung — no escalation path`);
       ladderOk = false;
       continue;
+    }
+    if (patternMin.floorRank > 0) {
+      const firstRank = MODEL_COST_RANK[ladder[0]] ?? 0;
+      if (firstRank < patternMin.floorRank) {
+        console.log(
+          `  ✗ Slice ${slice.id}: first rung ${ladder[0]} below pattern minimum ${patternMin.floorModel}`
+        );
+        ladderOk = false;
+      }
     }
     for (let j = 1; j < ladder.length; j++) {
       const prev = MODEL_COST_RANK[ladder[j - 1]] ?? 0;
@@ -1750,8 +1789,11 @@ async function runPreflight(): Promise<boolean> {
       console.log(`  ✗ Slice ${slice.id}: ${COMPOSER_25_SLUG} must run before ${sonnetSlug}`);
       ladderOk = false;
     }
-    if ((MODEL_COST_RANK[ladder[0]] ?? 0) >= sonnetRank) {
-      console.log(`  ✗ Slice ${slice.id}: first rung must be cheaper than ${sonnetSlug}`);
+    const cheapEligible = patternMin.floorRank < sonnetRank;
+    if (cheapEligible && (MODEL_COST_RANK[ladder[0]] ?? 0) >= sonnetRank) {
+      console.log(
+        `  ✗ Slice ${slice.id}: cheap-eligible slice should start below ${sonnetSlug} (got ${ladder[0]})`
+      );
       ladderOk = false;
     }
   }
@@ -1759,11 +1801,14 @@ async function runPreflight(): Promise<boolean> {
     console.log("  ✓ Escalation ladders (no pending slices)");
   } else if (ladderOk) {
     console.log(
-      `  ✓ Escalation ladders OK (${pendingSlices.length} pending) — cheapest first, escalate on fail`
+      `  ✓ Escalation ladders OK (${pendingSlices.length} pending) — pattern floors + escalate on fail`
     );
     for (const slice of pendingSlices.slice(0, 3)) {
-      const ladder = buildEscalationLadder(slice.patterns);
-      console.log(`      ${slice.id}: ${ladder.join(" → ")}`);
+      const ladder = resolveSliceLadder(slice);
+      const patternMin = getPatternMinimum(slice.patterns);
+      const minTag =
+        patternMin.floorRank > 0 ? ` [min: ${patternMin.floorModel}]` : "";
+      console.log(`      ${slice.id}: ${ladder.join(" → ")}${minTag}`);
     }
     if (pendingSlices.length > 3) {
       console.log(`      … +${pendingSlices.length - 3} more (run /plan for full list)`);
@@ -1820,7 +1865,7 @@ async function main(): Promise<void> {
 
   const next = getNextSlice(state);
   if (next) {
-    const ladder = buildEscalationLadder(next.patterns);
+    const ladder = resolveSliceLadder(next);
     console.log(`  Next up: Slice ${next.id} — ${next.title} [${ladder[0]}]`);
   }
 
