@@ -803,6 +803,88 @@ async function runArchiveRoutine(state: BuildState, force = false): Promise<numb
   return extractedObjects.length;
 }
 
+// ─── Auto-checklist refresh ───────────────────────────────────────────────────
+//
+// Called after every successful SDK run so the test checklist in build_state.json
+// is always current. Uses the last 4 hours of git history — wide enough to cover
+// any SDK session without pulling in unrelated old commits.
+//
+// Intentionally silent: no console banner, just the checklist block itself.
+// If git or any step fails it is non-blocking.
+
+async function autoRefreshChecklist(state: BuildState): Promise<void> {
+  const hours = 4;
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+  let allFiles: string[] = [];
+  try {
+    const raw = execSync(
+      `git log --since="${since}" --format="__COMMIT__" --name-only`,
+      { cwd: PROJECT_ROOT, stdio: "pipe" }
+    ).toString().trim();
+    if (!raw) return;
+    for (const line of raw.split("\n")) {
+      if (!line.startsWith("__COMMIT__") && line.trim()) {
+        allFiles.push(line.trim());
+      }
+    }
+  } catch {
+    return;
+  }
+
+  if (allFiles.length === 0) return;
+
+  const tests: string[] = [];
+  if (allFiles.some((f) => f === "storage.rules")) {
+    tests.push("Upload a photo from the tech app → confirm no permission-denied error");
+    tests.push("Upload a video to field_evidence or service_call_addendums → confirm it saves");
+    tests.push("Try uploading a .pdf to a photo-only path → confirm it's REJECTED");
+  }
+  if (allFiles.some((f) => /service_call\.js|index\.html/.test(f) && !/technician/.test(f))) {
+    tests.push("Toggle Office Override on/off → confirm tech iframe responds");
+  }
+  if (allFiles.some((f) => /technician\/index\.html/.test(f))) {
+    tests.push("Open the tech app on mobile → check debug overlay shows latest VC_BUILD stamp");
+    if (allFiles.some((f) => f === "service_call.js")) {
+      tests.push("Test postMessage: shadow tech switch → confirm parent receives it");
+    }
+  }
+  if (allFiles.some((f) => /workbench\//.test(f))) {
+    tests.push("Start workbench server locally → confirm http://localhost:<port> responds");
+  }
+  if (allFiles.some((f) => /model_selector\.ts|build_runner\.ts/.test(f))) {
+    tests.push("Run /cost in the build runner → confirm output shows per-model estimates");
+    tests.push("Run: npx tsc --noEmit (from tools/) → confirm clean compile");
+  }
+  if (allFiles.some((f) => /firestore\.rules/.test(f))) {
+    tests.push("Create/edit a service call → confirm Firestore writes succeed");
+  }
+  // Catch-all: any JS file in technician/ not already covered
+  if (allFiles.some((f) => /technician\/.*\.js$/.test(f)) && !tests.some((t) => t.includes("tech app on mobile"))) {
+    tests.push("Open the tech app on mobile → check debug overlay shows latest VC_BUILD stamp");
+  }
+
+  if (tests.length === 0) return;
+
+  state.lastChecklist = tests;
+  if (!state.checklistResults) state.checklistResults = {};
+  // Clear stale results for items that no longer exist
+  for (const key of Object.keys(state.checklistResults)) {
+    if (parseInt(key) > tests.length) delete state.checklistResults[parseInt(key)];
+  }
+  saveState(state);
+
+  console.log(`\n  ─── Test Checklist (auto-generated from last ${hours}h) ───\n`);
+  tests.forEach((t, i) => {
+    const num = i + 1;
+    const result = (state.checklistResults as Record<number, string> | undefined)?.[num];
+    const icon = result === "passed" ? "✓" : result === "failed" ? "✗" : result === "n/a" ? "—" : " ";
+    const label = result === "passed" ? " passed" : result === "failed" ? " FAILED" : result === "n/a" ? " n/a" : "";
+    console.log(`    [${icon}] ${num}. ${t}${label}`);
+  });
+  console.log(`\n  /p1,2,3 = passed  |  /f1,2,3 = failed  |  /na 3 = not applicable\n`);
+}
+
 // ═══════════════════════════════════════════════════════════
 //  SLASH COMMANDS
 // ═══════════════════════════════════════════════════════════
@@ -869,9 +951,12 @@ const commands: SlashCommand[] = [
       console.log(`\n  Running: Slice ${next.id} — ${next.title}`);
       console.log(`  Press S to stop after this slice finishes.\n`);
       enableStopHotkey();
-      await runSliceWithEscalation(next, state);
+      const succeeded = await runSliceWithEscalation(next, state);
       disableStopHotkey();
       stopAfterCurrent = false;
+      if (succeeded) {
+        await autoRefreshChecklist(state);
+      }
     },
   },
   {
@@ -954,6 +1039,15 @@ const commands: SlashCommand[] = [
         } catch (e: any) {
           console.log(`  Governance update failed (non-blocking): ${e.message?.slice(0, 200)}\n`);
         }
+
+        // ── Auto-refresh test checklist ──
+        // Saves checklist to build_state.json so /p /f /na work immediately
+        // without the user having to run /build manually first.
+        try {
+          await autoRefreshChecklist(state);
+        } catch (e: any) {
+          console.log(`  Checklist refresh failed (non-blocking): ${e.message?.slice(0, 200)}\n`);
+        }
       }
       // Auto-archive at end in case the run pushed count over the threshold
       if (SLICES.length > MAX_ACTIVE_SLICES) {
@@ -982,7 +1076,10 @@ const commands: SlashCommand[] = [
         console.log(`\n  Dependencies not met: ${slice.dependsOn.join(", ")}\n`);
         return;
       }
-      await runSliceWithEscalation(slice, state);
+      const succeeded = await runSliceWithEscalation(slice, state);
+      if (succeeded) {
+        await autoRefreshChecklist(state);
+      }
     },
   },
   {
