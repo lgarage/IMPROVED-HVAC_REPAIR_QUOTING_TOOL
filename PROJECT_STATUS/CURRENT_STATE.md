@@ -7,7 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 foundation shipped. **KI-006 past-day job UX shipped** 2026-05-19. Phase 63 live. KI-004 core shipped.
-- **Last shipped (2026-05-19):** issues-found **#13** composer overlap — `syncComposerClearance()` dynamically measures dock height + sets `--vc-chat-scroll-clearance`; replaces static 72px estimate. `ComposerClearance-2026-05-19`. Deployed + verified (Playwright: 16px consistent clearance).
+- **Last shipped (2026-05-19):** Dossier efficiency overhaul — MODEL_DOSSIER.md 115K→~18K chars, scorecard rebuilt from ~180 rows, gotchas extracted by domain, 10-row log cap, `dossier_logger.ts` updated, `model-scorecard.canvas.tsx` created, `model-selection.mdc` updated.
+- **Prior (2026-05-19):** issues-found **#13** composer overlap — `syncComposerClearance()` dynamically measures dock height. `ComposerClearance-2026-05-19`. Deployed + verified.
 - **Prior (2026-05-19):** issues-found **#7** screen glitch — compile modal no longer overlays schedule (`ScreenGlitchFix7-2026-05-19` · `v=77`).
 - **Prior (2026-05-19):** Compile-notes-first — `saveCompileCache` after every `compileNotes()` (`v=76`).
 - **Prior (2026-05-19):** KI-006 UX polish — View Compiled Notes pinned; full date+time on historical bubbles (`v=75`).
@@ -21,7 +22,6 @@ None.
 
 ## Immediate Next Step
 
-- **Dossier overhaul (ready to execute):** Full plan at `.cursor/plans/dossier_efficiency_overhaul_ae037131.plan.md`. Scorecard-primary restructure: aggregate all 180+ outcome rows into live scorecard table, extract gotchas, keep 10-row buffer, update `tools/dossier_logger.ts` for scorecard writes, create `model-scorecard.canvas.tsx`, update `model-selection.mdc`. Target: 377→~130 lines (115K→~18K chars). Say `proceed with dossier overhaul` to start.
 - **User device verify:** issues-found **#13** — composer clearance (`BUILD: ComposerClearance-2026-05-19`).
 - **Product queue:** tracker **#6** (design) or **#14** (Compile Notes placement — next code fix).
 

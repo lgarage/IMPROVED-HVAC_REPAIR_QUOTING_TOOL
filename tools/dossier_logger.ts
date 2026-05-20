@@ -1,6 +1,9 @@
 /**
  * Bridge SDK slice outcomes → MODEL_DOSSIER.md § Task outcome log
  * so live Cursor sessions see the same calibration data as overnight runs.
+ *
+ * Updated 2026-05-19: MAX_ACTIVE_ROWS=10, truncation (task≤100, note≤80),
+ * updateScorecardCell(), JOB_SHAPE_MAP.
  */
 
 import * as fs from "fs";
@@ -13,12 +16,168 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const DOSSIER_PATH = path.join(PROJECT_ROOT, "PROJECT_STATUS", "MODEL_DOSSIER.md");
 const ARCHIVE_PATH = path.join(PROJECT_ROOT, "PROJECT_STATUS", "MODEL_DOSSIER_ARCHIVE.md");
 const OUTCOME_SECTION = "### Outcome log (newest first)";
-const MAX_ACTIVE_ROWS = 50;
+const MAX_ACTIVE_ROWS = 10;
+
+// ---------------------------------------------------------------------------
+// Scorecard configuration
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps slice patterns (as substrings) → scorecard row name.
+ * Row names must match the first column of the Scorecard table in MODEL_DOSSIER.md.
+ */
+export const JOB_SHAPE_MAP: Record<string, string> = {
+  "Firestore write path": "Firestore / Vertex",
+  "Firestore rules": "Firestore / Vertex",
+  "net-new Firestore": "Firestore / Vertex",
+  "Firebase config": "Firestore / Vertex",
+  "build_runner": "Build runner / SDK",
+  "build runner": "Build runner / SDK",
+  "slices.ts": "Build runner / SDK",
+  "model_selector": "Build runner / SDK",
+  "SDK slice": "Build runner / SDK",
+  "slice authoring": "Slice authoring",
+  "UI change": "UI / CSS layout",
+  "CSS": "UI / CSS layout",
+  "layout": "UI / CSS layout",
+  "admin": "Admin / Phase 66",
+  "Admin": "Admin / Phase 66",
+  "Phase 66": "Admin / Phase 66",
+  "governance": "Governance / triage",
+  "Governance": "Governance / triage",
+  "dossier": "Governance / triage",
+  "triage": "Governance / triage",
+};
+
+/**
+ * Map a slice to a scorecard row name (first matching pattern wins).
+ * Falls back to "Field app bugfix" for unmatched field app changes.
+ */
+function jobShapeForSlice(slice: Slice): string {
+  const searchText = [
+    slice.title,
+    slice.description ?? "",
+    slice.patterns.join(" "),
+    slice.filesToCreate.join(" "),
+    slice.filesToModify.join(" "),
+  ].join(" ");
+
+  for (const [pattern, shape] of Object.entries(JOB_SHAPE_MAP)) {
+    if (searchText.includes(pattern)) return shape;
+  }
+
+  // Field app changes (technician/ or conversational_timeline) default to bugfix
+  const isFieldApp =
+    searchText.includes("technician") ||
+    searchText.includes("conversational_timeline") ||
+    searchText.includes("field_forms") ||
+    searchText.includes("equipment");
+  return isFieldApp ? "Field app bugfix" : "Build runner / SDK";
+}
+
+/**
+ * Parse a scorecard cell value like "93% (86)" into { avg, count }.
+ * Returns null if the cell is "—", empty, or unparseable.
+ */
+function parseScorecardCell(cell: string): { avg: number; count: number } | null {
+  const m = cell.trim().match(/^(\d+)%\s*\((\d+)\)/);
+  if (!m) return null;
+  return { avg: parseInt(m[1], 10), count: parseInt(m[2], 10) };
+}
+
+/**
+ * Format a scorecard cell back to "XX% (N)" or "—".
+ */
+function formatScorecardCell(avg: number, count: number): string {
+  return `${Math.round(avg)}% (${count})`;
+}
+
+/**
+ * Update one scorecard cell in MODEL_DOSSIER.md.
+ * Finds the row matching `jobShape` and the column matching `modelLabel`,
+ * recalculates the running average, and writes the file in place.
+ *
+ * @param jobShape   - Must match a value from JOB_SHAPE_MAP or "All logged"
+ * @param modelLabel - Column header in the Scorecard table (e.g. "Sonnet 4.6")
+ * @param newConfAfter - The new Conf after % value to fold into the running average
+ */
+export function updateScorecardCell(
+  jobShape: string,
+  modelLabel: string,
+  newConfAfter: number
+): void {
+  if (!fs.existsSync(DOSSIER_PATH)) return;
+
+  const lines = fs.readFileSync(DOSSIER_PATH, "utf-8").split("\n");
+
+  // Find the scorecard section header row and separator
+  const scorecardHeaderIdx = lines.findIndex((l) =>
+    l.startsWith("| Job shape") && l.includes("Sonnet 4.6")
+  );
+  if (scorecardHeaderIdx < 0) return;
+
+  // Parse column headers to find model column index
+  const headers = lines[scorecardHeaderIdx]
+    .split("|")
+    .map((h) => h.trim())
+    .filter(Boolean);
+  const colIdx = headers.findIndex((h) => h.includes(modelLabel));
+  if (colIdx < 0) return;
+
+  // Find "All logged" row and the specific jobShape row — update both
+  const shapesToUpdate = new Set([jobShape, "All logged", "**All logged**"]);
+
+  for (let i = scorecardHeaderIdx + 2; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.startsWith("|")) break;
+
+    const cells = line.split("|").map((c) => c.trim()).filter(Boolean);
+    if (cells.length < 2) continue;
+
+    const rowLabel = cells[0].replace(/\*\*/g, "");
+    const matchesShape =
+      shapesToUpdate.has(rowLabel) ||
+      shapesToUpdate.has(`**${rowLabel}**`) ||
+      (jobShape !== "All logged" && rowLabel.replace(/\*\*/g, "") === jobShape.replace(/\*\*/g, ""));
+
+    if (matchesShape && cells.length > colIdx) {
+      const current = parseScorecardCell(cells[colIdx]);
+      let updated: string;
+      if (current) {
+        // Rolling average: new_avg = (old_avg * count + newValue) / (count + 1)
+        const newCount = current.count + 1;
+        const newAvg = (current.avg * current.count + newConfAfter) / newCount;
+        updated = formatScorecardCell(newAvg, newCount);
+      } else {
+        // First entry for this cell
+        updated = formatScorecardCell(newConfAfter, 1);
+      }
+
+      // Rebuild the line with the updated cell
+      const allCells = line.split("|");
+      // allCells[0] = "", allCells[1] = first data cell, etc.
+      // colIdx maps to allCells[colIdx + 1]
+      if (allCells.length > colIdx + 1) {
+        const pad = allCells[colIdx + 1].match(/^\s*/)?.[0] ?? " ";
+        const trailPad = allCells[colIdx + 1].match(/\s*$/)?.[0] ?? " ";
+        allCells[colIdx + 1] = `${pad}${updated}${trailPad}`;
+        lines[i] = allCells.join("|");
+      }
+    }
+  }
+
+  fs.writeFileSync(DOSSIER_PATH, lines.join("\n"), "utf-8");
+}
+
+// ---------------------------------------------------------------------------
+// Existing logger helpers
+// ---------------------------------------------------------------------------
 
 const MODEL_PICKER_LABEL: Record<string, string> = {
   "composer-2": "Composer 2",
   "composer-2.5": "Composer 2.5",
   "gpt-5.4-mini": "GPT-5.4 Mini",
+  "gpt-5.4-nano": "GPT-5.4 Nano",
   "gemini-3-flash": "Gemini 3 Flash",
   "gpt-5-mini": "GPT-5 Mini",
   "gpt-5.3-codex-spark": "Codex Spark",
@@ -73,6 +232,12 @@ function sanitizeCell(text: string): string {
   return text.replace(/\|/g, "/").replace(/\r?\n/g, " ").trim();
 }
 
+/** Truncate to maxLen, appending "…" if cut. */
+function truncate(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen - 1) + "…";
+}
+
 function confidenceForOutcome(outcome: SliceDossierOutcome): {
   confStart: number;
   confAfter: number;
@@ -100,35 +265,20 @@ function buildTaskCell(slice: Slice, outcome: SliceDossierOutcome): string {
   const patterns = slice.patterns.join(", ");
   const files = [...slice.filesToCreate, ...slice.filesToModify].slice(0, 4).join(", ");
   const fileSuffix = files ? ` Files: ${files}.` : "";
-  return sanitizeCell(
+  const raw = sanitizeCell(
     `SDK slice ${slice.id} (Phase ${slice.phase}): ${slice.title}. Patterns: ${patterns}.${fileSuffix}`
   );
+  return truncate(raw, 100);
 }
 
 function buildNote(slice: Slice, outcome: SliceDossierOutcome): string {
   const label = pickerLabel(outcome.model);
-  const parts: string[] = [
-    `Cursor: **${label}** (SDK automated).`,
-    `Source: tools/build_runner.ts → MODEL_LOOKUP.md + dossier_logger.`,
-  ];
-
-  if (outcome.ladder.length > 1) {
-    parts.push(`Ladder: ${outcome.ladder.join(" → ")}.`);
-  }
-  if (outcome.passed && outcome.failedModels?.length) {
-    parts.push(
-      `Escalated after fail on: ${outcome.failedModels.map(pickerLabel).join(", ")}.`
-    );
-  }
-  if (!outcome.passed && outcome.failReason) {
-    parts.push(`Last error: ${sanitizeCell(outcome.failReason.slice(0, 280))}.`);
-  }
-  if (slice.uiChange) {
-    parts.push("uiChange slice (Playwright verify when configured).");
-  }
-  parts.push("Live sessions: grep this row + matching MODEL_LOOKUP pattern rows.");
-
-  return sanitizeCell(parts.join(" "));
+  const ladder =
+    outcome.ladder.length > 1
+      ? ` Ladder: ${outcome.ladder.slice(0, 4).join(" → ")}.`
+      : "";
+  const raw = sanitizeCell(`${label} (SDK automated).${ladder}`);
+  return truncate(raw, 80);
 }
 
 function findOutcomeTableBounds(lines: string[]): {
@@ -137,7 +287,10 @@ function findOutcomeTableBounds(lines: string[]): {
   firstDataIdx: number;
   lastDataIdx: number;
 } | null {
-  const sectionIdx = lines.findIndex((l) => l.includes(OUTCOME_SECTION));
+  // Support both "### Outcome log (newest first)" and inline section header
+  const sectionIdx = lines.findIndex(
+    (l) => l.includes(OUTCOME_SECTION) || l.includes("## Outcome log (newest first)")
+  );
   if (sectionIdx < 0) return null;
 
   let sepIdx = -1;
@@ -192,7 +345,8 @@ function archiveOldestRow(lines: string[], rowLine: string): void {
 }
 
 /**
- * Append one outcome row to MODEL_DOSSIER.md (newest first). Archives overflow per dossier retention.
+ * Append one outcome row to MODEL_DOSSIER.md (newest first). Archives overflow per retention.
+ * Also calls updateScorecardCell for the "All logged" row.
  */
 export function appendDossierFromSlice(slice: Slice, outcome: SliceDossierOutcome): void {
   if (!fs.existsSync(DOSSIER_PATH)) {
@@ -227,6 +381,14 @@ export function appendDossierFromSlice(slice: Slice, outcome: SliceDossierOutcom
 
   fs.writeFileSync(DOSSIER_PATH, lines.join("\n"), "utf-8");
   console.log(`  📓 Dossier log: slice ${slice.id} → ${result} on ${pickerLabel(outcome.model)}`);
+
+  // Auto-update scorecard for the model that ran this slice
+  const label = pickerLabel(outcome.model);
+  const shape = jobShapeForSlice(slice);
+  if (outcome.passed) {
+    updateScorecardCell("All logged", label, confAfter);
+    updateScorecardCell(shape, label, confAfter);
+  }
 }
 
 /**
