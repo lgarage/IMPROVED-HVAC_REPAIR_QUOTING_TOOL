@@ -1143,6 +1143,11 @@ body.vc-override-active #vcOfficeOverrideBanner {
   padding: 10px 0 6px;
   margin-top: 4px;
 }
+#screen-workspace.is-historical-job.is-historical-addendum-mode .ct-post-chat-actions {
+  border-top: 1px dashed rgba(14, 165, 233, 0.35);
+  margin-top: 8px;
+  padding-top: 12px;
+}
 #screen-workspace.is-historical-job .ct-post-chat-actions .ct-compile-btn {
   flex: 1 1 100%;
   width: 100%;
@@ -7940,7 +7945,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase65-Slice65c-2026-05-20";
+window.VC_BUILD = "IssuesFix65g-CompileBtnPlacement-2026-05-19";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
@@ -13718,7 +13723,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=7"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=4"></script>
-    <script src="../conversational_timeline.js?v=79"></script>
+    <script src="../conversational_timeline.js?v=81"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');

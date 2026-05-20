@@ -3095,6 +3095,20 @@
     if (!btn) return;
     var wsEl = document.getElementById("screen-workspace");
     if (wsEl && wsEl.classList.contains("is-historical-job")) {
+      if (wsEl.classList.contains("is-historical-addendum-mode")) {
+        var allEntries = loadEntries(currentTicketId);
+        var hasAddendumEntries = allEntries.some(function (e) {
+          return e && e.meta && e.meta.addendum;
+        });
+        if (hasAddendumEntries) {
+          btn.textContent = _compiledDisplayText
+            ? "\ud83d\udccb Re-Compile with New Notes"
+            : "\ud83d\udccb Compile Notes";
+          btn.classList.remove("hidden");
+          pinPostChatActions();
+          return;
+        }
+      }
       btn.textContent = _compiledDisplayText ? "\ud83d\udcc4 View Compiled Notes" : "\ud83d\udcc4 Compiled Notes";
       btn.classList.remove("hidden");
       pinPostChatActions();
