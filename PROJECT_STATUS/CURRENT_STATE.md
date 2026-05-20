@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 slices 65a+65c shipped by SDK; 65e shipped manually; 65b/65d still need manual implementation. Phase 64 foundation shipped. Phase 63 live.
-- **Last shipped (2026-05-20 07:00 CDT):** SDK hardening batch — validator now hard-fails build-stamp-only commits on CSS/JS slices; prompt_builder anti-ghost warning added; conflicting VC_BUILD instruction removed; 65b + 65d reset to pending for proper SDK re-run.
+- **Last shipped (2026-05-20 07:10:34 CDT):** SDK build runner completed 2 slice(s) at 2026-05-20 07:10:34 CDT. Passed: 64d, 64a, 64b, 64c, 64e, 65a, 65b, 65c, 65d, 65e, 65f, 65g.
 - **Prior (2026-05-20):** SDK ghost-pass fix (pre-run HEAD hash); 65e docs update; dossier cost-tuning, issues-found #13 composer clearance, #7 screen glitch, compile-notes-first, KI-006 UX.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
