@@ -3258,7 +3258,8 @@
       closeCompileModal({ enableAddendum: true });
       return;
     }
-    if (_lastCompileResult && _compileSubmittedForTicket !== currentTicketId) {
+    var hasContent = _lastCompileResult && _lastCompileResult.trim().length > 30;
+    if (hasContent && _compileSubmittedForTicket !== currentTicketId) {
       showCompileClosePrompt();
     } else {
       closeCompileModal();
@@ -4529,6 +4530,7 @@
     hasUnsubmittedReport: function () {
       return !!(
         _lastCompileResult &&
+        _lastCompileResult.trim().length > 30 &&
         _compileSubmittedForTicket !== currentTicketId
       );
     },
