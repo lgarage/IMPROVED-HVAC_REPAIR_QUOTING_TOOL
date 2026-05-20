@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 slices 65a+65c shipped by SDK (65b/65d/65e ghost-passed — reset to pending). Phase 64 foundation shipped. Phase 63 live.
-- **Last shipped (2026-05-19):** SDK cleanup — reset 3 ghost passes, aligned `model_selector.ts` + `MODEL_LOOKUP.md` with dossier, added `no-sdk-build-runner.mdc` rule, committed Sonnet's valid tooling improvements (risk floor, SDK row exclusion, Composer 2 demotion).
+- **Last shipped (2026-05-19 22:03:21 CDT):** SDK build runner completed 5 slice(s) at 2026-05-19 22:03:21 CDT. Passed: 64d, 64a, 64b, 64c, 64e, 65a, 65b, 65c, 65d, 65e, 65f, 65g.
 - **Prior (2026-05-19):** Dossier cost-tuning, issues-found #13 composer clearance, #7 screen glitch, compile-notes-first, KI-006 UX.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
