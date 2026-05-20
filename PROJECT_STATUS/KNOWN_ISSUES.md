@@ -8,6 +8,17 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
+## Sync Cadences (confirmed 2026-05-19)
+
+| Signal | Mechanism | Interval |
+|--------|-----------|----------|
+| Live presence (tech screen + ticket) | `setInterval` → `writeLivePresence` | **15 s** |
+| Firestore job/schedule updates | `onSnapshot` real-time listener | **< 2 s** (push) |
+| Background auto-compile (quiet period) | `COMPILE_DEBOUNCE_MS` after last entry | **45 s** |
+| Background compile safety-net sweep | `COMPILE_BG_INTERVAL_MS` `setInterval` | **5 min** |
+
+> The "~45 seconds" the user noticed is the compile debounce quiet period, not a Firestore sync. Firestore job data is real-time.
+
 ### KI-004 — Field-app photo uploads are silently dropped offline (Phase 33 follow-up)
 
 - **Filed:** 2026-04-25 (post-Phase 33 audit triggered by user spec "if a technician does not have a signal when they are servicing a piece of equipment, that the information will be stored in the user's phone, [and] synced when signal returns"). Scope-checked with user 2026-04-25; user chose **audit-only** treatment (file this entry + ADR-012 + ROADMAP pointer; defer implementation) and asked that the eventual fix ship as a **KI-002-style follow-up patch on Phase 33**, not a new phase.

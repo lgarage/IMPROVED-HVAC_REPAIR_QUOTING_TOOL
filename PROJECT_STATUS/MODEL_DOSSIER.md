@@ -112,6 +112,7 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-20 | KNOWN_ISSUES sync cadences doc update for 65e | LOW | T0 | GPT-5.4 Mini | 95% | 97% | ok | ok | Cursor: **GPT-5.4 Mini**. Docs-only table; exact values from slices. |
 | 2026-05-19 | SDK cleanup: reset 3 ghost passes, aligned model_selector + MODEL_LOOKUP, no-SDK rule | LOW-MED | T2 | Strong | 90% | 95% | could_use_smaller | ok | Cursor: **Opus 4.6** (user-escalated). Governance + tooling — Sonnet sufficient. |
 | 2026-05-19 | Field app: issues-found #13 composer overlap — syncComposerClearance() | LOW | T2 | Balanced | 88% | 93% | ok | ok | Cursor: **Sonnet 4.6**. Dynamic dock measurement eliminates device variance. |
 | 2026-05-19 | Dossier efficiency overhaul: scorecard rebuilt, gotchas extracted, 10-row cap. | LOW | T2 | Balanced | 88% | 95% | ok | ok | Sonnet 4.6. Full restructure; scorecard aggregated from ~180 rows. |

@@ -6,8 +6,8 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 65 slices 65a+65c shipped by SDK (65b/65d/65e ghost-passed — reset to pending). Phase 64 foundation shipped. Phase 63 live.
-- **Last shipped (2026-05-19 22:03:21 CDT):** SDK build runner completed 5 slice(s) at 2026-05-19 22:03:21 CDT. Passed: 64d, 64a, 64b, 64c, 64e, 65a, 65b, 65c, 65d, 65e, 65f, 65g.
+- **Active Phase:** Phase 65 slices 65a+65c shipped by SDK; 65e shipped manually; 65b/65d still need manual implementation. Phase 64 foundation shipped. Phase 63 live.
+- **Last shipped (2026-05-20 06:39 CDT):** 65e docs update landed in `PROJECT_STATUS/KNOWN_ISSUES.md` with the confirmed sync cadences and 45-second compile debounce note.
 - **Prior (2026-05-19):** Dossier cost-tuning, issues-found #13 composer clearance, #7 screen glitch, compile-notes-first, KI-006 UX.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
@@ -19,7 +19,7 @@ None.
 
 ## Immediate Next Step
 
-- **Slices 65b, 65d, 65e need manual implementation** — build_state reset to pending. Run them one-at-a-time as a live agent (never via SDK). See `tools/slices.ts` for scope.
+- **Slices 65b and 65d need manual implementation** — run them one-at-a-time as a live agent (never via SDK). See `tools/slices.ts` for scope; 65e is done.
 - **Rule:** agents must never run the SDK build runner. See `.cursor/rules/no-sdk-build-runner.mdc`.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
