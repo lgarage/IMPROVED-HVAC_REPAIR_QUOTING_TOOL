@@ -2741,6 +2741,7 @@ body.vc-admin-workspace #ct-compile-modal {
 .ct-compile-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 16px 14px;
 }
 .ct-compile-hint {
@@ -2775,6 +2776,8 @@ body.vc-admin-workspace #ct-compile-modal {
   border-top: 1px solid rgba(148, 163, 184, 0.2);
   background: #13152a;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 2;
 }
 .ct-compile-copy-btn {
   padding: 12px 18px;
@@ -7945,7 +7948,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "IssuesFix65b-CompileModalUp-2026-05-19";
+window.VC_BUILD = "IssuesFix65d-FooterStack-2026-05-19";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
