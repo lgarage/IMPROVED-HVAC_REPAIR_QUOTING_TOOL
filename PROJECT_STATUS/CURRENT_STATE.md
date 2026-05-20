@@ -7,10 +7,10 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 foundation shipped. **KI-006 past-day job UX shipped** 2026-05-19. Phase 63 live. KI-004 core shipped.
-- **Last shipped (2026-05-19):** issues-found **#7** screen glitch — compile modal no longer overlays schedule after leaving workspace (`onWorkspaceClose` → `closeCompileModal` + paint-gen cancel for stale auto-open). `ScreenGlitchFix7-2026-05-19` · `conversational_timeline.js?v=77`. Deployed.
-- **Prior (2026-05-19):** Compile-notes-first — `saveCompileCache` after every `compileNotes()`; `submitted` cache flag (`v=76`).
-- **Prior (2026-05-19):** KI-006 UX polish — View Compiled Notes pinned; compiled report opens first; × dismisses to addendum chat; full date+time on historical bubbles (`KI006-PastDayUX4-2026-05-19`, `v=75`).
-- **Prior (2026-05-19):** KI-006 initial past-day card tap + addendum flow.
+- **Last shipped (2026-05-19):** issues-found **#13** composer overlap — `syncComposerClearance()` dynamically measures dock height + sets `--vc-chat-scroll-clearance`; replaces static 72px estimate. `ComposerClearance-2026-05-19`. Deployed + verified (Playwright: 16px consistent clearance).
+- **Prior (2026-05-19):** issues-found **#7** screen glitch — compile modal no longer overlays schedule (`ScreenGlitchFix7-2026-05-19` · `v=77`).
+- **Prior (2026-05-19):** Compile-notes-first — `saveCompileCache` after every `compileNotes()` (`v=76`).
+- **Prior (2026-05-19):** KI-006 UX polish — View Compiled Notes pinned; full date+time on historical bubbles (`v=75`).
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -22,8 +22,8 @@ None.
 ## Immediate Next Step
 
 - **Dossier overhaul (ready to execute):** Full plan at `.cursor/plans/dossier_efficiency_overhaul_ae037131.plan.md`. Scorecard-primary restructure: aggregate all 180+ outcome rows into live scorecard table, extract gotchas, keep 10-row buffer, update `tools/dossier_logger.ts` for scorecard writes, create `model-scorecard.canvas.tsx`, update `model-selection.mdc`. Target: 377→~130 lines (115K→~18K chars). Say `proceed with dossier overhaul` to start.
-- **User device verify:** issues-found **#7** — compile modal vs schedule (`BUILD: ScreenGlitchFix7-2026-05-19`).
-- **Product queue:** tracker **#6** (design) or **#13** (composer overlap — next code fix).
+- **User device verify:** issues-found **#13** — composer clearance (`BUILD: ComposerClearance-2026-05-19`).
+- **Product queue:** tracker **#6** (design) or **#14** (Compile Notes placement — next code fix).
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
 

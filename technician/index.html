@@ -1387,9 +1387,12 @@ body.vc-admin-workspace #ct-compile-modal {
   gap: 12px;
   background: transparent;
 }
-/* Reserve space so last bubbles clear the fixed composer dock (single input row ≈ 72px). */
+/* Reserve space so last bubbles clear the fixed composer dock.
+   --vc-chat-scroll-clearance is set dynamically by syncComposerClearance() (measured dock.offsetHeight + 16px buffer).
+   Fallback 104px covers the tallest known dock (≈ 88px content + 16px buffer) without safe-area compensation
+   since offsetHeight already includes the dock's own safe-area padding-bottom on real devices. */
 #screen-workspace.screen.active #ct-message-list {
-  padding-bottom: calc(16px + 72px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: var(--vc-chat-scroll-clearance, 104px);
   padding-top: calc(var(--vc-app-shell-height, 50px) + 48px);
 }
 
@@ -7921,7 +7924,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "ScreenGlitchFix7-2026-05-19";
+window.VC_BUILD = "ComposerClearance-2026-05-19";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
@@ -8579,6 +8582,47 @@ function syncWorkspaceStickyUnderHeader() {
   window.addEventListener("load", syncWorkspaceStickyUnderHeader);
 })();
 
+/** Dynamically measures the fixed composer dock and sets --vc-chat-scroll-clearance so the last
+ *  message bubble always scrolls fully above the input bar, regardless of safe-area size or
+ *  dock height changes (e.g. orientation flip, different iPhone models). */
+function syncComposerClearance() {
+  try {
+    var dock = document.getElementById("ct-composer-dock");
+    if (!dock) return;
+    var h = dock.offsetHeight;
+    if (!(h > 0)) return;
+    var clearance = h + 16; // 16px breathing room above dock
+    document.documentElement.style.setProperty("--vc-chat-scroll-clearance", clearance + "px");
+    var list = document.getElementById("ct-message-list");
+    if (list) list.style.paddingBottom = clearance + "px";
+  } catch (e) {}
+}
+
+(function wireComposerClearanceSync() {
+  function scheduleSync() {
+    if (scheduleSync._raf) cancelAnimationFrame(scheduleSync._raf);
+    scheduleSync._raf = requestAnimationFrame(function () {
+      scheduleSync._raf = 0;
+      syncComposerClearance();
+    });
+  }
+  window.addEventListener("resize", scheduleSync);
+  window.addEventListener("orientationchange", function () {
+    window.setTimeout(syncComposerClearance, 150);
+    window.setTimeout(syncComposerClearance, 450);
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", scheduleSync);
+    window.visualViewport.addEventListener("scroll", scheduleSync);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", syncComposerClearance);
+  } else {
+    syncComposerClearance();
+  }
+  window.addEventListener("load", syncComposerClearance);
+})();
+
 var _navGuardBypassed = false;
 
 function showNavGuardSheet(targetScreen) {
@@ -8714,6 +8758,7 @@ function switchScreen(screenName) {
   window.scrollTo(0,0);
   if (typeof vcRelocateShadowTechSelector === "function") vcRelocateShadowTechSelector();
   syncWorkspaceStickyUnderHeader();
+  syncComposerClearance();
   if (typeof writeLivePresence === 'function') writeLivePresence();
 }
 
@@ -13128,6 +13173,7 @@ function initShadowViewerFromUrl() {
   wireShadowTechSelectorUi();
   if (typeof vcRelocateShadowTechSelector === "function") vcRelocateShadowTechSelector();
   syncWorkspaceStickyUnderHeader();
+  syncComposerClearance();
   if (!presenceKey || typeof firebase === 'undefined' || !firebase.apps.length) return true;
   if (typeof VCFirestore === 'undefined' || !VCFirestore.livePresence) return true;
   wireShadowPresenceForKey(presenceKey);
