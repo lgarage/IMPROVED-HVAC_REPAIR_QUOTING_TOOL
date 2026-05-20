@@ -56,7 +56,7 @@ export const JOB_SHAPE_MAP: Record<string, string> = {
 function jobShapeForSlice(slice: Slice): string {
   const searchText = [
     slice.title,
-    slice.description ?? "",
+    (slice as any).description ?? "",
     slice.patterns.join(" "),
     slice.filesToCreate.join(" "),
     slice.filesToModify.join(" "),
