@@ -27,6 +27,18 @@ export default function ModelScorecardCanvas() {
         rows={[
           [
             "2026-05-20",
+            "Customer Appointment Confirmation: form, save/load, dispatcher+tech badges",
+            "LOW-MED",
+            "T2",
+            "Opus 4.6",
+            "92%",
+            "96%",
+            "ok",
+            "ok",
+            "Cursor: Opus 4.6. 3-file feature; form+Firestore+card rendering.",
+          ],
+          [
+            "2026-05-20",
             "KNOWN_ISSUES sync cadences doc update for 65e",
             "LOW",
             "T0",

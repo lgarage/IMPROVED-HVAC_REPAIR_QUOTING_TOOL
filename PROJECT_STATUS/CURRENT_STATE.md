@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 65 ALL slices shipped (65a–65g). Phase 64 foundation shipped. Phase 63 live.
-- **Last shipped (2026-05-20 07:10:34 CDT):** SDK build runner completed 2 slice(s) at 2026-05-20 07:10:34 CDT. Passed: 64d, 64a, 64b, 64c, 64e, 65a, 65b, 65c, 65d, 65e, 65f, 65g.
-- **Prior (2026-05-20):** SDK ghost-pass fix (pre-run HEAD hash); 65e docs update; dossier cost-tuning, issues-found #13 composer clearance, #7 screen glitch, compile-notes-first, KI-006 UX.
+- **Active Phase:** Phase 65 ALL slices shipped. Customer Appointment Confirmation feature shipped.
+- **Last shipped (2026-05-20 17:15 CDT):** Customer Confirmation feature — dispatcher checkbox + window input, save/load, dispatcher card badge, tech job card pill, tech workspace banner. `VC_BUILD: CustomerConfirm-2026-05-20`, `service_call.js?v=76`.
+- **Prior (2026-05-20):** SDK build runner slices 64d/65a–g; ghost-pass fix; dossier cost-tuning; issues-found fixes.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,7 +19,7 @@ None.
 
 ## Immediate Next Step
 
-- **Deploy to production** — `firebase deploy --only hosting` then force-reload PWA. Verify VC_BUILD shows `IssuesFix65d-FooterStack-2026-05-19` and compile modal top-spacing + footer z-index look correct.
+- **Verify on device:** force-reload PWA, confirm `VC_BUILD: CustomerConfirm-2026-05-20`. Create a test ticket with "Customer Confirmed" checked + window text, verify green badge on dispatcher card, green pill on tech job card, green banner in tech workspace.
 - Phase 66 slices not yet defined — add next features to `tools/slices.ts` when ready.
 - **Rule:** agents must never run the SDK build runner. See `.cursor/rules/no-sdk-build-runner.mdc`.
 

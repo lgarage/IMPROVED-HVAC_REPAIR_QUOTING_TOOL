@@ -112,6 +112,7 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-20 | Customer Appointment Confirmation: form, save/load, dispatcher+tech badges | LOW-MED | T2 | Strong | 92% | 96% | ok | ok | Cursor: **Opus 4.6**. 3-file feature; form+Firestore+card rendering. |
 | 2026-05-20 | SDK post-run verification: 65b+65d real diffs confirmed; canvas+state updated | LOW | T4 | Balanced | 96% | 97% | ok | ok | Cursor: **Sonnet 4.6**. Build runner / SDK archetype; ghost-pass detector worked on 65b. |
 | 2026-05-20 | SDK hardening: build-stamp-only error, anti-ghost prompt, 65b/65d reset | LOW | T2 | Balanced | 93% | 97% | ok | ok | Cursor: **Sonnet 4.6**. Build runner / SDK archetype; validator + prompt fix. |
 | 2026-05-20 | KNOWN_ISSUES sync cadences doc update for 65e | LOW | T0 | GPT-5.4 Mini | 95% | 97% | ok | ok | Cursor: **GPT-5.4 Mini**. Docs-only table; exact values from slices. |

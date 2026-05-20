@@ -40,7 +40,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "Phase64-Slice64e-2026-05-19";
+      window.VC_BUILD = "CustomerConfirm-2026-05-20";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -3759,6 +3759,18 @@
               </div>
             </div>
             <input type="hidden" id="scTotalBillableHoursInput" value="0" />
+
+            <div class="form-row" style="align-items:center;">
+              <div class="input-group" style="flex:0 0 auto;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                  <input type="checkbox" id="scCustomerApprovedInput" onchange="document.getElementById('scCustomerWindowInput').disabled=!this.checked;document.getElementById('scCustomerWindowInput').style.opacity=this.checked?'1':'0.4';" />
+                  Customer Confirmed
+                </label>
+              </div>
+              <div class="input-group">
+                <input type="text" id="scCustomerWindowInput" placeholder="e.g. 1–3 PM or after 2 PM" disabled style="opacity:0.4;" />
+              </div>
+            </div>
 
             <div class="form-row">
               <div class="input-group">
@@ -9869,7 +9881,7 @@
 
       /* ── end Settings inner-nav ─────────────────────────────────────── */
     </script>
-    <script src="service_call.js?v=75"></script>
+    <script src="service_call.js?v=76"></script>
     <script src="dispatcher/js/ai_report_reviewer.js?v=5"></script>
     <script src="dispatcher/js/insights_manager.js?v=4"></script>
     <script src="dispatcher/js/report_builder.js?v=5"></script>

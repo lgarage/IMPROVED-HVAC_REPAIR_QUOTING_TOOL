@@ -1093,6 +1093,11 @@ function gatherServiceData() {
         clientPortalMemo: (function () {
             var el = document.getElementById("scClientPortalMemo");
             return el && el.value ? String(el.value).trim() : "";
+        })(),
+        customerApproved: document.getElementById('scCustomerApprovedInput') ? document.getElementById('scCustomerApprovedInput').checked : false,
+        customerApprovedWindow: (function () {
+            var el = document.getElementById('scCustomerWindowInput');
+            return el && el.value ? el.value.trim() : "";
         })()
     };
 }
@@ -1330,7 +1335,13 @@ function clearServiceForm() {
     }
 
     document.getElementById('scDateInput').value = localTodayYMD();
-    document.getElementById('scStartTimeInput').value = "08:00"; 
+    document.getElementById('scStartTimeInput').value = "08:00";
+    (function () {
+        var cb = document.getElementById('scCustomerApprovedInput');
+        var win = document.getElementById('scCustomerWindowInput');
+        if (cb) cb.checked = false;
+        if (win) { win.value = ""; win.disabled = true; win.style.opacity = "0.4"; }
+    })();
     document.getElementById('scDurationInput').value = "2.0";
     var scMd = document.getElementById("scMultiDayCount");
     if (scMd) scMd.value = "2";
@@ -1734,6 +1745,16 @@ async function loadServiceCall(dbId) {
     document.getElementById('scDateInput').value = data.date;
     document.getElementById('scStartTimeInput').value = data.startTime || "08:00";
     (function () {
+        var cb = document.getElementById('scCustomerApprovedInput');
+        var win = document.getElementById('scCustomerWindowInput');
+        if (cb) cb.checked = data.customerApproved === true;
+        if (win) {
+            win.value = data.customerApprovedWindow || "";
+            win.disabled = !data.customerApproved;
+            win.style.opacity = data.customerApproved ? "1" : "0.4";
+        }
+    })();
+    (function () {
         var scDur = document.getElementById("scDurationInput");
         if (!scDur) return;
         var dvv = data.duration || "2.0";
@@ -1880,13 +1901,16 @@ function renderServiceBoard() {
               'font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;cursor:pointer;' +
               'margin-left:6px;border:1px solid #fde047;">🔖 Quote Ready</span>'
             : '';
+        const customerConfirmedBadge = sc.customerApproved
+            ? '<span style="background:#16a34a;color:#fff;font-size:10px;border-radius:3px;padding:2px 5px;margin-left:4px;">✓ Confirmed' + (sc.customerApprovedWindow ? ' · ' + sc.customerApprovedWindow : '') + '</span>'
+            : '';
         const techAvatarsRow = buildSidebarTechAvatarsHtml(sc);
 
         let cardHTML = `
             <div class="glass-card ${colorClass}" draggable="true" ondragstart="drag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')">
                 <div class="tc-title">
                     <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">${sc.customerName}</span>
-                    <span style="font-size:10px; color:#aaa;">${sc.ticketNum}${releaseBadge}${quoteBadge}</span>
+                    <span style="font-size:10px; color:#aaa;">${sc.ticketNum}${releaseBadge}${quoteBadge}${customerConfirmedBadge}</span>
                 </div>
                 <div class="tc-loc"><i class="fas fa-map-marker-alt" style="color:#c89b53;"></i> ${sc.locationAddress} | ${sc.custCity}, ${sc.custState}</div>
                 <div class="tc-tech-strip">${techAvatarsRow}</div>

@@ -7948,7 +7948,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "IssuesFix65d-FooterStack-2026-05-19";
+window.VC_BUILD = "CustomerConfirm-2026-05-20";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
@@ -9420,6 +9420,9 @@ function renderJobListUI() {
     } else {
       addrHtml = `<div class="card-address card-address--empty" aria-hidden="false"><span aria-hidden="true">📍</span> No address on file</div>`;
     }
+    const confirmedPill = data.customerApproved
+      ? `<div style="margin-top:6px;"><span style="display:inline-block;background:#16a34a;color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:3px 8px;">✓ Appt confirmed${data.customerApprovedWindow ? ' · ' + escapeHtml(data.customerApprovedWindow) : ''}</span></div>`
+      : '';
     const ceList = Array.isArray(data.customerEvidenceUrls) ? data.customerEvidenceUrls.filter(Boolean) : [];
     const ceN = ceList.length;
     const ceBadge = ceN
@@ -9447,6 +9450,7 @@ function renderJobListUI() {
           </div>
           <div class="card-location-primary">${escapeHtml(locTitle)}</div>
           ${descBlock}
+          ${confirmedPill}
           ${ceBadge}
           ${addrHtml}
           <button type="button" class="job-card-review-btn" onclick='event.stopPropagation();openWorkspace(${safeId})'>🛠️ Update / Review This Job</button>
@@ -9460,6 +9464,7 @@ function renderJobListUI() {
           </div>
           <div class="card-location-primary">${escapeHtml(locTitle)}</div>
           ${descBlock}
+          ${confirmedPill}
           ${ceBadge}
           ${addrHtml}
           ${statusSelect}
@@ -10716,6 +10721,23 @@ function openWorkspace(ticketId) {
   document.getElementById('ws-address').innerText = buildTicketNavAddress(activeTicket) || '—';
   document.getElementById('ws-ticket').innerText = `${activeTicket.ticketNum} • ${activeTicket.jobType}`;
   (function() { var r = document.getElementById('ws-reason-for-call'); if (r) { r.classList.add('hidden'); r.setAttribute('aria-hidden', 'true'); } })();
+  (function () {
+    var banner = document.getElementById('wsCustomerConfirmedBanner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'wsCustomerConfirmedBanner';
+      banner.style.cssText = 'background:rgba(22,163,106,0.15);color:#16a34a;font-size:13px;font-weight:700;padding:8px 14px;border-radius:8px;margin:8px 16px 0;text-align:center;display:none;';
+      var wsEl = document.getElementById('wsJobDetailsPanel');
+      if (wsEl) wsEl.appendChild(banner);
+    }
+    if (activeTicket.customerApproved) {
+      var windowStr = activeTicket.customerApprovedWindow ? activeTicket.customerApprovedWindow : 'confirmed';
+      banner.textContent = '✓ Customer confirmed arrival: ' + windowStr;
+      banner.style.display = 'block';
+    } else {
+      banner.style.display = 'none';
+    }
+  })();
 
   document.getElementById('ticketSelector').value = ticketId;
   document.getElementById('location').value = buildWorkspaceLocationString(activeTicket);
