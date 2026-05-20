@@ -138,6 +138,8 @@
   var LS_SETTINGS_KEY = "vc_ct_settings";
   var LS_VOCAB_KEY = "vc_ct_vocab_corrections";
   var currentTicketId = "draft";
+  /** Bumped on workspace close — invalidates pending autoOpenAfterPaint callbacks. */
+  var _workspacePaintGen = 0;
   var initialized = false;
   /** Cached ref — getElementById misses #ct-post-chat-actions while detached. */
   var _postChatActionsEl = null;
@@ -2928,6 +2930,8 @@
     } catch (e) { /* degrade silently */ }
 
     /* Auto-show compiled report on workspace entry so the summary is the first thing seen */
+    _workspacePaintGen++;
+    var paintGen = _workspacePaintGen;
     var capturedOpenTicketId = currentTicketId;
 
     function autoOpenAfterPaint(cb) {
@@ -2936,7 +2940,9 @@
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
           setTimeout(function () {
-            if (currentTicketId === capturedOpenTicketId) cb();
+            if (_workspacePaintGen !== paintGen) return;
+            if (currentTicketId !== capturedOpenTicketId) return;
+            cb();
           }, 150);
         });
       });
@@ -3004,7 +3010,11 @@
   }
 
   function onWorkspaceClose() {
+    _workspacePaintGen++;
     stopBgCompileTimer();
+    /* Modal is position:fixed at body root — must hide when leaving workspace or it
+       overlays the schedule screen (issues-found #7 / overnight screen glitch). */
+    closeCompileModal();
   }
 
   /* ── Compile Notes (Slice 48a) ─────────────────────────────────── */

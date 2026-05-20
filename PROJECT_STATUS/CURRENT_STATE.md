@@ -7,7 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 foundation shipped. **KI-006 past-day job UX shipped** 2026-05-19. Phase 63 live. KI-004 core shipped.
-- **Last shipped (2026-05-19):** Compile-notes-first bug fix — `saveCompileCache` now called after every `compileNotes()` success (not just submit); `submitted` flag added to cache; `onWorkspaceOpen` only marks ticket as submitted when `cached.submitted===true`. Result: compiled report modal auto-opens on any job card tap after compile, even if user never submitted. (`conversational_timeline.js?v=76`). Deployed.
+- **Last shipped (2026-05-19):** issues-found **#7** screen glitch — compile modal no longer overlays schedule after leaving workspace (`onWorkspaceClose` → `closeCompileModal` + paint-gen cancel for stale auto-open). `ScreenGlitchFix7-2026-05-19` · `conversational_timeline.js?v=77`. Deployed.
+- **Prior (2026-05-19):** Compile-notes-first — `saveCompileCache` after every `compileNotes()`; `submitted` cache flag (`v=76`).
 - **Prior (2026-05-19):** KI-006 UX polish — View Compiled Notes pinned; compiled report opens first; × dismisses to addendum chat; full date+time on historical bubbles (`KI006-PastDayUX4-2026-05-19`, `v=75`).
 - **Prior (2026-05-19):** KI-006 initial past-day card tap + addendum flow.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
@@ -20,8 +21,8 @@ None.
 
 ## Immediate Next Step
 
-- **User device verify:** On an active job with compile done — re-tap job card from schedule → compiled report modal should open automatically. Tap × → see rolling chat with timestamps. (`conversational_timeline.js?v=76`).
-- **Product queue:** issues-found tracker **#6** (historical edit matrix design) or **#11** (KI-009 May 19 Slack triage).
+- **User device verify:** issues-found **#7** — open job with compile modal visible → tap Schedule → schedule must show with no compile overlay (`BUILD: ScreenGlitchFix7-2026-05-19`).
+- **Product queue:** tracker **#6** (historical edit matrix) or **#11** (KI-009 triage) or **#13** (composer overlap).
 - **Optional:** Phase 64 quote/vendor device smoke-test; build-runner checklist items 3–5.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
