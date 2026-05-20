@@ -308,6 +308,387 @@ Bump VC_BUILD.`,
   
 
   // ═══════════════════════════════════════════════════════════
+  //  Phase 65: Issues-Found Fixes Batch (#15, #17, #18, #19, #21)
+  //  Source: Slack #issues-found May 19 PM → tracker items 15–21.
+  //  All field-app UX polish; no Firestore writes; no auth changes.
+  // ═══════════════════════════════════════════════════════════
+
+  {
+    id: "65a",
+    phase: 65,
+    title: "Skip 'submit to office?' prompt when compiled result is empty or trivial",
+    dependsOn: [],
+    patterns: ["Single-file JS bugfix"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["conversational_timeline.js", "technician/index.html"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Fix issues-found tracker #15: the "Submit to office first?" prompt (showCompileClosePrompt)
+appears whenever the user closes the compile modal before submitting, even when the compiled
+result contains no meaningful notes. Gate the prompt on non-empty content.
+
+## File: conversational_timeline.js
+
+### Change 1 — maybeCloseCompileModal (~line 3256)
+
+Find the function maybeCloseCompileModal(). It currently reads:
+
+  function maybeCloseCompileModal() {
+    if (isHistoricalWorkspace()) {
+      closeCompileModal({ enableAddendum: true });
+      return;
+    }
+    if (_lastCompileResult && _compileSubmittedForTicket !== currentTicketId) {
+      showCompileClosePrompt();
+    } else {
+      closeCompileModal();
+    }
+  }
+
+Change the condition so the prompt only fires when the result has meaningful content
+(more than 30 characters of trimmed text):
+
+  function maybeCloseCompileModal() {
+    if (isHistoricalWorkspace()) {
+      closeCompileModal({ enableAddendum: true });
+      return;
+    }
+    var hasContent = _lastCompileResult && _lastCompileResult.trim().length > 30;
+    if (hasContent && _compileSubmittedForTicket !== currentTicketId) {
+      showCompileClosePrompt();
+    } else {
+      closeCompileModal();
+    }
+  }
+
+Also update window.ConversationalTimeline.hasUnsubmittedReport (~line 4529) to match:
+
+  hasUnsubmittedReport: function () {
+    return !!(
+      _lastCompileResult &&
+      _lastCompileResult.trim().length > 30 &&
+      _compileSubmittedForTicket !== currentTicketId
+    );
+  },
+
+## File: technician/index.html
+
+Bump the conversational_timeline.js cache-bust version from ?v=77 to ?v=78 (~line 13705):
+  <script src="../conversational_timeline.js?v=78"></script>
+
+Update VC_BUILD (~line 7927):
+  window.VC_BUILD = "IssuesFix65a-SkipSendPrompt-2026-05-19";`,
+    outOfScope: "Changing when the compile modal auto-opens. Changing the submit flow itself. Adding parked-notes tracking beyond the existing _lastCompileResult variable.",
+    cacheBusts: ["conversational_timeline.js?v=78"],
+  },
+
+  {
+    id: "65b",
+    phase: 65,
+    title: "Compile modal — reduce top spacing so report content sits higher",
+    dependsOn: ["65a"],
+    patterns: ["CSS-only restyle / theme"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["technician/index.html"],
+    expectedIds: ["ct-compile-modal"],
+    expectedExports: {},
+    uiChange: true,
+    playwrightSteps: [
+      `await page.locator('.job-card').first().click();`,
+      `await page.waitForTimeout(3000);`,
+      `// Try to open compile modal via the compile button if visible`,
+      `const compileBtn = page.locator('#ct-compile-btn, .ct-compile-btn, [id*="compile"]').first();`,
+      `if (await compileBtn.isVisible({ timeout: 2000 }).catch(() => false)) {`,
+      `  await compileBtn.click();`,
+      `  await page.waitForTimeout(2000);`,
+      `}`,
+      `await page.screenshot({ path: '_ss_compile_modal.png' });`,
+    ],
+    scope: `Fix issues-found tracker #17: the compiled report content sits too low in the modal
+on iPhone, leaving wasted space above the report text. Reduce top padding in the modal header
+and body so content starts higher.
+
+## File: technician/index.html — CSS changes only
+
+### Change 1 — .ct-compile-header (~line 2704)
+
+Current:
+  .ct-compile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    background: linear-gradient(180deg, #13152a 0%, #151633 100%);
+  }
+
+Change padding from "14px 16px 10px" to "10px 16px 8px" (less top breathing room):
+  padding: 10px 16px 8px;
+
+### Change 2 — .ct-compile-body (~line 2736)
+
+Current:
+  .ct-compile-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
+  }
+
+Change top padding from 14px to 8px:
+  padding: 8px 16px 14px;
+
+### Change 3 — .ct-compile-hint (~line 2741)
+
+Current:
+  .ct-compile-hint {
+    margin: 0 0 10px;
+    ...
+  }
+
+Change bottom margin from 10px to 6px:
+  margin: 0 0 6px;
+
+### Update VC_BUILD (~line 7927):
+  window.VC_BUILD = "IssuesFix65b-CompileModalUp-2026-05-19";
+
+Do NOT change any JavaScript, modal behavior, or button wiring. CSS padding changes only.`,
+    outOfScope: "Changing modal height, border-radius, font sizes, button layout, or any JavaScript. Only the three CSS padding/margin values listed above.",
+    cacheBusts: [],
+  },
+
+  {
+    id: "65c",
+    phase: 65,
+    title: "Compile modal — add Schedule button for single-tap navigation to schedule",
+    dependsOn: ["65a", "65b"],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["technician/index.html", "conversational_timeline.js"],
+    expectedIds: ["ct-compile-modal", "ct-compile-schedule-btn"],
+    expectedExports: {},
+    uiChange: true,
+    playwrightSteps: [
+      `await page.locator('.job-card').first().click();`,
+      `await page.waitForTimeout(3000);`,
+      `const compileBtn = page.locator('#ct-compile-btn, .ct-compile-btn, [id*="compile"]').first();`,
+      `if (await compileBtn.isVisible({ timeout: 2000 }).catch(() => false)) {`,
+      `  await compileBtn.click();`,
+      `  await page.waitForTimeout(2000);`,
+      `}`,
+      `await page.screenshot({ path: '_ss_compile_with_schedule.png' });`,
+    ],
+    scope: `Fix issues-found tracker #18: the user must tap × (close) then tap Schedule to return
+to the schedule list. Add a "Schedule" button directly in the compile modal footer that closes
+the modal and navigates to the schedule screen in one tap.
+
+## File: technician/index.html — Part 1: HTML button
+
+Find the compile modal actions div (~line 14184):
+  <div class="ct-compile-actions">
+    <button type="button" class="ct-compile-copy-btn">📋 Copy Summary</button>
+    <button type="button" class="ct-compile-submit-btn">Submit to Office</button>
+    <span class="ct-compile-status" aria-live="polite"></span>
+  </div>
+
+Add a Schedule button BEFORE the Copy button, and give it an id:
+  <div class="ct-compile-actions">
+    <button type="button" id="ct-compile-schedule-btn" class="ct-compile-schedule-btn">📅 Schedule</button>
+    <button type="button" class="ct-compile-copy-btn">📋 Copy Summary</button>
+    <button type="button" class="ct-compile-submit-btn">Submit to Office</button>
+    <span class="ct-compile-status" aria-live="polite"></span>
+  </div>
+
+## File: technician/index.html — Part 2: CSS for Schedule button
+
+Add a new CSS rule for .ct-compile-schedule-btn after .ct-compile-copy-btn styles (~line 2787).
+Style it as a neutral outlined button (different from the blue submit and cyan copy):
+  .ct-compile-schedule-btn {
+    padding: 12px 18px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    border-radius: 10px;
+    background: rgba(148, 163, 184, 0.08);
+    color: #94a3b8;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ct-compile-schedule-btn:active {
+    background: rgba(148, 163, 184, 0.18);
+  }
+
+## File: conversational_timeline.js — Part 3: Wire the button
+
+Find the section where compile modal buttons are wired (~line 4028), where copyBtn and submitBtn
+are wired via querySelector. It looks like:
+  var copyBtn = modal.querySelector(".ct-compile-copy-btn");
+  if (copyBtn) copyBtn.addEventListener("click", copyCompileSummary);
+
+  var submitBtn = modal.querySelector(".ct-compile-submit-btn");
+  if (submitBtn) submitBtn.addEventListener("click", submitCompileToOffice);
+
+Add wiring for the schedule button immediately after the copyBtn wiring:
+  var scheduleBtn = modal.querySelector(".ct-compile-schedule-btn");
+  if (scheduleBtn) {
+    scheduleBtn.addEventListener("click", function () {
+      closeCompileModal();
+      if (typeof switchScreen === "function") switchScreen("schedule");
+    });
+  }
+
+## File: technician/index.html — Part 4: Version bumps
+
+Bump conversational_timeline.js from ?v=78 to ?v=79 (~line 13705):
+  <script src="../conversational_timeline.js?v=79"></script>
+
+Update VC_BUILD (~line 7927):
+  window.VC_BUILD = "IssuesFix65c-ScheduleBtn-2026-05-19";`,
+    outOfScope: "Changing the × close button behavior. Changing the Submit to Office or Copy buttons. Adding a Schedule button anywhere other than the compile modal footer. Any Firestore writes or auth changes.",
+    cacheBusts: ["conversational_timeline.js?v=79"],
+  },
+
+  {
+    id: "65d",
+    phase: 65,
+    title: "Compile modal footer — fix z-index stacking so report text doesn't bleed through buttons",
+    dependsOn: ["65b"],
+    patterns: ["CSS-only restyle / theme"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["technician/index.html"],
+    expectedIds: ["ct-compile-modal"],
+    expectedExports: {},
+    uiChange: true,
+    playwrightSteps: [
+      `await page.locator('.job-card').first().click();`,
+      `await page.waitForTimeout(3000);`,
+      `const compileBtn = page.locator('#ct-compile-btn, .ct-compile-btn, [id*="compile"]').first();`,
+      `if (await compileBtn.isVisible({ timeout: 2000 }).catch(() => false)) {`,
+      `  await compileBtn.click();`,
+      `  await page.waitForTimeout(2000);`,
+      `}`,
+      `// Scroll the textarea to the bottom to simulate content below the footer`,
+      `await page.evaluate(() => {`,
+      `  const ta = document.querySelector('.ct-compile-textarea');`,
+      `  if (ta) ta.scrollTop = ta.scrollHeight;`,
+      `});`,
+      `await page.waitForTimeout(500);`,
+      `await page.screenshot({ path: '_ss_compile_footer.png' });`,
+    ],
+    scope: `Fix issues-found tracker #19: scrollable compiled report text bleeds visually through
+or behind the modal footer buttons (Schedule / Copy / Submit) due to stacking context issues.
+
+## File: technician/index.html — CSS changes only
+
+### Change 1 — .ct-compile-actions (~line 2765)
+
+Current:
+  .ct-compile-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+    background: #13152a;
+    flex-wrap: wrap;
+  }
+
+Add position: relative and z-index: 2 so the footer stacks above the scrollable body:
+  .ct-compile-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+    background: #13152a;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 2;
+  }
+
+### Change 2 — .ct-compile-body (~line 2736) — ensure scrolling content clips to bounds
+
+Add overflow-x: hidden to the existing .ct-compile-body rule so content does not
+visually escape horizontally:
+  .ct-compile-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 16px 14px;   /* NOTE: use the updated padding from 65b — 8px top, not 14px */
+  }
+
+IMPORTANT: The .ct-compile-body padding was already changed to "8px 16px 14px" by slice 65b.
+Do NOT revert that; only add overflow-x: hidden to the existing rule.
+
+### Update VC_BUILD (~line 7927):
+  window.VC_BUILD = "IssuesFix65d-FooterStack-2026-05-19";
+
+Do NOT change any JavaScript, button wiring, or modal open/close logic.`,
+    outOfScope: "Changing button colors, padding, font size, or any JavaScript logic. CSS stacking and overflow changes only.",
+    cacheBusts: [],
+  },
+
+  {
+    id: "65e",
+    phase: 65,
+    title: "Document actual background sync intervals (answer to #21)",
+    dependsOn: [],
+    patterns: ["Governance / docs-only edits"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["PROJECT_STATUS/KNOWN_ISSUES.md"],
+    expectedIds: [],
+    expectedExports: {},
+    scope: `Fix issues-found tracker #21: user asked whether background sync happens every ~45 seconds.
+Document the actual sync cadences so the answer is findable in the project docs.
+
+## Facts already confirmed in the codebase (do not re-grep — use these)
+
+- **Live presence heartbeat**: technician/index.html ~line 13406 →
+    window.setInterval(writeLivePresence, 15000) → fires every **15 seconds**.
+- **Background compile safety-net sweep**: conversational_timeline.js ~line 3023 →
+    COMPILE_BG_INTERVAL_MS = 5 * 60 * 1000 → fires every **5 minutes** as a safety net.
+- **Background compile debounce**: conversational_timeline.js ~line 3024 →
+    COMPILE_DEBOUNCE_MS = 45 * 1000 → waits **45 seconds** of quiet after the last
+    chat entry before triggering the background compile. This is the "45 second" number
+    the user was thinking of — it's the compile quiet-period, not a Firestore sync.
+- **Firestore schedule/job listener**: real-time push via onSnapshot() — no polling interval.
+    Updates arrive within 1–2 seconds of a write.
+
+## Change to make
+
+Open PROJECT_STATUS/KNOWN_ISSUES.md. Find or create a section "## Sync Cadences" near
+the top of the active issues section. Add or update with the following content
+(use exact markdown formatting):
+
+---
+
+## Sync Cadences (confirmed 2026-05-19)
+
+| Signal | Mechanism | Interval |
+|--------|-----------|----------|
+| Live presence (tech screen + ticket) | setInterval → writeLivePresence | **15 s** |
+| Firestore job/schedule updates | onSnapshot real-time listener | **< 2 s** (push) |
+| Background auto-compile (quiet period) | COMPILE_DEBOUNCE_MS after last entry | **45 s** |
+| Background compile safety-net sweep | COMPILE_BG_INTERVAL_MS setInterval | **5 min** |
+
+> The "~45 seconds" the user noticed is the compile debounce quiet period —
+> not a Firestore sync. Firestore job data is real-time.
+
+---
+
+If the section already exists, update it rather than duplicating it.
+Do NOT modify technician/index.html or conversational_timeline.js.`,
+    outOfScope: "Changing any sync intervals in code. Adding a UI 'last synced' indicator. Modifying any app logic.",
+    cacheBusts: [],
+  },
+
+  // ═══════════════════════════════════════════════════════════
   //  Phase 66: Admin Conversational Checklist Builder
   //  Managers/dispatchers chat (voice or text) to create and
   //  update form_templates. Tech phone preview before save.
