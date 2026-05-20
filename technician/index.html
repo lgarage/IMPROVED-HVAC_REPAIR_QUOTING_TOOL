@@ -81,6 +81,7 @@ body.ws-active .app-top-shell {
   position: fixed;
   left: 0;
   right: 0;
+  z-index: 10000;
 }
 body.ws-active .workspace-site-banner-sticky {
   position: fixed;
@@ -2794,22 +2795,6 @@ body.vc-admin-workspace #ct-compile-modal {
 }
 .ct-compile-copy-btn:active {
   background: rgba(0, 212, 255, 0.18);
-}
-.ct-compile-schedule-btn {
-  padding: 12px 18px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  border-radius: 10px;
-  background: rgba(148, 163, 184, 0.08);
-  color: #94a3b8;
-  font-size: 14px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  min-height: 44px;
-  -webkit-tap-highlight-color: transparent;
-}
-.ct-compile-schedule-btn:active {
-  background: rgba(148, 163, 184, 0.18);
 }
 .ct-compile-submit-btn {
   padding: 12px 18px;
@@ -8748,6 +8733,8 @@ function switchScreen(screenName) {
     if (window.ConversationalTimeline && typeof window.ConversationalTimeline.onWorkspaceClose === 'function') {
       window.ConversationalTimeline.onWorkspaceClose();
     }
+    var ctModal = document.getElementById('ct-compile-modal');
+    if (ctModal) ctModal.classList.add('hidden');
     const ws = document.getElementById('screen-workspace');
     if (ws) {
       ws.classList.remove('workspace--lite-readonly');
@@ -14228,7 +14215,6 @@ window.onload = async function(){
       <textarea class="ct-compile-textarea" rows="18" spellcheck="true"></textarea>
     </div>
     <div class="ct-compile-actions">
-      <button type="button" id="ct-compile-schedule-btn" class="ct-compile-schedule-btn">📅 Schedule</button>
       <button type="button" class="ct-compile-copy-btn">📋 Copy Summary</button>
       <button type="button" class="ct-compile-submit-btn">Submit to Office</button>
       <span class="ct-compile-status" aria-live="polite"></span>
