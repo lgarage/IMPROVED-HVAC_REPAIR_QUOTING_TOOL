@@ -1,6 +1,6 @@
 ﻿# Cursor model dossier
 
-> **North star:** Cheapest model that delivers acceptable quality for the task type, grounded in real logged outcomes. **Tier 1 read:** Skim Pick-a-model → Scorecard; grep Gotchas by domain. **Gate:** run §6B + §6B1 (steps 0–4, parts A/B/C) before any repo change. **Maintain:** after substantive work — append row, call `updateScorecardCell()`, refresh canvas data inline. Archive when row 11 added (auto via `dossier_logger.ts`).
+> **North star:** Cheapest model that delivers acceptable quality for the task type, grounded in real logged outcomes. **Tier 1 read:** Skim Pick-a-model → Scorecard; grep Gotchas by domain. **Gate:** run §6B + §6B1 (steps 0–4, parts A/B/C) before any repo change. **Maintain:** after substantive work — append row, refresh `model-scorecard.canvas.tsx` recent rows, and let `.cursor/hooks/sync-scorecard.js` auto-sync the scorecard. Archive when row 11 added (auto via `dossier_logger.ts`).
 
 ---
 
@@ -11,7 +11,7 @@
 | T0 (exact replace, 1-line) | **GPT-5.4 Mini** | Gemini 3 Flash | — |
 | T1 mechanical multi-step | **GPT-5.4 Mini** | Gemini 3 Flash, GPT-5 Mini, Composer 2.5 | — |
 | T1 nuanced / traced patch | **Gemini 3 Flash** | Sonnet 4.6, Composer 2.5 | — |
-| T2 standard dev | **Sonnet 4.6** | Kimi K2.5, Composer 2.5 (low-risk) | — |
+| T2 standard dev | **C2.5** | Sonnet 4.6, Kimi K2.5, Composer 2.5 (low-risk) | Start here for low-risk single-/few-file work |
 | T4 read-only / tour | **Gemini 3 Flash** | GPT-5 Mini, Composer 2.5 | — |
 | T3 code-heavy multi-file | **Codex 5.3** | GPT-5.5, Opus 4.6 | — |
 | T3 Vertex Core (tenant / Firestore writes / field critical / Office Override) | **Opus 4.6** | Codex 5.3 | Never Fast |
@@ -80,7 +80,7 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 | **Gemini 3 Flash** | Fast | T1 alternate — reliable, constraint-following |
 | **GPT-5 Mini** | Fast | Experimental T1 alt — build signal before promoting |
 | **Composer 2** | Fast | Fallback only: pure exact-replace / version bump |
-| **Composer 2.5** | Fast | T1–T2 alternate — proven on traced patches + T4 triage; unproven on net-new Firestore |
+| **Composer 2.5** | Fast | T1–T2 alternate — proven on traced patches + T4 triage; use after C2.5 for low-risk work, unproven on net-new Firestore |
 | **GPT-5.4 Nano** | Fast | **DEMOTED 2026-05-17** — skip; use Mini or Flash |
 | **Sonnet 4.6** | Balanced | Default T2 daily implementation |
 | **GPT-5.2 / GPT-5.4 / GPT-5.5** | Strong | GPT Strong alternatives; 5.5 = flagship |
@@ -106,7 +106,7 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 
 ---
 
-## Outcome log (newest first)
+## Outcome log (newest first ↓ older rows in MODEL_DOSSIER_ARCHIVE.md)
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
@@ -129,5 +129,6 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 ## Changelog
 
 - **2026-05-19 (Sonnet 4.6):** Efficiency overhaul — scorecard rebuilt from all ~180 rows, gotchas extracted by domain, active log capped to 10 rows, `dossier_logger.ts` updated (MAX_ACTIVE_ROWS=10, truncation, `updateScorecardCell`, `JOB_SHAPE_MAP`), `model-scorecard.canvas.tsx` created, `model-selection.mdc` updated with scorecard + canvas writes.
+- **2026-05-19 (GPT-5.4 Mini):** Cost-tuning update — C2.5 moved to first choice for low-risk T2 standard dev; north-star now points to hook-based scorecard sync.
 - **2026-05-19 (Sonnet 4.6):** C2.5 audit — SDK-automated rows excluded from scorecard; Firestore/Vertex corrected to ⚠️ unproven; voice search row flagged unverified.
 - **2026-05-18:** SDK runner cheapest-first ladders; Composer 2.5 T2 promotion; outcome log failures policy; enabled-models expansion (Mini, Flash, GPT-5 Mini, Kimi, C2.5).
