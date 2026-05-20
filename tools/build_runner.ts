@@ -417,6 +417,19 @@ async function runSliceAttempt(
   currentSliceStart = Date.now();
   currentSliceId = slice.id;
 
+  // Capture HEAD hash before the agent runs so the validator can detect
+  // ghost passes (agent returns "success" but made no actual changes).
+  let preRunHeadHash: string | undefined;
+  try {
+    preRunHeadHash = execSync("git rev-parse HEAD", {
+      cwd: PROJECT_ROOT,
+      stdio: "pipe",
+    }).toString().trim();
+    log(`Pre-run HEAD: ${preRunHeadHash.slice(0, 7)}`);
+  } catch {
+    log(`⚠  Could not capture pre-run HEAD hash — ghost-pass detection disabled for this attempt`);
+  }
+
   const prompt = buildPrompt(slice, model);
 
   let ticker: ReturnType<typeof setInterval> | null = null;
@@ -458,7 +471,7 @@ async function runSliceAttempt(
     }
 
     log(`Agent completed. Running validation...`);
-    const validation = validateSlice(slice);
+    const validation = validateSlice(slice, { preRunHeadHash });
 
     if (!validation.passed) {
       log(`Validation FAILED for slice ${slice.id}:`);
@@ -1569,6 +1582,76 @@ const commands: SlashCommand[] = [
     },
   },
   {
+    name: "/verify",
+    alias: ["/v"],
+    args: "[slice_id]",
+    description: "Retroactively check passed slices for ghost passes via git diff",
+    handler: async (args, state) => {
+      const targetId = args[0] || null;
+      const slicesToCheck = targetId
+        ? SLICES.filter((s) => s.id === targetId && state.slices[s.id]?.status === "passed")
+        : SLICES.filter((s) => state.slices[s.id]?.status === "passed");
+
+      if (slicesToCheck.length === 0) {
+        console.log(`\n  No passed slices to verify${targetId ? ` for '${targetId}'` : ""}.\n`);
+        return;
+      }
+
+      console.log(`\n  ═══ Ghost-Pass Verification — ${slicesToCheck.length} passed slice(s) ═══\n`);
+      console.log("  Checking git log for commits matching each slice...\n");
+
+      let suspects = 0;
+      for (const slice of slicesToCheck) {
+        const ss = state.slices[slice.id];
+        const lastAttempt = ss?.lastAttempt || "";
+
+        try {
+          // Look for a commit whose message references this slice id
+          const logOutput = execSync(
+            `git log --oneline --grep="Slice ${slice.id}" --max-count=5`,
+            { cwd: PROJECT_ROOT, stdio: "pipe" }
+          ).toString().trim();
+
+          if (!logOutput) {
+            console.log(
+              `  ⚠  ${slice.id.padEnd(8)} ${slice.title.slice(0, 45).padEnd(46)} ` +
+              `NO matching commit found in git log — possible ghost pass`
+            );
+            suspects++;
+          } else {
+            // Found a commit — get its diff stat
+            const commitHash = logOutput.split(" ")[0];
+            const statOutput = execSync(
+              `git show ${commitHash} --shortstat --format=""`,
+              { cwd: PROJECT_ROOT, stdio: "pipe" }
+            ).toString().trim();
+            const lineMatch = statOutput.match(/(\d+) insertion|(\d+) deletion/g);
+            const totalLines = lineMatch
+              ? lineMatch.reduce((sum, m) => sum + parseInt(m.match(/\d+/)![0], 10), 0)
+              : 0;
+            const icon = totalLines < 5 ? "⚠ " : "✓ ";
+            const hint = totalLines < 5 ? ` (only ${totalLines} line(s) changed — verify manually)` : "";
+            console.log(
+              `  ${icon}${slice.id.padEnd(8)} ${slice.title.slice(0, 45).padEnd(46)} ` +
+              `${commitHash} — ${totalLines} line(s)${hint}`
+            );
+            if (totalLines < 5) suspects++;
+          }
+        } catch {
+          console.log(`  ⚠  ${slice.id}: could not check git log`);
+          suspects++;
+        }
+      }
+
+      console.log(`\n  Result: ${slicesToCheck.length - suspects} clean, ${suspects} suspect`);
+      if (suspects > 0) {
+        console.log(`  For suspect slices: /reset <id> and re-run with /run <id>\n`);
+      } else {
+        console.log(`  All passed slices have real commits.\n`);
+      }
+    },
+  },
+  {
     name: "/quit",
     alias: ["/q", "/exit"],
     args: "",
@@ -1588,7 +1671,7 @@ function printHelp(): void {
     "Build": commands.filter((c) => ["/next", "/all", "/run"].includes(c.name)),
     "Info": commands.filter((c) => ["/status", "/build", "/plan", "/inspect", "/preview", "/errors", "/log"].includes(c.name)),
     "Cost": commands.filter((c) => ["/cost", "/models", "/guards"].includes(c.name)),
-    "Manage": commands.filter((c) => ["/reset", "/push", "/passed", "/failed", "/na", "/preflight", "/archive"].includes(c.name)),
+    "Manage": commands.filter((c) => ["/reset", "/push", "/passed", "/failed", "/na", "/preflight", "/archive", "/verify"].includes(c.name)),
     "Other": commands.filter((c) => ["/help", "/stop", "/quit"].includes(c.name)),
   };
 
@@ -1745,9 +1828,13 @@ async function runPreflight(): Promise<boolean> {
     const failed = SLICES.filter((s) => state.slices[s.id]?.status === "failed").length;
     const pending = SLICES.length - passed - failed;
     console.log(`  ✓ Build state found: ${passed} passed, ${failed} failed, ${pending} pending`);
+    if (passed > 0) {
+      console.log(`  ℹ  Run /verify to retroactively check passed slices for ghost passes`);
+    }
   } else {
     console.log("  ✓ Fresh start — no previous build state");
   }
+  console.log("  ✓ Ghost-pass detection: ACTIVE — validator captures pre-run HEAD hash");
 
   // 11. Model slug validation — every slug in MODEL_COST_RANK must be in the verified list.
   // The SDK rejects unknown slugs immediately; catching this at startup prevents wasted runs.

@@ -113,6 +113,7 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
 | 2026-05-20 | KNOWN_ISSUES sync cadences doc update for 65e | LOW | T0 | GPT-5.4 Mini | 95% | 97% | ok | ok | Cursor: **GPT-5.4 Mini**. Docs-only table; exact values from slices. |
+| 2026-05-20 | SDK ghost-pass fix: pre-run HEAD hash in validator + /verify command | LOW | T2 | Balanced | 92% | 96% | ok | ok | Cursor: **Sonnet 4.6**. Build runner / SDK archetype; hard-fail on no-change agent runs. |
 | 2026-05-19 | SDK cleanup: reset 3 ghost passes, aligned model_selector + MODEL_LOOKUP, no-SDK rule | LOW-MED | T2 | Strong | 90% | 95% | could_use_smaller | ok | Cursor: **Opus 4.6** (user-escalated). Governance + tooling — Sonnet sufficient. |
 | 2026-05-19 | Field app: issues-found #13 composer overlap — syncComposerClearance() | LOW | T2 | Balanced | 88% | 93% | ok | ok | Cursor: **Sonnet 4.6**. Dynamic dock measurement eliminates device variance. |
 | 2026-05-19 | Dossier efficiency overhaul: scorecard rebuilt, gotchas extracted, 10-row cap. | LOW | T2 | Balanced | 88% | 95% | ok | ok | Sonnet 4.6. Full restructure; scorecard aggregated from ~180 rows. |
@@ -121,10 +122,8 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 | 2026-05-19 | KI-006 past-day job UX: historical tap → compile modal → addendum. | LOW | T2 | Balanced | 88% | 94% | ok | ok | Sonnet 4.6. Tracker #5 closed; user device verify open. |
 | 2026-05-19 | Governance: issues-found reconciliation — 7 closed, 4 pending. | LOW | T4 | Fast | 90% | 96% | ok | ok | Gemini 3 Flash. Status audit across Slack/git/build_state; no app code. |
 | 2026-05-19 | SDK slice 64d — Vendor directory: Firestore CRUD UI. *(SDK automated)* | HIGH | T2-T3 | Fast | 82% | 90% | ok | ok | Composer 2.5 (SDK). Ladder: c2.5 → codex → sonnet → kimi. |
-| 2026-05-19 | SDK slice 64e — localStorage quote import. *(SDK automated)* | HIGH | T2 | Fast | 82% | 90% | ok | ok | Composer 2.5 (SDK). Ladder: c2.5 → codex → sonnet → kimi. |
-| 2026-05-19 | SDK slices 64a-64c — Firestore migration + quoting ports. *(3 tasks, SDK automated)* | LOW-HIGH | T1-T3 | Fast | 82% | 90% | ok | ok | GPT-5 Mini / C2.5 (SDK). Collapsed 3 rows per cluster rule. |
 
-- Older rows: see MODEL_DOSSIER_ARCHIVE.md (append up to 2026-05-19).
+- Older rows: see MODEL_DOSSIER_ARCHIVE.md (archived up to 2026-05-20).
 
 ---
 
