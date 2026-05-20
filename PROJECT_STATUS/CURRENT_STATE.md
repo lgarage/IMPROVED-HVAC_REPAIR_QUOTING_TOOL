@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 slices 65a+65c shipped by SDK; 65e shipped manually; 65b/65d still need manual implementation. Phase 64 foundation shipped. Phase 63 live.
-- **Last shipped (2026-05-20 07:00 CDT):** SDK ghost-pass fix — `validator.ts` + `build_runner.ts` now capture pre-run HEAD hash and hard-fail if agent makes no changes; `/verify` command added to retroactively scan passed slices.
-- **Prior (2026-05-20):** 65e docs update; dossier cost-tuning, issues-found #13 composer clearance, #7 screen glitch, compile-notes-first, KI-006 UX.
+- **Last shipped (2026-05-20 07:00 CDT):** SDK hardening batch — validator now hard-fails build-stamp-only commits on CSS/JS slices; prompt_builder anti-ghost warning added; conflicting VC_BUILD instruction removed; 65b + 65d reset to pending for proper SDK re-run.
+- **Prior (2026-05-20):** SDK ghost-pass fix (pre-run HEAD hash); 65e docs update; dossier cost-tuning, issues-found #13 composer clearance, #7 screen glitch, compile-notes-first, KI-006 UX.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,8 +19,7 @@ None.
 
 ## Immediate Next Step
 
-- **Slices 65b and 65d need manual implementation** — run them one-at-a-time as a live agent (never via SDK). See `tools/slices.ts` for scope; 65e is done.
-- Run `/verify` in the build runner to check existing passed slices for ghost passes before resuming any SDK work.
+- **Start the SDK** — `cd tools && npx ts-node build_runner.ts`, then type `/all`. Slices 65b + 65d are pending; validator will hard-fail build-stamp-only commits so no more ghost passes.
 - **Rule:** agents must never run the SDK build runner. See `.cursor/rules/no-sdk-build-runner.mdc`.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.

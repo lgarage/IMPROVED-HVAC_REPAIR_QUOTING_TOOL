@@ -26,12 +26,19 @@ INVARIANTS (must not break):
 
   const commitInstructions = `
 AFTER IMPLEMENTATION:
-1. Bump VC_BUILD in technician/index.html to "${getVcBuild(slice)}".
-2. Update cache-bust versions: ${slice.cacheBusts.join(", ")}.
-3. Git add all changed files.
+1. Bump VC_BUILD to the exact value specified in the Scope section above.
+   (If the scope does not give an exact value, use: "${getVcBuild(slice)}")
+2. Update cache-bust versions as specified: ${slice.cacheBusts.length > 0 ? slice.cacheBusts.join(", ") : "(none required)"}.
+3. Git add ALL changed files (including every file listed in Files to Modify).
 4. Git commit with message: "Phase ${slice.phase}: ${slice.title} (Slice ${slice.id})"
 5. ${slice.riskLevel === "safe" ? "Git push to origin main." : "Do NOT git push — commit only (risky slice, needs human review)."}
 6. Do NOT update PROJECT_STATUS files — the build runner handles that.
+
+CRITICAL — GHOST PASS PREVENTION:
+The build runner captures the git HEAD hash before you run and compares it after.
+If the commit only changes VC_BUILD (build-stamp-only), validation will HARD-FAIL and
+the slice will be marked failed and re-run at a higher model tier.
+You MUST apply every change listed in the Scope before committing.
 `.trim();
 
   const existingFileContext = getExistingFileContext(slice);

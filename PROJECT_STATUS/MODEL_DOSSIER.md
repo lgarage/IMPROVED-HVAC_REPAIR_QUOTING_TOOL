@@ -112,6 +112,7 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-20 | SDK hardening: build-stamp-only error, anti-ghost prompt, 65b/65d reset | LOW | T2 | Balanced | 93% | 97% | ok | ok | Cursor: **Sonnet 4.6**. Build runner / SDK archetype; validator + prompt fix. |
 | 2026-05-20 | KNOWN_ISSUES sync cadences doc update for 65e | LOW | T0 | GPT-5.4 Mini | 95% | 97% | ok | ok | Cursor: **GPT-5.4 Mini**. Docs-only table; exact values from slices. |
 | 2026-05-20 | SDK ghost-pass fix: pre-run HEAD hash in validator + /verify command | LOW | T2 | Balanced | 92% | 96% | ok | ok | Cursor: **Sonnet 4.6**. Build runner / SDK archetype; hard-fail on no-change agent runs. |
 | 2026-05-19 | SDK cleanup: reset 3 ghost passes, aligned model_selector + MODEL_LOOKUP, no-SDK rule | LOW-MED | T2 | Strong | 90% | 95% | could_use_smaller | ok | Cursor: **Opus 4.6** (user-escalated). Governance + tooling — Sonnet sufficient. |

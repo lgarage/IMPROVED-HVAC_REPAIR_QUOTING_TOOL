@@ -101,16 +101,40 @@ export function validateSlice(slice: Slice, context?: ValidationContext): Valida
           }
         }
 
-        // b) Suspiciously small diff — likely a build-stamp-only commit
+        // b) Suspiciously small diff — catch build-stamp-only commits
         const totalLines = totalInsertions + totalDeletions;
         const nonStatusFiles = [...changedFiles].filter(
           (f) => !f.includes("CURRENT_STATE") && !f.includes("build_state")
         );
+
+        // A commit is "build-stamp-only" if the only touched non-status file
+        // is index.html and the total diff is tiny (≤ 4 lines).  This is the
+        // pattern we saw in the 65b / 65d ghost passes: the agent bumped
+        // VC_BUILD but never applied the actual CSS changes.
         const looksLikeBuildStampOnly =
           nonStatusFiles.length <= 1 &&
-          nonStatusFiles.every((f) => f.includes("index.html"));
+          nonStatusFiles.every((f) => f.includes("index.html")) &&
+          totalLines <= 4;
 
-        if (totalLines > 0 && totalLines < 5 && !looksLikeBuildStampOnly && slice.filesToModify.length > 0) {
+        // A slice is "non-trivial" if it has JS files to modify, CSS patterns,
+        // UI feature patterns, or more than one file to modify.
+        const isNonTrivialSlice =
+          slice.filesToModify.some((f) => f.endsWith(".js")) ||
+          (slice.filesToCreate || []).length > 0 ||
+          slice.filesToModify.length > 1 ||
+          slice.patterns.some((p) =>
+            /css|ui feature|multi-file/i.test(p)
+          );
+
+        if (looksLikeBuildStampOnly && isNonTrivialSlice) {
+          // Hard-fail: the agent did a VC_BUILD-only commit and skipped the
+          // actual scope changes.  Force a re-run rather than marking passed.
+          errors.push(
+            `Build-stamp-only commit: agent bumped VC_BUILD but applied no substantive changes ` +
+            `(${totalLines} line(s) changed in [${nonStatusFiles.join(", ")}]) — ` +
+            `re-run to apply the actual ${slice.patterns.join(", ")} changes`
+          );
+        } else if (totalLines > 0 && totalLines < 5 && slice.filesToModify.length > 0) {
           warnings.push(
             `Very small diff (${totalLines} line(s) changed across ${changedFiles.size} file(s)) ` +
             `— verify the full slice scope was applied`
