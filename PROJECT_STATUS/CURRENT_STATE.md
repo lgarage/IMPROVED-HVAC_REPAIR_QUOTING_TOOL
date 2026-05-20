@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 64 foundation shipped. **KI-006 past-day job UX shipped** 2026-05-19. Phase 63 live. KI-004 core shipped.
-- **Last shipped (2026-05-19):** Dossier efficiency overhaul — MODEL_DOSSIER.md 115K→~18K chars, scorecard rebuilt from ~180 rows, gotchas extracted by domain, 10-row log cap, `dossier_logger.ts` updated, `model-scorecard.canvas.tsx` created, `model-selection.mdc` updated.
+- **Last shipped (2026-05-19):** Dossier cost-tuning update — `MODEL_DOSSIER.md` now recommends C2.5 first for low-risk T2 standard dev and points to hook-based scorecard sync.
 - **Prior (2026-05-19):** issues-found **#13** composer overlap — `syncComposerClearance()` dynamically measures dock height. `ComposerClearance-2026-05-19`. Deployed + verified.
 - **Prior (2026-05-19):** issues-found **#7** screen glitch — compile modal no longer overlays schedule (`ScreenGlitchFix7-2026-05-19` · `v=77`).
 - **Prior (2026-05-19):** Compile-notes-first — `saveCompileCache` after every `compileNotes()` (`v=76`).
@@ -23,7 +23,7 @@ None.
 ## Immediate Next Step
 
 - **User device verify:** issues-found **#13** — composer clearance (`BUILD: ComposerClearance-2026-05-19`).
-- **Product queue:** tracker **#6** (design) or **#14** (Compile Notes placement — next code fix).
+- **Product queue:** use the updated dossier to start the next low-risk T2 task on **C2.5** first; escalate only if needed.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
 
