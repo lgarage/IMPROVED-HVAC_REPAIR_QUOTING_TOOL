@@ -2787,6 +2787,22 @@ body.vc-admin-workspace #ct-compile-modal {
 .ct-compile-copy-btn:active {
   background: rgba(0, 212, 255, 0.18);
 }
+.ct-compile-schedule-btn {
+  padding: 12px 18px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.08);
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+.ct-compile-schedule-btn:active {
+  background: rgba(148, 163, 184, 0.18);
+}
 .ct-compile-submit-btn {
   padding: 12px 18px;
   border: none;
@@ -7924,7 +7940,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "Phase65-Slice65a-2026-05-20";
+window.VC_BUILD = "Phase65-Slice65c-2026-05-20";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
@@ -13702,7 +13718,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=7"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=4"></script>
-    <script src="../conversational_timeline.js?v=78"></script>
+    <script src="../conversational_timeline.js?v=79"></script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');
@@ -14182,6 +14198,7 @@ window.onload = async function(){
       <textarea class="ct-compile-textarea" rows="18" spellcheck="true"></textarea>
     </div>
     <div class="ct-compile-actions">
+      <button type="button" id="ct-compile-schedule-btn" class="ct-compile-schedule-btn">📅 Schedule</button>
       <button type="button" class="ct-compile-copy-btn">📋 Copy Summary</button>
       <button type="button" class="ct-compile-submit-btn">Submit to Office</button>
       <span class="ct-compile-status" aria-live="polite"></span>

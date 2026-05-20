@@ -4029,6 +4029,14 @@
     var copyBtn = modal.querySelector(".ct-compile-copy-btn");
     if (copyBtn) copyBtn.addEventListener("click", copyCompileSummary);
 
+    var scheduleBtn = modal.querySelector(".ct-compile-schedule-btn");
+    if (scheduleBtn) {
+      scheduleBtn.addEventListener("click", function () {
+        closeCompileModal();
+        if (typeof switchScreen === "function") switchScreen("schedule");
+      });
+    }
+
     var submitBtn = modal.querySelector(".ct-compile-submit-btn");
     if (submitBtn) submitBtn.addEventListener("click", submitCompileToOffice);
   }
