@@ -8,16 +8,6 @@ Open bugs, environmental gotchas, and debug notes. Resolved items move to the **
 
 ## Open
 
-### KI-009 — May 19 field reports (untriaged)
-
-- **Filed:** 2026-05-19 (reconciliation pass — `#issues-found` posts with no text caption).
-- **Severity:** Unknown until triaged.
-- **Reports:** One audio clip (~10:49 CDT) + three iOS screenshots posted same morning; user did not describe the issue in text.
-- **Status:** Open — listen/view in Slack, describe repro, then either close as duplicate, fold into KI-006/#7, or promote to a new fix with tracker item.
-- **Tracker:** issues-found **#11**.
-
----
-
 ### KI-004 — Field-app photo uploads are silently dropped offline (Phase 33 follow-up)
 
 - **Filed:** 2026-04-25 (post-Phase 33 audit triggered by user spec "if a technician does not have a signal when they are servicing a piece of equipment, that the information will be stored in the user's phone, [and] synced when signal returns"). Scope-checked with user 2026-04-25; user chose **audit-only** treatment (file this entry + ADR-012 + ROADMAP pointer; defer implementation) and asked that the eventual fix ship as a **KI-002-style follow-up patch on Phase 33**, not a new phase.
@@ -129,6 +119,10 @@ These are not bugs but recurring traps — keep them in mind whenever editing th
 ### KI-006 — Past-day job UX: card tap, report-first, timestamped addendum notes
 
 - **Resolved:** 2026-05-19 — card tap opens workspace; compiled report modal shows first; "Add Additional Notes" unlocks chat composer with full date+time stamps; notes sync to Firestore `addendums`. `VC_BUILD: KI006-PastDayUX-2026-05-19` · `conversational_timeline.js?v=72`. Playwright verified on deployed hosting.
+
+### KI-009 — May 19 field reports (triage bucket)
+
+- **Resolved:** 2026-05-19 — **triage only, not a product bug.** Morning `#issues-found` posts: one audio (~10:49 CDT) + three uncaptioned screenshots. Same evening user posted captioned issues → routed to issues-found **#13–#21** (2026-05-19 reconciliation). **#7** (compile modal on schedule) shipped `ScreenGlitchFix7-2026-05-19`. Tracker **#11** closed per user. Actionable fixes remain under **#13–#21**; no separate KI filed for morning media.
 
 ### KI-002 — Sync Risk Audit (2026-04-25): silent-failure & cache-versioning repair backlog
 

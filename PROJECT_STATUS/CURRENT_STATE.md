@@ -23,7 +23,7 @@ None.
 
 - **Dossier overhaul (ready to execute):** Full plan at `.cursor/plans/dossier_efficiency_overhaul_ae037131.plan.md`. Scorecard-primary restructure: aggregate all 180+ outcome rows into live scorecard table, extract gotchas, keep 10-row buffer, update `tools/dossier_logger.ts` for scorecard writes, create `model-scorecard.canvas.tsx`, update `model-selection.mdc`. Target: 377→~130 lines (115K→~18K chars). Say `proceed with dossier overhaul` to start.
 - **User device verify:** issues-found **#7** — compile modal vs schedule (`BUILD: ScreenGlitchFix7-2026-05-19`).
-- **Product queue:** tracker **#6** / **#11** / **#13**.
+- **Product queue:** tracker **#6** (design) or **#13** (composer overlap — next code fix).
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
 
