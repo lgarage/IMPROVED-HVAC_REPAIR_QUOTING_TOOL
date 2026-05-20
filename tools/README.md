@@ -72,6 +72,10 @@ Each slice **starts with the cheapest model** that fits its task pattern (`MODEL
 
 The tool learns: if a cheap model works, it remembers. If it fails, it bumps up. Over time it gets better at picking the right model.
 
+**`riskLevel: review` slices** never start below **Composer 2.5** (Mini, Flash, GPT-5 Mini, and Composer 2 are blocked).
+
+**Dossier outcome log:** each slice appends a row to `MODEL_DOSSIER.md` marked `*(SDK automated)*`. Those rows are **excluded** from the § Scorecard averages (see `.cursor/hooks/sync-scorecard.js`); fixed 82→90% confidence is calibration metadata only.
+
 ### Files in this folder
 
 | File | What it is |

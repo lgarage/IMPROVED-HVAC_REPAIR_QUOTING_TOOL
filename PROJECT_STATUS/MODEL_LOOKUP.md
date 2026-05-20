@@ -10,10 +10,10 @@
 
 | Pattern | Cheapest OK | Cheapest Failed | Floor | Verified | Last verified | Notes |
 |---------|-------------|-----------------|-------|----------|---------------|-------|
-| UI container / HTML+CSS layout | composer-2 | gpt-5.4-mini | — | yes | 2026-05-15 | 41a: mini failed, spark passed; 54c: composer-2 passed |
+| UI container / HTML+CSS layout | gpt-5.3-codex-spark | gpt-5.4-mini | — | yes | 2026-05-15 | 41a: mini failed, spark passed; 54c: composer-2 passed. Dossier: C2 demoted (CSS gap) |
 | CSS-only restyle / theme | gpt-5.4-mini | — | — | yes | 2026-05-20 | Verified: gpt-5.4-mini passed |
-| Single-file JS bugfix | composer-2 | — | — | yes | 2026-05-20 | From outcome log: shadow consent race fix |
-| Multi-file UI feature (no Firestore writes) | gpt-5.4-mini | — | — | no | 2026-05-20 | SDK: Mini first when file count < 3; guard blocks Mini at 3+ files |
+| Single-file JS bugfix | gpt-5.4-mini | — | — | no | 2026-05-20 | Dossier: Composer 2 demoted to fallback-only; Mini unverified — test on next match |
+| Multi-file UI feature (no Firestore writes) | gpt-5.4-mini | — | — | no | 2026-05-20 | SDK: 65c needed 3 attempts (C2.5); Mini unverified for this pattern |
 | New JS module (IIFE, no Firestore) | gpt-5.4-mini | — | — | no | 2026-05-17 | Slug fixed (mini-medium invalid); re-verify on next match |
 | Speech API / media capture integration | claude-sonnet-4-6 | — | claude-sonnet-4-6 | yes | 2026-05-15 | Floor: Sonnet minimum (41b, 44a) |
 | Cross-module wiring (3+ files) | gpt-5.4-mini | — | composer-2.5 | no | 2026-05-18 | Floor: no Mini/Flash on 3+ file wiring |

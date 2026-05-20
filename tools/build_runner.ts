@@ -37,8 +37,8 @@ const MAX_ACTIVE_SLICES = 20;
 // running slices that require judgment or multi-file reasoning.
 const RISK_LEVEL_FLOOR: Record<string, string> = {
   safe: "",                    // cheapest per pattern (MODEL_LOOKUP) tries first
-  review: "",                  // same — escalate on fail; C2.5 before Sonnet in ladder
-  critical: "",                // same — Opus only reached after cheaper rungs fail
+  review: COMPOSER_25_SLUG,    // dossier: no Mini/Flash/Mini-class on review slices
+  critical: "",                // escalate on fail; Opus reached via ladder tail
 };
 
 /** Ladder after pattern Floor, risk floor, and MODEL_GUARDS (no doomed Mini/Flash runs). */
@@ -1792,6 +1792,16 @@ async function runPreflight(): Promise<boolean> {
       if (firstRank < patternMin.floorRank) {
         console.log(
           `  ✗ Slice ${slice.id}: first rung ${ladder[0]} below pattern minimum ${patternMin.floorModel}`
+        );
+        ladderOk = false;
+      }
+    }
+    if (slice.riskLevel === "review") {
+      const reviewFloorRank = MODEL_COST_RANK[COMPOSER_25_SLUG] || 0;
+      const firstRank = MODEL_COST_RANK[ladder[0]] ?? 0;
+      if (firstRank < reviewFloorRank) {
+        console.log(
+          `  ✗ Slice ${slice.id}: review slice must start at ${COMPOSER_25_SLUG} or higher (got ${ladder[0]})`
         );
         ladderOk = false;
       }

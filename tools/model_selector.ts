@@ -23,11 +23,11 @@ const GUARD_OVERRIDES_PATH = path.join(__dirname, "model_guard_overrides.json");
 // Invalid slugs cause immediate SDK failure — do not add "-medium" or other
 // invented suffixes. Verified 2026-05-16 from SDK error available-models list.
 const MODEL_COST_RANK: Record<string, number> = {
-  "composer-2": 2,
-  "gpt-5.4-mini": 3,
-  "gemini-3-flash": 4,
-  "gpt-5-mini": 5,
-  "composer-2.5": 6,           // verified SDK slug — after Mini/Flash; before Sonnet/Opus
+  "gpt-5.4-mini": 2,
+  "gemini-3-flash": 3,
+  "gpt-5-mini": 4,
+  "composer-2.5": 5,           // after Mini/Flash; before Sonnet/Opus
+  "composer-2": 6,             // dossier: fallback-only — never cheapest rung
   "gpt-5.3-codex-spark": 7,
   "claude-sonnet-4-6": 8,
   "kimi-k2.5": 9,
@@ -66,8 +66,10 @@ export const MODEL_GUARDS: Record<string, ModelGuard> = {
       "Shadow Mode / Office Override",
       "Gemini prompt integration",
       "Cross-module wiring (3+ files)",
+      "UI container / HTML+CSS layout",
+      "CSS-only restyle / theme",
     ],
-    notes: "T0-T1 mechanical. Known reasoning weakness — skip multi-step logic.",
+    notes: "Fallback-only (dossier 2026-05-15). CSS reasoning gap — never for layout/style work.",
   },
   "composer-2.5": {
     maxRiskLevel: "critical",
@@ -107,7 +109,7 @@ export const MODEL_GUARDS: Record<string, ModelGuard> = {
     notes: "T0-T1 only. Partial-completion risk on multi-item review slices — see 62b incident 2026-05-16 where it committed after completing 2/5 items and stopped.",
   },
   "gpt-5-mini": {
-    maxRiskLevel: "review",
+    maxRiskLevel: "safe",
     maxFiles: 10,
     forbiddenPatterns: [
       "Firestore write path (new collection/doc)",
@@ -116,7 +118,7 @@ export const MODEL_GUARDS: Record<string, ModelGuard> = {
       "Shadow Mode / Office Override",
       "Gemini prompt integration",
     ],
-    notes: "T1 reasoning. No Firestore writes or Gemini prompt paths.",
+    notes: "T1 safe slices only. No review-risk slices; no Firestore writes or Gemini paths.",
   },
   "gpt-5.3-codex-spark": {
     maxRiskLevel: "review",
@@ -399,7 +401,7 @@ export function selectModel(taskPatterns: string[]): string {
   const min = getPatternMinimum(taskPatterns);
 
   let bestModel = "gpt-5.4-mini";
-  let bestRank = MODEL_COST_RANK[bestModel] || 3;
+  let bestRank = MODEL_COST_RANK[bestModel] || 2;
 
   for (const pattern of taskPatterns) {
     const row = table.find((r) => r.pattern === pattern);

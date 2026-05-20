@@ -127,9 +127,10 @@ function extractModel(note) {
   return null;
 }
 
-// ── check whether a row is SDK-automated ─────────────────────────────────
-function isSdkAutomated(note) {
-  return /sdk\s+automated|\(sdk\)/i.test(note);
+// ── check whether a row is SDK-automated (excluded from scorecard averages) ──
+function isSdkAutomated(task, note) {
+  const blob = `${task} ${note}`;
+  return /\*\(SDK automated\)\*|sdk\s+automated|\(sdk\)/i.test(blob);
 }
 
 // ── parse all rows from a file's outcome log section ─────────────────────
@@ -177,8 +178,8 @@ function aggregate(rows) {
     const model = extractModel(note);
     if (!model) continue;
 
-    // C2.5 SDK-automated rows are excluded per scorecard policy
-    if (model === "C2.5" && isSdkAutomated(note)) continue;
+    // SDK-automated rows use fixed 82→90% conf — not real signal (MODEL_DOSSIER gotchas)
+    if (isSdkAutomated(task, note)) continue;
 
     const shape = detectShape(task);
 

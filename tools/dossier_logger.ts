@@ -3,7 +3,7 @@
  * so live Cursor sessions see the same calibration data as overnight runs.
  *
  * Updated 2026-05-19: MAX_ACTIVE_ROWS=10, truncation (task≤100, note≤80),
- * updateScorecardCell(), JOB_SHAPE_MAP.
+ * JOB_SHAPE_MAP. Scorecard: hook-only (sync-scorecard.js); SDK rows excluded.
  */
 
 import * as fs from "fs";
@@ -177,7 +177,6 @@ const MODEL_PICKER_LABEL: Record<string, string> = {
   "composer-2": "Composer 2",
   "composer-2.5": "Composer 2.5",
   "gpt-5.4-mini": "GPT-5.4 Mini",
-  "gpt-5.4-nano": "GPT-5.4 Nano",
   "gemini-3-flash": "Gemini 3 Flash",
   "gpt-5-mini": "GPT-5 Mini",
   "gpt-5.3-codex-spark": "Codex Spark",
@@ -261,14 +260,17 @@ function confidenceForOutcome(outcome: SliceDossierOutcome): {
   };
 }
 
-function buildTaskCell(slice: Slice, outcome: SliceDossierOutcome): string {
+const SDK_TASK_MARKER = " *(SDK automated)*";
+
+function buildTaskCell(slice: Slice, _outcome: SliceDossierOutcome): string {
   const patterns = slice.patterns.join(", ");
   const files = [...slice.filesToCreate, ...slice.filesToModify].slice(0, 4).join(", ");
   const fileSuffix = files ? ` Files: ${files}.` : "";
   const raw = sanitizeCell(
     `SDK slice ${slice.id} (Phase ${slice.phase}): ${slice.title}. Patterns: ${patterns}.${fileSuffix}`
   );
-  return truncate(raw, 100);
+  const maxBody = 100 - SDK_TASK_MARKER.length;
+  return truncate(raw, maxBody) + SDK_TASK_MARKER;
 }
 
 function buildNote(slice: Slice, outcome: SliceDossierOutcome): string {
@@ -346,7 +348,7 @@ function archiveOldestRow(lines: string[], rowLine: string): void {
 
 /**
  * Append one outcome row to MODEL_DOSSIER.md (newest first). Archives overflow per retention.
- * Also calls updateScorecardCell for the "All logged" row.
+ * Scorecard averages: .cursor/hooks/sync-scorecard.js (excludes SDK-automated rows).
  */
 export function appendDossierFromSlice(slice: Slice, outcome: SliceDossierOutcome): void {
   if (!fs.existsSync(DOSSIER_PATH)) {
@@ -381,14 +383,6 @@ export function appendDossierFromSlice(slice: Slice, outcome: SliceDossierOutcom
 
   fs.writeFileSync(DOSSIER_PATH, lines.join("\n"), "utf-8");
   console.log(`  📓 Dossier log: slice ${slice.id} → ${result} on ${pickerLabel(outcome.model)}`);
-
-  // Auto-update scorecard for the model that ran this slice
-  const label = pickerLabel(outcome.model);
-  const shape = jobShapeForSlice(slice);
-  if (outcome.passed) {
-    updateScorecardCell("All logged", label, confAfter);
-    updateScorecardCell(shape, label, confAfter);
-  }
 }
 
 /**

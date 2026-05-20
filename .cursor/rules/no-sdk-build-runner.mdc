@@ -1,0 +1,44 @@
+---
+description: Agents must NEVER run the SDK build runner — human-initiated only
+alwaysApply: true
+---
+
+# SDK Build Runner — NEVER run from a Cursor agent session
+
+**The SDK build runner (`tools/build_runner.ts`) is STRICTLY off-limits to live Cursor agents.**
+
+## What the SDK build runner is
+
+`tools/build_runner.ts` is an automated build tool that uses the Cursor SDK (`@cursor/sdk`) to run AI agents programmatically in headless mode. It picks models, runs slices, validates output, and commits code — all without human oversight.
+
+## Why agents must not run it
+
+1. **No human gate:** The SDK spawns sub-agents that commit and push code without the model-selection gate (§6B) or user approval. This violates the core principle that every code change gets a human proceed signal.
+2. **Ghost passes:** The SDK validator only checks `expectedIds` and `expectedExports` — it can mark slices as "passed" when the actual code changes were never applied (confirmed: slices 65b, 65d, 65e on 2026-05-19).
+3. **Runaway cost:** A single `/all` command can burn through dozens of SDK agent sessions across escalating model tiers without the user seeing intermediate results.
+4. **Uncontrolled commits:** SDK agents commit with `Co-authored-by: Cursor <cursoragent@cursor.com>` — these bypass the fix-tracker, canvas-update, and deploy checklists.
+
+## Hard rules
+
+- **NEVER** run `npx ts-node build_runner.ts`, `node build_runner.ts`, or any command that starts the SDK build runner.
+- **NEVER** import or call functions from `@cursor/sdk` in any script you create or modify.
+- **NEVER** suggest that the user should run the SDK to save time.
+- If the user asks you to "run the slices" or "run the SDK," explain that slices should be implemented manually by a live agent (one at a time, with the model gate and canvas checklist).
+- You MAY read `tools/slices.ts` to understand what work is queued, then implement the slice scope yourself following normal model-selection and fix-tracker rules.
+
+## What you CAN do with the tools/ folder
+
+- **Read** slice definitions (`slices.ts`) to understand scope and requirements.
+- **Edit** `slices.ts` to add, remove, or modify slice definitions.
+- **Edit** `model_selector.ts`, `build_runner.ts`, or other SDK tooling files for maintenance/alignment — but never execute them.
+- **Read** `.build_state.json` to check which slices have been run.
+- **Fix** `.build_state.json` if it contains ghost passes (status "passed" but code changes not applied).
+
+## SDK model rules must match dossier rules
+
+The SDK's model selection (`tools/model_selector.ts` + `PROJECT_STATUS/MODEL_LOOKUP.md`) must stay aligned with `MODEL_DOSSIER.md`:
+
+- **Composer 2** is fallback-only in both systems — never first choice for CSS, multi-step logic, or review-risk work.
+- **Firestore / Vertex Core / Shadow Mode** patterns require Opus 4.6 in both systems.
+- **`riskLevel: review`** slices must start at Composer 2.5 minimum in both systems (no Mini/Flash/GPT-5 Mini).
+- When editing `MODEL_LOOKUP.md` or `model_selector.ts`, verify changes are consistent with `MODEL_DOSSIER.md` § Pick-a-model and § Gotchas.

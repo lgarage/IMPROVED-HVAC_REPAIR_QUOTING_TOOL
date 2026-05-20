@@ -6,12 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 64 foundation shipped. **KI-006 past-day job UX shipped** 2026-05-19. Phase 63 live. KI-004 core shipped.
-- **Last shipped (2026-05-19):** Dossier cost-tuning update — `MODEL_DOSSIER.md` now recommends C2.5 first for low-risk T2 standard dev and points to hook-based scorecard sync.
-- **Prior (2026-05-19):** issues-found **#13** composer overlap — `syncComposerClearance()` dynamically measures dock height. `ComposerClearance-2026-05-19`. Deployed + verified.
-- **Prior (2026-05-19):** issues-found **#7** screen glitch — compile modal no longer overlays schedule (`ScreenGlitchFix7-2026-05-19` · `v=77`).
-- **Prior (2026-05-19):** Compile-notes-first — `saveCompileCache` after every `compileNotes()` (`v=76`).
-- **Prior (2026-05-19):** KI-006 UX polish — View Compiled Notes pinned; full date+time on historical bubbles (`v=75`).
+- **Active Phase:** Phase 65 slices 65a+65c shipped by SDK (65b/65d/65e ghost-passed — reset to pending). Phase 64 foundation shipped. Phase 63 live.
+- **Last shipped (2026-05-19):** SDK cleanup — reset 3 ghost passes, aligned `model_selector.ts` + `MODEL_LOOKUP.md` with dossier, added `no-sdk-build-runner.mdc` rule, committed Sonnet's valid tooling improvements (risk floor, SDK row exclusion, Composer 2 demotion).
+- **Prior (2026-05-19):** Dossier cost-tuning, issues-found #13 composer clearance, #7 screen glitch, compile-notes-first, KI-006 UX.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -22,8 +19,8 @@ None.
 
 ## Immediate Next Step
 
-- **User device verify:** issues-found **#13** — composer clearance (`BUILD: ComposerClearance-2026-05-19`).
-- **Product queue:** use the updated dossier to start the next low-risk T2 task on **C2.5** first; escalate only if needed.
+- **Slices 65b, 65d, 65e need manual implementation** — build_state reset to pending. Run them one-at-a-time as a live agent (never via SDK). See `tools/slices.ts` for scope.
+- **Rule:** agents must never run the SDK build runner. See `.cursor/rules/no-sdk-build-runner.mdc`.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
 
