@@ -24,6 +24,7 @@ export interface Slice {
   htmlTarget?: string;      // which HTML file to validate IDs/scripts against (default: "technician/index.html")
   uiChange?: boolean;       // if true, build runner takes before/after Playwright screenshots and verifies with a cheap model
   playwrightSteps?: string[]; // optional JS lines injected into the generated Playwright script after login and before the final screenshot; used with uiChange:true to test a specific click flow
+  fixes?: string[];         // canvas issue IDs this slice closes (e.g. ["15", "17"]) — drives syncIssueTracker
 }
 
 // Slices 41a–57a have been moved to slices_archive.ts (all passed).
@@ -381,6 +382,7 @@ Update VC_BUILD (~line 7927):
   window.VC_BUILD = "IssuesFix65a-SkipSendPrompt-2026-05-19";`,
     outOfScope: "Changing when the compile modal auto-opens. Changing the submit flow itself. Adding parked-notes tracking beyond the existing _lastCompileResult variable.",
     cacheBusts: ["conversational_timeline.js?v=78"],
+    fixes: ["15"],
   },
 
   {
@@ -456,6 +458,7 @@ Change bottom margin from 10px to 6px:
 Do NOT change any JavaScript, modal behavior, or button wiring. CSS padding changes only.`,
     outOfScope: "Changing modal height, border-radius, font sizes, button layout, or any JavaScript. Only the three CSS padding/margin values listed above.",
     cacheBusts: [],
+    fixes: ["17"],
   },
 
   {
@@ -550,6 +553,7 @@ Update VC_BUILD (~line 7927):
   window.VC_BUILD = "IssuesFix65c-ScheduleBtn-2026-05-19";`,
     outOfScope: "Changing the × close button behavior. Changing the Submit to Office or Copy buttons. Adding a Schedule button anywhere other than the compile modal footer. Any Firestore writes or auth changes.",
     cacheBusts: ["conversational_timeline.js?v=79"],
+    fixes: ["18"],
   },
 
   {
@@ -631,6 +635,7 @@ Do NOT revert that; only add overflow-x: hidden to the existing rule.
 Do NOT change any JavaScript, button wiring, or modal open/close logic.`,
     outOfScope: "Changing button colors, padding, font size, or any JavaScript logic. CSS stacking and overflow changes only.",
     cacheBusts: [],
+    fixes: ["19"],
   },
 
   {
@@ -686,6 +691,7 @@ If the section already exists, update it rather than duplicating it.
 Do NOT modify technician/index.html or conversational_timeline.js.`,
     outOfScope: "Changing any sync intervals in code. Adding a UI 'last synced' indicator. Modifying any app logic.",
     cacheBusts: [],
+    fixes: ["21"],
   },
 
   {
@@ -789,6 +795,7 @@ Update VC_BUILD (~line 7927):
   window.VC_BUILD = "IssuesFix65f-DaySeparators-2026-05-19";`,
     outOfScope: "Day separators in non-addendum (today's active job) chat. Grouping original-day messages. Changing the compile behavior or bubble styling beyond the new separator divider.",
     cacheBusts: ["conversational_timeline.js?v=80"],
+    fixes: ["16"],
   },
 
   {
@@ -876,6 +883,7 @@ Update VC_BUILD (~line 7927):
   window.VC_BUILD = "IssuesFix65g-CompileBtnPlacement-2026-05-19";`,
     outOfScope: "Incremental compile (merging only new addendum notes — that is #14 Phase B, deferred). Moving the compile button to a completely different DOM location. Changing compile behavior for active non-historical workspaces.",
     cacheBusts: ["conversational_timeline.js?v=81"],
+    fixes: ["14"],
   },
 
   // ═══════════════════════════════════════════════════════════

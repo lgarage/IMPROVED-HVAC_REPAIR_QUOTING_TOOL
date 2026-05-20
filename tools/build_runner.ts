@@ -594,6 +594,12 @@ async function runSliceWithEscalation(slice: Slice, state: BuildState): Promise<
 
       ss.status = "passed";
       saveState(state);
+
+      // Keep canvas + ISSUE_STATUS.md in sync with this slice's fixes.
+      if (slice.fixes && slice.fixes.length > 0) {
+        try { syncIssueTracker(state); } catch { /* non-blocking */ }
+      }
+
       const sliceDuration = Date.now() - currentSliceStart;
       recentSliceDurations.push(sliceDuration);
       if (recentSliceDurations.length > 5) recentSliceDurations.shift();
@@ -883,6 +889,156 @@ async function autoRefreshChecklist(state: BuildState): Promise<void> {
     console.log(`    [${icon}] ${num}. ${t}${label}`);
   });
   console.log(`\n  /p1,2,3 = passed  |  /f1,2,3 = failed  |  /na 3 = not applicable\n`);
+}
+
+// ─── Issue Tracker Sync ──────────────────────────────────────────────────────
+//
+// Single source of truth strategy:
+//   - Canvas (issues-found-fix-tracker.canvas.tsx) = human-readable primary tracker
+//   - ISSUE_STATUS.md = git-tracked quick-reference for live agents
+//   - build_state.json = slice-level status (SDK source of truth)
+//
+// Slices declare which canvas issue IDs they close via the `fixes` field.
+// syncIssueTracker() reads that mapping + build_state, updates both the canvas
+// and ISSUE_STATUS.md so all three sources stay consistent automatically.
+//
+// Called: after any slice passes, and once on runner startup.
+
+/** Derives the Cursor canvas directory for this project from the user home dir. */
+function deriveCanvasDir(): string {
+  // Project root e.g. "C:\Projects\PROJECT-DISPATCHER TOOL"
+  // Cursor slug:      "c-Projects-PROJECT-DISPATCHER-TOOL"
+  const slug = PROJECT_ROOT
+    .replace(/:/g, "")           // strip colon after drive letter
+    .replace(/[\\/\s]+/g, "-")   // path separators and spaces → hyphens
+    .replace(/^-+|-+$/g, "")     // trim leading/trailing hyphens
+    .replace(/^[A-Z]/, (c) => c.toLowerCase()); // lowercase drive letter
+  const userHome = process.env.USERPROFILE || process.env.HOME || "";
+  return path.join(userHome, ".cursor", "projects", slug, "canvases");
+}
+
+const CANVAS_DIR = deriveCanvasDir();
+const FIX_TRACKER_CANVAS = path.join(CANVAS_DIR, "issues-found-fix-tracker.canvas.tsx");
+const ISSUE_STATUS_MD = path.join(PROJECT_ROOT, "PROJECT_STATUS", "ISSUE_STATUS.md");
+
+function syncIssueTracker(state: BuildState): void {
+  // Build effective issue → status map from all slices (active + archived).
+  // Archived slices are always "completed" since they can only be archived after passing.
+  const archivedIdSet = new Set(ARCHIVED_SLICES.map((s) => s.id));
+  const activeIdSet   = new Set(SLICES.map((s) => s.id));
+
+  type IssueEntry = { status: "completed" | "pending"; sliceId: string; phase: number; title: string };
+  const issueMap = new Map<string, IssueEntry>();
+
+  const allSlices = [...SLICES, ...ARCHIVED_SLICES];
+  for (const slice of allSlices) {
+    if (!slice.fixes || slice.fixes.length === 0) continue;
+
+    // A slice is "truly archived" when it's in the archive but not re-queued as active.
+    const trulyArchived = archivedIdSet.has(slice.id) && !activeIdSet.has(slice.id);
+    const sliceStatus   = state.slices[slice.id]?.status;
+    const completed     = trulyArchived || sliceStatus === "passed";
+
+    for (const issueId of slice.fixes) {
+      const existing = issueMap.get(issueId);
+      // Never downgrade a completed issue (safe re-queue scenario).
+      if (!existing || completed) {
+        issueMap.set(issueId, {
+          status: completed ? "completed" : "pending",
+          sliceId: slice.id,
+          phase: slice.phase,
+          title: slice.title,
+        });
+      }
+    }
+  }
+
+  if (issueMap.size === 0) return;
+
+  // ── 1. Update canvas file ──────────────────────────────────────────────────
+  if (fs.existsSync(FIX_TRACKER_CANVAS)) {
+    try {
+      let canvas = fs.readFileSync(FIX_TRACKER_CANVAS, "utf-8");
+      let changed = false;
+
+      for (const [issueId, info] of issueMap) {
+        if (info.status !== "completed") continue;
+        // Target the specific issue object by its id field, then update the
+        // first `status:` occurrence after it. Non-greedy so it stops at the
+        // right status property (not the next issue's status).
+        const pat = new RegExp(
+          `(id:\\s*'${issueId}'[\\s\\S]*?status:\\s*')(pending|in_progress)(')`,
+        );
+        const updated = canvas.replace(pat, "$1completed$3");
+        if (updated !== canvas) {
+          canvas = updated;
+          changed = true;
+          log(`✓ Canvas: issue #${issueId} → completed (${info.sliceId})`);
+        }
+      }
+
+      if (changed) {
+        fs.writeFileSync(FIX_TRACKER_CANVAS, canvas, "utf-8");
+        log(`✓ Canvas written: ${path.basename(FIX_TRACKER_CANVAS)}`);
+      }
+    } catch (e: any) {
+      log(`⚠  Canvas update failed (non-blocking): ${e.message?.slice(0, 200)}`);
+    }
+  } else {
+    log(`⚠  Canvas not found — skipping: ${FIX_TRACKER_CANVAS}`);
+  }
+
+  // ── 2. Write ISSUE_STATUS.md (git-tracked quick-reference) ────────────────
+  try {
+    const sorted = [...issueMap.entries()].sort(
+      (a, b) => parseInt(a[0], 10) - parseInt(b[0], 10)
+    );
+
+    const mdLines = [
+      `# Issue Status`,
+      `<!-- Auto-generated by build_runner.ts — do not edit manually. -->`,
+      `<!-- Updated every time a slice passes or the runner starts. -->`,
+      ``,
+      `Last synced: ${formatChicagoTimestamp()}`,
+      ``,
+      `> **Live agents:** check this file to know if a slice-tracked issue is done.`,
+      `> For issues closed by live-agent work (no slice), check the canvas directly.`,
+      ``,
+      `| Issue | Status | Slice | Phase | Slice title |`,
+      `|-------|--------|-------|-------|-------------|`,
+    ];
+    for (const [issueId, info] of sorted) {
+      const icon = info.status === "completed" ? "✓" : "○";
+      mdLines.push(`| #${issueId} | ${icon} ${info.status} | ${info.sliceId} | ${info.phase} | ${info.title} |`);
+    }
+
+    const newContent = mdLines.join("\n") + "\n";
+    const oldContent = fs.existsSync(ISSUE_STATUS_MD)
+      ? fs.readFileSync(ISSUE_STATUS_MD, "utf-8")
+      : "";
+
+    // Only write (and commit) if content actually changed
+    if (newContent === oldContent) return;
+
+    fs.writeFileSync(ISSUE_STATUS_MD, newContent, "utf-8");
+    log(`✓ ISSUE_STATUS.md written`);
+
+    try {
+      execSync(`git add "${ISSUE_STATUS_MD}"`, { cwd: PROJECT_ROOT, stdio: "pipe" });
+      const staged = execSync("git diff --cached --stat", { cwd: PROJECT_ROOT, stdio: "pipe" }).toString().trim();
+      if (staged) {
+        execSync(`git commit -m "chore: sync ISSUE_STATUS.md — slice issue tracker"`, {
+          cwd: PROJECT_ROOT,
+          stdio: "pipe",
+        });
+        log(`✓ ISSUE_STATUS.md committed`);
+      }
+    } catch {
+      // Non-blocking — file already written even if commit fails
+    }
+  } catch (e: any) {
+    log(`⚠  ISSUE_STATUS.md write failed (non-blocking): ${e.message?.slice(0, 200)}`);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1679,6 +1835,21 @@ const commands: SlashCommand[] = [
     },
   },
   {
+    name: "/sync-issues",
+    alias: ["/si"],
+    args: "",
+    description: "Sync canvas + ISSUE_STATUS.md from current build state (fixes any drift)",
+    handler: async (_args, state) => {
+      console.log("\n  Syncing issue tracker...\n");
+      try {
+        syncIssueTracker(state);
+        console.log("  ✓ Canvas and ISSUE_STATUS.md are up to date.\n");
+      } catch (e: any) {
+        console.log(`  ✗ Sync failed: ${e.message?.slice(0, 200)}\n`);
+      }
+    },
+  },
+  {
     name: "/verify",
     alias: ["/v"],
     args: "[slice_id]",
@@ -1768,7 +1939,7 @@ function printHelp(): void {
     "Build": commands.filter((c) => ["/next", "/all", "/run"].includes(c.name)),
     "Info": commands.filter((c) => ["/status", "/build", "/plan", "/inspect", "/preview", "/errors", "/log"].includes(c.name)),
     "Cost": commands.filter((c) => ["/cost", "/models", "/guards"].includes(c.name)),
-    "Manage": commands.filter((c) => ["/reset", "/push", "/passed", "/failed", "/na", "/preflight", "/archive", "/verify"].includes(c.name)),
+    "Manage": commands.filter((c) => ["/reset", "/push", "/passed", "/failed", "/na", "/preflight", "/archive", "/verify", "/sync-issues"].includes(c.name)),
     "Other": commands.filter((c) => ["/help", "/stop", "/quit"].includes(c.name)),
   };
 
@@ -2050,6 +2221,11 @@ async function runPreflight(): Promise<boolean> {
 
 async function main(): Promise<void> {
   const state = loadState();
+
+  // Sync issue tracker on startup — catches any passed slices from previous runs
+  // that may not have synced (e.g. runner was stopped mid-session or fixes field
+  // was just added to an already-passed slice).
+  try { syncIssueTracker(state); } catch { /* non-blocking */ }
 
   // Handle one-shot CLI args for backwards compatibility
   const args = process.argv.slice(2);
