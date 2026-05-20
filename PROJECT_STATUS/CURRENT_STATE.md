@@ -6,7 +6,7 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 65 slices 65a+65c shipped by SDK; 65e shipped manually; 65b/65d still need manual implementation. Phase 64 foundation shipped. Phase 63 live.
+- **Active Phase:** Phase 65 ALL slices shipped (65a–65g). Phase 64 foundation shipped. Phase 63 live.
 - **Last shipped (2026-05-20 07:10:34 CDT):** SDK build runner completed 2 slice(s) at 2026-05-20 07:10:34 CDT. Passed: 64d, 64a, 64b, 64c, 64e, 65a, 65b, 65c, 65d, 65e, 65f, 65g.
 - **Prior (2026-05-20):** SDK ghost-pass fix (pre-run HEAD hash); 65e docs update; dossier cost-tuning, issues-found #13 composer clearance, #7 screen glitch, compile-notes-first, KI-006 UX.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
@@ -19,7 +19,8 @@ None.
 
 ## Immediate Next Step
 
-- **Start the SDK** — `cd tools && npx ts-node build_runner.ts`, then type `/all`. Slices 65b + 65d are pending; validator will hard-fail build-stamp-only commits so no more ghost passes.
+- **Deploy to production** — `firebase deploy --only hosting` then force-reload PWA. Verify VC_BUILD shows `IssuesFix65d-FooterStack-2026-05-19` and compile modal top-spacing + footer z-index look correct.
+- Phase 66 slices not yet defined — add next features to `tools/slices.ts` when ready.
 - **Rule:** agents must never run the SDK build runner. See `.cursor/rules/no-sdk-build-runner.mdc`.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
