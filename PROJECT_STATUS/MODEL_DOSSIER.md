@@ -23,18 +23,18 @@ _Opus 4.7 disabled (2026-05-07). Composer 2 demoted to fallback-only (2026-05-15
 
 ## Scorecard
 
-_Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = row count. C2.5 excludes SDK-automated rows (fixed 82→90% not real signal). Re-aggregate when ≥3 new rows touch a cell._
+_Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = row count. C2.5 excludes SDK-automated rows (fixed 82→90% not real signal). **Auto-synced** by `.cursor/hooks/sync-scorecard.js` on every dossier edit — do not edit cells manually._
 
 | Job shape | GPT-5.4 Mini | Gemini 3 Flash | GPT-5 Mini | Composer 2 | C2.5 | Sonnet 4.6 | Codex 5.3 | Opus 4.6 | Default pick |
 |-----------|---|---|---|---|---|---|---|---|---|
-| **All logged** | **96%** (7) | **96%** (8) | 90% (2) | 91% (16) | 95% (9) | 93% (86) | 87% (3) | 92% (20) | — |
-| Field app bugfix | **99%** (2) | 96% (3) | — | 92% (9) | 96% (2) | 93% (38) | — | 92% (7) | Sonnet |
-| Admin / Phase 66 | — | — | — | — | 93% (3) | 92% (9) | — | 95% (1) | Sonnet; Opus for Firestore writes |
-| UI / CSS layout | **95%** (4) | 95% (1) | — | 88% (4) | — | 91% (14) | — | — | Sonnet (rework risk) |
-| Firestore / Vertex | — | — | — | — | ⚠️ unproven (0 real) | 92% (2) | 86% (2) | 93% (4) | Opus first write; never C2.5 |
-| Build runner / SDK | — | 96% (1) | 90% (2) | — | — | 95% (17) | 90% (1) | 91% (5) | Sonnet |
-| Governance / triage | 97% (1) | **96%** (3) | — | — | **96%** (3) | 91% (4) | — | 95% (1) | Gemini or Sonnet |
-| Slice authoring | — | — | — | — | — | 95% (4) | — | 96% (2) | Sonnet |
+| **All logged** | 96% (9) | 95% (10) | — | 91% (7) | 95% (7) | 93% (100) | 87% (4) | 93% (15) | — |
+| Field app bugfix | 98% (3) | 95% (4) | — | 89% (3) | 96% (1) | 93% (58) | 86% (3) | 92% (9) | Sonnet |
+| Admin / Phase 66 | — | — | — | — | 93% (3) | 93% (5) | — | 95% (1) | Sonnet; Opus for Firestore writes |
+| UI / CSS layout | 95% (4) | 93% (2) | — | 91% (3) | — | 91% (13) | 90% (1) | — | Sonnet (rework risk) |
+| Firestore / Vertex | — | — | — | — | ⚠️ unproven (0 real) | 90% (4) | — | 93% (2) | Opus first write; never C2.5 |
+| Build runner / SDK | — | 96% (1) | — | — | 96% (1) | 96% (10) | — | 95% (3) | Sonnet |
+| Governance / triage | 97% (2) | 96% (3) | — | 92% (1) | 96% (2) | 91% (5) | — | — | Gemini or Sonnet |
+| Slice authoring | — | — | — | — | — | 94% (5) | — | — | Sonnet |
 
 ---
 
@@ -102,7 +102,7 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 
 **Cluster rule:** ≥2 tasks same domain + Arch + risk → collapse to 1 row with `*(N tasks)*`.
 
-**End-of-session writes (NEVER SKIP):** append row → `updateScorecardCell()` → refresh `model-scorecard.canvas.tsx` inline → `git add -A && git commit && git push`.
+**End-of-session writes (NEVER SKIP):** append row → refresh `model-scorecard.canvas.tsx` `RECENT_ROWS` inline → `git add -A && git commit && git push`. (Scorecard table auto-syncs via hook — no manual cell update needed.)
 
 ---
 

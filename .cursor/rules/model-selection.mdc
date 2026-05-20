@@ -45,7 +45,7 @@ If `.cursorrules` §6 mandates **§6C** escalation for HIGH/UNCERTAIN, output th
 
 6. **Append `PROJECT_STATUS/MODEL_DOSSIER.md` → § Outcome log** when work is **substantive** and **adds signal** for future model picks (dossier § *When to log* / *Skip logging*). **Same session** as the work when possible. **Do not** log noise (typos-only, duplicate patterns with nothing new). Row format: **Task ≤100 chars, Note = model + one sentence ≤80 chars**.
 
-   **After logging:** call `updateScorecardCell(jobShape, modelLabel, confAfter)` from `tools/dossier_logger.ts` to recalculate the running average in the Scorecard table, **and** update the inline data in `canvases/model-scorecard.canvas.tsx` (the `SCORECARD` array cell and `RECENT_ROWS` array). Both are mandatory — the scorecard and canvas must stay in sync with the outcome log.
+   **After logging:** the Scorecard table auto-syncs via `.cursor/hooks/sync-scorecard.js` (fires on every dossier Write — no manual `updateScorecardCell()` call needed). You **must still** update the inline data in `canvases/model-scorecard.canvas.tsx` (`RECENT_ROWS` array) so the canvas reflects the latest 10 rows.
 
 7. **Update `PROJECT_STATUS/CURRENT_STATE.md`** after every session that ships code or makes a meaningful change — **no exceptions**. Rules:
    - Move **Last shipped** forward: one line, what changed, `VC_BUILD` stamp if applicable.
