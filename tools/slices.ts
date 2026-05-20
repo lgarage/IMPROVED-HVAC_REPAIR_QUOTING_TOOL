@@ -688,6 +688,196 @@ Do NOT modify technician/index.html or conversational_timeline.js.`,
     cacheBusts: [],
   },
 
+  {
+    id: "65f",
+    phase: 65,
+    title: "Addendum chat — day separator dividers between different-day follow-up notes",
+    dependsOn: ["65c", "65d"],
+    patterns: ["Multi-file UI feature (no Firestore writes)", "CSS-only restyle / theme"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["conversational_timeline.js", "technician/index.html"],
+    expectedIds: ["ct-compile-modal"],
+    expectedExports: {},
+    uiChange: true,
+    playwrightSteps: [
+      `// Navigate to a past-day job if one exists to see addendum chat`,
+      `const historicalCard = page.locator('.job-card--historical, .job-card[data-historical]').first();`,
+      `const hasHistorical = await historicalCard.isVisible({ timeout: 2000 }).catch(() => false);`,
+      `if (hasHistorical) {`,
+      `  await historicalCard.click();`,
+      `  await page.waitForTimeout(2000);`,
+      `}`,
+      `await page.screenshot({ path: '_ss_addendum_chat.png' });`,
+    ],
+    scope: `Fix issues-found tracker #16: when a technician adds follow-up notes on different
+calendar days (addendum entries), all bubbles look identical except for the timestamp text.
+Add a visual day separator divider between groups of addendum entries from different dates
+so it's immediately obvious where a new day begins.
+
+## File: conversational_timeline.js — renderTimeline (~line 649)
+
+Find the renderTimeline function. Locate the loop that builds the html string.
+It currently tracks addendumDividerShown. Add a lastAddendumDate tracker alongside it
+and insert day separator dividers between addendum entries from different calendar days.
+
+### Exact change in the loop setup (~line 667):
+
+Current:
+    var html = "";
+    var addendumDividerShown = false;
+    for (var i = 0; i < entries.length; i++) {
+      var item = entries[i];
+      if (!item) continue;
+
+      if (item.meta && item.meta.addendum && !addendumDividerShown) {
+        html += '<div class="ct-addendum-divider">Additional notes (follow-up visit)</div>';
+        addendumDividerShown = true;
+      }
+
+Change to:
+    var html = "";
+    var addendumDividerShown = false;
+    var lastAddendumDate = null;
+    for (var i = 0; i < entries.length; i++) {
+      var item = entries[i];
+      if (!item) continue;
+
+      if (item.meta && item.meta.addendum && !addendumDividerShown) {
+        html += '<div class="ct-addendum-divider">Additional notes (follow-up visit)</div>';
+        addendumDividerShown = true;
+      }
+
+      /* Day separator between addendum entries from different calendar days.
+         Skip the separator for the very first addendum entry — the divider above handles it. */
+      if (item.meta && item.meta.addendum && item.ts) {
+        try {
+          var entryDateLabel = new Date(item.ts).toLocaleDateString(undefined, {
+            weekday: "long", month: "long", day: "numeric", year: "numeric"
+          });
+          if (lastAddendumDate !== null && entryDateLabel !== lastAddendumDate) {
+            html += '<div class="ct-day-separator">' + escapeHtml(entryDateLabel) + '</div>';
+          }
+          lastAddendumDate = entryDateLabel;
+        } catch (e) { /* degrade silently */ }
+      }
+
+IMPORTANT: The lastAddendumDate tracker block must be placed AFTER the addendumDividerShown block
+but BEFORE the media/text rendering block.
+
+## File: technician/index.html — CSS
+
+Add a new CSS rule for .ct-day-separator after the .ct-addendum-divider rule (~line 1187):
+
+  .ct-day-separator {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #0ea5e9;
+    margin: 14px 0 6px;
+    padding: 4px 10px;
+  }
+
+## File: conversational_timeline.js — version bump
+
+Bump conversational_timeline.js from ?v=79 to ?v=80 in technician/index.html (~line 13705):
+  <script src="../conversational_timeline.js?v=80"></script>
+
+Update VC_BUILD (~line 7927):
+  window.VC_BUILD = "IssuesFix65f-DaySeparators-2026-05-19";`,
+    outOfScope: "Day separators in non-addendum (today's active job) chat. Grouping original-day messages. Changing the compile behavior or bubble styling beyond the new separator divider.",
+    cacheBusts: ["conversational_timeline.js?v=80"],
+  },
+
+  {
+    id: "65g",
+    phase: 65,
+    title: "Compile Notes button — placement and label clarity in historical addendum mode",
+    dependsOn: ["65f"],
+    patterns: ["Multi-file UI feature (no Firestore writes)"],
+    riskLevel: "safe",
+    filesToCreate: [],
+    filesToModify: ["conversational_timeline.js", "technician/index.html"],
+    expectedIds: ["ct-compile-btn", "ct-post-chat-actions"],
+    expectedExports: {},
+    uiChange: true,
+    playwrightSteps: [
+      `const historicalCard = page.locator('.job-card--historical, .job-card[data-historical]').first();`,
+      `const hasHistorical = await historicalCard.isVisible({ timeout: 2000 }).catch(() => false);`,
+      `if (hasHistorical) {`,
+      `  await historicalCard.click();`,
+      `  await page.waitForTimeout(2000);`,
+      `  // Close compile modal if it auto-opens`,
+      `  const closeBtn = page.locator('.ct-compile-close-btn');`,
+      `  if (await closeBtn.isVisible({ timeout: 1500 }).catch(() => false)) await closeBtn.click();`,
+      `  await page.waitForTimeout(1000);`,
+      `}`,
+      `await page.screenshot({ path: '_ss_compile_btn_addendum.png' });`,
+    ],
+    scope: `Fix issues-found tracker #14 (placement half only — skip incremental compile):
+The Compile Notes button should appear visually connected to the addendum notes section,
+and its label should make it obvious the button will compile/re-compile including the new notes.
+Do NOT change the compile algorithm or add incremental compile logic.
+
+## File: conversational_timeline.js — updateCompileBtnVisibility (~line 3093)
+
+Find updateCompileBtnVisibility(). It currently handles is-historical-job like this:
+  if (wsEl && wsEl.classList.contains("is-historical-job")) {
+    btn.textContent = _compiledDisplayText ? "\\ud83d\\udcc4 View Compiled Notes" : "\\ud83d\\udcc4 Compiled Notes";
+    btn.classList.remove("hidden");
+    pinPostChatActions();
+    return;
+  }
+
+Change so that in historical-addendum mode with addendum entries, the label reflects the action:
+  if (wsEl && wsEl.classList.contains("is-historical-job")) {
+    if (wsEl.classList.contains("is-historical-addendum-mode")) {
+      var allEntries = loadEntries(currentTicketId);
+      var hasAddendumEntries = allEntries.some(function (e) {
+        return e && e.meta && e.meta.addendum;
+      });
+      if (hasAddendumEntries) {
+        btn.textContent = _compiledDisplayText
+          ? "\\ud83d\\udccb Re-Compile with New Notes"
+          : "\\ud83d\\udccb Compile Notes";
+        btn.classList.remove("hidden");
+        pinPostChatActions();
+        return;
+      }
+    }
+    btn.textContent = _compiledDisplayText ? "\\ud83d\\udcc4 View Compiled Notes" : "\\ud83d\\udcc4 Compiled Notes";
+    btn.classList.remove("hidden");
+    pinPostChatActions();
+    return;
+  }
+
+Note: \\ud83d\\udccb is the 📋 clipboard emoji; \\ud83d\\udcc4 is 📄 page emoji. Use those literal
+unicode escapes inside the single-file JS (or use the actual emoji character directly).
+
+## File: technician/index.html — CSS
+
+Add a rule that visually connects the compile button to the addendum section when in addendum mode.
+Add after the existing #screen-workspace.is-historical-job .ct-post-chat-actions rule (~line 1142):
+
+  #screen-workspace.is-historical-job.is-historical-addendum-mode .ct-post-chat-actions {
+    border-top: 1px dashed rgba(14, 165, 233, 0.35);
+    margin-top: 8px;
+    padding-top: 12px;
+  }
+
+## File: conversational_timeline.js + technician/index.html — version bumps
+
+Bump conversational_timeline.js from ?v=80 to ?v=81 in technician/index.html (~line 13705):
+  <script src="../conversational_timeline.js?v=81"></script>
+
+Update VC_BUILD (~line 7927):
+  window.VC_BUILD = "IssuesFix65g-CompileBtnPlacement-2026-05-19";`,
+    outOfScope: "Incremental compile (merging only new addendum notes — that is #14 Phase B, deferred). Moving the compile button to a completely different DOM location. Changing compile behavior for active non-historical workspaces.",
+    cacheBusts: ["conversational_timeline.js?v=81"],
+  },
+
   // ═══════════════════════════════════════════════════════════
   //  Phase 66: Admin Conversational Checklist Builder
   //  Managers/dispatchers chat (voice or text) to create and
