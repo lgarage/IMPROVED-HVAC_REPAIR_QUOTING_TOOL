@@ -21,9 +21,9 @@ None.
 
 ## Immediate Next Step
 
-- **User device verify:** issues-found **#7** — open job with compile modal visible → tap Schedule → schedule must show with no compile overlay (`BUILD: ScreenGlitchFix7-2026-05-19`).
-- **Product queue:** tracker **#6** (historical edit matrix) or **#11** (KI-009 triage) or **#13** (composer overlap).
-- **Optional:** Phase 64 quote/vendor device smoke-test; build-runner checklist items 3–5.
+- **Dossier overhaul (ready to execute):** Full plan at `.cursor/plans/dossier_efficiency_overhaul_ae037131.plan.md`. Scorecard-primary restructure: aggregate all 180+ outcome rows into live scorecard table, extract gotchas, keep 10-row buffer, update `tools/dossier_logger.ts` for scorecard writes, create `model-scorecard.canvas.tsx`, update `model-selection.mdc`. Target: 377→~130 lines (115K→~18K chars). Say `proceed with dossier overhaul` to start.
+- **User device verify:** issues-found **#7** — compile modal vs schedule (`BUILD: ScreenGlitchFix7-2026-05-19`).
+- **Product queue:** tracker **#6** / **#11** / **#13**.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
 
