@@ -8640,7 +8640,7 @@ function showNavGuardSheet(targetScreen) {
 
   var sheet = document.createElement('div');
   sheet.id = 'vc-nav-guard-sheet';
-  sheet.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.55);';
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:100001;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.55);';
 
   var inner = document.createElement('div');
   inner.style.cssText = 'background:#1e293b;border-radius:16px 16px 0 0;padding:24px 20px 40px;';
@@ -8709,7 +8709,11 @@ function switchScreen(screenName) {
       localStorage.getItem('vc_admin_session') !== '1') {
     var wsEl = document.getElementById('screen-workspace');
     var isWorkspaceActive = wsEl && wsEl.classList.contains('active');
-    if (isWorkspaceActive &&
+    var ctModalVisible = (function() {
+      var m = document.getElementById('ct-compile-modal');
+      return m && !m.classList.contains('hidden');
+    }());
+    if (isWorkspaceActive && !ctModalVisible &&
         window.ConversationalTimeline &&
         typeof window.ConversationalTimeline.hasUnsubmittedReport === 'function' &&
         window.ConversationalTimeline.hasUnsubmittedReport()) {

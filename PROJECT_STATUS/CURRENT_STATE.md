@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Phase 65 ALL slices shipped. Customer Appointment Confirmation feature shipped.
-- **Last shipped (2026-05-20 17:20 CDT):** Issues-found #22 — removed in-modal Schedule btn; raised header z-index to 10000 so Schedule pill is tappable above compile modal backdrop; compile modal auto-closes in `switchScreen`. Deployed.
+- **Last shipped (2026-05-20 18:30 CDT):** Issues-found #22 follow-up — nav guard z-index raised to 100001 (was 9999, below header 10000 — caused infinite re-trigger); nav guard skipped when compile modal is already open; compile modal now cleanly dismissed when tapping top Schedule pill.
 - **Prior (2026-05-20):** Customer Confirmation feature — dispatcher checkbox, tech card badge + workspace banner. `VC_BUILD: CustomerConfirm-2026-05-20`.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
