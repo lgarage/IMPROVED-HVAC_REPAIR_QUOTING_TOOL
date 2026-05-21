@@ -85,6 +85,18 @@ Likely add one small preview slice for "show me what the tech sees" before save.
 
 ---
 
+### Historical Job Editability ? expanded edit permissions on past-day jobs
+
+**Concept.** Allow techs to re-compile (with addendum notes merged) and re-submit compiled reports to the office on historical/past-day tickets. Currently past-day jobs allow: view report, add follow-up notes, equipment hub, photos. Locked: sync ticket, job status, generate report (all should stay locked).
+
+**Why Icebox.** Current locks are sufficient for pilot. Techs can view past work, add notes, and review reports. Re-compile + re-submit is a polish feature ? no one is blocked without it. Revisit post-pilot if dispatchers ask "why didn't the updated notes come through?"
+
+**Files:** `technician/index.html` (`applyWorkspaceHistoricalMode`), `conversational_timeline.js` (compile/submit guards). Implementation: unlock compile btn in addendum mode, allow `submitCompileToOffice()` on historical tickets.
+
+**Filed:** 2026-05-21 (moved from issues-found fix tracker #6).
+
+---
+
 ### Repair & Install Kit System
 
 **Concept.** Reusable kit bundles that tie together materials, specialty tools, checklists, and information requirements for specific job types (repairs, installs, PMs, startups). Kits reduce forgotten parts, missed materials, return trips, missing specialty tools, and inconsistent installs. NOT a rigid ERP inventory system ù an operational preparation and field readiness system.
