@@ -837,6 +837,7 @@
         border-left: 5px solid rgba(0, 0, 0, 0.3);
         transition: box-shadow 0.1s;
         user-select: none;
+        z-index: 1; /* isolate stacking context so sibling block text can't bleed through */
       }
       .gantt-job-block-inner {
         display: flex;
@@ -854,16 +855,17 @@
       }
       /* Day view: comfortable row + padded, truncated lines */
       .board-view-day .gantt-row {
-        height: 52px;
+        height: 54px;
       }
       .board-view-day .gantt-job-block {
-        top: 5px;
-        height: 42px;
+        top: 4px;
+        height: 46px;
         justify-content: flex-start;
       }
       .board-view-day .gantt-job-block-inner {
-        padding: 4px 6px;
-        justify-content: center;
+        padding: 3px 6px;
+        justify-content: flex-start;
+        gap: 1px;
       }
       .board-view-day .gantt-job-time-row {
         display: flex;
