@@ -19,8 +19,11 @@ None.
 
 ## Immediate Next Step
 
-- **Verify on device:** force-reload PWA, confirm `VC_BUILD: CustomerConfirm-2026-05-20`. Create a test ticket with "Customer Confirmed" checked + window text, verify green badge on dispatcher card, green pill on tech job card, green banner in tech workspace.
-- Phase 66 slices not yet defined — add next features to `tools/slices.ts` when ready.
+- **KI-004 completion (overnight 2026-05-20):** Outbox module exists (`shared/offline_storage_outbox.js`) and all 14 call sites are wired. **Remaining gap:** `drain()` uploads to Storage but doesn't patch Firestore docs with download URLs (no `contextHook` callbacks). Fix: add post-upload URL patching so equipment docs, form submissions, and addendum entries get their photo URLs automatically after offline drain.
+- **B6 — SW cache hygiene:** bump `CACHE_NAME` in `sw.js`, add `activate` handler to delete old caches.
+- **Deploy + Playwright verify** after both items ship.
+- **On-device field test:** user plans to smoke-test on real phone Thu/Fri 2026-05-21/22.
+- **Kit System:** discussed and added to ROADMAP.md Icebox + IDEA_TRACKER.md. Phase 67 slices (data model + CRUD) ready to author when field test passes.
 - **Rule:** agents must never run the SDK build runner. See `.cursor/rules/no-sdk-build-runner.mdc`.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.

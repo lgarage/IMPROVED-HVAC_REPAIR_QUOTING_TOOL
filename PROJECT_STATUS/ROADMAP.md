@@ -85,6 +85,33 @@ Likely add one small preview slice for "show me what the tech sees" before save.
 
 ---
 
+### Repair & Install Kit System
+
+**Concept.** Reusable kit bundles that tie together materials, specialty tools, checklists, and information requirements for specific job types (repairs, installs, PMs, startups). Kits reduce forgotten parts, missed materials, return trips, missing specialty tools, and inconsistent installs. NOT a rigid ERP inventory system — an operational preparation and field readiness system.
+
+**What already exists (layers on top of):**
+- Checklist templates + repair type routing (Phase 63, `field_forms.js`, `repair_form_seeds.js`)
+- `associatedParts[]` on form templates (description, specs, qty, alwaysInclude)
+- Vendor directory (Phase 64d, `vendor_directory.js`)
+- Intent detection + trigger words (`edge_intent_engine.js`, `checklist_reminder_engine.js`)
+- Tool master lists in `settings.js` (jman/apprentice seeds, truck inventory, VMI)
+
+**What's new:**
+1. **Kit as a first-class entity** — Firestore `kits` collection bundling materials + tools + checklist ref + info requirements under one trigger
+2. **Pre-job preparation view** — tech sees "here's what you need for today's jobs" before leaving the shop
+3. **Specialty tool requirements per repair type** — "this job requires a vacuum pump — do you have one?"
+4. **Kit improvement suggestions** — tech proposes additions ? manager approval queue
+5. **PM consumable auto-loading** — PM type triggers total filter/belt pull list by equipment
+6. **Predictive kit improvements** — AI suggests commonly-forgotten items from historical job data
+
+**Build phases (estimated):**
+- Phase 67a–f: Kit data model + dispatcher CRUD + materials/tools sub-lists + checklist linking + tech suggestions + approval queue (SDK-sliceable)
+- Phase 68+: Trigger-based kit loading, pre-job prep view, PM auto-loading, predictive suggestions (live agent work)
+
+**Filed:** 2026-05-20.
+
+---
+
 ### ~~Consent-Gated Shadow Mode~~ ?
 
 Shipped 2026-05-08. Tech toggle in Profile panel writes `shadowConsent` to `live_presence`; dispatcher iframe gated on that field. See `PROJECT_MAP.md` ? Phase 37.
