@@ -2,7 +2,7 @@
 
 A place to park ideas, feature requests, and future phases so they do not get lost.
 
-> **Tier 2 (cold) ? pull on demand when picking the next phase or filing a new idea.** Once a phase enters active build, it is tracked in `CURRENT_STATE.md`; once it ships, it moves into `PROJECT_MAP_HISTORY.md`. Read protocol in `.cursorrules` ù1A.
+> **Tier 2 (cold) ? pull on demand when picking the next phase or filing a new idea.** Once a phase enters active build, it is tracked in `CURRENT_STATE.md`; once it ships, it moves into `PROJECT_MAP_HISTORY.md`. Read protocol in `.cursorrules` ?1A.
 
 ## ?? Next Up (Ready to Build)
 
@@ -10,24 +10,26 @@ A place to park ideas, feature requests, and future phases so they do not get lo
 * ~~**Sync hardening backlog (KI-002).**~~ ? Closed 2026-04-25. See `KNOWN_ISSUES_ARCHIVE.md ? KI-002`. Hygiene leftovers migrated to **Minor Tweaks & Polish** below.
 * **Phase 33 follow-up ? Offline-resilient photo capture (KI-004).** 8 field-side `ref.put(...)` sites silently drop photos offline. Fix: `shared/offline_storage_outbox.js` (IDB-backed queue, `drain()` on `online` event, `#vcPendingSyncChip` UI signal). Design locked ? `DECISIONS.md ? ADR-012`. Prerequisite: Phase 33 on-device verification. Build stamp: `Phase33-followup-<date>`. Full call-site inventory + workaround: `KNOWN_ISSUES.md ? KI-004`. Re-gate ? **Sonnet 4.6**.
 * **Phase 34 candidate ? Live Workspace Mirror (Office Override v2, KI-003).** iframe (Phase 30) shows stale Firestore state, not live screen. Design locked ? extend `live_presence/{payrollKey}` with `uiState` + `liveDraft` maps; read-only v1; 250ms throttle (?$0.20/day/tech). New file: `technician/js/live_mirror.js`. `DECISIONS.md ? ADR-013`. Prerequisite: Phase 33 on-device verification + KI-004. Re-gate ? **Codex 5.3**.
-* ~~**Phases 41ù57 ù Conversational Field Capture (New Field Tech UX).**~~ ? All 28 slices (41aù57a) passed via SDK build runner v2.1 on 2026-05-14. Includes integration smoke test, offline graceful degradation, Firebase deploy, Firestore rules, auth verification, offline photo outbox (KI-004), SW cache hygiene, dispatcher ticket Save button. See `NEW_FIELDTECH_UX_PLAN.md` for slice detail.
-* ~~**Phase 63 ù Field Intelligence: Contextual Checklists.**~~ ? Shipped 2026-05-17. 6 slices (63aù63f) + manual completion of 63g/63h. Includes multi-trigger words, adaptive reminders, nameplate OCR, and equipment history.
-* ~~**Phase 64 ù AI Quote Pipeline (Foundation).**~~ ? Shipped 2026-05-18 (SDK slices 64aù64e). Firestore `office_quotes` + vendor directory + localStorage import tool + quoting UI port. **On-device smoke-test still open.** Phases B (AI field pipeline) and C (email automation): `PROJECT_STATUS/ai_quote_pipeline_spec.md`.
-* ~~**KI-006 ù Past-day job UX.**~~ ? Shipped 2026-05-19. Card tap, report-first, timestamped chat addendum.
-* **Firestore rules re-tightening (post-59b revert):** Requires anonymous-auth or custom-token flow for field techs before `request.auth != null` can be applied to data paths. 59b reverted 2026-05-15 ù see `firestore.rules` header.
+* ~~**Phases 41?57 ? Conversational Field Capture (New Field Tech UX).**~~ ? All 28 slices (41a?57a) passed via SDK build runner v2.1 on 2026-05-14. Includes integration smoke test, offline graceful degradation, Firebase deploy, Firestore rules, auth verification, offline photo outbox (KI-004), SW cache hygiene, dispatcher ticket Save button. See `NEW_FIELDTECH_UX_PLAN.md` for slice detail.
+* ~~**Phase 63 ? Field Intelligence: Contextual Checklists.**~~ ? Shipped 2026-05-17. 6 slices (63a?63f) + manual completion of 63g/63h. Includes multi-trigger words, adaptive reminders, nameplate OCR, and equipment history.
+* ~~**Phase 64 ? AI Quote Pipeline (Foundation).**~~ ? Shipped 2026-05-18 (SDK slices 64a?64e). Firestore `office_quotes` + vendor directory + localStorage import tool + quoting UI port. **On-device smoke-test still open.** Phases B (AI field pipeline) and C (email automation): `PROJECT_STATUS/ai_quote_pipeline_spec.md`.
+* ~~**KI-006 ? Past-day job UX.**~~ ? Shipped 2026-05-19. Card tap, report-first, timestamped chat addendum.
+* **Firestore rules re-tightening (post-59b revert):** Requires anonymous-auth or custom-token flow for field techs before `request.auth != null` can be applied to data paths. 59b reverted 2026-05-15 ? see `firestore.rules` header.
 * **Command Map (TV Mode):** Large-scale map and pulse feed for office monitors.
 * **Field Inventory (Truck Stock):** Parts and materials ledger for technicians.
 
 ## ?? The Icebox (Raw Ideas)
 
-### VC Admin Voice Layer ù Role-Aware Conversational Control
+> **Future improvements ? not lost.** Items here and in `IDEA_TRACKER.md` are intentional backlog. **Shipped-but-hidden pilot features** (Pulse, Executive Insights, phone simulator) are catalogued in **`PROJECT_STATUS/ICEBOX_FUTURE_IMPROVEMENTS.md`** with re-enable paths; implementation to hide UI is Bug Report Tracker **#37?#39**. Do not delete source files when turning features off.
 
-**Concept.** Extend the existing field tech app shell with role awareness so the owner/admin can open the same conversational interface from their phone and talk to the system as a manager ù not a tech. Same UI, same mic, same "Got it" feel. The underlying agent switches based on role.
+### VC Admin Voice Layer ? Role-Aware Conversational Control
+
+**Concept.** Extend the existing field tech app shell with role awareness so the owner/admin can open the same conversational interface from their phone and talk to the system as a manager ? not a tech. Same UI, same mic, same "Got it" feel. The underlying agent switches based on role.
 Managers can also ask for a tech-phone preview of the list or form they are building so they can verify the technician-facing layout before saving.
 
 **Admin capabilities (conversational, voice-first, on the road):**
-- *"Add a supply fan motor checklist ù steps are: check belt tension, verify rotation, measure amp draw, check capacitor"* ? template created in `form_templates`
-- *"Add a vendor ù Wesco, orders@wesco.com, handles motors and controls"* ? vendor directory updated
+- *"Add a supply fan motor checklist ? steps are: check belt tension, verify rotation, measure amp draw, check capacitor"* ? template created in `form_templates`
+- *"Add a vendor ? Wesco, orders@wesco.com, handles motors and controls"* ? vendor directory updated
 - *"Mark Jake as senior tech"* ? roster profile updated, reminder verbosity adjusts automatically
 - *"The capacitor checklist needs a step for microfarad rating"* ? existing template patched
 - *"What did RTU 3 at Planet Fitness need last time?"* ? reads from `site_intelligence`, spoken back
@@ -38,11 +40,11 @@ Managers can also ask for a tech-phone preview of the list or form they are buil
 - Sign-in: existing roster picker + admin PIN for elevated role (localStorage session flag)
 - Role check at workspace open: if admin ? load Admin Agent instead of Job Notes Agent
 - Admin Agent: Gemini-driven conversation that knows which system fields need to be collected (template fields, vendor fields, roster fields) and asks follow-up questions until the record is complete, then confirms and writes
-- Same voice input pattern, same bubble rendering, same debounce/scroll behavior ù zero new UI components
+- Same voice input pattern, same bubble rendering, same debounce/scroll behavior ? zero new UI components
 
 **Why this matters:** VC becomes the operating system for the whole company. Techs talk to it in the field. Owner talks to it on the road. Same voice, same feel, different context. Long-term: add more admin "modes" (reviewing compilations, adjusting pricing, dispatch notes) without building new surfaces.
 
-**Build size:** ~3 slices ù (a) role-aware sign-in + admin session flag, (b) Admin Agent conversation engine + workspace shell switch, (c) save-to-Firestore per intent type (templates, vendors, roster).
+**Build size:** ~3 slices ? (a) role-aware sign-in + admin session flag, (b) Admin Agent conversation engine + workspace shell switch, (c) save-to-Firestore per intent type (templates, vendors, roster).
 Likely add one small preview slice for "show me what the tech sees" before save.
 
 **Prerequisite:** Current 63/64 test pass complete. No blocking technical debt.
@@ -97,9 +99,61 @@ Likely add one small preview slice for "show me what the tech sees" before save.
 
 ---
 
+### Live Inter-Office Feed (Pulse) ? **turned off / parked**
+
+**Concept.** Real-time inter-office activity dashboard in the dispatcher (`#view-pulse`, `dispatcher/js/activity_feed.js`, entitlement `interOfficeFeed`). Phase 35a shipped the feed; product decision **2026-05-21** is to **disable it** and park here until re-promoted.
+
+**What stays:** Inter-office notes on tickets (`internal_comms`), AI Report Reviewer on Service Intake ? those are separate from the Pulse sidebar feed.
+
+**To re-enable later:** Restore nav (`#sidebar-nav-pulse`), entitlement default/plan flags in `shared/entitlements.js`, and `PulseActivityFeed.start()` gating in `index.html` `switchTab('pulse')`. See `PROJECT_MAP.md` ? Live Inter-Office Feed (Pulse).
+
+**Filed:** 2026-05-21 (user decision ? icebox, not active roadmap).
+
+---
+
+### Executive Insights & Revenue ? **turned off / parked**
+
+**Concept.** Dispatcher **Reports** ? **Executive Insights** (`#view-insights`, `dispatcher/js/insights_manager.js`, `dispatcher/css/insights.css`, entitlement `executiveInsights`). Phase 15 dashboard + Phase 17 Chart.js analytics (revenue mix, labor efficiency, fleet capacity, unbilled work). Product decision **2026-05-21** is to **disable** and park here.
+
+**What stays:** **Custom Report Studio** under Reports (`#view-report-studio`, `report_builder.js`) ? separate entitlement `customReportStudio`. Dispatch board, invoicing, and ticket-level data unchanged.
+
+**To re-enable later:** Restore `#nav-insights` in Reports flyout, `executiveInsights` in `shared/entitlements.js`, and `switchTab('insights')` ? `VcInsightsManager.initInsightsDashboard()` / `refreshInsights()`. See `PROJECT_MAP.md` ? Executive Insights.
+
+**Filed:** 2026-05-21 (user decision ? icebox, not active roadmap).
+
+---
+
+### Field App phone simulator (Preview Field App) ? **turned off / parked**
+
+**Concept.** Dispatcher opens the technician PWA inside an in-portal **phone bezel** iframe ? sidebar **Preview Field App**, Service Intake **Field app** button, `openTechnicianAppPreview()` ? `#fieldAppSimulatorModal` / `#fieldAppSimulatorFrame` (`technician/index.html?vc_shadow_viewer=1`). Product decision **2026-05-21** is to **disable** and park here.
+
+**What stays (for now):** **Edit in Field App UI** on Service Intake (dedicated modal, `office_override` without the sidebar simulator). **Shadow viewer** modal (`#vcShadowModal`, `dispatcher/js/shadow_mode.js`, entitlement `shadowMode`) is a separate surface ? only the phone-simulator path is parked unless scope expands.
+
+**To re-enable later:** Restore sidebar **Preview Field App** link, Service Intake **Field app** button, and `openTechnicianAppPreview()`. See `PROJECT_MAP.md` ? Dispatch Board phone preview vs. Office Override.
+
+**Filed:** 2026-05-21 (user decision ? icebox, not active roadmap).
+
+---
+
+### Vendor Directory ? pick vendors & email parts quotes (in-app)
+
+**Concept.** From **Vendor Directory** (`#view-vendors`, `vendor_directory.js`): dispatcher **selects one or more vendors** (e.g. filter by category chips ? Motors, Capacitors), **composes a parts-quote request email** inside Vertex, and **sends** without copying email addresses manually. Matches screenshot workflow (Johnstone-style contacts with `orders@?` already on file).
+
+**Already shipped:** Phase 64d vendor CRUD ? name, email, phone, categories, notes in Firestore `vendors`.
+
+**Future build (phased):**
+1. **v1 ? Directory UX:** multi-select on vendor cards; **Request quote** toolbar; compose modal (subject, body, optional parts list textarea); send via **Gmail web compose** or `mailto:` to selected `vendor.email` (same pattern as VMI restock in `settings.js#emailVMIReport`).
+2. **v2 ? Quote pipeline tie-in:** open from Quoting Tool / ticket with **Parts needed for repair quote** pre-filled; reference id in subject (`QT-####-REQ`); aligns with `PROJECT_STATUS/ai_quote_pipeline_spec.md` Phase 5 (AI draft) and Phase 64C (Gmail API send + inbox parse).
+
+**Files:** `vendor_directory.js`, `index.html` `#view-vendors` / `#vendorListTarget`, later `quoting.js` + Cloud Function or Gmail integration.
+
+**Filed:** 2026-05-21 (user request ? future improvement, tracked in `IDEA_TRACKER.md` + `ICEBOX_FUTURE_IMPROVEMENTS.md`).
+
+---
+
 ### Repair & Install Kit System
 
-**Concept.** Reusable kit bundles that tie together materials, specialty tools, checklists, and information requirements for specific job types (repairs, installs, PMs, startups). Kits reduce forgotten parts, missed materials, return trips, missing specialty tools, and inconsistent installs. NOT a rigid ERP inventory system ù an operational preparation and field readiness system.
+**Concept.** Reusable kit bundles that tie together materials, specialty tools, checklists, and information requirements for specific job types (repairs, installs, PMs, startups). Kits reduce forgotten parts, missed materials, return trips, missing specialty tools, and inconsistent installs. NOT a rigid ERP inventory system ? an operational preparation and field readiness system.
 
 **What already exists (layers on top of):**
 - Checklist templates + repair type routing (Phase 63, `field_forms.js`, `repair_form_seeds.js`)
@@ -109,15 +163,15 @@ Likely add one small preview slice for "show me what the tech sees" before save.
 - Tool master lists in `settings.js` (jman/apprentice seeds, truck inventory, VMI)
 
 **What's new:**
-1. **Kit as a first-class entity** ù Firestore `kits` collection bundling materials + tools + checklist ref + info requirements under one trigger
-2. **Pre-job preparation view** ù tech sees "here's what you need for today's jobs" before leaving the shop
-3. **Specialty tool requirements per repair type** ù "this job requires a vacuum pump ù do you have one?"
-4. **Kit improvement suggestions** ù tech proposes additions ? manager approval queue
-5. **PM consumable auto-loading** ù PM type triggers total filter/belt pull list by equipment
-6. **Predictive kit improvements** ù AI suggests commonly-forgotten items from historical job data
+1. **Kit as a first-class entity** ? Firestore `kits` collection bundling materials + tools + checklist ref + info requirements under one trigger
+2. **Pre-job preparation view** ? tech sees "here's what you need for today's jobs" before leaving the shop
+3. **Specialty tool requirements per repair type** ? "this job requires a vacuum pump ? do you have one?"
+4. **Kit improvement suggestions** ? tech proposes additions ? manager approval queue
+5. **PM consumable auto-loading** ? PM type triggers total filter/belt pull list by equipment
+6. **Predictive kit improvements** ? AI suggests commonly-forgotten items from historical job data
 
 **Build phases (estimated):**
-- Phase 67aùf: Kit data model + dispatcher CRUD + materials/tools sub-lists + checklist linking + tech suggestions + approval queue (SDK-sliceable)
+- Phase 67a?f: Kit data model + dispatcher CRUD + materials/tools sub-lists + checklist linking + tech suggestions + approval queue (SDK-sliceable)
 - Phase 68+: Trigger-based kit loading, pre-job prep view, PM auto-loading, predictive suggestions (live agent work)
 
 **Filed:** 2026-05-20.
@@ -142,8 +196,8 @@ Shipped 2026-05-08. Tech toggle in Profile panel writes `shadowConsent` to `live
   * **E1** ? `dispatcher/js/activity_feed.js:44-55` (`normalizeInternal`): normalize `internal_comms` to a single canonical type on every write.
   * **E3** ? `settings.js:614-617` & `:632-635`: wrap dual roster + on-call writes in a `WriteBatch` so both succeed atomically.
   * **E4** ? `dispatcher/js/ai_report_reviewer.js:563-583`: drop the redundant `syncSingleServiceCallToCloud(localRow)` after `setServiceCallMerged(memo)`.
-* **Trust hardening leftovers (2026-05-21 sprint).** Tiers 1ñ3 shipped; these remain:
-  * **Theme unification** ó Schedule/login uses light cards on dark body; workspace is fully dark. Unify or add smooth transition.
-  * **Gemini API key restriction** ó `firestore.rules` `app_config` has `allow read: if true`; split so `api_keys` requires auth.
-  * **SW precache version busting** ó `sw.js` precaches several JS modules without `?v=`; cache-first serves stale copies until `CACHE_NAME` is bumped.
+* **Trust hardening leftovers (2026-05-21 sprint).** Tiers 1?3 shipped; these remain:
+  * **Theme unification** ? Schedule/login uses light cards on dark body; workspace is fully dark. Unify or add smooth transition.
+  * **Gemini API key restriction** ? `firestore.rules` `app_config` has `allow read: if true`; split so `api_keys` requires auth.
+  * **SW precache version busting** ? `sw.js` precaches several JS modules without `?v=`; cache-first serves stale copies until `CACHE_NAME` is bumped.
 * *(Small UI adjustments and low-priority bugs to fix later...)*

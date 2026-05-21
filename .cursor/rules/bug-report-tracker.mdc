@@ -1,0 +1,43 @@
+---
+description: Log every user-reported bug to Bug Report Tracker canvas immediately
+alwaysApply: true
+---
+
+# Bug Report Tracker — log as the user reports
+
+When the user describes a bug, UX issue, or broken behavior (field app, dispatcher, or related tools), **add it to the Bug Report Tracker canvas in the same turn** — do not wait for "proceed" or a separate "add to tracker" request.
+
+## Canvas files (keep both in sync)
+
+1. **Cursor canvas (IDE viewer):** `C:\Users\daday\.cursor\projects\c-Projects-PROJECT-DISPATCHER-TOOL\canvases\bug-report-tracker.canvas.tsx`
+2. **Repo copy:** `canvases/bug-report-tracker.canvas.tsx`
+
+Write the same `SESSION_BUGS` row to **both** paths whenever you add or update an item.
+
+## When to add a row
+
+- User reports something broken, missing, or wrong
+- User asks for a behavior change framed as a problem ("I want X to happen" / "X doesn't work")
+- User sends a screenshot of a bug — treat as a new or updated tracker item
+
+**Do not** wait until fix time. **Do not** only discuss in chat.
+
+## New item format
+
+- Next id: lowest unused number ≥ **#28** (check footer note and existing `SESSION_BUGS` ids)
+- `status: 'pending'` until a fix ships
+- Fill what you know now: `title`, `rootCause` (hypothesis ok), `file`, `lineRef`, `model`, `before`/`after` (planned fix ok), `fix` (investigation steps ok)
+- `userTestSteps: []` until shipped; then numbered device steps per `canvas-update-on-ship.mdc`
+
+## Updating an existing item
+
+If the user adds detail to a bug already filed (#28, #29, …), **edit that row** (expand title/rootCause/fix) instead of duplicating.
+
+## Fixes vs logging
+
+- **Logging:** immediate, no model gate required for tracker-only edits
+- **Code fixes:** still one bug at a time, model gate, canvas `in_progress` → `completed`, deploy, etc. per `canvas-fix-tracker-handoff.mdc`
+
+## After adding
+
+Tell the user the **#** assigned and that it is on **Bug Report Tracker** (pending). Slack `#issues-found` is optional extra context — canvas is the handoff source for agents.

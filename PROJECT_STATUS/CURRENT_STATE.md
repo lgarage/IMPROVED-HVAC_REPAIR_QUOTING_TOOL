@@ -21,7 +21,7 @@ None.
 
 On-device verify: force-reload PWA on iPhone, confirm (1) buttons look transparent/floating (not solid dark), (2) compiled notes load for historical jobs, (3) supplemental history doesn't go behind text box, (4) homescreen shortcut shows login not spinner.
 
-> **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/bug-report-tracker.canvas.tsx`.
+> **On Deck / future ideas:** `ROADMAP.md` + **`ICEBOX_FUTURE_IMPROVEMENTS.md`** (Pulse, Insights, phone simulator = future improvements, code preserved; hide via #37–#39). Fix tracker: `canvases/bug-report-tracker.canvas.tsx`.
 
 ## Update Protocol
 

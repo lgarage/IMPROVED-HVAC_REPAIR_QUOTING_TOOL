@@ -3,13 +3,25 @@
 Cross-references raw ideas from `#icebox` (Slack) against Cursor session history and ROADMAP.
 **Update this file whenever a Cursor session discusses, plans, or ships an icebox idea.**
 
+## Future improvements (do not lose)
+
+**`parked` = future improvement, not deleted.** Pilot scope (2026-05-21) hides some **already-shipped** dispatcher features; full re-enable specs and file paths live in **`PROJECT_STATUS/ICEBOX_FUTURE_IMPROVEMENTS.md`**.
+
+| Future improvement | Status | Hide UI (tracker) |
+|--------------------|--------|-------------------|
+| Live Inter-Office Feed (Pulse) | `parked` | Bug tracker **#37** |
+| Executive Insights & Revenue | `parked` | **#38** |
+| Field App phone simulator (Preview Field App) | `parked` | **#39** |
+
+Code stays in repo until intentionally promoted back to active product.
+
 ## Statuses
 - `fresh` — not yet discussed in any Cursor session
 - `discussed` — talked about, no build work started
 - `in-progress` — active slice or phase exists / being built
 - `shipped` — implemented and deployed
 - `tracked` — promoted to ROADMAP.md; build not yet started
-- `parked` — explicitly deferred; needs re-evaluation before picking up
+- `parked` — **future improvement** (deferred for pilot or backlog); code/spec preserved — see `ICEBOX_FUTURE_IMPROVEMENTS.md`
 
 ---
 
@@ -32,6 +44,10 @@ Cross-references raw ideas from `#icebox` (Slack) against Cursor session history
 | **Parallel Slice Execution** — Run non-overlapping slices concurrently via cloud runtime. File-overlap detection, concurrent Agent.create runs, merge/cherry-pick logic, build_state.json locking. | `parked` | 2026-05-16 | Flagged in #icebox as "revisit when batch sizes grow." Sequential runner is working fine. No Cursor session on this yet. |
 | **Repair & Install Kit System** — Reusable kit bundles (materials + specialty tools + checklists + info requirements) per job type. Pre-job preparation view, tech improvement suggestions with approval queue, PM consumable auto-loading, predictive kit improvements from historical data. Layers on existing checklists, associatedParts, vendor directory, intent engine, and tool master lists. | `discussed` | 2026-05-20 | Full analysis session 2026-05-20: ~60% of sub-features already exist in scattered systems; the Kit entity as a unifying abstraction is new. Phase 67 (data model + CRUD) is SDK-sliceable; Phase 68+ (triggers, prep view, predictions) needs live agents. Added to ROADMAP.md Icebox. |
 | **Historical Job Editability** — Expanded edit permissions on past-day jobs (re-compile with addendum notes, re-submit to office). Current locks sufficient for pilot. | `parked` | 2026-05-21 | Moved from issues-found fix tracker #6 → icebox. Current state works: view report, add notes, equipment, photos. Re-compile/re-submit is polish. Revisit post-pilot. |
+| **Live Inter-Office Feed (Pulse)** — Real-time dispatcher sidebar feed (`#view-pulse`, `dispatcher/js/activity_feed.js`, entitlement `interOfficeFeed`). | `parked` | 2026-05-21 | **Turn off in product** (user decision). Feature retired to icebox; do not expose in nav / stop Firestore listeners. Inter-office notes (`internal_comms`) and AI Report Reviewer stay — only the live Pulse dashboard is out of scope. Re-enable only if promoted from icebox intentionally. |
+| **Executive Insights & Revenue** — Reports → Executive Insights dashboard (`#view-insights`, `dispatcher/js/insights_manager.js`, entitlement `executiveInsights`). Charts, fleet capacity, labor efficiency, unbilled work. | `parked` | 2026-05-21 | **Turn off in product** (user decision). Hide `#nav-insights` / block `switchTab('insights')`. **Custom Report Studio** stays under Reports. Phase 15/17 shipped; icebox until re-promoted. |
+| **Field App phone simulator (Preview Field App)** — In-portal mobile bezel preview (`#fieldAppSimulatorModal`, `openTechnicianAppPreview()`, `vc_shadow_viewer=1` iframe). Sidebar **Preview Field App** + Service Intake **Field app** button. | `parked` | 2026-05-21 | **Turn off in product** (user decision). Hide sidebar entry and intake shortcut; guard `openTechnicianAppPreview` so modal never opens. **📱 Edit in Field App UI** (dedicated Office Override modal) and **Shadow viewer** (`vcShadowModal` / `#vcShadowUserSelect`) are separate — not in this parking decision unless user expands scope. |
+| **Vendor Directory — pick vendors & email for parts quotes (in-app)** — From 🏢 Vendor Directory: multi-select suppliers (filter by category chips), compose parts-quote request, send without leaving Vertex. | `tracked` | 2026-05-21 | **Future improvement** (user request + screenshot). Today: CRUD only (`vendor_directory.js`, email display-only). Aligns with `ai_quote_pipeline_spec.md` Phase 5 (AI-drafted vendor email) + Phase 64C email automation. **v1:** selection UI + compose modal + `mailto:` / Gmail web compose (pattern: `settings.js` `emailVMIReport`). **v2:** pre-fill from open quote/ticket `quoteParts`, Gmail API send + inbox parse. |
 
 ---
 

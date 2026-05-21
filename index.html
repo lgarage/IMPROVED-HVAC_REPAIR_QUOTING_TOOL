@@ -3394,6 +3394,7 @@
                     placeholder="e.g. Planet Fitness"
                     list="customerNamesList"
                     onblur="checkServiceParentCompany()"
+                    autocomplete="off"
                   />
                   <button
                     type="button"
@@ -3528,40 +3529,44 @@
               <div class="form-row" style="margin-bottom: 8px">
                 <div class="input-group" style="flex: 2">
                   <label style="font-size: 11px">Street</label
-                  ><input
+                  >                  <input
                     type="text"
                     id="scParentBillStreet"
                     placeholder="Parent remit-to street"
                     style="text-transform: uppercase"
+                    autocomplete="off"
                   />
                 </div>
               </div>
               <div class="form-row" style="margin-bottom: 8px">
                 <div class="input-group" style="flex: 2">
                   <label style="font-size: 11px">City</label
-                  ><input
+                  >                  <input
                     type="text"
                     id="scParentBillCity"
                     placeholder="City"
                     style="text-transform: uppercase"
+                    autocomplete="off"
                   />
                 </div>
                 <div class="input-group" style="flex: 1">
                   <label style="font-size: 11px">State</label
-                  ><input
+                  >                  <input
                     type="text"
                     id="scParentBillState"
                     placeholder="ST"
                     style="text-transform: uppercase"
+                    autocomplete="off"
                   />
                 </div>
                 <div class="input-group" style="flex: 1">
                   <label style="font-size: 11px">Zip</label
-                  ><input
+                  >                  <input
                     type="text"
                     id="scParentBillZip"
                     placeholder="Zip"
                     style="text-transform: uppercase"
+                    autocomplete="off"
                   />
                 </div>
               </div>
@@ -3590,6 +3595,7 @@
                   type="text"
                   id="scContactNameInput"
                   placeholder="e.g. John Doe"
+                  autocomplete="off"
                 />
               </div>
               <div class="input-group">
@@ -3599,6 +3605,7 @@
                   id="scContactPhoneInput"
                   placeholder="(555) 555-5555"
                   maxlength="14"
+                  autocomplete="off"
                 />
               </div>
               <div class="input-group">
@@ -3607,6 +3614,7 @@
                   type="email"
                   id="scContactEmailInput"
                   placeholder="johndoe@email.com"
+                  autocomplete="off"
                 />
               </div>
             </div>
@@ -3620,6 +3628,7 @@
                   placeholder="1234 Customer St"
                   list="locationStreetsList"
                   onblur="checkServiceParentCompany()"
+                  autocomplete="off"
                 />
               </div>
               <div class="input-group">
@@ -3641,6 +3650,7 @@
                   type="text"
                   id="scCustCityInput"
                   placeholder="e.g. Green Bay"
+                  autocomplete="off"
                 />
               </div>
               <div class="input-group" style="flex: 1">
@@ -3649,6 +3659,7 @@
                   type="text"
                   id="scCustStateInput"
                   placeholder="e.g. WI"
+                  autocomplete="off"
                 />
               </div>
               <div class="input-group" style="flex: 1">
@@ -3657,6 +3668,7 @@
                   type="text"
                   id="scCustZipInput"
                   placeholder="e.g. 54304"
+                  autocomplete="off"
                 />
               </div>
             </div>
@@ -4448,6 +4460,7 @@
                   id="custNameInput"
                   placeholder="e.g. Planet Fitness"
                   list="customerNamesList"
+                  autocomplete="off"
                 />
               </div>
               <div class="input-group">
@@ -4469,6 +4482,7 @@
                   type="text"
                   id="contactNameInput"
                   placeholder="e.g. John Doe (Tenant)"
+                  autocomplete="off"
                 />
               </div>
             </div>
@@ -4481,6 +4495,7 @@
                   id="custStreetInput"
                   placeholder="1234 Customer St"
                   list="locationStreetsList"
+                  autocomplete="off"
                 />
               </div>
               <div class="input-group">
@@ -4502,15 +4517,16 @@
                   type="text"
                   id="custCityInput"
                   placeholder="e.g. Green Bay"
+                  autocomplete="off"
                 />
               </div>
               <div class="input-group" style="flex: 1">
                 <label>State</label>
-                <input type="text" id="custStateInput" placeholder="e.g. WI" />
+                <input type="text" id="custStateInput" placeholder="e.g. WI" autocomplete="off" />
               </div>
               <div class="input-group" style="flex: 1">
                 <label>Zip Code</label>
-                <input type="text" id="custZipInput" placeholder="e.g. 54304" />
+                <input type="text" id="custZipInput" placeholder="e.g. 54304" autocomplete="off" />
               </div>
             </div>
             <div style="text-align: right; margin-top: 10px">
@@ -7499,12 +7515,14 @@
               id="dirNewName"
               placeholder="Customer / Sub-Company Name (e.g. Take 5)"
               style="flex: 2"
+              autocomplete="off"
             />
             <input
               type="text"
               id="dirNewContact"
               placeholder="Site Contact Name (Optional)"
               style="flex: 1"
+              autocomplete="off"
             />
           </div>
           <div style="display: flex; gap: 10px; margin-bottom: 10px">
@@ -7514,12 +7532,14 @@
               placeholder="Phone"
               style="flex: 1"
               maxlength="14"
+              autocomplete="off"
             />
             <input
               type="email"
               id="dirNewEmail"
               placeholder="Email"
               style="flex: 1"
+              autocomplete="off"
             />
           </div>
           <div style="display: flex; gap: 10px; margin-bottom: 10px">
@@ -7528,24 +7548,28 @@
               id="dirNewStreet"
               placeholder="Street Address"
               style="flex: 2"
+              autocomplete="off"
             />
             <input
               type="text"
               id="dirNewCity"
               placeholder="City"
               style="flex: 1"
+              autocomplete="off"
             />
             <input
               type="text"
               id="dirNewState"
               placeholder="State"
               style="width: 70px"
+              autocomplete="off"
             />
             <input
               type="text"
               id="dirNewZip"
               placeholder="Zip Code"
               style="width: 100px"
+              autocomplete="off"
             />
           </div>
           <div style="text-align: right">

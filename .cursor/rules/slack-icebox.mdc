@@ -12,6 +12,7 @@ When the user mentions "icebox," "idea vault," "ideas I added," or asks what ide
 - **How to read:** call `slack_get_channel_history` with `channel_id: "C0B543CE4QG"`
 - **Do not** list workspace channels to find it — the channel is private and will not appear in `slack_list_channels`. Use the ID directly.
 - The `ROADMAP.md` Icebox section is a curated backlog. Raw ideas the user dictates while driving live in Slack and get promoted to `ROADMAP.md` intentionally.
+- **Shipped features hidden for pilot** (Pulse, Executive Insights, phone simulator) are **future improvements, not deleted** — read `PROJECT_STATUS/ICEBOX_FUTURE_IMPROVEMENTS.md` for the canonical registry and re-enable paths.
 
 ## Cross-reference with IDEA_TRACKER.md
 

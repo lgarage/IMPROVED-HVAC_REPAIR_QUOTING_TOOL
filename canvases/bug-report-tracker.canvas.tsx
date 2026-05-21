@@ -1,9 +1,14 @@
 /**
- * AGENT INSTRUCTIONS — mandatory done checklist before reporting any fix complete:
+ * AGENT INSTRUCTIONS
+ *
+ * LOGGING (every session): When the user reports a bug in chat, add/update a row here
+ * immediately (status pending). See .cursor/rules/bug-report-tracker.mdc. Next id ≥ #28.
+ * Sync this file AND canvases/bug-report-tracker.canvas.tsx in the repo.
+ *
+ * FIXING (one at a time): mandatory done checklist before reporting any fix complete:
  *
  * Canvas path: C:\Users\daday\.cursor\projects\c-Projects-PROJECT-DISPATCHER-TOOL\canvases\bug-report-tracker.canvas.tsx
  * Slack source: #issues-found (C0B4AKT9NFL)
- * Session ship: commit 3b6b26a (2026-05-21) — bugs #24–#27 below
  *
  * Work ONE item at a time (lowest # still pending). After each fix:
  * [ ] 1. Set status 'in_progress' when starting
@@ -140,6 +145,236 @@ const SESSION_BUGS: Bug[] = [
       'If no nav guard, should navigate directly to schedule',
     ],
     commit: '3b6b26a',
+  },
+  {
+    id: '28',
+    title: 'Dispatcher ticket modal should close after Save',
+    status: 'pending',
+    file: 'index.html, service_call.js',
+    lineRef: 'index.html ~7131 (#vcTicketDetailsSaveBtn onclick); service_call.js ~1664 (persistTicketDetailsModal)',
+    model: 'GPT-5.4 Mini (T0 — change closeAfter to true on Save onclick)',
+    rootCause:
+      'Slice 57a added an explicit Save button that calls persistTicketDetailsModal({ closeAfter: false }) so dispatchers could save without closing. User expects Save to persist and close the modal (same as Close after save).',
+    fix:
+      'Change Save button onclick from persistTicketDetailsModal({ closeAfter: false }) to persistTicketDetailsModal({ closeAfter: true }). Optional: keep showSaveCue before close if brief flash is desired.',
+    before:
+      'onclick="persistTicketDetailsModal({ closeAfter: false })" on #vcTicketDetailsSaveBtn',
+    after:
+      'onclick="persistTicketDetailsModal({ closeAfter: true })" on #vcTicketDetailsSaveBtn',
+    userTestSteps: [],
+  },
+  {
+    id: '29',
+    title: 'Field app: cannot tap × after moving job to today',
+    status: 'pending',
+    file: 'technician/index.html, conversational_timeline.js',
+    lineRef:
+      'index.html ~82-89 (.app-top-shell z-index 10000), ~2690-2697 (#ct-compile-modal z-index 9000), ~14306 (.ct-compile-close-btn); conversational_timeline.js ~2956-2978 (auto-open compile), ~4029-4037 (close handler)',
+    model: 'Sonnet 4.6 (T2 — z-index stack + historical date sync)',
+    rootCause:
+      'User rescheduled a job to today (dispatcher), opened it on mobile. Compiled Report modal auto-opens on workspace entry. Likely causes: (1) #ct-compile-modal z-index 9000 sits under body.ws-active .app-top-shell z-index 10000 — × in sheet header may be untappable; (2) stale ticket.date still < today() so job stays in historical mode with auto-open historical compile; (3) vc-debug-overlay (z-index 100002) if enabled.',
+    fix:
+      'Investigate on device: which modal is open (Compiled Report vs Review report). Raise compile/report modal z-index above app-top-shell (e.g. 10050+) or set pointer-events:none on shell while modal open. Confirm Firestore/local ticket.date updates after reschedule so isTicketDateHistorical() is false for today jobs.',
+    before:
+      '.ct-compile-modal { z-index: 9000; } vs body.ws-active .app-top-shell { z-index: 10000; position: fixed; }',
+    after:
+      'Modal layer above shell (z-index > 10000) and/or shell non-interactive while modal visible; today jobs must not use is-historical-job when ticket.date === today().',
+    userTestSteps: [],
+  },
+  {
+    id: '30',
+    title: 'First workspace context bubble: description + dispatch photos',
+    status: 'pending',
+    file: 'conversational_timeline.js, technician/index.html',
+    lineRef:
+      'conversational_timeline.js ~481-517 (buildContextText, seedFromTicket); ~678-717 (system bubble render); technician/index.html ~10394-10418 (renderWorkspaceCustomerEvidence — customerEvidenceUrls)',
+    model: 'Sonnet 4.6 (T2 — seed text + inline thumbs or media entries)',
+    rootCause:
+      'On first workspace load, seedFromTicket() posts one system bubble with only Job, Customer, Site. Missing: (1) ticket.issue description; (2) dispatcher-supplied photos in ticket.customerEvidenceUrls (schedule shows "📷 N Photos Attached" but timeline seed ignores them). Photos today render only in #workspaceCustomerEvidence above the chat, not in the first context card.',
+    fix:
+      '(1) buildContextText: add Description/Issue from ticket.issue. (2) seedFromTicket: if customerEvidenceUrls.length, attach images in the first context block — prefer meta.isHtml system entry with thumb grid (reuse customer-evidence-thumb styles) OR append system media entries per URL (meta.storageUrl, mediaType photo, uploadStatus complete, seed ticket-context-photo). (3) Consider evidencePhotoUrls if dispatch pre-attached field evidence. Update hasContextSeed or migrate seed when description/photos missing on revisit.',
+    before:
+      'First bubble: Job + Customer + Site text only; customerEvidenceUrls rendered separately in #workspaceCustomerEvidence',
+    after:
+      'First context card shows Job, Customer, Site, Description, and thumbnail grid for supplied photos (tap → lightbox)',
+    userTestSteps: [],
+  },
+  {
+    id: '31',
+    title: 'Dispatch board day view: job block text garbled until hover',
+    status: 'pending',
+    file: 'index.html, service_call.js',
+    lineRef:
+      'index.html ~823-897 (.gantt-job-block, .board-view-day rules, :hover z-index 5); service_call.js ~2077-2107 (day view block innerHTML)',
+    model: 'Sonnet 4.6 (T2 — CSS stacking / overlap in gantt day view)',
+    rootCause:
+      'Day-view timeline blocks (.gantt-job-block) show overlapping illegible text (customer names stacked) at rest. On :hover, box-shadow + z-index: 5 "cleans up" readable layout. Likely multiple blocks same slot, flex/overflow in fixed 42px height, or ghost offset from default styles — needs repro on PLANET FITNESS 8–10 AM block.',
+    fix:
+      'Repro in board-view-day: inspect DOM for duplicate .gantt-job-block at same left/width. Ensure default state uses same truncation/stacking as hover (z-index per block, line-height, overflow hidden on .gantt-job-block-inner). Remove double-render or offset ghost if present. Verify single job SC-1003 shows one clean name without hover.',
+    before:
+      'Resting .gantt-job-block: garbled overlapping white text on blue bar; :hover only raises z-index: 5 and box-shadow',
+    after:
+      'Customer name, time row, and contact line readable without hover; hover may still elevate for emphasis only',
+    userTestSteps: [],
+  },
+  {
+    id: '32',
+    title: 'Service Requests reorder: cards vanish after drag (need data-id + UX)',
+    status: 'pending',
+    file: 'service_call.js, index.html',
+    lineRef:
+      'service_call.js ~907-914 (saveBoardOrder), ~1927-1945 (glass-card HTML); ~882-894 (initDragAndDrop)',
+    model: 'GPT-5.4 Mini (T0 add data-id) + Sonnet 4.6 (T2 reorder UX polish)',
+    rootCause:
+      'saveBoardOrder() reads card.getAttribute("data-id") but renderServiceBoard() never sets data-id on .glass-card — visualIds are all null, newDb becomes [], localStorage twinPillarsServiceDB wiped, renderServiceBoard() shows empty list. User must reload to restore from Firestore/cloud resync.',
+    fix:
+      '(1) Add data-id="${sc.id}" on each .glass-card in renderServiceBoard. (2) saveBoardOrder: append any db tickets missing from visualIds (do not drop). (3) UX: improve initDragAndDrop — placeholder gap, live reorder preview, optional ↑↓ buttons; separate ondragstart for sidebar reorder vs board drag (today both use drag()).',
+    before:
+      'glass-card: no data-id; saveBoardOrder → newDb=[] → all cards disappear after dragend',
+    after:
+      'Reorder persists order in localStorage; cards stay visible; siblings shift smoothly during drag',
+    userTestSteps: [],
+  },
+  {
+    id: '33',
+    title: 'Service Requests panel: compact cards to show more jobs',
+    status: 'pending',
+    file: 'index.html, service_call.js',
+    lineRef:
+      'index.html ~623-649 (.dispatch-left-panel, .panel-content), ~1115-1138 (.glass-card); service_call.js ~1927-1945 (card HTML)',
+    model: 'Sonnet 4.6 (T2 — compact card CSS + optional dense layout toggle)',
+    rootCause:
+      'Left sidebar shows ~5 jobs at a time because each .glass-card is tall (padding 10–12px, full address line, tech avatars, full-width status select, margin-bottom 8px). Panel is fixed 380px wide but vertical density is the bottleneck as job volume grows.',
+    fix:
+      'Add compact/dense card variant: smaller padding, single-line title+SC#, truncated address, inline status chip or smaller select, optional hide tech strip when unassigned. Consider resizable left panel height share or full-height column. Target 10–15 visible cards on typical laptop without losing tap targets (min 44px rows).',
+    before:
+      'Large glass-card blocks; user sees ~5 jobs before scroll',
+    after:
+      'Dense list shows many more jobs per viewport; still readable and draggable',
+    userTestSteps: [],
+  },
+  {
+    id: '34',
+    title: 'Service Requests list filtered by board day/week/month',
+    status: 'pending',
+    file: 'service_call.js, index.html',
+    lineRef:
+      'service_call.js ~1905-1947 (left panel render — no date filter), ~614-645 (getGanttDateContextForMap / gantt date logic); index.html ~3141+ (board Day/Week/Month + boardDateSelector)',
+    model: 'Sonnet 4.6 (T2 — share date scope with dispatch board)',
+    rootCause:
+      'Dispatch board Gantt filters jobs by currentBoardView + boardDateSelector (day/week/month), but Service Requests left panel lists ALL non-archived open tickets regardless of date. No way to browse "this week\'s jobs" in the sidebar without matching the timeline scope.',
+    fix:
+      'Filter serviceRequestList with same date window as Gantt (reuse getGanttDateContextForMap; include Unassigned tickets for that date). Sync list when user changes Day/Week/Month or date picker. Show scope label in panel header (e.g. "4 jobs · Week of May 18"). Optional: independent list filter if board view differs.',
+    before:
+      'Sidebar: all open tickets; board: day/week/month filtered only on timeline',
+    after:
+      'Sidebar list matches selected day/week/month (and date); count badge reflects filtered set',
+    userTestSteps: [],
+  },
+  {
+    id: '35',
+    title: 'Invoicing: Generate Invoice pulls AI report (retire paste-parse)',
+    status: 'pending',
+    file: 'service_call.js, invoice.js, index.html',
+    lineRef:
+      'service_call.js ~3311-3391 (convertToInvoice); invoice.js ~102-120 (parsePastedNotes), ~10-56 (clearInvoiceForm); index.html ~5015-5034 (#invPasteArea section); dispatcher/js/ai_report_reviewer.js',
+    model: 'Sonnet 4.6 (T2) or Opus 4.6 if Firestore compile schema',
+    rootCause:
+      'Today: Invoice Generator section 1 requires paste + parsePastedNotes() (+ Gemini on blur). convertToInvoice() only prefills customer/site, equip stub, ticket.issue in invNotes — not full AI compile / customer-facing report. User wants one-click Generate Invoice from ticket modal to populate all invoice fields from built AI agent output (techNotes, compiled report, structured reviewer JSON).',
+    fix:
+      '(1) Extend convertToInvoice(ticketId) to load ticket.techNotes + Firestore compile/submitted report (NotesParser / timeline cache / ai_report_reviewer schema by job type) into invNotes, invDiag, invWork, parts, labor. (2) Deprecate or hide invPasteArea + parsePastedNotes for primary workflow; keep optional advanced paste if needed. (3) Map customer-facing vs internal fields per shared/client_portal_logic. Show loading state on Generate Invoice while fetching.',
+    before:
+      'Paste tech notes → parse/Gemini → manual verify; Generate Invoice copies basic ticket fields only',
+    after:
+      'Generate Invoice on ticket (or invoice tab) auto-fills client, call, equipment, diagnosis, work, parts, labor, customer-facing report from AI agent — no paste step',
+    userTestSteps: [],
+  },
+  {
+    id: '36',
+    title: 'Customer info sync: one update propagates everywhere',
+    status: 'pending',
+    file: 'customer_directory.js, service_call.js, invoice.js, quoting.js, technician/index.html',
+    lineRef:
+      'customer_directory.js ~41-85 (syncSingleCustomerToCloud), ~257-304 (syncCustomerToDirectory); service_call.js saveServiceCall; twinPillarsServiceDB + Firestore service_calls denormalized fields',
+    model: 'Opus 4.6 (T3 — cross-system denormalization + Firestore fan-out)',
+    rootCause:
+      'Customer data lives in multiple stores: tp_customers_db / Firestore customers, denormalized copies on each service_calls ticket (customerName, locationAddress, custCity, etc.), invoice/quote forms, field app, schedule cards, maps. Updating name/address in one surface (directory, ticket modal, invoice, admin job sheet) does not fan-out to all tickets and UIs — stale copies until manual refresh or reload.',
+    fix:
+      'Define canonical customer record (CST id + locations). On any customer edit: (1) update directory + Firestore customers; (2) batch-update all service_calls / local twinPillarsServiceDB rows matching customerNum or name; (3) refresh open UI (service board, invoice if open, field tickets listener). Consider customerNum as stable key vs name. Document write paths in syncCustomerToDirectory / saveServiceCall / persistInvoiceCustomerToCRM.',
+    before:
+      'Customer edit updates one local store; other screens keep old denormalized ticket fields',
+    after:
+      'Single customer update refreshes directory, all linked tickets, dispatch board, invoice/quote prefill, and field app views',
+    userTestSteps: [],
+  },
+  {
+    id: '37',
+    title: 'Future improvement F1: hide Pulse UI (code preserved — icebox)',
+    status: 'pending',
+    file: 'index.html, shared/entitlements.js, dispatcher/js/activity_feed.js',
+    lineRef:
+      '#sidebar-nav-pulse ~2739; switchTab pulse ~8169; vcHasFeature("interOfficeFeed") ~8507; FEATURE_CATALOG interOfficeFeed ~49',
+    model: 'GPT-5.4 Mini (T0 — hide nav + hard-off gate)',
+    rootCause:
+      'Pulse shipped behind interOfficeFeed entitlement but product decision 2026-05-21 is to retire the live feed to icebox — nav and listeners should not run even if tenant has pro/enterprise plan.',
+    fix:
+      '(1) Force-hide #sidebar-nav-pulse and block switchTab("pulse") regardless of entitlement (or set interOfficeFeed default/plans all false + migration note). (2) Ensure PulseActivityFeed.stop() on load; never start listeners. (3) Optional: remove Pulse from Settings feature catalog UI or mark deprecated. Inter-office internal_comms on tickets unchanged.',
+    before: 'Pro/enterprise tenants see Pulse nav; switchTab starts PulseActivityFeed Firestore listeners',
+    after: 'No Pulse nav or view; no background feed listeners; feature documented in ROADMAP icebox / IDEA_TRACKER parked',
+    userTestSteps: [],
+  },
+  {
+    id: '38',
+    title: 'Future improvement F2: hide Executive Insights UI (code preserved — icebox)',
+    status: 'pending',
+    file: 'index.html, shared/entitlements.js, dispatcher/js/insights_manager.js',
+    lineRef:
+      '#nav-insights ~2776 (Reports flyout); #view-insights ~4218; switchTab insights ~8223; FEATURE_CATALOG executiveInsights ~67',
+    model: 'GPT-5.4 Mini (T0 — hide nav + hard-off gate)',
+    rootCause:
+      'Executive Insights shipped in Reports submenu (Phase 15/17) but product decision 2026-05-21 is to retire the dashboard to icebox — nav should not appear and insights tab should not load even if tenant has executiveInsights entitlement.',
+    fix:
+      '(1) Hide or remove #nav-insights from Reports flyout; block switchTab("insights") and redirect if hash #insights. (2) Do not call VcInsightsManager.initInsightsDashboard on tab switch. (3) Optional: set executiveInsights default/plans all false in entitlements.js. Custom Report Studio (#nav-report-studio) unchanged.',
+    before: 'Reports flyout shows Executive Insights; opening tab loads charts and refreshInsights()',
+    after: 'Reports flyout only Custom Report Studio (or empty insights slot hidden); no #view-insights activation',
+    userTestSteps: [],
+  },
+  {
+    id: '39',
+    title: 'Future improvement F3: hide phone simulator UI (code preserved — icebox)',
+    status: 'pending',
+    file: 'index.html, dispatcher/js/shadow_mode.js (simulator badge sync only)',
+    lineRef:
+      'Sidebar Preview Field App ~2795-2806; Service Intake Field app btn ~3108; openTechnicianAppPreview ~7993; #fieldAppSimulatorModal ~10034',
+    model: 'GPT-5.4 Mini (T0 — hide nav/buttons + no-op openTechnicianAppPreview)',
+    rootCause:
+      'Phone simulator shipped for dispatcher preview (vc_shadow_viewer iframe + bezel modal) but product decision 2026-05-21 is to retire it to icebox — sidebar and intake shortcuts should not open the modal.',
+    fix:
+      '(1) Remove or hide sidebar Preview Field App <li> and Service Intake Field app button. (2) Early-return in openTechnicianAppPreview() (optional user-facing toast). (3) Ensure modal stays hidden on load. Leave 📱 Edit in Field App UI modal and vcShadowModal/shadowMode unchanged unless scope expands.',
+    before: 'Dispatcher can open phone bezel simulator from sidebar or Service Intake; iframe loads technician/index.html with shadow params',
+    after: 'No Preview Field App nav or Field app button; openTechnicianAppPreview is a no-op; documented in ROADMAP icebox / IDEA_TRACKER parked',
+    userTestSteps: [],
+  },
+  {
+    id: '40',
+    title: 'Chrome "Save address?" popup on dispatcher site/address forms',
+    status: 'completed',
+    file: 'index.html',
+    lineRef:
+      'Service Intake scContact* / scCust* / scParentBill*; Quoting cust* / contactNameInput; Customer Directory dirNew* (~3588–3660, ~4446–4513, ~7496–7549)',
+    model: 'GPT-5.4 Mini (T0 — autocomplete off)',
+    rootCause:
+      'Chrome detects name + street + city + state + zip + email clusters and offers to save to Google Account. Invoice form already had autocomplete="off"; Service Intake, Quoting, and Customer Directory add-location fields did not.',
+    fix:
+      'Added autocomplete="off" on all site/contact/address inputs in those three surfaces (invoice unchanged).',
+    before: 'Filling Zip / address on Service Intake or Customer Directory triggers Chrome Save address? dialog',
+    after: 'Chrome should not prompt; if it still does once, tap No thanks — or Chrome Settings → Autofill → Addresses',
+    userTestSteps: [
+      'Hard-refresh dispatcher (Ctrl+Shift+R)',
+      'Open Service Intake or Customer Directory → Add Customer',
+      'Fill contact name, street, city, state, zip, email — tab out of Zip',
+      'Expect: no Chrome Save address? popup',
+    ],
   },
 ];
 
