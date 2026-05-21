@@ -2805,25 +2805,30 @@
     } catch (e) { if (onDone) onDone(false); return; }
 
     crCol.where("ticketId", "==", ticketId)
-      .orderBy("compiledAt", "desc")
-      .limit(1)
       .get()
       .then(function (snap) {
         if (snap.empty) { if (onDone) onDone(false); return; }
-        var docData = snap.docs[0].data();
-        if (!docData || !docData.compiledResult) { if (onDone) onDone(false); return; }
-        /* Guard: discard if tech already switched to another ticket */
+        var docs = snap.docs.map(function (d) { return d.data(); })
+          .filter(function (d) { return d && d.compiledResult; });
+        if (!docs.length) { if (onDone) onDone(false); return; }
+        docs.sort(function (a, b) {
+          var ta = a.compiledAt || "", tb = b.compiledAt || "";
+          return ta < tb ? 1 : ta > tb ? -1 : 0;
+        });
+        var docData = docs[0];
         if (currentTicketId !== ticketId) { if (onDone) onDone(false); return; }
         _compiledResult = docData.compiledResult;
         _compiledDisplayText = docData.editedDisplayText
           || formatCompileResultForDisplay(docData.compiledResult);
         _lastCompiledIndex = docData.compiledEntryCount || 0;
         _lastCompileResult = _compiledResult;
-        /* Treat as already submitted — suppress close prompt for this recall */
         _compileSubmittedForTicket = ticketId;
         if (onDone) onDone(true);
       })
-      .catch(function () { if (onDone) onDone(false); });
+      .catch(function (err) {
+        try { console.warn("[VC] compiled report cloud restore failed:", err); } catch (e) {}
+        if (onDone) onDone(false);
+      });
   }
 
   /**
