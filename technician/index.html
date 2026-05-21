@@ -80,9 +80,9 @@ button:focus {
   transition: background 0.2s, backdrop-filter 0.2s;
 }
 body.ws-active .app-top-shell {
-  background: rgba(15, 23, 42, 0.96);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   position: fixed;
   left: 0;
   right: 0;
@@ -94,9 +94,17 @@ body.ws-active .workspace-site-banner-sticky {
   left: 0;
   right: 0;
   z-index: 50;
-  background: rgba(15, 23, 42, 0.88);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+}
+body.ws-active #screen-workspace::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--vc-app-shell-height, 50px) + 56px);
+  background: #0f172a;
+  z-index: 49;
+  pointer-events: none;
 }
 .app-header-row {
   display: flex;
@@ -13796,7 +13804,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=7"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=4"></script>
-    <script src="../conversational_timeline.js?v=82"></script>
+    <script src="../conversational_timeline.js?v=83"></script>
     <script>
     /* ── KI-004: Register outbox hooks for inline field-app upload paths ──
        Runs after all external modules are loaded so VCStorageOutbox is
