@@ -484,9 +484,11 @@
     var jobInfo = safeText(ticket.jobNum || ticket.ticketNum || ticket.ticket || ticket.tid || "");
     var customer = safeText(ticket.customerName || ticket.customer || "");
     var site = safeText(ticket.address || ticket.locationAddress || ticket.location || "");
+    var description = safeText(ticket.issue || ticket.description || "");
     if (jobInfo) parts.push("Job: " + jobInfo);
     if (customer) parts.push("Customer: " + customer);
     if (site) parts.push("Site: " + site);
+    if (description) parts.push("Description: " + description);
     return parts.join("\n");
   }
 
@@ -509,10 +511,40 @@
     var contextText = buildContextText(ticket);
     if (!contextText) return;
     if (hasContextSeed(entries, ticketId)) return;
-    entries.push(createEntry("system", contextText, {
-      seed: "ticket-context",
-      ticketId: ticketId
-    }));
+
+    /* Gather dispatcher-supplied evidence photos (customerEvidenceUrls) */
+    var photoUrls = Array.isArray(ticket.customerEvidenceUrls)
+      ? ticket.customerEvidenceUrls.filter(Boolean)
+      : [];
+
+    var seedText, seedMeta;
+    if (photoUrls.length) {
+      /* Build an HTML seed: plain-text context block + photo thumbnail strip */
+      var textHtml = '<div style="white-space:pre-wrap;margin-bottom:8px;">' + escapeHtml(contextText) + '</div>';
+      var photosHtml = '<div style="font-size:12px;color:#94a3b8;margin-bottom:4px;">📷 Dispatch photos (' + photoUrls.length + ')</div>';
+      photosHtml += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+      photoUrls.forEach(function (url, idx) {
+        var safe = String(url).replace(/"/g, "%22");
+        var isImg = /\.(png|jpe?g|gif|webp)(\?|#|$)/i.test(url);
+        if (isImg) {
+          photosHtml +=
+            '<a href="' + safe + '" target="_blank" rel="noopener" style="display:inline-block;">' +
+            '<img src="' + safe + '" alt="Dispatch photo ' + (idx + 1) + '"' +
+            ' style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.15);">' +
+            '</a>';
+        } else {
+          photosHtml += '<a href="' + safe + '" target="_blank" rel="noopener" style="font-size:12px;color:#60a5fa;">📎 Doc ' + (idx + 1) + '</a>';
+        }
+      });
+      photosHtml += '</div>';
+      seedText = textHtml + photosHtml;
+      seedMeta = { seed: "ticket-context", ticketId: ticketId, isHtml: true };
+    } else {
+      seedText = contextText;
+      seedMeta = { seed: "ticket-context", ticketId: ticketId };
+    }
+
+    entries.push(createEntry("system", seedText, seedMeta));
     saveEntries(ticketId, entries);
   }
 

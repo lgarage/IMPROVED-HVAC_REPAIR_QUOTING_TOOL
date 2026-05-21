@@ -190,20 +190,26 @@ const SESSION_BUGS: Bug[] = [
   {
     id: '30',
     title: 'First workspace context bubble: description + dispatch photos',
-    status: 'pending',
+    status: 'completed',
     file: 'conversational_timeline.js, technician/index.html',
     lineRef:
-      'conversational_timeline.js ~481-517 (buildContextText, seedFromTicket); ~678-717 (system bubble render); technician/index.html ~10394-10418 (renderWorkspaceCustomerEvidence — customerEvidenceUrls)',
-    model: 'Sonnet 4.6 (T2 — seed text + inline thumbs or media entries)',
+      'conversational_timeline.js ~481-517 (buildContextText, seedFromTicket) — v85',
+    model: 'Sonnet 4.6 (T2)',
     rootCause:
-      'On first workspace load, seedFromTicket() posts one system bubble with only Job, Customer, Site. Missing: (1) ticket.issue description; (2) dispatcher-supplied photos in ticket.customerEvidenceUrls (schedule shows "📷 N Photos Attached" but timeline seed ignores them). Photos today render only in #workspaceCustomerEvidence above the chat, not in the first context card.',
+      'buildContextText() only included Job, Customer, Site. ticket.issue (description) was omitted. customerEvidenceUrls (dispatch photos) were only shown in #workspaceCustomerEvidence panel above chat, never in the first context bubble.',
     fix:
-      '(1) buildContextText: add Description/Issue from ticket.issue. (2) seedFromTicket: if customerEvidenceUrls.length, attach images in the first context block — prefer meta.isHtml system entry with thumb grid (reuse customer-evidence-thumb styles) OR append system media entries per URL (meta.storageUrl, mediaType photo, uploadStatus complete, seed ticket-context-photo). (3) Consider evidencePhotoUrls if dispatch pre-attached field evidence. Update hasContextSeed or migrate seed when description/photos missing on revisit.',
+      '(1) buildContextText: added Description from ticket.issue. (2) seedFromTicket: when customerEvidenceUrls present, builds an isHtml seed entry with the text block + 72px thumbnail strip. Plain text seed unchanged when no photos.',
     before:
-      'First bubble: Job + Customer + Site text only; customerEvidenceUrls rendered separately in #workspaceCustomerEvidence',
+      'First bubble: "Job: SC-XXXX\\nCustomer: ...\\nSite: ..." — no description, no photos',
     after:
-      'First context card shows Job, Customer, Site, Description, and thumbnail grid for supplied photos (tap → lightbox)',
-    userTestSteps: [],
+      'First bubble includes Description line; if dispatch photos exist, shows 72px thumbnail grid below text',
+    userTestSteps: [
+      'Force-reload field app (clear cache)',
+      'Open a NEW job card that has a description/issue entered in dispatcher',
+      'Workspace context bubble should show Description line below Site',
+      'On a job that has dispatch photos (customerEvidenceUrls): context bubble shows photo thumbnails below the text',
+      'Tap a thumbnail — opens photo in new tab',
+    ],
   },
   {
     id: '31',
