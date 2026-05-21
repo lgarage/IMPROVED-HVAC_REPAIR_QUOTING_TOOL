@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 65 ALL slices shipped. KI-004 hooks + B6 SW cache hygiene shipped.
-- **Last shipped (2026-05-20 22:00 CDT):** KI-004 contextHook callbacks — `drain()` now gets download URL after upload and invokes registered hooks to patch Firestore docs (7 call sites wired). B6 SW cache — `CACHE_NAME` bumped to `vertex-cache-v4`. `VC_BUILD: KI004-Hooks-2026-05-21`.
-- **Prior (2026-05-20):** Nav guard z-index fix (raised to 100001). Customer Confirmation feature.
+- **Active Phase:** Trust hardening sprint (pilot-readiness). KI-004 hooks + B6 SW cache shipped prior.
+- **Last shipped (2026-05-21 11:50 CDT):** Trust hardening sprint — 15 items across field app + dispatcher: debug overlay opt-in, 46+ alerts→toasts, branded splash screen + login logo, PWA manifest with real icons, board loading/empty states, crash guards (openWorkspace, onload, loadServiceCall, Firebase init, schedule watchdog, global error handlers), insights loading skeletons, dev copy cleanup, admin PINs hardened.
+- **Prior (2026-05-20):** KI-004 contextHook callbacks, B6 SW cache, nav guard z-index, Customer Confirmation.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,7 +19,7 @@ None.
 
 ## Immediate Next Step
 
-On-device field test — force-reload PWA until BUILD shows `KI004-Hooks-2026-05-21` (VC DEBUG overlay). Test offline photo: take photo in airplane mode, re-enable signal, verify photo uploads and Firestore doc URL field is patched. Separately, the "first job of day Schedule pill broken" bug reported May 17–18 may still need investigation if it recurs.
+Deploy (`firebase deploy --only hosting`) then on-device smoke test: force-reload PWA, verify splash screen shows Vertex Core logo on load, schedule loads, open a job, confirm workspace opens without crash. Test debug overlay is hidden by default (append `?vc_debug=1` to verify it still works). Test offline photo flow. Remaining hardening: theme unification (T3), Gemini key restriction (T4), SW cache busting (T4).
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
 
