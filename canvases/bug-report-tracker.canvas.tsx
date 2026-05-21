@@ -250,20 +250,26 @@ const SESSION_BUGS: Bug[] = [
   {
     id: '33',
     title: 'Service Requests panel: compact cards to show more jobs',
-    status: 'pending',
-    file: 'index.html, service_call.js',
+    status: 'completed',
+    file: 'index.html',
     lineRef:
-      'index.html ~623-649 (.dispatch-left-panel, .panel-content), ~1115-1138 (.glass-card); service_call.js ~1927-1945 (card HTML)',
-    model: 'Sonnet 4.6 (T2 — compact card CSS + optional dense layout toggle)',
+      'index.html ~1117-1139 (.glass-card padding 10→6px, margin 8→4px); ~1573-1592 (.tc-title font 14→13px, .tc-loc margin 8→4px + ellipsis); ~1487-1514 (.tc-tech-strip margin 6→2px, avatars 22→18px)',
+    model: 'Sonnet 4.6 (T2)',
     rootCause:
-      'Left sidebar shows ~5 jobs at a time because each .glass-card is tall (padding 10–12px, full address line, tech avatars, full-width status select, margin-bottom 8px). Panel is fixed 380px wide but vertical density is the bottleneck as job volume grows.',
+      'Each .glass-card used 10px padding + 8px margin + 14px title + 8px loc margin + 22px tech avatars = ~140px per card, showing only ~5 cards before scroll.',
     fix:
-      'Add compact/dense card variant: smaller padding, single-line title+SC#, truncated address, inline status chip or smaller select, optional hide tech strip when unassigned. Consider resizable left panel height share or full-height column. Target 10–15 visible cards on typical laptop without losing tap targets (min 44px rows).',
+      'CSS-only compact: padding 10→6px, margin-bottom 8→4px, tc-title font 14→13px margin 4→2px, tc-loc margin 8→4px (ellipsis added), tc-tech-strip margin 6→2px, avatars 22→18px. Target ~85px per card = ~10+ visible per viewport.',
     before:
-      'Large glass-card blocks; user sees ~5 jobs before scroll',
+      '~140px per card, ~5 visible',
     after:
-      'Dense list shows many more jobs per viewport; still readable and draggable',
-    userTestSteps: [],
+      '~85px per card, ~10+ visible',
+    userTestSteps: [
+      'Open dispatcher → Dispatch Board',
+      'Left panel should show more job cards before scrolling',
+      'Cards should still show customer name, address, tech avatars, and status dropdown',
+      'Drag a card to the Gantt — still works',
+      'Double-click a card — ticket details open',
+    ],
   },
   {
     id: '34',

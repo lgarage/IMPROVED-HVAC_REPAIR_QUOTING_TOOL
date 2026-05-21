@@ -1117,8 +1117,8 @@
       .glass-card {
         background: #ffffff;
         border-radius: 6px;
-        padding: 10px 12px;
-        margin-bottom: 8px;
+        padding: 6px 10px;
+        margin-bottom: 4px;
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
         border-left: 4px solid #ccc;
         cursor: pointer;
@@ -1485,22 +1485,22 @@
         font-weight: 800;
       }
       .tc-tech-strip {
-        margin: 6px 0 4px 0;
+        margin: 2px 0 3px 0;
       }
       .glass-card-tech-row {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 4px;
+        gap: 3px;
       }
       .glass-card-tech-avatar {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 22px;
-        height: 22px;
+        width: 18px;
+        height: 18px;
         border-radius: 50%;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 800;
         color: #fff;
         border: 2px solid #fff;
@@ -1573,17 +1573,22 @@
       .tc-title {
         font-weight: bold;
         color: #0ea5e9;
-        font-size: 14px;
-        margin-bottom: 4px;
+        font-size: 13px;
+        margin-bottom: 2px;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        white-space: nowrap;
+        overflow: hidden;
       }
       .tc-loc {
-        font-size: 12px;
+        font-size: 11px;
         color: #555;
-        margin-bottom: 8px;
+        margin-bottom: 4px;
         font-weight: bold;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .tc-footer {
         display: flex;
