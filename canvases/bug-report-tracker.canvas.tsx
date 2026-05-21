@@ -274,20 +274,27 @@ const SESSION_BUGS: Bug[] = [
   {
     id: '34',
     title: 'Service Requests list filtered by board day/week/month',
-    status: 'pending',
+    status: 'completed',
     file: 'service_call.js, index.html',
     lineRef:
-      'service_call.js ~1905-1947 (left panel render — no date filter), ~614-645 (getGanttDateContextForMap / gantt date logic); index.html ~3141+ (board Day/Week/Month + boardDateSelector)',
-    model: 'Sonnet 4.6 (T2 — share date scope with dispatch board)',
+      'service_call.js ~1901-1935 (left panel: added date filter using getGanttDateContextForMap + scope label); index.html ~3090-3104 (added boardScopeLabel span); service_call.js?v=77',
+    model: 'Sonnet 4.6 (T2)',
     rootCause:
-      'Dispatch board Gantt filters jobs by currentBoardView + boardDateSelector (day/week/month), but Service Requests left panel lists ALL non-archived open tickets regardless of date. No way to browse "this week\'s jobs" in the sidebar without matching the timeline scope.',
+      'renderServiceBoard() left panel listed ALL non-archived open tickets regardless of date, while Gantt timeline filtered by currentBoardView + boardDateSelector.',
     fix:
-      'Filter serviceRequestList with same date window as Gantt (reuse getGanttDateContextForMap; include Unassigned tickets for that date). Sync list when user changes Day/Week/Month or date picker. Show scope label in panel header (e.g. "4 jobs · Week of May 18"). Optional: independent list filter if board view differs.',
+      'Added isDateVisible() filter to left panel loop using getGanttDateContextForMap() (same logic as Gantt). Unassigned tickets included (no tech requirement). Added #boardScopeLabel span in header showing "May 21", "Wk of May 18", or "May 2026".',
     before:
-      'Sidebar: all open tickets; board: day/week/month filtered only on timeline',
+      'Sidebar: all open tickets regardless of date',
     after:
-      'Sidebar list matches selected day/week/month (and date); count badge reflects filtered set',
-    userTestSteps: [],
+      'Sidebar filtered to same day/week/month as board; scope label shows date context',
+    userTestSteps: [
+      'Open dispatcher → Dispatch Board → Day view (pick a specific date)',
+      'Left panel shows only jobs scheduled on that exact date',
+      'Header shows "Service Requests [count] · May 21" (or current date)',
+      'Switch to Week view — left panel shows all jobs in that week',
+      'Switch to Month view — left panel shows all jobs in that month',
+      'Unassigned jobs for that date still appear in the list',
+    ],
   },
   {
     id: '35',

@@ -1901,10 +1901,40 @@ function renderServiceBoard() {
     // 1. RENDER LEFT PANEL
     listContainer.innerHTML = '';
     let listCount = 0;
+
+    // Date window for left panel (same scope as Gantt)
+    const ctx = getGanttDateContextForMap();
+    const isDateVisible = function(sc) {
+        if (!sc.date) return false;
+        if (currentBoardView === 'day') return sc.date === ctx.dateInput;
+        if (currentBoardView === 'week') return ctx.weekStrings.includes(sc.date);
+        if (currentBoardView === 'month') return sc.date.startsWith(ctx.monthString);
+        return false;
+    };
+    // Scope label for header
+    (function() {
+        var scopeEl = document.getElementById('boardScopeLabel');
+        if (!scopeEl) return;
+        var label = '';
+        if (ctx.dateInput) {
+            if (currentBoardView === 'day') {
+                var d = new Date(ctx.dateInput + 'T12:00:00');
+                label = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            } else if (currentBoardView === 'week') {
+                var d1 = new Date(ctx.weekStrings[0] + 'T12:00:00');
+                label = 'Wk of ' + d1.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            } else if (currentBoardView === 'month') {
+                var d = new Date(ctx.dateInput + 'T12:00:00');
+                label = d.toLocaleDateString([], { month: 'long', year: 'numeric' });
+            }
+        }
+        scopeEl.textContent = label ? '· ' + label : '';
+    })();
     
     db.forEach(sc => {
         if (sc.archived) return;
         if (sc.status === 'Completed' || sc.status === 'Canceled') return;
+        if (!isDateVisible(sc)) return;
         listCount++;
         
         let colorClass = 'priority-Standard';
