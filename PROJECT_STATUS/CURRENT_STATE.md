@@ -15,15 +15,14 @@
 
 ## Active Blocker
 
-None.
+**Schedule pill broken for first job of day (May 17 + May 18)** — after compile modal auto-opens and user taps ×, Schedule pill does nothing. Subagent investigation running (Playwright). Root cause suspected: `hasUnsubmittedReport()` returns true for historical jobs on first workspace open because `_compileSubmittedForTicket` resets each session. Fix pending subagent report.
 
 ## Immediate Next Step
 
-- **KI-004 completion (overnight 2026-05-20):** Outbox module exists (`shared/offline_storage_outbox.js`) and all 14 call sites are wired. **Remaining gap:** `drain()` uploads to Storage but doesn't patch Firestore docs with download URLs (no `contextHook` callbacks). Fix: add post-upload URL patching so equipment docs, form submissions, and addendum entries get their photo URLs automatically after offline drain.
-- **B6 — SW cache hygiene:** bump `CACHE_NAME` in `sw.js`, add `activate` handler to delete old caches.
-- **Deploy + Playwright verify** after both items ship.
-- **On-device field test:** user plans to smoke-test on real phone Thu/Fri 2026-05-21/22.
-- **Kit System:** discussed and added to ROADMAP.md Icebox + IDEA_TRACKER.md. Phase 67 slices (data model + CRUD) ready to author when field test passes.
+- **Wait for subagent result** on "first job of day" Schedule bug — then apply fix + deploy.
+- **KI-004 completion:** `drain()` uploads but doesn't patch Firestore docs with download URLs. Fix: add post-upload URL patching in `offline_storage_outbox.js`.
+- **B6 — SW cache hygiene:** bump `CACHE_NAME` in `sw.js`, add `activate` handler for old-cache cleanup.
+- **On-device field test:** user plans to smoke-test Thu/Fri 2026-05-21/22.
 - **Rule:** agents must never run the SDK build runner. See `.cursor/rules/no-sdk-build-runner.mdc`.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
