@@ -112,6 +112,7 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-20 | KI-004: contextHook outbox callbacks + B6 SW cache — 8 files, 7 call sites, deploy | LOW-MED | T2 | Balanced | 90% | 95% | ok | ok | Cursor: **Sonnet 4.6**. Multi-file feature; hook registry + IDB schema + Firestore patches across 5 modules. |
 | 2026-05-20 | Issues-found #22: compile modal schedule btn removed; header/nav-guard z-index cascade fix | LOW | T2 | Balanced | 90% | 94% | ok | ok | Cursor: **Sonnet 4.6**. Field app UI; header→z:10000, nav guard→z:100001, bypass guard when modal visible. |
 | 2026-05-20 | Kit System analysis + MVP readiness audit + overnight build plan | LOW | T4 | Strong | 95% | 97% | could_use_smaller | ok | Cursor: **Opus 4.6**. Read-only analysis; Gemini Flash sufficient. |
 | 2026-05-20 | Customer Appointment Confirmation: form, save/load, dispatcher+tech badges | LOW-MED | T2 | Strong | 92% | 96% | ok | ok | Cursor: **Opus 4.6**. 3-file feature; form+Firestore+card rendering. |

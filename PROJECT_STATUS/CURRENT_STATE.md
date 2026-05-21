@@ -6,24 +6,20 @@
 
 ## Snapshot
 
-- **Active Phase:** Phase 65 ALL slices shipped. Customer Appointment Confirmation feature shipped.
-- **Last shipped (2026-05-20 18:30 CDT):** Issues-found #22 follow-up — nav guard z-index raised to 100001 (was 9999, below header 10000 — caused infinite re-trigger); nav guard skipped when compile modal is already open; compile modal now cleanly dismissed when tapping top Schedule pill.
-- **Prior (2026-05-20):** Customer Confirmation feature — dispatcher checkbox, tech card badge + workspace banner. `VC_BUILD: CustomerConfirm-2026-05-20`.
+- **Active Phase:** Phase 65 ALL slices shipped. KI-004 hooks + B6 SW cache hygiene shipped.
+- **Last shipped (2026-05-20 22:00 CDT):** KI-004 contextHook callbacks — `drain()` now gets download URL after upload and invokes registered hooks to patch Firestore docs (7 call sites wired). B6 SW cache — `CACHE_NAME` bumped to `vertex-cache-v4`. `VC_BUILD: KI004-Hooks-2026-05-21`.
+- **Prior (2026-05-20):** Nav guard z-index fix (raised to 100001). Customer Confirmation feature.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
 
 ## Active Blocker
 
-**Schedule pill broken for first job of day (May 17 + May 18)** — after compile modal auto-opens and user taps ×, Schedule pill does nothing. Subagent investigation running (Playwright). Root cause suspected: `hasUnsubmittedReport()` returns true for historical jobs on first workspace open because `_compileSubmittedForTicket` resets each session. Fix pending subagent report.
+None.
 
 ## Immediate Next Step
 
-- **Wait for subagent result** on "first job of day" Schedule bug — then apply fix + deploy.
-- **KI-004 completion:** `drain()` uploads but doesn't patch Firestore docs with download URLs. Fix: add post-upload URL patching in `offline_storage_outbox.js`.
-- **B6 — SW cache hygiene:** bump `CACHE_NAME` in `sw.js`, add `activate` handler for old-cache cleanup.
-- **On-device field test:** user plans to smoke-test Thu/Fri 2026-05-21/22.
-- **Rule:** agents must never run the SDK build runner. See `.cursor/rules/no-sdk-build-runner.mdc`.
+On-device field test — force-reload PWA until BUILD shows `KI004-Hooks-2026-05-21` (VC DEBUG overlay). Test offline photo: take photo in airplane mode, re-enable signal, verify photo uploads and Firestore doc URL field is patched. Separately, the "first job of day Schedule pill broken" bug reported May 17–18 may still need investigation if it recurs.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
 
