@@ -41,6 +41,7 @@ Audited snapshot of what is **implemented and wired today**. Each feature lists 
 | Shadow Mode Consent Gate | 37 | `dispatcher/js/shadow_mode.js`, `technician/index.html` | §2.5 |
 | Labor / Time Tracking / Payroll | 13 | `dispatcher/js/payroll_manager.js` | §2.x |
 | Proof of Service portal | 14 | `proof_of_service.html`, `client_portal_logic.js` | §2.x |
+| Trust Hardening (pilot readiness) | — | `technician/index.html`, `index.html`, 13 files | See `PROJECT_MAP_HISTORY.md` |
 | Build History (full changelog) | all | — | **See `PROJECT_MAP_HISTORY.md`** |
 
 ---

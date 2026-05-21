@@ -19,7 +19,7 @@ None.
 
 ## Immediate Next Step
 
-Deploy (`firebase deploy --only hosting`) then on-device smoke test: force-reload PWA, verify splash screen shows Vertex Core logo on load, schedule loads, open a job, confirm workspace opens without crash. Test debug overlay is hidden by default (append `?vc_debug=1` to verify it still works). Test offline photo flow. Remaining hardening: theme unification (T3), Gemini key restriction (T4), SW cache busting (T4).
+Deployed 2026-05-21. On-device smoke test: force-reload PWA, verify splash screen shows Vertex Core logo, schedule loads, open a job, workspace opens without crash. Debug overlay should be hidden (append `?vc_debug=1` to verify it still works). Test offline photo flow. Remaining hardening (low priority): theme unification (light/dark mixing), Gemini key Firestore restriction, SW cache busting. See trust hardening plan at `.cursor/plans/trust_hardening_sprint_020363b3.plan.md`.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
 
