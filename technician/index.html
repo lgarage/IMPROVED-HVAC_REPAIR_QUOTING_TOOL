@@ -2694,7 +2694,7 @@ body.vc-admin-workspace #ct-compile-modal {
   width: 100vw;
   height: 100vh;
   height: 100dvh;
-  z-index: 9000;
+  z-index: 11000; /* above .app-top-shell (10000) so × is always tappable */
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -3029,7 +3029,7 @@ body.vc-admin-workspace #ct-compile-modal {
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 9000;
+  z-index: 11000; /* above .app-top-shell (10000) */
   max-height: 90vh;
   background: #1a1a2e;
   border-radius: 18px 18px 0 0;

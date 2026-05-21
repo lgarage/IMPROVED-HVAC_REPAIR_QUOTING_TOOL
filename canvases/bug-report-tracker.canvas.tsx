@@ -166,20 +166,26 @@ const SESSION_BUGS: Bug[] = [
   {
     id: '29',
     title: 'Field app: cannot tap × after moving job to today',
-    status: 'pending',
-    file: 'technician/index.html, conversational_timeline.js',
+    status: 'completed',
+    file: 'technician/index.html',
     lineRef:
-      'index.html ~82-89 (.app-top-shell z-index 10000), ~2690-2697 (#ct-compile-modal z-index 9000), ~14306 (.ct-compile-close-btn); conversational_timeline.js ~2956-2978 (auto-open compile), ~4029-4037 (close handler)',
+      'index.html ~2697 (.ct-compile-modal z-index 9000 → 11000); ~3032 (.ct-teaching-modal same)',
     model: 'Sonnet 4.6 (T2 — z-index stack + historical date sync)',
     rootCause:
-      'User rescheduled a job to today (dispatcher), opened it on mobile. Compiled Report modal auto-opens on workspace entry. Likely causes: (1) #ct-compile-modal z-index 9000 sits under body.ws-active .app-top-shell z-index 10000 — × in sheet header may be untappable; (2) stale ticket.date still < today() so job stays in historical mode with auto-open historical compile; (3) vc-debug-overlay (z-index 100002) if enabled.',
+      'User rescheduled a job to today (dispatcher), opened it on mobile. Compiled Report modal auto-opens on workspace entry. #ct-compile-modal z-index 9000 sits under body.ws-active .app-top-shell z-index 10000 — × in sheet header is untappable because the fixed header is on top.',
     fix:
-      'Investigate on device: which modal is open (Compiled Report vs Review report). Raise compile/report modal z-index above app-top-shell (e.g. 10050+) or set pointer-events:none on shell while modal open. Confirm Firestore/local ticket.date updates after reschedule so isTicketDateHistorical() is false for today jobs.',
+      'Raised .ct-compile-modal z-index from 9000 to 11000 (above app-top-shell at 10000). Same fix applied to .ct-teaching-modal. Modal now renders above the header bar so × is always tappable.',
     before:
-      '.ct-compile-modal { z-index: 9000; } vs body.ws-active .app-top-shell { z-index: 10000; position: fixed; }',
+      '.ct-compile-modal { z-index: 9000; } — blocked by body.ws-active .app-top-shell { z-index: 10000; }',
     after:
-      'Modal layer above shell (z-index > 10000) and/or shell non-interactive while modal visible; today jobs must not use is-historical-job when ticket.date === today().',
-    userTestSteps: [],
+      '.ct-compile-modal { z-index: 11000; } — always above header; × is tappable',
+    userTestSteps: [
+      'Force-reload PWA on iPhone (hold reload → Empty Cache and Hard Reload, or delete app and re-add)',
+      'Open any job that has a compiled report',
+      'Compiled Report sheet opens automatically',
+      'Tap the × button in the sheet header — expect: sheet closes, chat is visible',
+      'If on a job rescheduled to today: confirm compile modal still closes cleanly',
+    ],
   },
   {
     id: '30',
