@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Trust hardening sprint (pilot-readiness). KI-004 hooks + B6 SW cache shipped prior.
-- **Last shipped (2026-05-21 ~13:15 CDT):** Reverted header to transparent floating look (user preference) + content shield pseudo-element to block bleed. Bumped `conversational_timeline.js?v=83` to fix iOS compiled-notes cache miss.
-- **Prior (2026-05-21):** Trust hardening sprint COMPLETE; compile-modal X → Schedule double-prompt fix; model-selection delegation rule.
+- **Active Phase:** Bug batch sprint (#29–#35 all shipped; background agent on #28, #32, #37–#39).
+- **Last shipped (2026-05-21 ~15:30 CDT):** T2 bug batch: #29 compile modal z-index 11k (× tappable), #30 context bubble adds description + dispatch photos, #31 gantt text z-index+fit fix, #33 compact cards, #34 sidebar date-filtered, #35 Generate Invoice from AI report. Background agent (GPT-5.4 Mini) running T0 batch: #28 save closes modal, #32 data-id, #37-#38-#39 icebox F1-F3 nav hides.
+- **Prior (2026-05-21 ~13:15 CDT):** Transparent header + chrome autocomplete off (#40) + icebox F1-F3 registry + ICEBOX_FUTURE_IMPROVEMENTS.md.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,9 +19,9 @@ None.
 
 ## Immediate Next Step
 
-On-device verify: force-reload PWA on iPhone, confirm (1) buttons look transparent/floating (not solid dark), (2) compiled notes load for historical jobs, (3) supplemental history doesn't go behind text box, (4) homescreen shortcut shows login not spinner.
+Verify background agent T0 batch (#28, #32, #37–#39) completed and deployed. Then: on-device verify key changes — (1) compile modal × is tappable after opening a job, (2) first context bubble shows description + photos, (3) gantt day view shows clean text at rest, (4) sidebar cards are compact, (5) sidebar filters by board day.
 
-> **On Deck / future ideas:** `ROADMAP.md` + **`ICEBOX_FUTURE_IMPROVEMENTS.md`** (Pulse, Insights, phone simulator = future improvements, code preserved; hide via #37–#39). Fix tracker: `canvases/bug-report-tracker.canvas.tsx`.
+> **On Deck / future ideas:** `ROADMAP.md` + **`ICEBOX_FUTURE_IMPROVEMENTS.md`**. Next pending: #36 customer info sync everywhere (Opus 4.6). Fix tracker: `canvases/bug-report-tracker.canvas.tsx`.
 
 ## Update Protocol
 

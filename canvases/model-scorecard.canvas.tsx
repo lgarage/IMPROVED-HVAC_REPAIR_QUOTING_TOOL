@@ -27,6 +27,18 @@ export default function ModelScorecardCanvas() {
         rows={[
           [
             "2026-05-21",
+            "Bug batch #29-#35: field modal z-index, context bubble, gantt CSS, compact cards, date filter, invoice AI",
+            "LOW-MED",
+            "T2",
+            "Sonnet 4.6",
+            "90%",
+            "94%",
+            "ok",
+            "ok",
+            "7 T2 fixes; background subagent (GPT-5.4 Mini) ran T0 batch in parallel",
+          ],
+          [
+            "2026-05-21",
             "Rename fix tracker to Bug Report Tracker; update refs in rules/docs/runner",
             "LOW",
             "T1",
