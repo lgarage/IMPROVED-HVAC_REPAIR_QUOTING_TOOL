@@ -3367,9 +3367,15 @@ function convertToInvoice(ticketId) {
     document.getElementById('invLocNumInput').value = sc.locationNum || "";
 
     document.getElementById('invEquip').value = sc.equip || "";
-    document.getElementById('invNotes').value = `Original Ticket: ${sc.ticketNum}\nReported Issue: ${sc.issue}`;
+    // Base invNotes: ticket # + issue + techNotes if available (sync)
+    var notesVal = `Original Ticket: ${sc.ticketNum}\nReported Issue: ${sc.issue}`;
+    if (sc.techNotes && String(sc.techNotes).trim()) {
+        notesVal += `\n\nTech Notes:\n${String(sc.techNotes).trim()}`;
+    }
+    document.getElementById('invNotes').value = notesVal;
     const invDiagCopy = document.getElementById('invDiag');
     if (invDiagCopy) invDiagCopy.value = "";
+    const invWorkEl = document.getElementById('invWork');
     const invSdCopy = document.getElementById('invServiceDate');
     if (invSdCopy) {
         if (sc.date) invSdCopy.value = sc.date;
@@ -3419,6 +3425,56 @@ function convertToInvoice(ticketId) {
         const formContainer = document.getElementById('invCustNameInput');
         if(formContainer) formContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 150);
+
+    // Async: pull AI compiled report from Firestore → populate diagnosis + work fields
+    if (typeof firebase !== "undefined" && firebase.firestore) {
+        try {
+            var fsDb = firebase.firestore();
+            var crCol = (typeof VCFirestore !== "undefined" && VCFirestore.completedReports)
+                ? VCFirestore.completedReports(fsDb)
+                : fsDb.collection("completed_reports");
+            crCol
+                .where("ticketId", "==", ticketId)
+                .orderBy("compiledAt", "desc")
+                .limit(1)
+                .get()
+                .then(function(snap) {
+                    if (snap.empty) return;
+                    var data = snap.docs[0].data();
+                    var cr = data.compiledResult || {};
+                    var findings = Array.isArray(cr.equipmentFindings) ? cr.equipmentFindings : [];
+                    if (!findings.length) return;
+
+                    var diagParts = [], workParts = [], equipParts = [];
+                    findings.forEach(function(f, i) {
+                        var label = findings.length > 1 ? (f.equipment || ('Equipment ' + (i + 1))) + ': ' : '';
+                        if (f.equipment && findings.length > 1) equipParts.push(f.equipment);
+                        if (f.diagnosis) diagParts.push(label + f.diagnosis);
+                        var work = [f.actionsTaken, f.measurements].filter(Boolean).join(' | ');
+                        if (work) workParts.push(label + work);
+                    });
+
+                    var diagEl = document.getElementById('invDiag');
+                    if (diagEl && diagParts.length) diagEl.value = diagParts.join('\n\n');
+
+                    var workEl2 = document.getElementById('invWork');
+                    if (workEl2 && workParts.length) workEl2.value = workParts.join('\n\n');
+
+                    // Upgrade equipment field if multiple found
+                    if (equipParts.length > 1) {
+                        var eqEl = document.getElementById('invEquip');
+                        if (eqEl) eqEl.value = equipParts.join(', ');
+                    }
+
+                    if (typeof showSaveCue === 'function') showSaveCue("✓ AI report loaded into invoice");
+                })
+                .catch(function(e) {
+                    console.warn('[Invoice] AI report fetch:', e);
+                });
+        } catch(e) {
+            console.warn('[Invoice] AI report fetch init:', e);
+        }
+    }
 }
 
 async function ensureFirebaseStorageForEvidence() {

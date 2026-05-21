@@ -299,20 +299,27 @@ const SESSION_BUGS: Bug[] = [
   {
     id: '35',
     title: 'Invoicing: Generate Invoice pulls AI report (retire paste-parse)',
-    status: 'pending',
-    file: 'service_call.js, invoice.js, index.html',
+    status: 'completed',
+    file: 'service_call.js, index.html',
     lineRef:
-      'service_call.js ~3311-3391 (convertToInvoice); invoice.js ~102-120 (parsePastedNotes), ~10-56 (clearInvoiceForm); index.html ~5015-5034 (#invPasteArea section); dispatcher/js/ai_report_reviewer.js',
-    model: 'Sonnet 4.6 (T2) or Opus 4.6 if Firestore compile schema',
+      'service_call.js ~3369-3428 (convertToInvoice: techNotes → invNotes + async Firestore completed_reports fetch → invDiag, invWork); service_call.js?v=78',
+    model: 'Sonnet 4.6 (T2)',
     rootCause:
-      'Today: Invoice Generator section 1 requires paste + parsePastedNotes() (+ Gemini on blur). convertToInvoice() only prefills customer/site, equip stub, ticket.issue in invNotes — not full AI compile / customer-facing report. User wants one-click Generate Invoice from ticket modal to populate all invoice fields from built AI agent output (techNotes, compiled report, structured reviewer JSON).',
+      'convertToInvoice() only prefilled customer/site, equip, and basic ticket.issue text. sc.techNotes was not used. Firestore completed_reports (AI compiled report with equipmentFindings: diagnosis, actionsTaken) was never fetched.',
     fix:
-      '(1) Extend convertToInvoice(ticketId) to load ticket.techNotes + Firestore compile/submitted report (NotesParser / timeline cache / ai_report_reviewer schema by job type) into invNotes, invDiag, invWork, parts, labor. (2) Deprecate or hide invPasteArea + parsePastedNotes for primary workflow; keep optional advanced paste if needed. (3) Map customer-facing vs internal fields per shared/client_portal_logic. Show loading state on Generate Invoice while fetching.',
+      '(1) invNotes now includes sc.techNotes if present. (2) After sync setup, async Firestore query on completed_reports by ticketId — maps findings[].diagnosis → invDiag, findings[].actionsTaken+measurements → invWork. Multiple equipment units are labeled. Shows "✓ AI report loaded" when Firestore doc found.',
     before:
-      'Paste tech notes → parse/Gemini → manual verify; Generate Invoice copies basic ticket fields only',
+      'Generate Invoice: invNotes = "Original Ticket: SC-XX\\nReported Issue: ..."; invDiag/invWork empty',
     after:
-      'Generate Invoice on ticket (or invoice tab) auto-fills client, call, equipment, diagnosis, work, parts, labor, customer-facing report from AI agent — no paste step',
-    userTestSteps: [],
+      'Generate Invoice: invNotes includes tech notes; invDiag/invWork auto-filled from AI compiled report via Firestore',
+    userTestSteps: [
+      'Open a ticket that has been submitted by the field tech (compiled report exists)',
+      'Click Generate Invoice button on the ticket',
+      'Invoice tab opens with customer/address/date/labor already filled',
+      'Within ~2 seconds: Diagnosis and Work Performed fields populate from the AI compiled report',
+      'Status bar shows "✓ AI report loaded into invoice"',
+      'If no AI report exists yet: fields stay blank (no error)',
+    ],
   },
   {
     id: '36',
