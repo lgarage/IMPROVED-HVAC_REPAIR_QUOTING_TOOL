@@ -112,6 +112,8 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-21 | 4-issue field bugfix: PWA splash, header bleed, chat overflow, addendum scroll | LOW-MED | T3 | Strong | 88% | 94% | ok | ok | Cursor: **Opus 4.6**. Multi-file; CSS + DOM restructure + PWA manifest. |
+| 2026-05-21 | Frontier delegation rule: offload cheap background subtasks in frontier chats | LOW | T1 | GPT-5.4 Mini | 92% | 95% | ok | ok | Cursor: GPT-5.4 Mini. Frontier chats now offload cheap background work. |
 | 2026-05-21 | Compile modal X → Schedule double-prompt: nav guard bypass after "Not yet" | LOW | T2 | Strong | 90% | 95% | could_use_smaller | ok | Cursor: **Opus 4.6** (user override). Sonnet would suffice for traced single-line fix. |
 | 2026-05-21 | Trust hardening sprint: 15 items, 13 files — alerts to toasts, crash guards, splash, logos | LOW-MED | T3 | Strong | 88% | 94% | ok | ok | Cursor: **Opus 4.6**. Parallel subagents (3); field + dispatcher + branding. |
 | 2026-05-20 | KI-004: contextHook outbox callbacks + B6 SW cache — 8 files, 7 call sites, deploy | LOW-MED | T2 | Balanced | 90% | 95% | ok | ok | Cursor: **Sonnet 4.6**. Multi-file feature; hook registry + IDB schema + Firestore patches across 5 modules. |
@@ -121,10 +123,6 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 | 2026-05-20 | SDK post-run verification: 65b+65d real diffs confirmed; canvas+state updated | LOW | T4 | Balanced | 96% | 97% | ok | ok | Cursor: **Sonnet 4.6**. Build runner / SDK archetype; ghost-pass detector worked on 65b. |
 | 2026-05-20 | SDK hardening: build-stamp-only error, anti-ghost prompt, 65b/65d reset | LOW | T2 | Balanced | 93% | 97% | ok | ok | Cursor: **Sonnet 4.6**. Build runner / SDK archetype; validator + prompt fix. |
 | 2026-05-20 | KNOWN_ISSUES sync cadences doc update for 65e | LOW | T0 | GPT-5.4 Mini | 95% | 97% | ok | ok | Cursor: **GPT-5.4 Mini**. Docs-only table; exact values from slices. |
-| 2026-05-20 | SDK ghost-pass fix: pre-run HEAD hash in validator + /verify command | LOW | T2 | Balanced | 92% | 96% | ok | ok | Cursor: **Sonnet 4.6**. Build runner / SDK archetype; hard-fail on no-change agent runs. |
-| 2026-05-19 | SDK cleanup: reset 3 ghost passes, aligned model_selector + MODEL_LOOKUP, no-SDK rule | LOW-MED | T2 | Strong | 90% | 95% | could_use_smaller | ok | Cursor: **Opus 4.6** (user-escalated). Governance + tooling — Sonnet sufficient. |
-| 2026-05-19 | Field app: issues-found #13 composer overlap — syncComposerClearance() | LOW | T2 | Balanced | 88% | 93% | ok | ok | Cursor: **Sonnet 4.6**. Dynamic dock measurement eliminates device variance. |
-| 2026-05-19 | Dossier efficiency overhaul: scorecard rebuilt, gotchas extracted, 10-row cap. | LOW | T2 | Balanced | 88% | 95% | ok | ok | Sonnet 4.6. Full restructure; scorecard aggregated from ~180 rows. |
 
 - Older rows: see MODEL_DOSSIER_ARCHIVE.md (archived up to 2026-05-20).
 

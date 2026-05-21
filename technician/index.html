@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
 <title>Field App</title>
 <link rel="icon" type="image/png" href="../vertex_core_logo.png">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="../vertex_core_icon_192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vertex Core">
 
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
@@ -75,9 +80,9 @@ button:focus {
   transition: background 0.2s, backdrop-filter 0.2s;
 }
 body.ws-active .app-top-shell {
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   position: fixed;
   left: 0;
   right: 0;
@@ -89,6 +94,9 @@ body.ws-active .workspace-site-banner-sticky {
   left: 0;
   right: 0;
   z-index: 50;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 .app-header-row {
   display: flex;
@@ -1263,6 +1271,7 @@ body.vc-admin-workspace #ct-compile-modal {
 .workspace-addendum-timeline-wrap {
   margin-bottom: 20px;
   pointer-events: auto;
+  padding-bottom: var(--vc-chat-scroll-clearance, 104px);
 }
 .workspace-addendum-timeline-wrap .addendum-timeline-heading {
   font-size: 15px;
@@ -7252,6 +7261,20 @@ button#techDisplayLabel:active { opacity: 0.75; }
           title="Complete and sync ticket"
         >Sync Ticket</button>
       </div>
+
+      <!-- Addendum section + timeline inside scroll container so they clear the fixed composer -->
+      <section id="workspaceAddendumSection" class="workspace-addendum-section hidden" aria-label="Supplemental notes">
+        <h3 class="workspace-addendum-title">Add Supplemental Note</h3>
+        <p class="workspace-addendum-hint">Post-visit updates — corrections, follow-up info, or additional findings. Clearly timestamped as a later addition.</p>
+        <label for="addendumSupplementalNotes">Note</label>
+        <textarea id="addendumSupplementalNotes" rows="3" placeholder="e.g. Customer called back about the noise — it was the blower wheel, not the belt."></textarea>
+        <label for="addendumFilesInput">Attach files (optional)</label>
+        <input type="file" id="addendumFilesInput" multiple accept="image/*,video/*,application/pdf" />
+        <button type="button" class="btn btn-primary workspace-addendum-save" onclick="saveSupplementalUpdate()">Save Note</button>
+        <p id="addendumSaveStatus" class="workspace-addendum-status" aria-live="polite"></p>
+      </section>
+      <div id="workspaceAddendumTimeline" class="workspace-addendum-timeline-wrap hidden" aria-label="Supplemental history"></div>
+
     </div>
     <div id="ct-composer-dock" class="ct-composer-dock" aria-label="Message composer">
       <div id="ct-action-bar" role="group" aria-label="Timeline input controls">
@@ -7409,20 +7432,6 @@ button#techDisplayLabel:active { opacity: 0.75; }
   </select>
 
   </div><!-- /workspaceLockScope -->
-
-  <!-- Addendum section: visible on historical tickets for supplemental notes -->
-  <section id="workspaceAddendumSection" class="workspace-addendum-section hidden" aria-label="Supplemental notes">
-    <h3 class="workspace-addendum-title">Add Supplemental Note</h3>
-    <p class="workspace-addendum-hint">Post-visit updates — corrections, follow-up info, or additional findings. Clearly timestamped as a later addition.</p>
-    <label for="addendumSupplementalNotes">Note</label>
-    <textarea id="addendumSupplementalNotes" rows="3" placeholder="e.g. Customer called back about the noise — it was the blower wheel, not the belt."></textarea>
-    <label for="addendumFilesInput">Attach files (optional)</label>
-    <input type="file" id="addendumFilesInput" multiple accept="image/*,video/*,application/pdf" />
-    <button type="button" class="btn btn-primary workspace-addendum-save" onclick="saveSupplementalUpdate()">Save Note</button>
-    <p id="addendumSaveStatus" class="workspace-addendum-status" aria-live="polite"></p>
-  </section>
-
-  <div id="workspaceAddendumTimeline" class="workspace-addendum-timeline-wrap hidden" aria-label="Supplemental history"></div>
 
   <!-- #generate kept hidden for JS compatibility; ct-sync-btn in timeline is the visible trigger -->
   <button id="generate" type="button" style="display:none" aria-hidden="true">Complete &amp; Sync Ticket</button>
@@ -9042,6 +9051,8 @@ function setupLoginForm(roster) {
 
 function showLoginShell(roster) {
   setupLoginForm(roster);
+  var splash = document.getElementById('vcSplashScreen');
+  if (splash) { splash.style.opacity = '0'; setTimeout(function() { splash.remove(); }, 600); }
   document.getElementById('loginShell').classList.remove('hidden');
 }
 

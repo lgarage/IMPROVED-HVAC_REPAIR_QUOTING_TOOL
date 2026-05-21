@@ -7,8 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Trust hardening sprint (pilot-readiness). KI-004 hooks + B6 SW cache shipped prior.
-- **Last shipped (2026-05-21 ~12:30 CDT):** Fix compile-modal X → Schedule double-prompt bug. After user clicks "Not yet" on compile close prompt, nav guard no longer re-asks — `_navGuardBypassed = true` set on dismiss. `conversational_timeline.js?v=82`.
-- **Prior (2026-05-21):** Trust hardening sprint COMPLETE (20 items). Commit `803b379`.
+- **Last shipped (2026-05-21 ~12:55 CDT):** 4-issue bugfix: (1) PWA splash screen blocking login on homescreen — splash removed when login shell shows + manifest/meta tags added; (2) workspace header bleed-through — solid blurred background on header + site banner in ws-active mode; (3) supplemental history items cut off by composer — addendum section/timeline moved inside scroll container; (4) Schedule button verified working via Playwright.
+- **Prior (2026-05-21):** Trust hardening sprint COMPLETE; compile-modal X → Schedule double-prompt fix; model-selection delegation rule.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,7 +19,7 @@ None.
 
 ## Immediate Next Step
 
-On-device verify: force-reload PWA, open a job with compiled notes, click X → "Not yet" → then click Schedule — should go to schedule directly without a second "Unsent field report" prompt. Previously it showed a nav-guard sheet (double-prompt). Already deployed.
+On-device verify: force-reload PWA, open a historical job → confirm (1) no content bleeds through header, (2) supplemental history entries don't go behind text box, (3) Schedule button navigates back from chat. Also test "Add to Home Screen" on iPhone — should show login instead of stuck spinner.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
 

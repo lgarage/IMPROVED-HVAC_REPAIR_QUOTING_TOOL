@@ -32,6 +32,8 @@ These rules exist so **`MODEL_DOSSIER.md`** stays the agent’s **living notes**
    - **LOW / T0–T1** and chat might be **Strong** → note they may switch **down** to the named cheaper tier for this task.
    - **HIGH / UNCERTAIN / T3+** and minimum is **Strong** → insist on switching **up** before implementation after they clear the gate.
 
+6. **Frontier chats offload cheap background work.** If the current chat is already on a frontier/Strong model (for example `Sonnet 4.6`, `Opus 4.6`, `GPT-5.5`, or `Codex 5.3`) and you can isolate an independent low-risk subtask, delegate it to a cheaper enabled model in the same chat via a background subagent. Keep the frontier model on orchestration, synthesis, and judgment-heavy work.
+
 If `.cursorrules` §6 mandates **§6C** escalation for HIGH/UNCERTAIN, output that block when required; the dossier does not override safety stops. **§6G** still requires the model gate before implementation.
 
 ## After substantive work — mandatory end-of-session writes

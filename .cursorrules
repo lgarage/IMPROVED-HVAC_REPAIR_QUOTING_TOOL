@@ -210,6 +210,8 @@ If you skip the recommendation or implement early, **you violated this protocol.
 
 Confidence-based guardrail. **Not** automatic model switching — the AI pauses and asks the user to switch models when warranted. **This repo tracks “cheapest but good enough” in markdown** (`MODEL_DOSSIER.md`: archetypes, **Workspace enabled models**, **Task outcome log**). Prefer the **lowest-cost enabled model** that still meets **minimum capability and safety** for the task; follow the dossier and logged **Tier fit** / **Conf after** so picks improve over time. Goal: avoid bad data and wasted spend on overpowered models.
 
+**Frontier delegation:** when the active chat is already on a Strong/frontier model (for example `Sonnet 4.6`, `Opus 4.6`, `GPT-5.5`, or `Codex 5.3`) and you can split out an independent low-risk subtask, hand that subtask to a cheaper enabled model in the same chat via a background subagent. Keep the frontier model on orchestration, synthesis, and judgment-heavy work; do not delegate ambiguous, high-risk, or missing-data tasks.
+
 ### 6A. Task Classification (run BEFORE any work)
 
 - **Consult** `PROJECT_STATUS/MODEL_DOSSIER.md` — map the request to a **task archetype** (T0–T4) and the **minimum tier** (Fast / Balanced / Strong) that fits.
