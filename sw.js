@@ -36,7 +36,7 @@
  * ═══════════════════════════════════════════════════════════════════
  */
 
-const CACHE_NAME = 'vertex-cache-v4';
+const CACHE_NAME = 'vertex-cache-v5';
 
 /* ── Precache list ──────────────────────────────────────────────────
    Only root-relative assets that the dispatcher shell (and shared
@@ -51,19 +51,19 @@ const ASSETS_TO_CACHE = [
     './manifest.json',
 
     // ── Shared modules ──────────────────────────────────────────────
-    './shared/offline_storage_outbox.js',   // Slice 56a — offline photo outbox
+    './shared/offline_storage_outbox.js?v=2',
 
     // ── Phase 41–53: Vertex Conversational Field Capture modules ────
-    // Added in Slices 41a–53x; loaded by technician/index.html.
-    // Precaching here keeps them available offline via SW intercept.
-    './field_chronicle.js',
-    './job_context_engine.js',
-    './edge_intent_engine.js',
-    './checklist_reminder_engine.js',
-    './learning_sync.js',
-    './teaching_layer.js',
-    './conversational_timeline.js',
-    './tech_job_history.js',
+    // IMPORTANT: keep ?v= in sync with technician/index.html script tags.
+    // Bump CACHE_NAME when changing these versions.
+    './field_chronicle.js?v=1',
+    './job_context_engine.js?v=5',
+    './edge_intent_engine.js?v=3',
+    './checklist_reminder_engine.js?v=7',
+    './learning_sync.js?v=2',
+    './teaching_layer.js?v=4',
+    './conversational_timeline.js?v=81',
+    './tech_job_history.js?v=2',
 ];
 
 /* ── HTML shells that must use network-first ────────────────────────

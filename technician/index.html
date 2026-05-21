@@ -628,7 +628,7 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 
 /* --- SIGN-IN (roster synced from office Dispatch → Settings → Technicians) --- */
 .login-shell {
-  position: fixed; inset: 0; z-index: 300; background: #f4f7fa;
+  position: fixed; inset: 0; z-index: 300; background: #0f172a;
   display: flex; align-items: center; justify-content: center; padding: 24px;
 }
 .login-shell.hidden { display: none !important; }
@@ -649,12 +649,12 @@ body.vc-shadow-viewer #vcShadowTechSelector .vc-shadow-tech-selector-row {
 .vc-logout-overlay-text { font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
 @keyframes vc-logout-spin { to { transform: rotate(360deg); } }
 .login-card {
-  width: 100%; max-width: 400px; background: #fff; border-radius: 16px; padding: 28px 24px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.08); border: 1px solid #e1e8ed;
+  width: 100%; max-width: 400px; background: #1e293b; border-radius: 16px; padding: 28px 24px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3); border: 1px solid #334155; color: #e2e8f0;
 }
-.login-card label { margin-top: 0; }
-.login-card select, .login-card input[type="text"] { margin-top: 8px; }
-.login-hint { font-size: 12px; color: #7f8c8d; margin: 12px 0 0 0; line-height: 1.4; }
+.login-card label { margin-top: 0; color: #94a3b8; }
+.login-card select, .login-card input[type="text"] { margin-top: 8px; background: #0f172a; color: #e2e8f0; border: 1px solid #475569; border-radius: 8px; padding: 12px; }
+.login-hint { font-size: 12px; color: #64748b; margin: 12px 0 0 0; line-height: 1.4; }
 .login-btn {
   width: 100%; margin-top: 20px; padding: 16px; border: none; border-radius: 10px;
   background: #0ea5e9; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer;
@@ -741,26 +741,26 @@ body.ws-active #screen-workspace.screen.active {
   -webkit-overflow-scrolling: touch; scrollbar-width: thin;
 }
 .schedule-day-chip {
-  flex-shrink: 0; padding: 10px 14px; border-radius: 10px; border: 2px solid #e1e8ed;
-  background: #fff; font-weight: 700; font-size: 13px; color: #555; cursor: pointer;
+  flex-shrink: 0; padding: 10px 14px; border-radius: 10px; border: 2px solid #334155;
+  background: #1e293b; font-weight: 700; font-size: 13px; color: #94a3b8; cursor: pointer;
   font-family: inherit;
 }
 .schedule-day-chip.active {
-  border-color: #0ea5e9; background: #e8f0fe; color: #0ea5e9;
+  border-color: #0ea5e9; background: #0c2d4a; color: #0ea5e9;
 }
 .schedule-day-chip.schedule-day-chip--past {
-  background: #eef1f4;
-  color: #7f8c8d;
-  border: 1px solid #d8dee6;
+  background: #1a2332;
+  color: #64748b;
+  border: 1px solid #2d3a4a;
   font-weight: 600;
 }
 .schedule-day-chip.schedule-day-chip--past.active {
-  background: #dfe7f0;
-  color: #34495e;
+  background: #0c2d4a;
+  color: #38bdf8;
   border-color: #0ea5e9;
 }
 .schedule-day-chip.schedule-day-chip--future {
-  border: 1px solid #e1e8ed;
+  border: 1px solid #334155;
 }
 .schedule-day-chip.schedule-day-chip--today-chip:not(.active) {
   border: 2px solid #c89b53;
@@ -819,9 +819,9 @@ body.ws-active #screen-workspace.screen.active {
 .job-card-review-btn:active {
   transform: scale(0.99);
 }
-.schedule-day-hint { font-size: 12px; color: #7f8c8d; margin: 0 0 10px 0; }
-.card-customer { font-size: 18px; font-weight: 800; color: #2c3e50; margin-bottom: 4px; }
-.card-address { color: #7f8c8d; font-size: 13px; line-height: 1.4; }
+.schedule-day-hint { font-size: 12px; color: #64748b; margin: 0 0 10px 0; }
+.card-customer { font-size: 18px; font-weight: 800; color: #f1f5f9; margin-bottom: 4px; }
+.card-address { color: #94a3b8; font-size: 13px; line-height: 1.4; }
 .card-address--empty {
   display: flex;
   align-items: flex-start;
@@ -3941,10 +3941,10 @@ body.vc-admin-workspace #ct-compile-modal {
   top: calc(100% + 6px);
   right: 0;
   min-width: 200px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: #1e293b;
+  border: 1px solid #334155;
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.14);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
   z-index: 200;
   overflow: hidden;
   display: none;
@@ -3961,15 +3961,15 @@ body.vc-admin-workspace #ct-compile-modal {
   font-family: inherit;
   font-size: 14px;
   font-weight: 700;
-  color: #0f172a;
+  color: #e2e8f0;
   cursor: pointer;
   text-align: left;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s;
 }
-.ws-site-menu-item:not(:last-child) { border-bottom: 1px solid #f1f5f9; }
+.ws-site-menu-item:not(:last-child) { border-bottom: 1px solid #334155; }
 .ws-site-menu-item:active,
-.ws-site-menu-item:hover { background: #f0f9ff; }
+.ws-site-menu-item:hover { background: #334155; }
 .ws-site-menu-item.site-intel--has-data { color: #b45309; }
 .dictation-site-nav .ws-ticket { font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: bold; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
 .dictation-site-nav .ws-ticket-shadow-row {
@@ -4149,10 +4149,11 @@ body.vc-sandbox-session .vc-entitlements-banner {
   max-width: 520px;
   max-height: 88vh;
   overflow: auto;
-  background: #fff;
+  background: #1e293b;
   border-radius: 16px 16px 0 0;
   padding: 18px 18px 24px;
-  box-shadow: 0 -8px 32px rgba(0,0,0,0.12);
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.4);
+  color: #e2e8f0;
 }
 .vc-modal-sheet--wide { max-width: 640px; }
 .vc-modal-head {
@@ -4173,18 +4174,18 @@ body.vc-sandbox-session .vc-entitlements-banner {
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
-  color: #7f8c8d;
+  color: #94a3b8;
 }
 .vc-modal-hint {
   font-size: 13px;
-  color: #5a6c7d;
+  color: #64748b;
   line-height: 1.45;
   margin: 0 0 12px 0;
 }
 .vc-site-intel-location {
   font-size: 13px;
   font-weight: 700;
-  color: #2c3e50;
+  color: #94a3b8;
   margin: 0 0 10px 0;
   line-height: 1.4;
 }
