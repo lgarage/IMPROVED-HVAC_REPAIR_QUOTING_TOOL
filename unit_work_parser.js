@@ -1003,7 +1003,10 @@
             .then(function (url) { urls.overallPhotoUrl = url; })
             .catch(function (err) {
               if (typeof VCStorageOutbox !== "undefined") {
-                VCStorageOutbox.enqueue(oRef.fullPath, overallFile, oMeta);
+                VCStorageOutbox.enqueue(oRef.fullPath, overallFile, oMeta, {
+                  hook: "equipmentOverallPhoto",
+                  payload: { customerId: customerId, locationId: locationId, unitId: unitId },
+                });
               }
               console.warn("[UnitWorkParser] overall photo upload failed — queued for retry", err);
             })
@@ -1018,7 +1021,10 @@
             .then(function (url) { urls.dataPlatePhotoUrl = url; })
             .catch(function (err) {
               if (typeof VCStorageOutbox !== "undefined") {
-                VCStorageOutbox.enqueue(pRef.fullPath, plateFile, pMeta);
+                VCStorageOutbox.enqueue(pRef.fullPath, plateFile, pMeta, {
+                  hook: "equipmentDataPlatePhoto",
+                  payload: { customerId: customerId, locationId: locationId, unitId: unitId },
+                });
               }
               console.warn("[UnitWorkParser] plate photo upload failed — queued for retry", err);
             })

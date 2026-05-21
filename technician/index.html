@@ -7933,7 +7933,7 @@ try {
  *  (workspace_ui.js?v=N, service_call.js?v=N) doesn't help here because technician/index.html itself
  *  is the entry-point URL and has no ?v=. The BUILD stamp in the debug overlay tells you in seconds
  *  whether the iPhone is on the latest HTML or still serving a cached copy. */
-window.VC_BUILD = "CustomerConfirm-2026-05-20";
+window.VC_BUILD = "KI004-Hooks-2026-05-21";
 if (!window.googleMapsPromise) {
   window.googleMapsPromise = new Promise(function (resolve) {
     window.googleMapsCallback = function () { resolve(); };
@@ -10391,7 +10391,10 @@ async function uploadFieldEvidencePastedBlob(ticketId, blob) {
     await ref.put(blob, uploadMeta);
   } catch (_putErr) {
     if (typeof VCStorageOutbox !== 'undefined') {
-      VCStorageOutbox.enqueue(ref.fullPath, blob, uploadMeta);
+      VCStorageOutbox.enqueue(ref.fullPath, blob, uploadMeta, {
+        hook: 'fieldEvidencePastedPhoto',
+        payload: { ticketId: ticketId },
+      });
     }
     throw _putErr;
   }
@@ -13716,7 +13719,7 @@ window.onload = async function(){
     <script>
       if (typeof initAdminVoiceSearch === 'function') initAdminVoiceSearch();
     </script>
-    <script src="../shared/offline_storage_outbox.js?v=1"></script>
+    <script src="../shared/offline_storage_outbox.js?v=2"></script>
     <script src="../agents/notes_parser.js?v=1"></script>
     <script src="../agents/equipment_classifier.js?v=1"></script>
     <script src="../agents/nameplate_ocr.js?v=1"></script>
@@ -13724,22 +13727,48 @@ window.onload = async function(){
     <script src="../agents/conversation_agent.js?v=1"></script>
     <script src="../agents/admin_agent.js?v=6"></script>
     <script src="../agents/location_parts_parser.js?v=1"></script>
-    <script src="../equipment_manager.js?v=17"></script>
+    <script src="../equipment_manager.js?v=18"></script>
     <script src="../equipment_smart_select.js?v=2"></script>
     <script src="js/ufx_adapter.js?v=1"></script>
     <script src="js/data_provider.js?v=1"></script>
-    <script src="js/workspace_ui.js?v=14"></script>
+    <script src="js/workspace_ui.js?v=15"></script>
     <script src="js/location_manager.js?v=1"></script>
-    <script src="../dictation_hub.js?v=18"></script>
+    <script src="../dictation_hub.js?v=19"></script>
     <script src="../equipment_hub.js?v=16"></script>
-    <script src="../unit_work_parser.js?v=10"></script>
-    <script src="../field_forms.js?v=7"></script>
+    <script src="../unit_work_parser.js?v=11"></script>
+    <script src="../field_forms.js?v=8"></script>
     <script src="../job_context_engine.js?v=5"></script>
     <script src="../edge_intent_engine.js?v=3"></script>
     <script src="../checklist_reminder_engine.js?v=7"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=4"></script>
     <script src="../conversational_timeline.js?v=81"></script>
+    <script>
+    /* ── KI-004: Register outbox hooks for inline field-app upload paths ──
+       Runs after all external modules are loaded so VCStorageOutbox is
+       guaranteed to be available. Hooks run when drain() successfully
+       uploads a queued photo and need to patch the Firestore doc.        */
+    (function registerFieldAppOutboxHooks() {
+      if (typeof VCStorageOutbox === "undefined" || typeof VCStorageOutbox.registerHook !== "function") return;
+
+      /* Pasted clipboard evidence → service_calls/{ticketId}.evidencePhotoUrls */
+      VCStorageOutbox.registerHook("fieldEvidencePastedPhoto", function (url, payload) {
+        try {
+          if (typeof persistFieldEvidencePhotoUrlToFirestore === "function") {
+            persistFieldEvidencePhotoUrlToFirestore(payload.ticketId, {
+              url:      url,
+              isPublic: true,
+              caption:  "",
+            }).catch(function (err) {
+              if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("outboxHook:fieldEvidencePastedPhoto", err);
+            });
+          }
+        } catch (e) {
+          if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("outboxHook:fieldEvidencePastedPhoto", e);
+        }
+      });
+    })();
+    </script>
     <script>
     (function wireSendBtn() {
       var btn = document.getElementById('ct-send-btn');

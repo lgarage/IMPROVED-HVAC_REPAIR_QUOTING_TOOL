@@ -2451,8 +2451,9 @@
     var serverTs = firebase.firestore.FieldValue.serverTimestamp();
     var nowMs = Date.now();
 
+    var vhHookCtx = { hook: "visionHubNameplate", payload: { docId: docId } };
     var photoPromise = visionHubPendingFile
-      ? visionHubUploadNameplatePhoto(site, unitTag, visionHubPendingFile).catch(function (err) {
+      ? visionHubUploadNameplatePhoto(site, unitTag, visionHubPendingFile, vhHookCtx).catch(function (err) {
           /* Non-fatal: we still want to save the field edits even if the
              photo upload fails. Surface it loudly though. */
           if (typeof VCSurfaceWriteFailure === "function") {
@@ -2546,7 +2547,7 @@
    * legacy `customers/.../assets` photo path so Phase 33 writes touch the
    * single canonical store only.
    */
-  function visionHubUploadNameplatePhoto(site, unitTag, file) {
+  function visionHubUploadNameplatePhoto(site, unitTag, file, hookContext) {
     if (!file) return Promise.resolve(null);
     if (typeof firebase === "undefined" || !firebase.storage) {
       return Promise.reject(new Error("Firebase Storage not available."));
@@ -2590,7 +2591,7 @@
       })
       .catch(function (err) {
         if (typeof VCStorageOutbox !== "undefined") {
-          VCStorageOutbox.enqueue(ref.fullPath, file, uploadMeta);
+          VCStorageOutbox.enqueue(ref.fullPath, file, uploadMeta, hookContext || null);
         }
         console.warn("[DictationHub] nameplate photo upload failed — queued for retry", err);
         return null;
@@ -2656,5 +2657,32 @@
         if (o && !o.classList.contains("hidden")) closeVisionHubAddEquipment();
       });
     }
+  }
+
+  /* ── Outbox hook registration ──────────────────────────────────────
+     After drain() uploads a queued nameplate photo it calls this hook
+     so we can patch the imported_equipment doc with the URL.           */
+  if (typeof VCStorageOutbox !== "undefined" && typeof VCStorageOutbox.registerHook === "function") {
+    VCStorageOutbox.registerHook("visionHubNameplate", function (url, payload) {
+      try {
+        var db = firebase.firestore();
+        var collRef =
+          typeof VCFirestore !== "undefined" && typeof VCFirestore.tenantImportedEquipment === "function"
+            ? VCFirestore.tenantImportedEquipment(db)
+            : db.collection("tenants").doc("default").collection("imported_equipment");
+        collRef.doc(payload.docId).update({
+          nameplatePhotoUrl:          url,
+          nameplatePhotoUpdatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+        }).catch(function (err) {
+          if (typeof VCSurfaceWriteFailure === "function") {
+            VCSurfaceWriteFailure("outboxHook:visionHubNameplate", err);
+          }
+        });
+      } catch (e) {
+        if (typeof VCSurfaceWriteFailure === "function") {
+          VCSurfaceWriteFailure("outboxHook:visionHubNameplate", e);
+        }
+      }
+    });
   }
 })();

@@ -36,7 +36,7 @@
  * ═══════════════════════════════════════════════════════════════════
  */
 
-const CACHE_NAME = 'vertex-cache-v3';
+const CACHE_NAME = 'vertex-cache-v4';
 
 /* ── Precache list ──────────────────────────────────────────────────
    Only root-relative assets that the dispatcher shell (and shared

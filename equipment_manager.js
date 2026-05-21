@@ -868,14 +868,14 @@
     var ut     = sanitizePathSegment(unitTag);
 
     // Upload file if provided; otherwise resolve to the existing URL (edit mode).
-    function maybeUpload(storageRef, file, existingUrl) {
+    function maybeUpload(storageRef, file, existingUrl, hookContext) {
       if (file) {
         var meta = { contentType: file.type || "image/jpeg" };
         return storageRef.put(file, meta)
           .then(function () { return storageRef.getDownloadURL(); })
           .catch(function (err) {
             if (typeof VCStorageOutbox !== "undefined") {
-              VCStorageOutbox.enqueue(storageRef.fullPath, file, meta);
+              VCStorageOutbox.enqueue(storageRef.fullPath, file, meta, hookContext || null);
             }
             throw err;
           });
@@ -891,8 +891,10 @@
         var overallRef = storage.ref().child(base + "/overall_" + ts + ".jpg");
         var plateRef   = storage.ref().child(base + "/dataplate_" + ts + ".jpg");
         return Promise.all([
-          maybeUpload(overallRef, overallFile, opts.existingOverallUrl),
-          maybeUpload(plateRef,   plateFile,   opts.existingPlateUrl),
+          maybeUpload(overallRef, overallFile, opts.existingOverallUrl,
+            { hook: "equipmentOverallPhoto",    payload: { customerId: cust, locationId: loc, unitId: ut } }),
+          maybeUpload(plateRef,   plateFile,   opts.existingPlateUrl,
+            { hook: "equipmentDataPlatePhoto",  payload: { customerId: cust, locationId: loc, unitId: ut } }),
         ]);
       })
       .then(function (urls) {
@@ -1251,7 +1253,10 @@
             .then(function () { return ref.getDownloadURL(); })
             .catch(function (err) {
               if (typeof VCStorageOutbox !== "undefined") {
-                VCStorageOutbox.enqueue(ref.fullPath, watermarkedFile, uploadMeta);
+                VCStorageOutbox.enqueue(ref.fullPath, watermarkedFile, uploadMeta, {
+                  hook: "dictationAssetPhoto",
+                  payload: { customerId: customerId, siteId: siteId, logicalId: logicalId, kind: kind },
+                });
               }
               throw err;
             });
@@ -1708,4 +1713,85 @@
   window.VCEquipmentManager = {
     saveNameplateFields: saveNameplateFields,
   };
+
+  /* ── Outbox hook registrations ─────────────────────────────────────
+     After drain() uploads a queued equipment photo it calls the matching
+     hook so we can patch the Firestore Equipment doc with the URL.      */
+  if (typeof VCStorageOutbox !== "undefined" && typeof VCStorageOutbox.registerHook === "function") {
+    VCStorageOutbox.registerHook("equipmentOverallPhoto", function (url, payload) {
+      try {
+        var db = getFirestoreDb();
+        if (!db) return;
+        db.collection("Customers").doc(payload.customerId)
+          .collection("Locations").doc(payload.locationId)
+          .collection("Equipment").doc(payload.unitId)
+          .set({ overallPhotoUrl: url }, { merge: true })
+          .then(function () {
+            if (typeof refreshEquipmentHubList === "function") refreshEquipmentHubList();
+          })
+          .catch(function (err) {
+            if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("outboxHook:equipmentOverallPhoto", err);
+          });
+      } catch (e) {
+        if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("outboxHook:equipmentOverallPhoto", e);
+      }
+    });
+
+    VCStorageOutbox.registerHook("equipmentDataPlatePhoto", function (url, payload) {
+      try {
+        var db = getFirestoreDb();
+        if (!db) return;
+        db.collection("Customers").doc(payload.customerId)
+          .collection("Locations").doc(payload.locationId)
+          .collection("Equipment").doc(payload.unitId)
+          .set({ dataPlatePhotoUrl: url }, { merge: true })
+          .then(function () {
+            if (typeof refreshEquipmentHubList === "function") refreshEquipmentHubList();
+          })
+          .catch(function (err) {
+            if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("outboxHook:equipmentDataPlatePhoto", err);
+          });
+      } catch (e) {
+        if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("outboxHook:equipmentDataPlatePhoto", e);
+      }
+    });
+
+    VCStorageOutbox.registerHook("dictationAssetPhoto", function (url, payload) {
+      try {
+        var db = getFirestoreDb();
+        if (!db) return;
+        var assetRef = db.collection("customers").doc(payload.customerId)
+          .collection("sites").doc(payload.siteId)
+          .collection("assets").doc(payload.logicalId);
+        var FV = firebase.firestore.FieldValue;
+        assetRef.get().then(function (snap) {
+          var prev = snap.exists ? snap.data() || {} : {};
+          if (payload.kind === "additional") {
+            var add = Array.isArray(prev.additional_images) ? prev.additional_images.slice() : [];
+            add.push({ url: url, addedAt: new Date().toISOString() });
+            return assetRef.set({
+              id: payload.logicalId,
+              additional_images: add,
+              updatedAt: FV.serverTimestamp(),
+            }, { merge: true });
+          }
+          var images = Object.assign({}, prev.images || {});
+          if (payload.kind === "overall") {
+            images.overall = Object.assign({}, images.overall || {}, { url: url });
+          } else {
+            images.nameplate = Object.assign({}, images.nameplate || {}, { url: url });
+          }
+          return assetRef.set({
+            id: payload.logicalId,
+            images: images,
+            updatedAt: FV.serverTimestamp(),
+          }, { merge: true });
+        }).catch(function (err) {
+          if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("outboxHook:dictationAssetPhoto", err);
+        });
+      } catch (e) {
+        if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("outboxHook:dictationAssetPhoto", e);
+      }
+    });
+  }
 })();

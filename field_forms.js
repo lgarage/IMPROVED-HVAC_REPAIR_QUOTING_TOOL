@@ -430,7 +430,14 @@
       await ref.put(file, uploadMeta);
     } catch (_putErr) {
       if (typeof VCStorageOutbox !== "undefined") {
-        VCStorageOutbox.enqueue(ref.fullPath, file, uploadMeta);
+        var _p = parseEquipmentCompositeId(equipmentId);
+        VCStorageOutbox.enqueue(ref.fullPath, file, uploadMeta, _p ? {
+          hook: "fieldFormEquipmentPhoto",
+          payload: {
+            docPath: "Customers/" + _p.customerId + "/Locations/" + _p.locationId + "/Equipment/" + _p.unitDocId,
+            field: kind === "overall" ? "overallPhotoUrl" : "dataPlatePhotoUrl",
+          },
+        } : null);
       }
       console.warn("[FieldForms] quote evidence upload failed — queued for retry", _putErr);
       throw _putErr;
@@ -2051,4 +2058,24 @@
   /* Slice 58c — lifecycle hooks called by switchScreen in technician/index.html */
   window.vcStartFormTemplatesListener = startFormTemplatesListener;
   window.vcStopFormTemplatesListener = stopFormTemplatesListener;
+
+  /* ── Outbox hook registration ──────────────────────────────────────
+     After drain() uploads a queued equipment evidence photo it patches
+     the Firestore Equipment doc with the download URL.                 */
+  if (typeof VCStorageOutbox !== "undefined" && typeof VCStorageOutbox.registerHook === "function") {
+    VCStorageOutbox.registerHook("fieldFormEquipmentPhoto", function (url, payload) {
+      try {
+        var db = firebase.firestore();
+        var patch = {};
+        patch[payload.field] = url;
+        patch.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        db.doc(payload.docPath).set(patch, { merge: true })
+          .catch(function (err) {
+            if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("outboxHook:fieldFormEquipmentPhoto", err);
+          });
+      } catch (e) {
+        if (typeof VCSurfaceWriteFailure === "function") VCSurfaceWriteFailure("outboxHook:fieldFormEquipmentPhoto", e);
+      }
+    });
+  }
 })();

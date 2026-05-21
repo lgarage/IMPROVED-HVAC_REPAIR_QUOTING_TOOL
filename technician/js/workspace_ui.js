@@ -502,7 +502,14 @@
       })
       .catch(function (err) {
         if (typeof VCStorageOutbox !== "undefined") {
-          VCStorageOutbox.enqueue(ref.fullPath, file, uploadMeta);
+          VCStorageOutbox.enqueue(ref.fullPath, file, uploadMeta, {
+            hook: "siteIntelAccessPhoto",
+            payload: {
+              docId:      siteDocId,
+              storagePath: path,
+              addedBy:    (typeof techName === "function" ? techName() : "") || "",
+            },
+          });
         }
         throw err;
       });
@@ -1065,4 +1072,37 @@
   window.openSiteIntelForLocation = openSiteIntelModal;
   window.teardownWorkspaceSiteIntel = teardownSiteIntelListener;
   window.getFieldEvidenceDefaultIsPublic = getFieldEvidenceDefaultIsPublic;
+
+  /* ── Outbox hook registration ──────────────────────────────────────
+     After drain() uploads a queued site intel access photo it uses
+     arrayUnion to append the entry to the site intel doc.             */
+  if (typeof VCStorageOutbox !== "undefined" && typeof VCStorageOutbox.registerHook === "function") {
+    VCStorageOutbox.registerHook("siteIntelAccessPhoto", function (url, payload) {
+      try {
+        var _db = firebase.firestore();
+        var _ref = typeof VCFirestore !== "undefined"
+          ? VCFirestore.siteIntelligence(_db).doc(payload.docId)
+          : _db.collection("site_intelligence").doc(payload.docId);
+        var entry = {
+          url:         url,
+          storagePath: payload.storagePath || "",
+          caption:     "",
+          addedBy:     payload.addedBy || "",
+          addedAt:     new Date().toISOString(),
+        };
+        _ref.set(
+          { accessPhotoUrls: firebase.firestore.FieldValue.arrayUnion(entry) },
+          { merge: true }
+        ).catch(function (err) {
+          if (typeof window.VCSurfaceWriteFailure === "function") {
+            window.VCSurfaceWriteFailure("outboxHook:siteIntelAccessPhoto", err);
+          }
+        });
+      } catch (e) {
+        if (typeof window.VCSurfaceWriteFailure === "function") {
+          window.VCSurfaceWriteFailure("outboxHook:siteIntelAccessPhoto", e);
+        }
+      }
+    });
+  }
 })();

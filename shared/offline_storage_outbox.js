@@ -25,6 +25,11 @@
   var _draining      = false;
   var _chipReady     = false;
 
+  /* ── Context hooks ───────────────────────────────────────────────── */
+  /* Modules register a callback here so drain() can patch the Firestore
+     doc with the download URL after a queued upload succeeds.          */
+  var _hooks = {};
+
   /* ── IndexedDB helpers ───────────────────────────────────────────── */
 
   function openDb() {
@@ -171,20 +176,39 @@
   /* ── Public API ──────────────────────────────────────────────────── */
 
   /**
-   * enqueue(storagePath, blob, metadata)
+   * registerHook(hookName, callbackFn)
+   * Registers a callback invoked after a queued upload successfully drains.
+   * The callback receives (downloadUrl, payload) and should patch Firestore.
+   * Must be called before drain() runs (i.e. at module load time).
+   * @param {string}   hookName   Name matching hookContext.hook in enqueue()
+   * @param {Function} callbackFn Called with (url: string, payload: Object)
+   */
+  function registerHook(hookName, callbackFn) {
+    if (typeof hookName === "string" && typeof callbackFn === "function") {
+      _hooks[hookName] = callbackFn;
+    }
+  }
+
+  /**
+   * enqueue(storagePath, blob, metadata, hookContext)
    * Stores a failed upload in IDB for retry when connectivity returns.
    * @param {string} storagePath  Firebase Storage path (ref.fullPath)
    * @param {Blob}   blob         The file/blob to upload
    * @param {Object} metadata     Upload metadata (e.g. { contentType: "image/jpeg" })
+   * @param {Object} [hookContext] Optional: { hook: "hookName", payload: {...} }
+   *                               After a successful drain, the named hook callback
+   *                               is called with (downloadUrl, payload) so callers
+   *                               can patch the Firestore doc with the URL.
    * @returns {Promise<void>}
    */
-  function enqueue(storagePath, blob, metadata) {
+  function enqueue(storagePath, blob, metadata, hookContext) {
     var id = Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
     var record = {
       id:          id,
       storagePath: storagePath,
       blob:        blob,
       metadata:    metadata || {},
+      hookContext:  hookContext || null,
       addedAt:     new Date().toISOString(),
       status:      "pending",
       attempts:    0,
@@ -234,6 +258,17 @@
             var ref = firebase.storage().ref().child(rec.storagePath);
             return ref.put(rec.blob, rec.metadata || {})
               .then(function () {
+                return ref.getDownloadURL();
+              })
+              .then(function (downloadUrl) {
+                /* Invoke the registered hook so callers can patch Firestore. */
+                if (rec.hookContext && rec.hookContext.hook && _hooks[rec.hookContext.hook]) {
+                  try {
+                    _hooks[rec.hookContext.hook](downloadUrl, rec.hookContext.payload || {});
+                  } catch (hookErr) {
+                    console.warn("[VCStorageOutbox] hook error:", rec.hookContext.hook, hookErr);
+                  }
+                }
                 return dbDelete(rec.id);
               })
               .then(function () {
@@ -298,12 +333,13 @@
 
   /* ── Module identity ─────────────────────────────────────────────── */
 
-  console.info("[VC] offline_storage_outbox v=1 loaded");
-  window.__VC_OFFLINE_OUTBOX_VERSION = 1;
+  console.info("[VC] offline_storage_outbox v=2 loaded");
+  window.__VC_OFFLINE_OUTBOX_VERSION = 2;
 
   window.VCStorageOutbox = {
     enqueue:         enqueue,
     drain:           drain,
     getPendingCount: getPendingCount,
+    registerHook:    registerHook,
   };
 }());
