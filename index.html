@@ -30,7 +30,7 @@
     <script src="shared/config.js?v=8"></script>
     <script src="shared/firebase_logic.js?v=4"></script>
     <script src="shared/auth.js?v=1"></script>
-    <script src="shared/entitlements.js?v=1"></script>
+    <script src="shared/entitlements.js?v=2"></script>
     <script src="shared/user_entitlements.js?v=1"></script>
     <script src="shared/client_portal_logic.js?v=2"></script>
     <script src="gemini_client.js?v=1"></script>
@@ -2784,6 +2784,7 @@
               role="menuitem"
               onclick="switchTab('insights')"
               title="Executive insights and revenue"
+              style="display:none"
               ><span class="sidebar-submenu-flyout__ico"
                 ><i class="fas fa-chart-line" aria-hidden="true"></i></span
               ><span>Executive Insights</span></a
@@ -2799,7 +2800,7 @@
             >
           </div>
         </li>
-        <li>
+        <li style="display:none">
           <a
             href="#"
             onclick="openTechnicianAppPreview(); return false;"
@@ -3111,6 +3112,7 @@
                   padding: 4px 10px;
                   font-size: 12px;
                   margin-right: 6px;
+                  display: none;
                 "
                 onclick="openTechnicianAppPreview()"
                 title="Opens the technician Field App in the phone simulator (same as Preview Field App in the sidebar)"
@@ -7151,7 +7153,7 @@
             class="gen-btn"
             id="vcTicketDetailsSaveBtn"
             style="background: #00d4ff; padding: 10px 20px; color: #1a1a2e; font-weight: 600; min-width: 80px;"
-            onclick="persistTicketDetailsModal({ closeAfter: false })"
+            onclick="persistTicketDetailsModal({ closeAfter: true })"
           >
             Save
           </button>
@@ -8022,6 +8024,7 @@
 
       /** Dispatch-only: open technician Field App in the in-portal phone simulator iframe (shadow mode = tech switcher + mirrored UI). */
       function openTechnicianAppPreview() {
+        return; // iceboxed F3 — 2026-05-21
         const modal = document.getElementById("fieldAppSimulatorModal");
         const frame = document.getElementById("fieldAppSimulatorFrame");
         if (!modal || !frame) return;
@@ -9917,7 +9920,7 @@
 
       /* ── end Settings inner-nav ─────────────────────────────────────── */
     </script>
-    <script src="service_call.js?v=78"></script>
+    <script src="service_call.js?v=79"></script>
     <script src="dispatcher/js/ai_report_reviewer.js?v=5"></script>
     <script src="dispatcher/js/insights_manager.js?v=4"></script>
     <script src="dispatcher/js/report_builder.js?v=5"></script>

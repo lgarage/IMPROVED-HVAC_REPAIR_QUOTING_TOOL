@@ -135,11 +135,16 @@ Likely add one small preview slice for "show me what the tech sees" before save.
 
 ---
 
-### Vendor Directory ? pick vendors & email parts quotes (in-app)
+### Vendor Directory ? pick vendors & email parts quotes (in-app) ? **icebox F4**
 
-**Concept.** From **Vendor Directory** (`#view-vendors`, `vendor_directory.js`): dispatcher **selects one or more vendors** (e.g. filter by category chips ? Motors, Capacitors), **composes a parts-quote request email** inside Vertex, and **sends** without copying email addresses manually. Matches screenshot workflow (Johnstone-style contacts with `orders@?` already on file).
+**Concept.** Extend the existing **Vendor Directory** tab (not remove it). Today you can add/edit vendors; the **future improvement** is pick-and-email for parts quotes.
 
-**Already shipped:** Phase 64d vendor CRUD ? name, email, phone, categories, notes in Firestore `vendors`.
+**What Dan wants (recorded 2026-05-21 ? do not lose):**
+- **Pick** one or more vendors from the directory (e.g. Johnstone Supply), optionally by category (Motors, Capacitors, etc.).
+- **Email them inside Vertex** to request **parts quotes** ? compose and send from the app, not copy/paste into external mail.
+- **Why** ? get distributor pricing and availability for parts on a job without leaving the dispatcher.
+
+**Already shipped (stays on):** Phase 64d vendor CRUD ? name, email, phone, categories, notes in Firestore `vendors` (`vendor_directory.js`).
 
 **Future build (phased):**
 1. **v1 ? Directory UX:** multi-select on vendor cards; **Request quote** toolbar; compose modal (subject, body, optional parts list textarea); send via **Gmail web compose** or `mailto:` to selected `vendor.email` (same pattern as VMI restock in `settings.js#emailVMIReport`).
@@ -147,7 +152,7 @@ Likely add one small preview slice for "show me what the tech sees" before save.
 
 **Files:** `vendor_directory.js`, `index.html` `#view-vendors` / `#vendorListTarget`, later `quoting.js` + Cloud Function or Gmail integration.
 
-**Filed:** 2026-05-21 (user request ? future improvement, tracked in `IDEA_TRACKER.md` + `ICEBOX_FUTURE_IMPROVEMENTS.md`).
+**Filed:** 2026-05-21 (user request ? **parked** future improvement; see `ICEBOX_FUTURE_IMPROVEMENTS.md` § F4).
 
 ---
 

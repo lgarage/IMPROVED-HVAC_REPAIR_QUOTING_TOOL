@@ -1955,7 +1955,7 @@ function renderServiceBoard() {
         const techAvatarsRow = buildSidebarTechAvatarsHtml(sc);
 
         let cardHTML = `
-            <div class="glass-card ${colorClass}" draggable="true" ondragstart="drag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')">
+            <div class="glass-card ${colorClass}" data-id="${sc.id}" draggable="true" ondragstart="drag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')">
                 <div class="tc-title">
                     <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">${sc.customerName}</span>
                     <span style="font-size:10px; color:#aaa;">${sc.ticketNum}${releaseBadge}${quoteBadge}${customerConfirmedBadge}</span>

@@ -149,19 +149,20 @@ const SESSION_BUGS: Bug[] = [
   {
     id: '28',
     title: 'Dispatcher ticket modal should close after Save',
-    status: 'pending',
-    file: 'index.html, service_call.js',
-    lineRef: 'index.html ~7131 (#vcTicketDetailsSaveBtn onclick); service_call.js ~1664 (persistTicketDetailsModal)',
-    model: 'GPT-5.4 Mini (T0 — change closeAfter to true on Save onclick)',
+    status: 'completed',
+    file: 'index.html',
+    lineRef: 'index.html ~7154 (#vcTicketDetailsSaveBtn onclick closeAfter: false → true)',
+    model: 'GPT-5.4 Mini (T0)',
     rootCause:
-      'Slice 57a added an explicit Save button that calls persistTicketDetailsModal({ closeAfter: false }) so dispatchers could save without closing. User expects Save to persist and close the modal (same as Close after save).',
-    fix:
-      'Change Save button onclick from persistTicketDetailsModal({ closeAfter: false }) to persistTicketDetailsModal({ closeAfter: true }). Optional: keep showSaveCue before close if brief flash is desired.',
-    before:
-      'onclick="persistTicketDetailsModal({ closeAfter: false })" on #vcTicketDetailsSaveBtn',
-    after:
-      'onclick="persistTicketDetailsModal({ closeAfter: true })" on #vcTicketDetailsSaveBtn',
-    userTestSteps: [],
+      'Save button called persistTicketDetailsModal({ closeAfter: false }) — modal stayed open after saving.',
+    fix: 'Changed closeAfter: false → closeAfter: true on #vcTicketDetailsSaveBtn onclick.',
+    before: 'onclick="persistTicketDetailsModal({ closeAfter: false })"',
+    after: 'onclick="persistTicketDetailsModal({ closeAfter: true })"',
+    userTestSteps: [
+      'Open dispatcher → open any ticket (double-click from board)',
+      'Edit a field (e.g. change issue text)',
+      'Click Save — expect: changes saved AND modal closes',
+    ],
   },
   {
     id: '29',
@@ -214,38 +215,45 @@ const SESSION_BUGS: Bug[] = [
   {
     id: '31',
     title: 'Dispatch board day view: job block text garbled until hover',
-    status: 'pending',
-    file: 'index.html, service_call.js',
+    status: 'completed',
+    file: 'index.html',
     lineRef:
-      'index.html ~823-897 (.gantt-job-block, .board-view-day rules, :hover z-index 5); service_call.js ~2077-2107 (day view block innerHTML)',
-    model: 'Sonnet 4.6 (T2 — CSS stacking / overlap in gantt day view)',
+      'index.html ~823-841 (.gantt-job-block add z-index:1); ~857-868 (.board-view-day block/inner: height 42→46px, row 52→54px, justify-content flex-start, gap 2→1px)',
+    model: 'Sonnet 4.6 (T2)',
     rootCause:
-      'Day-view timeline blocks (.gantt-job-block) show overlapping illegible text (customer names stacked) at rest. On :hover, box-shadow + z-index: 5 "cleans up" readable layout. Likely multiple blocks same slot, flex/overflow in fixed 42px height, or ghost offset from default styles — needs repro on PLANET FITNESS 8–10 AM block.',
+      'Two issues: (1) .gantt-job-block had no z-index, so sibling blocks at same time slot shared a stacking context — adjacent block text bled through the semi-transparent border-left. (2) 3-line content at ~37px exceeded the 34px available in a 42px block with 8px padding; justify-content:center caused partial clipping at both ends.',
     fix:
-      'Repro in board-view-day: inspect DOM for duplicate .gantt-job-block at same left/width. Ensure default state uses same truncation/stacking as hover (z-index per block, line-height, overflow hidden on .gantt-job-block-inner). Remove double-render or offset ghost if present. Verify single job SC-1003 shows one clean name without hover.',
+      'Added z-index:1 to .gantt-job-block (creates stacking context). Day view: block height 42→46px, row 52→54px, inner padding 4px→3px, justify-content:center→flex-start, gap 2→1px.',
     before:
-      'Resting .gantt-job-block: garbled overlapping white text on blue bar; :hover only raises z-index: 5 and box-shadow',
+      '.gantt-job-block: no z-index; day view height 42px, justify-content:center — 3 lines overflow',
     after:
-      'Customer name, time row, and contact line readable without hover; hover may still elevate for emphasis only',
-    userTestSteps: [],
+      'z-index:1 on every block; day view height 46px, flex-start — 3 lines fit cleanly',
+    userTestSteps: [
+      'Open dispatcher → Dispatch Board tab → Day view',
+      'Load a day with 2+ jobs for the same tech',
+      'All job blocks should show clean customer name text at rest (no garbling)',
+      'Confirm time row, name row, and detail row are all readable',
+      'Hover — box-shadow enlarges, text stays clean',
+    ],
   },
   {
     id: '32',
     title: 'Service Requests reorder: cards vanish after drag (need data-id + UX)',
-    status: 'pending',
-    file: 'service_call.js, index.html',
-    lineRef:
-      'service_call.js ~907-914 (saveBoardOrder), ~1927-1945 (glass-card HTML); ~882-894 (initDragAndDrop)',
-    model: 'GPT-5.4 Mini (T0 add data-id) + Sonnet 4.6 (T2 reorder UX polish)',
+    status: 'completed',
+    file: 'service_call.js',
+    lineRef: 'service_call.js ~1958 glass-card: added data-id="${sc.id}"; v79',
+    model: 'GPT-5.4 Mini (T0 data-id fix)',
     rootCause:
-      'saveBoardOrder() reads card.getAttribute("data-id") but renderServiceBoard() never sets data-id on .glass-card — visualIds are all null, newDb becomes [], localStorage twinPillarsServiceDB wiped, renderServiceBoard() shows empty list. User must reload to restore from Firestore/cloud resync.',
-    fix:
-      '(1) Add data-id="${sc.id}" on each .glass-card in renderServiceBoard. (2) saveBoardOrder: append any db tickets missing from visualIds (do not drop). (3) UX: improve initDragAndDrop — placeholder gap, live reorder preview, optional ↑↓ buttons; separate ondragstart for sidebar reorder vs board drag (today both use drag()).',
-    before:
-      'glass-card: no data-id; saveBoardOrder → newDb=[] → all cards disappear after dragend',
-    after:
-      'Reorder persists order in localStorage; cards stay visible; siblings shift smoothly during drag',
-    userTestSteps: [],
+      'saveBoardOrder() reads card.getAttribute("data-id") but renderServiceBoard() never set data-id on .glass-card — visualIds were all null, newDb became [], localStorage wiped.',
+    fix: 'Added data-id="${sc.id}" to .glass-card in renderServiceBoard(). T2 UX polish (smooth drag preview) deferred.',
+    before: 'glass-card: no data-id → all cards vanish after dragend',
+    after: 'Each card has data-id; saveBoardOrder reads correct IDs → cards stay after drag',
+    userTestSteps: [
+      'Open dispatcher → Dispatch Board',
+      'Drag a Service Request card to reorder in left panel',
+      'Release — all cards should remain visible (no vanish)',
+      'Refresh page — order should be persisted',
+    ],
   },
   {
     id: '33',
@@ -342,50 +350,52 @@ const SESSION_BUGS: Bug[] = [
   {
     id: '37',
     title: 'Future improvement F1: hide Pulse UI (code preserved — icebox)',
-    status: 'pending',
-    file: 'index.html, shared/entitlements.js, dispatcher/js/activity_feed.js',
-    lineRef:
-      '#sidebar-nav-pulse ~2739; switchTab pulse ~8169; vcHasFeature("interOfficeFeed") ~8507; FEATURE_CATALOG interOfficeFeed ~49',
-    model: 'GPT-5.4 Mini (T0 — hide nav + hard-off gate)',
-    rootCause:
-      'Pulse shipped behind interOfficeFeed entitlement but product decision 2026-05-21 is to retire the live feed to icebox — nav and listeners should not run even if tenant has pro/enterprise plan.',
-    fix:
-      '(1) Force-hide #sidebar-nav-pulse and block switchTab("pulse") regardless of entitlement (or set interOfficeFeed default/plans all false + migration note). (2) Ensure PulseActivityFeed.stop() on load; never start listeners. (3) Optional: remove Pulse from Settings feature catalog UI or mark deprecated. Inter-office internal_comms on tickets unchanged.',
-    before: 'Pro/enterprise tenants see Pulse nav; switchTab starts PulseActivityFeed Firestore listeners',
-    after: 'No Pulse nav or view; no background feed listeners; feature documented in ROADMAP icebox / IDEA_TRACKER parked',
-    userTestSteps: [],
+    status: 'completed',
+    file: 'shared/entitlements.js, index.html',
+    lineRef: 'entitlements.js ~55 interOfficeFeed plans all → false; v2',
+    model: 'GPT-5.4 Mini (T0)',
+    rootCause: 'Pro/enterprise tenants saw Pulse nav via interOfficeFeed entitlement.',
+    fix: 'Set interOfficeFeed plans: { free:false, pro:false, enterprise:false } — vcHasFeature always returns false → syncPulseNav() keeps sidebar-nav-pulse hidden.',
+    before: 'plans: { free:false, pro:true, enterprise:true }',
+    after: 'plans: { free:false, pro:false, enterprise:false } — all off for pilot',
+    userTestSteps: [
+      'Hard-refresh dispatcher',
+      'Check sidebar — Pulse nav item should not appear',
+      'Open Settings → Features — Pulse toggle should show as off',
+    ],
   },
   {
     id: '38',
     title: 'Future improvement F2: hide Executive Insights UI (code preserved — icebox)',
-    status: 'pending',
-    file: 'index.html, shared/entitlements.js, dispatcher/js/insights_manager.js',
-    lineRef:
-      '#nav-insights ~2776 (Reports flyout); #view-insights ~4218; switchTab insights ~8223; FEATURE_CATALOG executiveInsights ~67',
-    model: 'GPT-5.4 Mini (T0 — hide nav + hard-off gate)',
-    rootCause:
-      'Executive Insights shipped in Reports submenu (Phase 15/17) but product decision 2026-05-21 is to retire the dashboard to icebox — nav should not appear and insights tab should not load even if tenant has executiveInsights entitlement.',
-    fix:
-      '(1) Hide or remove #nav-insights from Reports flyout; block switchTab("insights") and redirect if hash #insights. (2) Do not call VcInsightsManager.initInsightsDashboard on tab switch. (3) Optional: set executiveInsights default/plans all false in entitlements.js. Custom Report Studio (#nav-report-studio) unchanged.',
-    before: 'Reports flyout shows Executive Insights; opening tab loads charts and refreshInsights()',
-    after: 'Reports flyout only Custom Report Studio (or empty insights slot hidden); no #view-insights activation',
-    userTestSteps: [],
+    status: 'completed',
+    file: 'index.html',
+    lineRef: 'index.html ~2783 #nav-insights: added style="display:none"',
+    model: 'GPT-5.4 Mini (T0)',
+    rootCause: 'Reports flyout showed Executive Insights nav link.',
+    fix: 'Added style="display:none" to #nav-insights <a> element. Custom Report Studio unchanged.',
+    before: '#nav-insights visible in Reports flyout',
+    after: '#nav-insights hidden; Reports flyout shows only Custom Report Studio',
+    userTestSteps: [
+      'Hard-refresh dispatcher',
+      'Click Reports in sidebar — flyout should only show Custom Report Studio, not Executive Insights',
+    ],
   },
   {
     id: '39',
     title: 'Future improvement F3: hide phone simulator UI (code preserved — icebox)',
-    status: 'pending',
-    file: 'index.html, dispatcher/js/shadow_mode.js (simulator badge sync only)',
-    lineRef:
-      'Sidebar Preview Field App ~2795-2806; Service Intake Field app btn ~3108; openTechnicianAppPreview ~7993; #fieldAppSimulatorModal ~10034',
-    model: 'GPT-5.4 Mini (T0 — hide nav/buttons + no-op openTechnicianAppPreview)',
-    rootCause:
-      'Phone simulator shipped for dispatcher preview (vc_shadow_viewer iframe + bezel modal) but product decision 2026-05-21 is to retire it to icebox — sidebar and intake shortcuts should not open the modal.',
-    fix:
-      '(1) Remove or hide sidebar Preview Field App <li> and Service Intake Field app button. (2) Early-return in openTechnicianAppPreview() (optional user-facing toast). (3) Ensure modal stays hidden on load. Leave 📱 Edit in Field App UI modal and vcShadowModal/shadowMode unchanged unless scope expands.',
-    before: 'Dispatcher can open phone bezel simulator from sidebar or Service Intake; iframe loads technician/index.html with shadow params',
-    after: 'No Preview Field App nav or Field app button; openTechnicianAppPreview is a no-op; documented in ROADMAP icebox / IDEA_TRACKER parked',
-    userTestSteps: [],
+    status: 'completed',
+    file: 'index.html',
+    lineRef: 'index.html ~2802 sidebar <li> style="display:none"; ~3106 Field app btn display:none; ~8026 openTechnicianAppPreview early return',
+    model: 'GPT-5.4 Mini (T0)',
+    rootCause: 'Sidebar "Preview Field App" and intake "Field app" button both called openTechnicianAppPreview().',
+    fix: 'Sidebar <li> display:none, Field app button display:none, openTechnicianAppPreview() early return added.',
+    before: 'Dispatcher could open phone simulator from sidebar or intake header',
+    after: 'Both entry points hidden; function is a no-op. Code preserved for re-enable.',
+    userTestSteps: [
+      'Hard-refresh dispatcher',
+      'Check sidebar — "Preview Field App" should not appear',
+      'Open Service Intake — "Field app" button in the header strip should not appear',
+    ],
   },
   {
     id: '40',

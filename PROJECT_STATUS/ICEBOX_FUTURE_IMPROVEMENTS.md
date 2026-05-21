@@ -29,7 +29,31 @@ These were built and deployed; they are **intentionally deferred** for the curre
 | VC Admin Voice Layer | `tracked` | ROADMAP icebox — ~3 slices when ready |
 | Repair & Install Kit System | `discussed` | ROADMAP icebox — Kit entity abstraction |
 | E-Ink Parts Staging, On-Call/PTO, etc. | `fresh` / `tracked` | See `IDEA_TRACKER.md` full table |
-| **Vendor Directory — pick vendors & email parts quotes in-app** | `tracked` | Extends Phase 64d CRUD; Phase 64C / `ai_quote_pipeline_spec.md` Phase 5. Multi-select + compose + send from `#view-vendors` (v1 `mailto:`/Gmail compose; v2 Gmail API). |
+| **Vendor Directory — pick & email for parts quotes** | `parked` | **F4** below — directory tab stays; quote-email workflow is future build. |
+
+---
+
+## F4 — Vendor Directory (future improvement)
+
+**Today (shipped, stays on):** Sidebar **Vendor Directory** — add/edit/delete suppliers (name, email, phone, category chips, notes). Phase 64d — `vendor_directory.js`, `#view-vendors`. No pick-to-email yet.
+
+**What Dan wants (user intent — do not lose):**
+
+1. **Pick vendors from the directory** — select one or more suppliers from the list (e.g. Johnstone, Wesco), optionally narrowed by category (Motors, Capacitors, Belts, etc.).
+2. **Email them inside Vertex** — compose and send a **parts quote request** from the app (no copy/paste of `orders@…` into Outlook).
+3. **Purpose** — request pricing/availability from distributors for parts needed on a job (feeds the quote pipeline; not general marketing email).
+4. **Nice-to-have later** — pre-fill the email body from ticket/quote “Parts needed for repair quote”; AI-drafted text; Gmail API send + parse replies (`ai_quote_pipeline_spec.md` Phase 5–6).
+
+**Planned build (when promoted from icebox):**
+
+| Phase | Scope |
+|-------|--------|
+| **v1** | Multi-select on vendor cards; **Request quote** action; in-app compose modal (subject, body, parts list); send via Gmail web compose or `mailto:` to selected `vendor.email` (same pattern as VMI restock in `settings.js`). |
+| **v2** | Tie to open Quoting Tool / Service ticket; quote reference in subject (`QT-####-REQ`); AI draft + Gmail API inbox parse. |
+
+**Files:** `vendor_directory.js`, `index.html` (`#view-vendors`, `#vendorListTarget`), later `quoting.js` + Phase 64C.
+
+**Not in scope for F4:** Removing the Vendor Directory tab (it remains active for CRUD).
 
 ---
 
@@ -40,4 +64,4 @@ These were built and deployed; they are **intentionally deferred** for the curre
 3. Promoting an item: update status `parked` → `tracked` or `in-progress` here and in `IDEA_TRACKER.md`, add to `ROADMAP.md` **Next Up** if scheduled, then implement re-enable (reverse #37–#39 guards).
 4. Slack raw ideas still land in `#icebox`; curated entries must be mirrored here or in `IDEA_TRACKER.md` so nothing is lost.
 
-**Last updated:** 2026-05-21 (vendor quote email tracked)
+**Last updated:** 2026-05-21 (F4 vendor directory — user requirements recorded)

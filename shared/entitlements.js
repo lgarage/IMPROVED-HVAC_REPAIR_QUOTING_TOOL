@@ -52,7 +52,7 @@
         "Real-time inter-office message + status feed in the dispatcher sidebar. Premium tier only.",
       tier: "premium",
       default: false,
-      plans: { free: false, pro: true, enterprise: true }
+      plans: { free: false, pro: false, enterprise: false }    /* iceboxed F1 — 2026-05-21 */
     },
     {
       id: "aiReportReviewer",
