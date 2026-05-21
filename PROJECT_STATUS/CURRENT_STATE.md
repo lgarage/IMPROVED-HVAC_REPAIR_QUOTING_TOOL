@@ -7,7 +7,7 @@
 ## Snapshot
 
 - **Active Phase:** Trust hardening sprint (pilot-readiness). KI-004 hooks + B6 SW cache shipped prior.
-- **Last shipped (2026-05-21 ~12:55 CDT):** 4-issue bugfix: (1) PWA splash screen blocking login on homescreen — splash removed when login shell shows + manifest/meta tags added; (2) workspace header bleed-through — solid blurred background on header + site banner in ws-active mode; (3) supplemental history items cut off by composer — addendum section/timeline moved inside scroll container; (4) Schedule button verified working via Playwright.
+- **Last shipped (2026-05-21 ~13:15 CDT):** Reverted header to transparent floating look (user preference) + content shield pseudo-element to block bleed. Bumped `conversational_timeline.js?v=83` to fix iOS compiled-notes cache miss.
 - **Prior (2026-05-21):** Trust hardening sprint COMPLETE; compile-modal X → Schedule double-prompt fix; model-selection delegation rule.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
@@ -19,7 +19,7 @@ None.
 
 ## Immediate Next Step
 
-On-device verify: force-reload PWA, open a historical job → confirm (1) no content bleeds through header, (2) supplemental history entries don't go behind text box, (3) Schedule button navigates back from chat. Also test "Add to Home Screen" on iPhone — should show login instead of stuck spinner.
+On-device verify: force-reload PWA on iPhone, confirm (1) buttons look transparent/floating (not solid dark), (2) compiled notes load for historical jobs, (3) supplemental history doesn't go behind text box, (4) homescreen shortcut shows login not spinner.
 
 > **On Deck / future ideas:** see `ROADMAP.md`. Fix tracker: `canvases/issues-found-fix-tracker.canvas.tsx`.
 
