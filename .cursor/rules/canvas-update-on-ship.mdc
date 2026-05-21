@@ -11,7 +11,7 @@ Whenever you **ship a code change, bug fix, UX update, or doc reconciliation tha
 
 | Change type | Canvas file |
 |-------------|-------------|
-| Bug / #issues-found / KI-* fix | `canvases/issues-found-fix-tracker.canvas.tsx` |
+| Bug / #issues-found / KI-* fix | `canvases/bug-report-tracker.canvas.tsx` |
 | Phase ship, feature, build stamp | `canvases/current-state.canvas.tsx` |
 | Icebox / roadmap idea | `canvases/idea-vault.canvas.tsx` |
 

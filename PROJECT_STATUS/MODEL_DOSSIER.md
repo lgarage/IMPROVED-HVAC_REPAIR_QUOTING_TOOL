@@ -112,6 +112,7 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-21 | Rename fix tracker to Bug Report Tracker; update refs in rules/docs/runner | LOW | T1 | Gemini 3 Flash | 92% | 95% | ok | ok | Cursor: Gemini 3 Flash. Renamed canvas + updated 4 files. |
 | 2026-05-21 | 4-issue field bugfix: PWA splash, header bleed, chat overflow, addendum scroll | LOW-MED | T3 | Strong | 88% | 94% | ok | ok | Cursor: **Opus 4.6**. Multi-file; CSS + DOM restructure + PWA manifest. |
 | 2026-05-21 | Frontier delegation rule: offload cheap background subtasks in frontier chats | LOW | T1 | GPT-5.4 Mini | 92% | 95% | ok | ok | Cursor: GPT-5.4 Mini. Frontier chats now offload cheap background work. |
 | 2026-05-21 | Compile modal X → Schedule double-prompt: nav guard bypass after "Not yet" | LOW | T2 | Strong | 90% | 95% | could_use_smaller | ok | Cursor: **Opus 4.6** (user override). Sonnet would suffice for traced single-line fix. |

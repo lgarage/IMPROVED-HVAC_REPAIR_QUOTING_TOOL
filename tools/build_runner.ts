@@ -894,7 +894,7 @@ async function autoRefreshChecklist(state: BuildState): Promise<void> {
 // ─── Issue Tracker Sync ──────────────────────────────────────────────────────
 //
 // Single source of truth strategy:
-//   - Canvas (issues-found-fix-tracker.canvas.tsx) = human-readable primary tracker
+//   - Canvas (bug-report-tracker.canvas.tsx) = human-readable primary tracker
 //   - ISSUE_STATUS.md = git-tracked quick-reference for live agents
 //   - build_state.json = slice-level status (SDK source of truth)
 //
@@ -918,7 +918,7 @@ function deriveCanvasDir(): string {
 }
 
 const CANVAS_DIR = deriveCanvasDir();
-const FIX_TRACKER_CANVAS = path.join(CANVAS_DIR, "issues-found-fix-tracker.canvas.tsx");
+const FIX_TRACKER_CANVAS = path.join(CANVAS_DIR, "bug-report-tracker.canvas.tsx");
 const ISSUE_STATUS_MD = path.join(PROJECT_ROOT, "PROJECT_STATUS", "ISSUE_STATUS.md");
 
 function syncIssueTracker(state: BuildState): void {
