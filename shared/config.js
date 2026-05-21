@@ -15,7 +15,7 @@
     logoUrlMini: "vertex_core_logo_only.svg",
     primaryColor: "#0ea5e9",
     accentColor: "#c89b53",
-    adminUnlockPin: "beta",
+    adminUnlockPin: "vc2026",
     /**
      * Slice 1 (Per-User Feature Toggles, ADR-015) — bootstrap admin
      * email list for `shared/auth.js` (`VCAuth.isAdmin()`).

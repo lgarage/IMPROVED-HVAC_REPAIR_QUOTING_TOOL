@@ -601,7 +601,7 @@
           var text = String(reader.result || "");
           var all = parseCsv(text);
           if (all.length < 2) {
-            alert("CSV needs a header row and at least one data row.");
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ CSV needs a header row and at least one data row.");
             return;
           }
           state.headers = all[0].map(function (h) {
@@ -746,7 +746,7 @@
           })
           .catch(function (err) {
             console.error(err);
-            alert("Import failed: " + (err && err.message ? err.message : String(err)));
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Import failed: " + (err && err.message ? err.message : String(err)));
             btn.disabled = false;
           });
       });

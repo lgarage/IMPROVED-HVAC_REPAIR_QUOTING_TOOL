@@ -157,19 +157,17 @@
    *  the orange chrome (the cross-device contract from KI-001). */
   function takeOverActiveTicket() {
     if (!currentShadowPresenceKey) {
-      alert("Pick a technician to shadow before taking over.");
+      if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Pick a technician to shadow before taking over.");
       return;
     }
     var d = presenceStateByKey[currentShadowPresenceKey] || {};
     var tid = d.activeTicketId ? String(d.activeTicketId) : "";
     if (!tid) {
-      alert(
-        "Tech is not currently on a job workspace. Take-Over needs an active ticket — ask them to open one."
-      );
+      if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Tech is not currently on a job workspace — ask them to open a ticket first.");
       return;
     }
     if (typeof global.openFieldAppOfficeModal !== "function") {
-      alert("Office Override modal is unavailable — refresh the dispatcher and try again.");
+      if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Office Override modal is unavailable — refresh the dispatcher and try again.");
       return;
     }
     /* openFieldAppOfficeModal() reads the ticket id from #scCurrentId. Pre-load it so we don't have to

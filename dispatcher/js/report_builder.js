@@ -255,7 +255,11 @@
 
     var idFilter = parseTicketIdList(idsEl && idsEl.value ? idsEl.value : "");
 
-    if (btn) btn.disabled = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.dataset.vcOrigText = btn.textContent;
+      btn.textContent = "⏳ Generating report…";
+    }
     try {
       var db = firebase.firestore();
       var scSnap = await VCFirestore.loadServiceCallsMergedOnce(db);
@@ -540,7 +544,10 @@
       console.error(e);
       if (errEl) errEl.textContent = e && e.message ? e.message : String(e);
     } finally {
-      if (btn) btn.disabled = false;
+      if (btn) {
+        btn.disabled = false;
+        if (btn.dataset.vcOrigText) btn.textContent = btn.dataset.vcOrigText;
+      }
     }
   }
 

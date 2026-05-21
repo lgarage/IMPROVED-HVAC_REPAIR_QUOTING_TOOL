@@ -356,23 +356,23 @@
     if (btn) {
       btn.addEventListener("click", function () {
         if (!lastParsed || !lastParsed.rows.length) {
-          alert("Choose a valid CSV first.");
+          if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Choose a valid CSV first.");
           return;
         }
         var blocking = lastParsed.errors.filter(function (e) {
           return /invalid email|Password must/i.test(e);
         });
         if (blocking.length) {
-          alert("Fix errors before import:\n" + blocking.join("\n"));
+          if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Fix errors before import: " + blocking.join("; "));
           return;
         }
         btn.disabled = true;
         runImport(lastParsed, { createTraining: trainCb && trainCb.checked })
           .then(function (res) {
-            alert("Imported " + res.written + " user document(s). Roster updated for tech names.");
+            if (typeof global.showSaveCue === "function") global.showSaveCue("✓ Imported " + res.written + " user document(s). Roster updated for tech names.");
           })
           .catch(function (e) {
-            alert(e && e.message ? e.message : String(e));
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ " + (e && e.message ? e.message : String(e)));
           })
           .finally(function () {
             btn.disabled = false;

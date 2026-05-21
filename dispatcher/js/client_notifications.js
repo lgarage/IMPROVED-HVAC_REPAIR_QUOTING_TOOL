@@ -50,21 +50,21 @@
    */
   async function sendVerificationToClient() {
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
-      alert("Firebase is not connected.");
+      showVerificationCue("⚠ Firebase is not connected.");
       return;
     }
     var idEl = document.getElementById("scCurrentId");
     var ticketId = idEl && idEl.value ? String(idEl.value).trim() : "";
     if (!ticketId) {
-      alert("Open or save a ticket first, then send verification.");
+      showVerificationCue("⚠ Open or save a ticket first, then send verification.");
       return;
     }
     if (typeof VCFirestore === "undefined" || !VCFirestore.portalTokens) {
-      alert("Portal tokens are not available (VCFirestore.portalTokens).");
+      showVerificationCue("⚠ Portal tokens are not available (VCFirestore.portalTokens).");
       return;
     }
     if (typeof VCClientPortal === "undefined") {
-      alert("Client portal helpers missing (VCClientPortal).");
+      showVerificationCue("⚠ Client portal helpers missing (VCClientPortal).");
       return;
     }
 
@@ -141,7 +141,7 @@
       }
     } catch (err) {
       console.error(err);
-      alert("Could not create verification link: " + (err && err.message ? err.message : String(err)));
+      showVerificationCue("⚠ Could not create verification link: " + (err && err.message ? err.message : String(err)));
     }
   }
 

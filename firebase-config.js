@@ -19,19 +19,30 @@ const firebaseConfig = {
 var GEMINI_GENERATE_MODEL = "gemini-2.5-flash"; /* 2.0-flash deprecated for new users (404); 2.5-flash works with dedicated Gemini API key */
 
 // Initialize Firebase
-firebase.initializeApp({
-  apiKey: firebaseConfig.apiKey,
-  authDomain: firebaseConfig.authDomain,
-  projectId: firebaseConfig.projectId,
-  storageBucket: firebaseConfig.storageBucket,
-  messagingSenderId: firebaseConfig.messagingSenderId,
-  appId: firebaseConfig.appId,
-  measurementId: firebaseConfig.measurementId,
-});
+try {
+  firebase.initializeApp({
+    apiKey: firebaseConfig.apiKey,
+    authDomain: firebaseConfig.authDomain,
+    projectId: firebaseConfig.projectId,
+    storageBucket: firebaseConfig.storageBucket,
+    messagingSenderId: firebaseConfig.messagingSenderId,
+    appId: firebaseConfig.appId,
+    measurementId: firebaseConfig.measurementId,
+  });
+} catch (e) {
+  console.error('[VC] Firebase initializeApp failed:', e);
+  window.VC_FIREBASE_ERROR = true;
+}
 
 // Initialize Firestore Database (we will use this 'db' variable in our other files)
-const db = firebase.firestore();
-db.enablePersistence({ synchronizeTabs: true }).catch(function (err) {
+let db;
+try {
+  db = firebase.firestore();
+} catch (e) {
+  console.error('[VC] Firestore init failed:', e);
+  window.VC_FIREBASE_ERROR = true;
+}
+if (db) db.enablePersistence({ synchronizeTabs: true }).catch(function (err) {
   if (err.code === "failed-precondition") {
     console.warn(
       "[Vertex-Core] Firestore persistence: multiple tabs open — use one tab for a single offline cache."

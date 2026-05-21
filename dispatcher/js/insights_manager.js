@@ -650,6 +650,13 @@
     var toEl = document.getElementById("insightsDateTo");
     var rateEl = document.getElementById("insightsDefaultRate");
     if (errEl) errEl.textContent = "";
+    var _loadingHtml = '<div style="padding:20px;text-align:center;color:rgba(255,255,255,0.35);font-size:13px"><i class="fas fa-spinner fa-spin" style="margin-right:6px"></i>Loading dashboard…</div>';
+    var _fleetEl = document.getElementById("insightsFleetCapacity");
+    if (_fleetEl && !_fleetEl.children.length) _fleetEl.innerHTML = _loadingHtml;
+    var _ubBody = document.getElementById("insightsUnbilledBody");
+    if (_ubBody && !_ubBody.children.length) _ubBody.innerHTML = _loadingHtml;
+    var _healthEl = document.getElementById("insightsHealthBody");
+    if (_healthEl && !_healthEl.children.length) _healthEl.innerHTML = _loadingHtml;
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
       if (errEl) errEl.textContent = "Firebase not initialized.";
       return;

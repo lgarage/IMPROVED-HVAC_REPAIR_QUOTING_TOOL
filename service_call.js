@@ -33,6 +33,21 @@ function updateTicketPrefix() {
 var _serviceCallsBoardUnsub = null;
 
 function subscribeServiceCallsFromCloud() {
+    var _listEl = document.getElementById('serviceRequestList');
+    if (_listEl && !_listEl.children.length) {
+        _listEl.innerHTML =
+            '<div style="padding:24px 16px;display:flex;flex-direction:column;gap:12px">' +
+            '<div style="height:72px;border-radius:10px;background:rgba(255,255,255,0.04);animation:vcPulse 1.5s ease-in-out infinite"></div>' +
+            '<div style="height:72px;border-radius:10px;background:rgba(255,255,255,0.04);animation:vcPulse 1.5s ease-in-out infinite;animation-delay:0.2s"></div>' +
+            '<div style="height:72px;border-radius:10px;background:rgba(255,255,255,0.04);animation:vcPulse 1.5s ease-in-out infinite;animation-delay:0.4s"></div>' +
+            '</div>';
+        if (!document.getElementById('vcPulseStyle')) {
+            var st = document.createElement('style');
+            st.id = 'vcPulseStyle';
+            st.textContent = '@keyframes vcPulse{0%,100%{opacity:.4}50%{opacity:.8}}';
+            document.head.appendChild(st);
+        }
+    }
     if (typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) {
         void loadServiceCallsFromCloud();
         return;
@@ -1728,8 +1743,7 @@ async function loadServiceCall(dbId) {
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
     const data = db.find(s => s.id === dbId);
     if(!data) return;
-    
-    // Set UI to "Edit Ticket" Mode
+    try {
     document.getElementById('serviceFormTitle').innerText = "Edit Existing Service Ticket";
     document.getElementById('serviceFormTitle').style.color = "#e74c3c";
     
@@ -1819,6 +1833,10 @@ async function loadServiceCall(dbId) {
 
     if (typeof VcAiReportReviewer !== "undefined" && VcAiReportReviewer.loadReviewPackage) {
         VcAiReportReviewer.loadReviewPackage(data.id);
+    }
+    } catch (err) {
+        console.error("loadServiceCall", err);
+        if (typeof showSaveCue === "function") showSaveCue("⚠ Error loading ticket details");
     }
 }
 
@@ -1928,6 +1946,15 @@ function renderServiceBoard() {
         listContainer.innerHTML += cardHTML;
     });
     
+    if (listCount === 0) {
+        listContainer.innerHTML =
+            '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 16px;color:rgba(255,255,255,0.35);text-align:center">' +
+            '<i class="fas fa-clipboard-list" style="font-size:40px;margin-bottom:12px;opacity:0.5"></i>' +
+            '<div style="font-size:15px;font-weight:600">No open service tickets</div>' +
+            '<div style="font-size:12px;margin-top:4px;opacity:0.7">Completed and canceled tickets are hidden from the board</div>' +
+            '</div>';
+    }
+
     let badge = document.getElementById('ticketCountBadge');
     if(badge) badge.innerText = listCount;
 

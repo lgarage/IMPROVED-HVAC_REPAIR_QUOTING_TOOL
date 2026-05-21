@@ -2823,14 +2823,14 @@
         <span
           class="menu-text vc-build-chip"
           id="vcBuildChip"
-          style="display:block;margin-top:6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px;color:rgba(56,189,248,0.85);letter-spacing:0.04em"
+          style="display:none;margin-top:6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px;color:rgba(56,189,248,0.85);letter-spacing:0.04em"
           title="Click to copy"
         ></span>
       </div>
       <details
         id="vcAdminTools"
         class="vc-admin-tools"
-        style="margin: 8px 12px 12px; font-size: 11px; color: #555"
+        style="display:none;margin: 8px 12px 12px; font-size: 11px; color: #555"
       >
         <summary style="cursor: pointer; user-select: none">Admin tools</summary>
         <div id="vcAdminPinBlock" style="margin-top: 8px">
@@ -9535,9 +9535,14 @@
        *  `shared/firebase_logic.js` version (set by the file's IIFE as `__VC_FIREBASE_LOGIC_VERSION`).
        *  Click-to-copy so the operator can paste the build into a chat for cache-staleness diagnosis. */
       (function vcDispatcherBuildChipBoot() {
+        var isDebug = /[?&]vc_debug=1/.test(location.search) || sessionStorage.getItem("vc_debug") === "1";
+        if (isDebug) sessionStorage.setItem("vc_debug", "1");
         function paint() {
           var el = document.getElementById("vcBuildChip");
           if (!el) return;
+          if (isDebug) el.style.display = "block";
+          var admin = document.getElementById("vcAdminTools");
+          if (admin && isDebug) admin.style.display = "";
           var build = window.VC_BUILD || "?";
           var fbv = window.__VC_FIREBASE_LOGIC_VERSION;
           el.textContent = "BUILD " + build + (fbv != null ? " · fb v" + fbv : "");

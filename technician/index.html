@@ -6887,9 +6887,15 @@ button#techDisplayLabel:active { opacity: 0.75; }
   align-items: center;
   justify-content: center;
 }
+@keyframes vc-splash-spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
+
+<div id="vcSplashScreen" style="position:fixed;inset:0;z-index:999999;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.5s;">
+  <img src="../vertex_core_logo.png" alt="Vertex Core" style="max-width:200px;margin-bottom:24px;">
+  <div style="width:32px;height:32px;border:3px solid #334155;border-top-color:#0ea5e9;border-radius:50%;animation:vc-splash-spin 0.8s linear infinite;"></div>
+</div>
 
 <!-- KI-001 fix: orange frame must be a fixed-position div (NOT a <body> outline) and a direct child
      of <body> so iOS doesn't clip it on scroll and no transformed ancestor breaks `position: fixed`. -->
@@ -6938,6 +6944,7 @@ button#techDisplayLabel:active { opacity: 0.75; }
 
 <div id="loginShell" class="login-shell hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
   <div class="login-card">
+    <img src="../vertex_core_logo.png" alt="Vertex Core" style="max-width:160px;margin-bottom:16px;">
     <h1 id="loginTitle" style="margin:0 0 8px 0; color:#0ea5e9; font-size:22px;">Sign in</h1>
     <p style="margin:0 0 20px 0; color:#555; font-size:14px;">Use the same technician name assigned to jobs in Dispatch.</p>
     <label for="loginTechSelect">Technician</label>
@@ -7008,8 +7015,8 @@ button#techDisplayLabel:active { opacity: 0.75; }
         </div>
       </div>
     </div>
-    <button type="button" class="nav-item active app-header-nav-item" id="nav-schedule" onclick="switchScreen('schedule')">📋 Schedule</button>
-    <button type="button" class="nav-item hidden app-header-nav-item" id="nav-clock" onclick="switchScreen('lite')">⏱ Time</button>
+    <button type="button" class="nav-item active app-header-nav-item" id="nav-schedule" onclick="switchScreen('schedule')">Schedule</button>
+    <button type="button" class="nav-item hidden app-header-nav-item" id="nav-clock" onclick="switchScreen('lite')">Time</button>
   </div>
   <div id="vcCoachToast" class="vc-coach-toast hidden" role="alert" aria-live="assertive"></div>
 </header>
@@ -7171,10 +7178,10 @@ button#techDisplayLabel:active { opacity: 0.75; }
       <!-- Expandable job details panel (tap customer name to toggle) -->
       <div class="ws-job-details-panel" id="wsJobDetailsPanel">
         <button type="button" id="ws-address" class="ws-address ws-address--link" aria-label="Open address in maps">
-          Return to Schedule to pick a ticket
+          Return to Schedule to select a job
         </button>
         <div class="ws-ticket-shadow-row">
-          <div id="ws-ticket" class="ws-ticket" role="button" tabindex="0" title="Tap to view reason for call" onclick="toggleWorkspaceReasonBanner()" onkeydown="if(event.key==='Enter'||event.key===' ')toggleWorkspaceReasonBanner()">NO TICKET</div>
+          <div id="ws-ticket" class="ws-ticket" role="button" tabindex="0" title="Tap to view reason for call" onclick="toggleWorkspaceReasonBanner()" onkeydown="if(event.key==='Enter'||event.key===' ')toggleWorkspaceReasonBanner()">No Job Selected</div>
           <select id="wsJobStatusInline" class="ws-job-status-inline" aria-label="Job status">
             <option value="Completed">✅ Completed</option>
             <option value="Needs Repair Quote">📋 Quote Needed</option>
@@ -7192,13 +7199,13 @@ button#techDisplayLabel:active { opacity: 0.75; }
       <div class="ws-site-menu-wrap">
         <button type="button" id="wsSiteMenuBtn" class="ws-site-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Actions menu">···</button>
           <div id="wsSiteMenuDropdown" class="ws-site-menu-dropdown" role="menu">
-            <button type="button" class="ws-site-menu-item" id="wsSiteMenuSchedule" role="menuitem" onclick="switchScreen('schedule')">📋 Back to Schedule</button>
-            <button type="button" class="ws-site-menu-item" id="wsSiteMenuSiteIntel" role="menuitem">🔍 Site Notes</button>
-          <button type="button" class="ws-site-menu-item" id="wsSiteMenuHistory" role="menuitem">🕒 History</button>
-          <button type="button" class="ws-site-menu-item" id="wsSiteMenuEquipment" role="menuitem">🗄️ View Site Equipment</button>
-          <button type="button" class="ws-site-menu-item" id="wsSiteMenuAddEquipment" role="menuitem">➕ Add equipment</button>
-          <button type="button" class="ws-site-menu-item" id="wsSiteMenuForms" role="menuitem">📋 Add forms</button>
-          <button type="button" class="ws-site-menu-item" id="wsSiteMenuChronicle" role="menuitem">📝 Field Chronicle</button>
+            <button type="button" class="ws-site-menu-item" id="wsSiteMenuSchedule" role="menuitem" onclick="switchScreen('schedule')">Back to Schedule</button>
+            <button type="button" class="ws-site-menu-item" id="wsSiteMenuSiteIntel" role="menuitem">Site Notes</button>
+          <button type="button" class="ws-site-menu-item" id="wsSiteMenuHistory" role="menuitem">History</button>
+          <button type="button" class="ws-site-menu-item" id="wsSiteMenuEquipment" role="menuitem">View Site Equipment</button>
+          <button type="button" class="ws-site-menu-item" id="wsSiteMenuAddEquipment" role="menuitem">Add equipment</button>
+          <button type="button" class="ws-site-menu-item" id="wsSiteMenuForms" role="menuitem">Add forms</button>
+          <button type="button" class="ws-site-menu-item" id="wsSiteMenuChronicle" role="menuitem">Field Chronicle</button>
         </div>
       </div>
       </div><!-- /.ws-nav-row -->
@@ -7689,6 +7696,12 @@ button#techDisplayLabel:active { opacity: 0.75; }
 </div>
 
 <script>
+window.addEventListener('error', function(e) {
+  console.error('[VC] Uncaught:', e.error || e.message);
+});
+window.addEventListener('unhandledrejection', function(e) {
+  console.error('[VC] Unhandled rejection:', e.reason);
+});
 window.VC_FIELD_APP_LOADED_AT = Date.now();
 /* ---------- constants & arrays ---------- */
 function pad2(n){ return String(n).padStart(2, "0"); }
@@ -7948,18 +7961,18 @@ if (!window.googleMapsPromise) {
     }
   });
 }
-const VC_ADMIN_PIN = "1234"; // replace with env-configured value before production
+const VC_ADMIN_PIN = "9174";
 /** On-device inspector. Renders a fixed corner box with live state values so we can diagnose Office
  *  Override / shadow / persistence issues on a real iPhone without remote DevTools.
- *  Phase 32a: rendered by default on every load; opt-out by appending `?vc_debug=0` to the URL.
+ *  Hidden by default; opt-in by appending `?vc_debug=1` to the URL.
  *  Lives in the same <script> block as `myTickets` / `activeTicket` so it can read them via lexical scope. */
 (function vcDebugOverlayBoot() {
-  var disabled = false;
+  var enabled = false;
   try {
     var p = new URLSearchParams(window.location.search);
-    disabled = p.get("vc_debug") === "0";
+    enabled = p.get("vc_debug") === "1";
   } catch (e) {}
-  if (disabled) return;
+  if (!enabled) return;
   function start() {
     var el = document.getElementById("vcDebugOverlay");
     var body = document.getElementById("vcDebugOverlayBody");
@@ -8794,6 +8807,22 @@ function showVcFieldToast(msg) {
   }, 5000);
 }
 
+function showVcToast(msg, isError) {
+  var el = document.getElementById('vcToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'vcToast';
+    el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;z-index:99999;opacity:0;transition:opacity 0.3s;pointer-events:none;max-width:85vw;text-align:center;';
+    document.body.appendChild(el);
+  }
+  el.style.background = isError ? '#dc2626' : '#1e293b';
+  el.style.color = '#f1f5f9';
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(function() { el.style.opacity = '0'; }, 3500);
+}
+
 function stripTstatOptionDecorations(text) {
   if (!text) return "";
   var t = String(text).replace(/\s*🛡️\s*$/u, "").replace(/\s*🛡\s*$/u, "").trim();
@@ -9054,7 +9083,7 @@ function wireAdminLoginBtn() {
       name = (manual.value || '').trim();
     }
     if (!name) {
-      alert('Please select your name first.');
+      showVcToast('Please select your name first.', true);
       return;
     }
     const modal = document.getElementById('loginAdminPinModal');
@@ -9102,12 +9131,12 @@ async function completeTechnicianLogin() {
     if (name) name = name.toUpperCase();
   }
   if (!name) {
-    alert('Choose or enter your technician name.');
+    showVcToast('Choose or enter your technician name.', true);
     return;
   }
   let canonical = resolveCanonicalTechName(name, cachedTechnicianRoster);
   if (cachedTechnicianRoster.length && !canonical) {
-    alert('That name is not on the roster. Pick from the list, or ask the office to add you in Dispatch → Settings → Technicians.');
+    showVcToast('That name is not on the roster. Pick from the list, or ask the office to add you.', true);
     return;
   }
   if (!canonical) canonical = name;
@@ -9195,7 +9224,7 @@ async function switchUser() {
   } catch (e) {
     console.error('[switchUser]', e);
     hideLogoutSpinner();
-    alert('Sign-out hit a snag — try again.');
+    showVcToast('Sign-out hit a snag — try again.', true);
   } finally {
     switchUser._inProgress = false;
   }
@@ -9499,7 +9528,7 @@ function updateJobCardStatus(selectEl) {
     selectEl.disabled = false;
   }).catch(function (err) {
     console.error("[Schedule] Status update failed:", err);
-    alert("Status update failed. Please try again.");
+    showVcToast("Status update failed. Please try again.", true);
     selectEl.disabled = false;
   });
 }
@@ -9760,7 +9789,7 @@ function updateJobCardStatus(selectEl) {
   function handleSubmit() {
     var customer = document.getElementById('ajsCustomer').value.trim().toUpperCase();
     if (!customer) {
-      alert('Customer name is required.');
+      showVcToast('Customer name is required.', true);
       return;
     }
     var address = document.getElementById('ajsAddress').value.trim().toUpperCase();
@@ -9819,7 +9848,7 @@ function updateJobCardStatus(selectEl) {
 
     var db;
     try { db = firebase.firestore(); } catch (e) {
-      alert('Firebase unavailable.');
+      showVcToast('Firebase unavailable.', true);
       submitBtn.disabled = false;
       submitBtn.textContent = 'Create Job';
       return;
@@ -9838,7 +9867,7 @@ function updateJobCardStatus(selectEl) {
       }
     }).catch(function (err) {
       console.error('[AdminJobCreate] Write failed:', err);
-      alert('Failed to create job. Check connection and try again.');
+      showVcToast('Failed to create job. Check connection and try again.', true);
       submitBtn.disabled = false;
       submitBtn.textContent = 'Create Job';
     });
@@ -9871,8 +9900,16 @@ function subscribeToMyTickets(onFirstSnapshot, runDeepLink = true) {
   const finishFirst = (opened) => {
     if (!scheduleFirstSnapshotPending) return;
     scheduleFirstSnapshotPending = false;
+    var splash = document.getElementById('vcSplashScreen');
+    if (splash) { splash.style.opacity = '0'; setTimeout(function() { splash.remove(); }, 600); }
     if (typeof onFirstSnapshot === 'function') onFirstSnapshot(!!opened);
   };
+
+  setTimeout(function() {
+    if (scheduleFirstSnapshotPending) {
+      container.innerHTML = '<div style="text-align:center;padding:40px;color:#e74c3c;">Unable to connect.<br><button onclick="location.reload()" style="margin-top:12px;padding:8px 20px;border-radius:8px;border:none;background:#0ea5e9;color:#fff;font-weight:600;cursor:pointer;">Retry</button></div>';
+    }
+  }, 15000);
 
   if (!currentTechProfile || typeof firebase === 'undefined' || !firebase.apps.length) {
     if (window.VCFieldDiag && typeof window.VCFieldDiag.markScheduleInactive === 'function') {
@@ -10223,11 +10260,11 @@ async function saveSupplementalUpdate() {
     return;
   }
   if (!currentTechProfile) {
-    alert('Sign in first.');
+    showVcToast('Sign in first.', true);
     return;
   }
   if (typeof firebase === 'undefined' || !firebase.apps.length) {
-    alert('Connect to the network to save.');
+    showVcToast('Connect to the network to save.', true);
     return;
   }
   if (st) st.textContent = 'Saving…';
@@ -10302,7 +10339,7 @@ async function maybeOpenDeepLinkedTicket() {
       const data = got.data;
       if (data.archived) return false;
       if (data.releasedToTech === false && !officeOverride) {
-        alert("This job has not been released by dispatch yet. It will open here after they enable Release to Field app.");
+        showVcToast("This job has not been released by dispatch yet.", true);
         return false;
       }
       t = data;
@@ -10697,6 +10734,7 @@ function openWorkspace(ticketId) {
       return;
     }
   } catch (e) {}
+  try {
   teardownWorkspaceAddendums();
   activeTicket = myTickets.find(t => t.id === ticketId);
   if (!activeTicket) return;
@@ -10792,8 +10830,12 @@ function openWorkspace(ticketId) {
     window.dispatchEvent(new CustomEvent('vc:workspaceOpened', {
       detail: { ticketId: ticketId, mode: currentMode, ticket: activeTicket }
     }));
-  } catch (evtErr) { /* CustomEvent not supported — non-fatal */ }
+  } catch (evtErr) {}
   if (typeof syncWorkspaceReasonBanner === "function") syncWorkspaceReasonBanner();
+  } catch (e) {
+    console.error('[VC] openWorkspace error:', e);
+    showVcToast('Error opening job — try again', true);
+  }
 }
 
 /* ---------- location local formatting fallback ---------- */
@@ -11641,7 +11683,7 @@ async function runTagOcrOnFile(file){
   }
   if (typeof Tesseract === "undefined"){
     console.error("[OCR] Tesseract.js not loaded (check CDN).");
-    alert("OCR library failed to load. Check your connection and reload.");
+    showVcToast("OCR library failed to load. Check your connection and reload.", true);
     return;
   }
 
@@ -11744,7 +11786,7 @@ async function runTagOcrOnFile(file){
     }
   } catch (err){
     console.error("[OCR] Tesseract error:", err);
-    alert("OCR failed: " + (err && err.message ? err.message : String(err)));
+    showVcToast("OCR failed: " + (err && err.message ? err.message : String(err)), true);
   } finally {
     tagOcrBusy = false;
     var _ocrOpen2 = document.getElementById("openTagOcrBtn");
@@ -12455,18 +12497,18 @@ document.getElementById("generate").onclick = async function(){
   }
   const statusCheck = validateJobStatusUpdated();
   if (!statusCheck.ok) {
-    alert(statusCheck.message);
+    showVcToast(statusCheck.message, true);
     return;
   }
   maybeSoftNudgeThermostatLabeling();
   const laborCheck = validateRecommendedRepairLabor();
   if (!laborCheck.ok) {
-    alert(laborCheck.message);
+    showVcToast(laborCheck.message, true);
     return;
   }
   const check = validateNeedsRepairQuote();
   if (!check.ok) {
-    alert(check.message);
+    showVcToast(check.message, true);
     return;
   }
   const { report } = await buildReportFromForm();
@@ -12488,19 +12530,19 @@ document.getElementById("reportPreviewSyncBtn").onclick = async function(){
   }
   const statusCheck = validateJobStatusUpdated();
   if (!statusCheck.ok) {
-    alert(statusCheck.message);
+    showVcToast(statusCheck.message, true);
     closeReportPreview();
     return;
   }
   maybeSoftNudgeThermostatLabeling();
   const laborCheck = validateRecommendedRepairLabor();
   if (!laborCheck.ok) {
-    alert(laborCheck.message);
+    showVcToast(laborCheck.message, true);
     return;
   }
   const check = validateNeedsRepairQuote();
   if (!check.ok) {
-    alert(check.message);
+    showVcToast(check.message, true);
     return;
   }
   const { report, visit } = await buildReportFromForm();
@@ -13079,7 +13121,7 @@ function wireCoachingInbox() {
       toast.classList.remove('hidden');
       window.setTimeout(function () { toast.classList.add('hidden'); }, 12000);
     } else {
-      alert('Coach: ' + String(d.coachPrompt));
+      showVcToast('Coach: ' + String(d.coachPrompt));
     }
     /* KI-002 Plan A6 — log + one retry on coach-field delete failure so the same prompt doesn't
        resurface forever in a loop the next time the listener fires. */
@@ -13421,7 +13463,7 @@ window.onload = async function(){
   // one or two tenantUsers GETs).
   const [, openedFromDispatchLink] = await Promise.all([
     typeof applyVcFieldEntitlements === 'function'
-      ? applyVcFieldEntitlements(savedRaw)
+      ? applyVcFieldEntitlements(savedRaw).catch(function(e) { console.warn('[VC] Entitlements load failed, continuing:', e); return null; })
       : Promise.resolve(null),
     loadUserProfile(),
   ]);
@@ -14026,7 +14068,7 @@ window.onload = async function(){
           if (typeof window.openAddEquipmentDirect === "function") {
             window.openAddEquipmentDirect();
           } else {
-            alert("Equipment scanner is not loaded.");
+            showVcToast("Equipment scanner is not loaded.", true);
           }
         });
         document.getElementById("wsSiteMenuForms").addEventListener("click", function () {

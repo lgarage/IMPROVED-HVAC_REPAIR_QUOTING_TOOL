@@ -440,21 +440,21 @@
         var idEl = document.getElementById("scCurrentId");
         var ticketId = idEl && idEl.value ? String(idEl.value).trim() : "";
         if (!ticketId) {
-            alert("Open or create a ticket in Service Call Intake first (saved ticket id required).");
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Open or create a ticket in Service Call Intake first (saved ticket id required).");
             return;
         }
         if (typeof firebase === "undefined" || !firebase.firestore) {
-            alert("Firebase is not ready.");
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Firebase is not ready.");
             return;
         }
         if (typeof VCFirestore === "undefined" || !VCFirestore.getServiceCallOnceBridged) {
-            alert("Firestore bridge not loaded.");
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Firestore bridge not loaded.");
             return;
         }
         var db = firebase.firestore();
         var got = await VCFirestore.getServiceCallOnceBridged(db, ticketId);
         if (!got || !got.exists || !got.data) {
-            alert("Could not load this ticket from Firestore.");
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Could not load this ticket from Firestore.");
             return;
         }
         var data = got.data;
@@ -500,12 +500,12 @@
 
     async function generate() {
         if (!state.ticketId) {
-            alert("Open the reviewer from a loaded ticket first.");
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Open the reviewer from a loaded ticket first.");
             return;
         }
         var raw = String(state.rawNotes || "").trim();
         if (!raw || raw === "(No Inter-Office Comms on this ticket yet.)") {
-            alert("Add Inter-Office Comms to this ticket first (Field dictation / Pulse / internal notes).");
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Add Inter-Office Comms to this ticket first (Field dictation / Pulse / internal notes).");
             return;
         }
         setLoading(true);
@@ -537,7 +537,7 @@
             }
         } catch (e) {
             console.error("VcAiReportReviewer.generate", e);
-            alert(e && e.message ? e.message : String(e));
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ " + (e && e.message ? e.message : String(e)));
         } finally {
             setLoading(false);
         }
@@ -545,16 +545,16 @@
 
     async function approveAndSave() {
         if (!state.ticketId || !state.parsed) {
-            alert("Generate a report first.");
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Generate a report first.");
             return;
         }
         var memo = formatPlainTextForPortal(state.parsed, state.schemaKind);
         if (!memo) {
-            alert("Nothing to save — extraction was empty.");
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ Nothing to save — extraction was empty.");
             return;
         }
         if (typeof VCFirestore === "undefined" || !VCFirestore.setServiceCallMerged) {
-            alert("setServiceCallMerged not available.");
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ setServiceCallMerged not available.");
             return;
         }
         var db = firebase.firestore();
@@ -590,7 +590,7 @@
             closeModal();
         } catch (e) {
             console.error(e);
-            alert(e && e.message ? e.message : String(e));
+            if (typeof global.showSaveCue === "function") global.showSaveCue("⚠ " + (e && e.message ? e.message : String(e)));
         } finally {
             if (btn) {
                 btn.disabled = false;
