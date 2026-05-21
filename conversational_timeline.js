@@ -3309,7 +3309,10 @@
     var skipBtn = document.createElement("button");
     skipBtn.textContent = "Not yet";
     skipBtn.style.cssText = "background:none;border:1px solid #cbd5e1;border-radius:6px;padding:4px 10px;font-size:12px;color:#64748b;cursor:pointer;min-height:30px;";
-    skipBtn.addEventListener("click", function () { closeCompileModal(); });
+    skipBtn.addEventListener("click", function () {
+      closeCompileModal();
+      window._navGuardBypassed = true;
+    });
     row.appendChild(skipBtn);
 
     statusEl.appendChild(row);
