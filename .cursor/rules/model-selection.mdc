@@ -18,29 +18,45 @@ See `.cursorrules` **§5B** for full rules and correct patterns.
 
 ## Sonnet-Default Execution Model
 
-**Default session model: Sonnet 4.6.** One rule — Sonnet does the work directly. No orchestration overhead. Opus 4.6 is the escalation ceiling, firing only as a subagent when Sonnet is stuck.
+**Default session model: Sonnet 4.6.** Sonnet is the orchestrator — it plans, dispatches, validates, commits. It does NOT implement directly unless no cheaper worker can handle the task. **Every task gets the cheapest capable model first.** Opus 4.6 is a rare last resort, never a default.
+
+### Cost-first dispatch rule (CRITICAL)
+
+**Before Sonnet touches a single file, ask: "Can a cheaper worker do this?"**
+
+- If YES → dispatch to the appropriate tier worker (see table below). Run workers **in parallel** whenever tasks are independent.
+- If NO (task is T2+ and genuinely requires Sonnet-level reasoning) → Sonnet implements directly.
+- If Sonnet is stuck or confidence < 70% on a T3+ task → escalate to Opus as a subagent (rare).
+
+**Sonnet handling work directly is the exception, not the default.**
 
 ### Execution flow
 
-**Single task:** Sonnet implements directly, commits, pushes, deploys. No subagents unless the task is clearly T0/T1 and batching saves work.
+**Single task (T0–T1):** Dispatch to a cheap worker subagent. Sonnet validates the result, then commits. Do NOT implement inline.
 
-**Batch (2+ tasks):** Sonnet dispatches cheap parallel workers via Task tool, validates results itself, then commits everything. Sonnet is both orchestrator AND validator — no separate validator subagent needed.
+**Single task (T2):** Dispatch to `composer-2.5-fast`. Only handle directly if the task has Sonnet-specific context that would take more tokens to explain than to implement.
 
-**Escalation:** Sonnet spawns Opus 4.6 as a subagent when it hits a wall (see below).
+**Single task (T3):** Sonnet implements directly OR dispatches `gpt-5.3-codex`. For Vertex Core / Firestore / field-critical T3, always escalate to Opus subagent.
 
-### Worker model by tier (for batch dispatch)
+**Batch (2+ tasks):** Classify each task into its tier, then dispatch ALL eligible workers **in parallel** in a single message using multiple Task tool calls. Do not serialize what can parallelize. Sonnet validates all results, then does one commit.
 
-| Tier | Worker | Fallback |
-|------|--------|----------|
-| T0 (exact replace) | `gpt-5.4-mini-medium` | `gemini-3-flash` |
-| T1 (mechanical multi-step) | `gpt-5.4-mini-medium` | `composer-2.5-fast` |
-| T2 (standard dev) | `composer-2.5-fast` | Sonnet handles directly |
-| T3 (code-heavy multi-file) | `gpt-5.3-codex` | Escalate to Opus |
-| T3 Vertex Core / field-critical | Opus subagent (always) | — |
+**Escalation:** Sonnet spawns Opus 4.6 as a subagent when it hits a wall. Opus is a rare escalation ceiling — not a co-pilot.
+
+### Worker model by tier (for dispatch)
+
+| Tier | Worker | Fallback | Parallel OK? |
+|------|--------|----------|--------------|
+| T0 (exact replace) | `gpt-5.4-mini-medium` | `gemini-3-flash` | Yes — always |
+| T1 (mechanical multi-step) | `gpt-5.4-mini-medium` | `composer-2.5-fast` | Yes — always |
+| T2 (standard dev) | `composer-2.5-fast` | Sonnet direct | Yes — when independent |
+| T3 (code-heavy multi-file) | `gpt-5.3-codex` | Sonnet direct | Yes — when independent |
+| T3 Vertex Core / field-critical | Opus subagent (always) | — | Yes — when independent |
+
+**Parallel dispatch rule:** If two or more tasks touch different files and have no dependency on each other's output, dispatch them in **one message** with multiple Task tool calls. Never serialize independent workers to save tokens — parallel dispatch saves wall-clock time and the overhead is negligible.
 
 ### Escalation (Sonnet → Opus subagent)
 
-Sonnet spawns an Opus subagent when confidence drops below ~70% or the task requires judgment Sonnet can't provide. This is the expected safety valve — not a failure.
+Opus is spawned only when Sonnet genuinely cannot proceed without risking a wrong architectural decision. This is a rare safety valve.
 
 **Escalate when:**
 - Complex state machines, race conditions, non-obvious dependency ordering
@@ -111,7 +127,7 @@ These rules exist so **`MODEL_DOSSIER.md`** stays the agent’s **living notes**
    - **LOW / T0–T1** and chat might be **Strong** → note they may switch **down** to the named cheaper tier for this task.
    - **HIGH / UNCERTAIN / T3+** and minimum is **Strong** → insist on switching **up** before implementation after they clear the gate.
 
-6. **Sonnet-default: dispatch cheap workers for batches, escalate to Opus for hard tasks.** When Sonnet 4.6 is active, it handles single tasks directly and dispatches parallel workers for batch work. Opus 4.6 is spawned as a subagent only for T3 Vertex Core / field-critical / UNCERTAIN tasks or when Sonnet escalates. See § Sonnet-Default Execution Model above.
+6. **Sonnet-default: always dispatch the cheapest capable worker, parallelize when possible, escalate to Opus only when stuck.** Sonnet does NOT implement directly unless no cheaper worker fits. Dispatch T0–T1 to mini/flash, T2 to Composer 2.5, T3 to Codex — in parallel whenever tasks are independent. Opus 4.6 is a rare last resort for T3 Vertex Core / field-critical / UNCERTAIN. See § Sonnet-Default Execution Model above.
 
 If `.cursorrules` §6 mandates **§6C** escalation for HIGH/UNCERTAIN, output that block when required; the dossier does not override safety stops. **§6G** still requires the model gate before implementation.
 
