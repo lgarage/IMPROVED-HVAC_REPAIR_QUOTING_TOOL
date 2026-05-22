@@ -119,6 +119,46 @@ When dispatching the validator, the orchestrator MUST include:
 4. **Known constraints** (don't break X, must preserve Y)
 5. **Pass criteria** — specific things to check
 
+### Performance tracking (confidence feedback loop)
+
+**Every OWV cycle must update the scorecard.** After validation completes (pass, fail, or escalate), the orchestrator logs the worker's performance so future dispatches use real data, not guesses.
+
+**What to log per OWV cycle:**
+
+| Field | Value |
+|-------|-------|
+| Worker model | Exact model slug used (e.g. `gpt-5.4-mini-medium`) |
+| Task tier | T0–T3 classification |
+| Task domain | Field app bugfix / UI-CSS / Firestore / Admin / SDK / Governance |
+| Outcome | `pass` (first try) / `pass-retry` (needed re-dispatch) / `fail` (Opus took over) / `escalate` (Sonnet couldn't validate) |
+| Validator verdict | `pass` / `fail-minor` / `fail-major` / `escalate` |
+| Confidence delta | Orchestrator's confidence change (e.g. started 90%, ended 95% → +5) |
+
+**Where it goes:**
+
+1. **Dossier outcome log** (`MODEL_DOSSIER.md § Outcome log`) — standard row, but the `Note` field must include the **worker model** and **validator verdict**. Format: `OWV: Worker=<model>, Validator=<pass/fail/escalate>. <1 sentence>.`
+
+2. **Scorecard auto-sync** — the hook (`.cursor/hooks/sync-scorecard.js`) picks up the new row and updates the scorecard cells automatically. The worker model's confidence in that job shape adjusts based on outcome.
+
+3. **`model-scorecard.canvas.tsx` RECENT_ROWS** — orchestrator updates the inline array so the canvas reflects the latest 10 rows (same as non-OWV logging).
+
+**Confidence adjustment rules:**
+
+| Outcome | Confidence effect on worker model |
+|---------|-----------------------------------|
+| `pass` (first try) | +2–5% for that job shape |
+| `pass-retry` | +0% (neutral — needed help) |
+| `fail` (Opus took over) | −3–5% for that job shape |
+| `escalate` | No change to worker (Sonnet's limitation, not worker's) |
+
+**When to skip logging:**
+
+- T0 exact-replace tasks that pass on first try (no signal gained — already known trivial)
+- Duplicate patterns already logged ≥3 times with same outcome
+- Use the same "substantive + adds signal" bar from `MODEL_DOSSIER.md § Logging reference card`
+
+**Progressive learning:** Over time, if a worker model consistently passes at a higher tier than expected (e.g. GPT-5.4 Mini passing T2 tasks), the orchestrator should **promote** it in the Worker model selection table. Conversely, if a model consistently fails at its assigned tier, **demote** it. Update the table in this file when ≥3 rows of consistent signal exist.
+
 ---
 
 ## Subagent exemption (READ FIRST — overrides §6B gate)

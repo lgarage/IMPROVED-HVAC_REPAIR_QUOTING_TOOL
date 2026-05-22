@@ -421,7 +421,7 @@ const SESSION_BUGS: Bug[] = [
   {
     id: '41',
     title: 'Dispatcher ticket modal: crew changes should auto-set status',
-    status: 'pending',
+    status: 'completed',
     file: 'service_call.js, dispatcher/js/ticket_manager.js',
     lineRef:
       'service_call.js ~1632-1638 (ticket modal tech multi-select callback), ~1694-1709 (persistTicketDetailsModal status sync); dispatcher/js/ticket_manager.js ~335-374 (multi-select change handler)',
@@ -434,7 +434,13 @@ const SESSION_BUGS: Bug[] = [
       'Checking or unchecking a tech only updated the dropdown summary; ticket status and sidebar badge stayed stale until manual save.',
     after:
       'Crew changes immediately save to localStorage + Firestore and rerender the board so the sidebar badge reflects the current status right away.',
-    userTestSteps: [],
+    userTestSteps: [
+      'Hard-refresh the dispatcher and open ticket SC-1001 / Acme HVAC',
+      'Expand Assigned technicians, check DAN DAY — expect status to switch to Assigned immediately',
+      'Watch the sidebar card update in place without clicking Save',
+      'Uncheck the only tech while status is Assigned — expect the status to return to Unassigned',
+    ],
+    commit: '7de38f6',
   },
 ];
 

@@ -102,6 +102,8 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 
 **Row:** `Date | Task ≤100 chars | Class | Arch | Tier | Conf start% | Conf after% | Tier fit | Outcome | Model + 1 sentence ≤80 chars`
 
+**OWV rows:** When work was done via the Orchestrator-Worker-Validator pattern, the `Note` field MUST use this format: `OWV: Worker=<picker name>, Validator=<pass/fail/escalate>. <context>.` The `Tier used` column reflects the **worker model's tier** (not Opus), since that's where cost was spent. Example: `OWV: Worker=GPT-5.4 Mini, Validator=pass. Single-line fix, first-try pass.`
+
 **Defaults when user silent:** Outcome = `ok`, Tier fit = `ok`, Conf after ≥ Conf start.
 
 **Cluster rule:** ≥2 tasks same domain + Arch + risk → collapse to 1 row with `*(N tasks)*`.
