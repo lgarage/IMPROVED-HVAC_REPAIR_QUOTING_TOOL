@@ -16,150 +16,75 @@ See `.cursorrules` **§5B** for full rules and correct patterns.
 
 # Model selection (cost-aware)
 
-## Orchestrator-Worker-Validator (OWV) Pattern
+## Sonnet-Default Execution Model
 
-**When Opus 4.6 is the active chat model, it operates as an orchestrator — NOT an implementer.** Opus classifies tasks, dispatches work to cheaper models, and coordinates validation. This maximizes cost efficiency while preserving judgment quality.
+**Default session model: Sonnet 4.6.** One rule — Sonnet does the work directly. No orchestration overhead. Opus 4.6 is the escalation ceiling, firing only as a subagent when Sonnet is stuck.
 
-### Roles
+### Execution flow
 
-| Role | Model | Responsibility |
-|------|-------|----------------|
-| **Orchestrator** | Opus 4.6 (this chat) | Classify task, break into subtasks, dispatch workers, interpret validator results, commit/push/deploy, update canvases, communicate with user |
-| **Worker** | Cheapest capable model | Do the actual file edits / implementation. Dispatched via Task tool with explicit `model` param |
-| **Validator** | Sonnet 4.6 (`claude-4.6-sonnet-medium-thinking`) | Review worker output for correctness, completeness, style. Reports pass/fail + notes back to orchestrator |
+**Single task:** Sonnet implements directly, commits, pushes, deploys. No subagents unless the task is clearly T0/T1 and batching saves work.
 
-### Worker model selection (by task tier)
+**Batch (2+ tasks):** Sonnet dispatches cheap parallel workers via Task tool, validates results itself, then commits everything. Sonnet is both orchestrator AND validator — no separate validator subagent needed.
 
-| Task tier | Worker model | Fallback |
-|-----------|-------------|----------|
-| T0 (exact replace, 1-line) | `gpt-5.4-mini-medium` | `gemini-3-flash` |
+**Escalation:** Sonnet spawns Opus 4.6 as a subagent when it hits a wall (see below).
+
+### Worker model by tier (for batch dispatch)
+
+| Tier | Worker | Fallback |
+|------|--------|----------|
+| T0 (exact replace) | `gpt-5.4-mini-medium` | `gemini-3-flash` |
 | T1 (mechanical multi-step) | `gpt-5.4-mini-medium` | `composer-2.5-fast` |
-| T2 (standard dev, low-risk) | `composer-2.5-fast` | `claude-4.6-sonnet-medium-thinking` |
-| T2 (standard dev, med-risk) | `claude-4.6-sonnet-medium-thinking` | `gpt-5.4-medium` |
-| T3 (code-heavy multi-file) | `gpt-5.3-codex` | `gpt-5.5-medium` |
-| T3 Vertex Core / field-critical | Opus implements directly (no delegation) | — |
+| T2 (standard dev) | `composer-2.5-fast` | Sonnet handles directly |
+| T3 (code-heavy multi-file) | `gpt-5.3-codex` | Escalate to Opus |
+| T3 Vertex Core / field-critical | Opus subagent (always) | — |
 
-### Flow
+### Escalation (Sonnet → Opus subagent)
 
-```
-1. User sends task → Opus classifies (T0–T4, risk level)
-2. Opus writes detailed worker prompt (file paths, exact changes, context)
-3. Opus dispatches worker as background subagent (Task tool, model param set)
-4. Worker completes → Opus dispatches Sonnet 4.6 validator subagent
-   - Validator reads the diff/output
-   - Checks: correctness, completeness, no regressions, style
-   - Returns: pass/fail/ESCALATE + notes
-5. If PASS → Opus commits, pushes, deploys, updates canvas
-6. If FAIL (minor) → Opus dispatches Sonnet to fix directly
-7. If FAIL (major) → Opus re-dispatches worker with corrections OR handles directly
-8. If ESCALATE → Opus takes over directly (see § Escalation below)
-```
+Sonnet spawns an Opus subagent when confidence drops below ~70% or the task requires judgment Sonnet can't provide. This is the expected safety valve — not a failure.
 
-### Escalation (Sonnet → Opus)
+**Escalate when:**
+- Complex state machines, race conditions, non-obvious dependency ordering
+- Architectural decisions affecting multiple systems
+- Firestore security rules / tenant isolation
+- Ambiguous requirements where a wrong guess could break prod
+- T3 Vertex Core / Firestore writes / tenant-critical / field-critical (always Opus)
 
-Sonnet 4.6 (whether acting as validator or worker) can **escalate to Opus** when it hits a wall. Sonnet signals this by returning `ESCALATE` in its final response with a reason.
-
-**When Sonnet should escalate:**
-
-- Logic it can't confidently reason about (complex state machines, race conditions)
-- Architectural decisions that affect multiple systems
-- Firestore security rules / tenant isolation concerns
-- Ambiguous requirements where the wrong choice could break prod
-- Multi-file changes with non-obvious dependency ordering
-- Anything where its confidence is below ~70%
-
-**Escalation format (Sonnet returns this to Opus):**
-
+**Escalation format** (Sonnet includes this in its Task prompt to Opus):
 ```
 STATUS: ESCALATE
-REASON: <1-2 sentences explaining what's blocking>
-ATTEMPTED: <what Sonnet tried or considered>
-SUGGESTION: <best guess if it has one, or "needs architectural decision">
+REASON: <1-2 sentences>
+ATTEMPTED: <what was tried>
+SUGGESTION: <best guess or "needs architectural decision">
 ```
 
-**What Opus does on escalation:**
+### Subagent prompt discipline (anti-bloat)
 
-1. Reads Sonnet's escalation report
-2. Either implements the fix directly OR makes the architectural decision and re-dispatches to Sonnet/worker with the answer
-3. If Opus re-dispatches, includes the decision context so the subagent doesn't hit the same wall
+| Prompt type | Token target | Include only |
+|-------------|-------------|--------------|
+| Worker (T0–T1) | ≤300 | file path, before/after, scope boundary |
+| Worker (T2) | ≤600 | file path, before/after, one-line context, scope boundary |
+| Worker (T3) | ≤1000 | same + dependency notes |
+| Escalation to Opus | ≤400 | ESCALATE block + file paths + what was tried |
 
-**Escalation is not failure.** It's the expected safety valve. Better to escalate than to guess wrong on a field-critical path.
+**Never include in subagent prompts:** execution pattern rules, dossier content, canvas context (unless editing a canvas), full file dumps when line ranges suffice, conversation history beyond what's directly relevant.
 
-### When Opus implements directly (skip OWV)
+**Batch T0/T1 tasks** touching the same file into one worker dispatch — don't spawn 5 subagents for 5 one-liners.
 
-- T3 Vertex Core / Firestore writes / tenant-critical / field-critical
-- UNCERTAIN classification where judgment > speed
-- Validation failures that need architectural decisions
-- User explicitly requests Opus to handle it
-
-### Orchestrator responsibilities (never delegated)
-
-- `git add` + `git commit` + `git push`
-- `firebase deploy`
-- Canvas updates (`bug-report-tracker`, `current-state`, etc.)
-- `PROJECT_STATUS/` file updates (CURRENT_STATE, MODEL_DOSSIER, ROADMAP)
-- User communication and gate management
-- Final judgment on pass/fail when validator is unsure
-
-### Worker prompt requirements
-
-Keep prompts **tight — no preamble, no restating rules the subagent already knows.** Target: ≤300 tokens for T0–T1, ≤600 for T2, ≤1000 for T3.
-
-Include ONLY:
-1. File path(s)
-2. Before/After (code or description)
-3. One-line context (why)
-4. Scope boundary (what NOT to touch)
-
-Omit: greetings, motivation, architecture history, "please" wrappers, restating the OWV rules.
-
-### Validator prompt requirements
-
-Target: ≤200 tokens. Include ONLY:
-1. Task summary (one sentence)
-2. File path(s) changed
-3. Pass criteria (bullet list)
-
-Omit: full context dump, restating what the worker was told, architecture background.
-
-### Performance tracking (confidence feedback loop)
+### Performance tracking
 
 **Log only when signal is gained.** Skip T0 first-try passes and duplicate patterns (≥3 rows same outcome).
 
-**OWV log format** (single dossier row, `Note` field): `OWV: Worker=<model>, V=<pass/fail/escalate>. <≤60 chars>.`
+Dossier row `Note` format for batched/delegated work: `Sonnet-direct` or `Batch: Worker=<model>, <≤50 chars>.`
 
-**Confidence adjustment:** pass=+2–5%, pass-retry=0%, fail=−3–5%, escalate=no worker change.
+**Confidence adjustment:** pass first-try = +2–5%, pass-retry = 0%, fail/escalated = −3–5% for that worker model in that domain.
 
-**Promote/demote** worker models in the tier table when ≥3 consistent rows of signal exist.
-
-### Token discipline (anti-bloat)
-
-**OWV exists to save cost, not add overhead.** These hard limits prevent the pattern from eating its own savings:
-
-| Item | Max tokens | Rule |
-|------|-----------|------|
-| Worker prompt | 1000 | Shorter for lower tiers. No prose, no rules recap. |
-| Validator prompt | 200 | Just task + files + pass criteria. |
-| Escalation report | 150 | 4 fields, no essays. |
-| Dossier log Note | 80 chars | Same as non-OWV rows. |
-| Orchestrator thinking (visible) | 2–3 sentences | User sees "dispatching X to Y" — not a paragraph. |
-
-**What to NEVER include in subagent prompts:**
-- The OWV rules themselves (subagents don't need to know they're in a pattern)
-- Model dossier content (subagents skip the dossier per exemption)
-- Canvas/tracker context (unless the task edits a canvas)
-- Full file contents when line ranges suffice
-- Prior conversation history beyond what's directly relevant
-
-**Collapse multiple T0/T1 tasks into one worker dispatch** when they touch the same file. Don't spawn 5 subagents for 5 one-liners — batch them.
-
-**Skip validation for trivial passes.** If the worker's task is T0 (exact string replace) and the orchestrator can verify correctness by reading 1–3 lines, skip the Sonnet validator entirely. Validation adds value on T2+ where judgment matters.
+**Promote/demote** worker models in the tier table above when ≥3 consistent rows of signal exist.
 
 ---
 
 ## Subagent exemption (READ FIRST — overrides §6B gate)
 
-**Background subagents spawned by a parent agent via the Task tool are PRE-APPROVED.** The parent (Opus 4.6 orchestrator) already cleared the model gate with the user. If you are a subagent:
+**Background subagents spawned by a parent agent via the Task tool are PRE-APPROVED.** The parent session (typically Sonnet 4.6, or Opus 4.6 for escalated tasks) already cleared the model gate with the user. If you are a subagent:
 
 1. **SKIP the model gate entirely** — no §6B, no §6B1, no §6G, no "proceed" request
 2. **SKIP reading `MODEL_DOSSIER.md`** — the parent already classified the task
@@ -186,7 +111,7 @@ These rules exist so **`MODEL_DOSSIER.md`** stays the agent’s **living notes**
    - **LOW / T0–T1** and chat might be **Strong** → note they may switch **down** to the named cheaper tier for this task.
    - **HIGH / UNCERTAIN / T3+** and minimum is **Strong** → insist on switching **up** before implementation after they clear the gate.
 
-6. **Opus 4.6 uses the OWV pattern by default.** When Opus 4.6 is the active model, follow the **Orchestrator-Worker-Validator** pattern (see § OWV above): dispatch implementation to cheap workers, validate with Sonnet 4.6, only implement directly for T3 Vertex Core / field-critical / UNCERTAIN tasks. Other frontier models (Sonnet 4.6, GPT-5.5, Codex 5.3) may also offload independent low-risk subtasks to cheaper background subagents when beneficial.
+6. **Sonnet-default: dispatch cheap workers for batches, escalate to Opus for hard tasks.** When Sonnet 4.6 is active, it handles single tasks directly and dispatches parallel workers for batch work. Opus 4.6 is spawned as a subagent only for T3 Vertex Core / field-critical / UNCERTAIN tasks or when Sonnet escalates. See § Sonnet-Default Execution Model above.
 
 If `.cursorrules` §6 mandates **§6C** escalation for HIGH/UNCERTAIN, output that block when required; the dossier does not override safety stops. **§6G** still requires the model gate before implementation.
 
