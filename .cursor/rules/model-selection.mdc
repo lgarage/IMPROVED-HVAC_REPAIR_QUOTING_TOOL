@@ -103,61 +103,57 @@ SUGGESTION: <best guess if it has one, or "needs architectural decision">
 
 ### Worker prompt requirements
 
-When dispatching a worker, the orchestrator MUST include:
-1. **Exact file path(s)** to edit
-2. **Before/After** code (or clear description of change)
-3. **Context** — why this change is needed, what the surrounding code does
-4. **Verification** — how the worker should confirm its own work (lints, patterns)
-5. **Scope boundary** — what NOT to touch
+Keep prompts **tight — no preamble, no restating rules the subagent already knows.** Target: ≤300 tokens for T0–T1, ≤600 for T2, ≤1000 for T3.
+
+Include ONLY:
+1. File path(s)
+2. Before/After (code or description)
+3. One-line context (why)
+4. Scope boundary (what NOT to touch)
+
+Omit: greetings, motivation, architecture history, "please" wrappers, restating the OWV rules.
 
 ### Validator prompt requirements
 
-When dispatching the validator, the orchestrator MUST include:
-1. **What the worker was asked to do** (original task summary)
-2. **Files changed** (paths for the validator to read)
-3. **Expected behavior** after the change
-4. **Known constraints** (don't break X, must preserve Y)
-5. **Pass criteria** — specific things to check
+Target: ≤200 tokens. Include ONLY:
+1. Task summary (one sentence)
+2. File path(s) changed
+3. Pass criteria (bullet list)
+
+Omit: full context dump, restating what the worker was told, architecture background.
 
 ### Performance tracking (confidence feedback loop)
 
-**Every OWV cycle must update the scorecard.** After validation completes (pass, fail, or escalate), the orchestrator logs the worker's performance so future dispatches use real data, not guesses.
+**Log only when signal is gained.** Skip T0 first-try passes and duplicate patterns (≥3 rows same outcome).
 
-**What to log per OWV cycle:**
+**OWV log format** (single dossier row, `Note` field): `OWV: Worker=<model>, V=<pass/fail/escalate>. <≤60 chars>.`
 
-| Field | Value |
-|-------|-------|
-| Worker model | Exact model slug used (e.g. `gpt-5.4-mini-medium`) |
-| Task tier | T0–T3 classification |
-| Task domain | Field app bugfix / UI-CSS / Firestore / Admin / SDK / Governance |
-| Outcome | `pass` (first try) / `pass-retry` (needed re-dispatch) / `fail` (Opus took over) / `escalate` (Sonnet couldn't validate) |
-| Validator verdict | `pass` / `fail-minor` / `fail-major` / `escalate` |
-| Confidence delta | Orchestrator's confidence change (e.g. started 90%, ended 95% → +5) |
+**Confidence adjustment:** pass=+2–5%, pass-retry=0%, fail=−3–5%, escalate=no worker change.
 
-**Where it goes:**
+**Promote/demote** worker models in the tier table when ≥3 consistent rows of signal exist.
 
-1. **Dossier outcome log** (`MODEL_DOSSIER.md § Outcome log`) — standard row, but the `Note` field must include the **worker model** and **validator verdict**. Format: `OWV: Worker=<model>, Validator=<pass/fail/escalate>. <1 sentence>.`
+### Token discipline (anti-bloat)
 
-2. **Scorecard auto-sync** — the hook (`.cursor/hooks/sync-scorecard.js`) picks up the new row and updates the scorecard cells automatically. The worker model's confidence in that job shape adjusts based on outcome.
+**OWV exists to save cost, not add overhead.** These hard limits prevent the pattern from eating its own savings:
 
-3. **`model-scorecard.canvas.tsx` RECENT_ROWS** — orchestrator updates the inline array so the canvas reflects the latest 10 rows (same as non-OWV logging).
+| Item | Max tokens | Rule |
+|------|-----------|------|
+| Worker prompt | 1000 | Shorter for lower tiers. No prose, no rules recap. |
+| Validator prompt | 200 | Just task + files + pass criteria. |
+| Escalation report | 150 | 4 fields, no essays. |
+| Dossier log Note | 80 chars | Same as non-OWV rows. |
+| Orchestrator thinking (visible) | 2–3 sentences | User sees "dispatching X to Y" — not a paragraph. |
 
-**Confidence adjustment rules:**
+**What to NEVER include in subagent prompts:**
+- The OWV rules themselves (subagents don't need to know they're in a pattern)
+- Model dossier content (subagents skip the dossier per exemption)
+- Canvas/tracker context (unless the task edits a canvas)
+- Full file contents when line ranges suffice
+- Prior conversation history beyond what's directly relevant
 
-| Outcome | Confidence effect on worker model |
-|---------|-----------------------------------|
-| `pass` (first try) | +2–5% for that job shape |
-| `pass-retry` | +0% (neutral — needed help) |
-| `fail` (Opus took over) | −3–5% for that job shape |
-| `escalate` | No change to worker (Sonnet's limitation, not worker's) |
+**Collapse multiple T0/T1 tasks into one worker dispatch** when they touch the same file. Don't spawn 5 subagents for 5 one-liners — batch them.
 
-**When to skip logging:**
-
-- T0 exact-replace tasks that pass on first try (no signal gained — already known trivial)
-- Duplicate patterns already logged ≥3 times with same outcome
-- Use the same "substantive + adds signal" bar from `MODEL_DOSSIER.md § Logging reference card`
-
-**Progressive learning:** Over time, if a worker model consistently passes at a higher tier than expected (e.g. GPT-5.4 Mini passing T2 tasks), the orchestrator should **promote** it in the Worker model selection table. Conversely, if a model consistently fails at its assigned tier, **demote** it. Update the table in this file when ≥3 rows of consistent signal exist.
+**Skip validation for trivial passes.** If the worker's task is T0 (exact string replace) and the orchestrator can verify correctness by reading 1–3 lines, skip the Sonnet validator entirely. Validation adds value on T2+ where judgment matters.
 
 ---
 
