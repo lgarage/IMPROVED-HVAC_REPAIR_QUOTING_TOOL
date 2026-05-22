@@ -48,11 +48,42 @@ See `.cursorrules` **§5B** for full rules and correct patterns.
 4. Worker completes → Opus dispatches Sonnet 4.6 validator subagent
    - Validator reads the diff/output
    - Checks: correctness, completeness, no regressions, style
-   - Returns: pass/fail + notes
+   - Returns: pass/fail/ESCALATE + notes
 5. If PASS → Opus commits, pushes, deploys, updates canvas
 6. If FAIL (minor) → Opus dispatches Sonnet to fix directly
 7. If FAIL (major) → Opus re-dispatches worker with corrections OR handles directly
+8. If ESCALATE → Opus takes over directly (see § Escalation below)
 ```
+
+### Escalation (Sonnet → Opus)
+
+Sonnet 4.6 (whether acting as validator or worker) can **escalate to Opus** when it hits a wall. Sonnet signals this by returning `ESCALATE` in its final response with a reason.
+
+**When Sonnet should escalate:**
+
+- Logic it can't confidently reason about (complex state machines, race conditions)
+- Architectural decisions that affect multiple systems
+- Firestore security rules / tenant isolation concerns
+- Ambiguous requirements where the wrong choice could break prod
+- Multi-file changes with non-obvious dependency ordering
+- Anything where its confidence is below ~70%
+
+**Escalation format (Sonnet returns this to Opus):**
+
+```
+STATUS: ESCALATE
+REASON: <1-2 sentences explaining what's blocking>
+ATTEMPTED: <what Sonnet tried or considered>
+SUGGESTION: <best guess if it has one, or "needs architectural decision">
+```
+
+**What Opus does on escalation:**
+
+1. Reads Sonnet's escalation report
+2. Either implements the fix directly OR makes the architectural decision and re-dispatches to Sonnet/worker with the answer
+3. If Opus re-dispatches, includes the decision context so the subagent doesn't hit the same wall
+
+**Escalation is not failure.** It's the expected safety valve. Better to escalate than to guess wrong on a field-critical path.
 
 ### When Opus implements directly (skip OWV)
 

@@ -217,8 +217,9 @@ git add -A; git commit -m "message"; git push
 - **Opus 4.6** = orchestrator (classifies, dispatches, coordinates, commits/pushes/deploys)
 - **Cheap workers** (GPT-5.4 Mini, Gemini 3 Flash, Composer 2.5, Codex 5.3) = implementation
 - **Sonnet 4.6** = validator (reviews worker output, reports pass/fail)
+- **Escalation:** Sonnet (validator or worker) returns `STATUS: ESCALATE` + reason when it can't confidently proceed → Opus takes over directly or re-dispatches with the missing context
 
-**Exceptions (Opus implements directly):** T3 Vertex Core / Firestore / tenant-critical / field-critical, UNCERTAIN classification, validation failures needing architectural judgment.
+**Exceptions (Opus implements directly):** T3 Vertex Core / Firestore / tenant-critical / field-critical, UNCERTAIN classification, validation failures needing architectural judgment, Sonnet escalation.
 
 **The model gate (§6B) still applies to the orchestrator session.** The user approves Opus 4.6 once at session start; all worker/validator subagents inherit that approval via the subagent exemption above.
 
