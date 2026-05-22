@@ -16,6 +16,19 @@ See `.cursorrules` **§5B** for full rules and correct patterns.
 
 # Model selection (cost-aware)
 
+## Subagent exemption (READ FIRST — overrides §6B gate)
+
+**Background subagents spawned by a parent agent via the Task tool are PRE-APPROVED.** The parent (Opus 4.6 orchestrator) already cleared the model gate with the user. If you are a subagent:
+
+1. **SKIP the model gate entirely** — no §6B, no §6B1, no §6G, no "proceed" request
+2. **SKIP reading `MODEL_DOSSIER.md`** — the parent already classified the task
+3. **Implement the task immediately** — start editing files in your first turn
+4. **Still commit + push + deploy** when done (mandatory final step still applies)
+
+**How to know you are a subagent:** Your first message is a detailed task description from a parent agent (not a human). It contains explicit implementation instructions (file paths, what to change, verification steps). If that describes your prompt → you are a subagent → **implement now, do not gate.**
+
+---
+
 ## Stop — before you touch the repo
 
 **Do not edit files, run mutating shell commands, or apply patches until the user replies with an approved line** (`.cursorrules` **§6§ Preamble**, **§6B1**, **§6G**): `Model switched — proceed`, `Override: … — proceed`, or `Pre-approved model: … — proceed`. That includes **documentation** and **one-line fixes**. Only **§6B1 narrow exception** (user put proceed + task in the **same** message) allows implementing in the first turn.

@@ -2,7 +2,7 @@
 
 > **STOP — READ BEFORE ANYTHING ELSE:**
 > 1. **Never skip `git add` + `git commit` + `git push`** after code changes. Do it automatically. The user must NEVER have to ask. See §5A.
-> 2. **Model gate (§6B1):** Do not edit files until user sends a proceed line. See §6.
+> 2. **Model gate (§6B1):** Do not edit files until user sends a proceed line. See §6. **Exception: subagents are pre-approved — see §6§ Subagent exemption.**
 > 3. **PowerShell only (§5B):** No `&&`, no heredocs, no bash subshells.
 
 ## 1. THE DOCUMENTATION PROTOCOL (STRICT)
@@ -197,6 +197,17 @@ git add -A; git commit -m "message"; git push
 ```
 
 ## 6. MODEL ESCALATION PROTOCOL
+
+### 6§ Subagent exemption (overrides entire §6 for background agents)
+
+**Background subagents spawned by a parent agent via the Task tool are PRE-APPROVED.** The parent (typically Opus 4.6 as orchestrator) already cleared the model gate with the user. Subagents MUST:
+
+1. **SKIP §6B, §6B1, §6G entirely** — no model recommendation, no "proceed" request
+2. **SKIP reading MODEL_DOSSIER.md** — the parent already classified the task
+3. **Implement immediately** — start editing files in your first turn
+4. **Still follow §5A** (commit + push) and deployment rules
+
+**Detection:** If your initial prompt is a detailed task description (not from a human user) containing file paths, specific changes to make, and verification steps, you are a subagent. **Skip all gates and implement now.**
 
 ### 6§ Preamble — non‑negotiable (read first)
 
