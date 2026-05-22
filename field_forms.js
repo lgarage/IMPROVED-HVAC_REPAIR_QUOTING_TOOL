@@ -644,6 +644,48 @@
     });
   }
 
+  /**
+   * Inject the two-photo unit-onboarding section at the bottom of the form
+   * (just above the action buttons) on the first Save tap when unit not on file.
+   * Changes the save button label to "Save & Add Unit".
+   */
+  function injectNewUnitPhotoSection() {
+    var body = document.getElementById("fieldFormModalBody");
+    var actions = body && body.querySelector(".field-form-actions");
+    if (!actions || document.getElementById("ffNewUnitPhotoSection")) return;
+
+    var sel = document.getElementById("fieldFormEquipmentSelect");
+    var synOpt = sel && sel.options[sel.selectedIndex];
+    var unitName = synOpt
+      ? String(synOpt.getAttribute("data-unit-name") || synOpt.text || "").replace(/\s*\(not yet on file\)$/i, "").trim()
+      : "this unit";
+
+    var section = document.createElement("div");
+    section.id = "ffNewUnitPhotoSection";
+    section.className = "ff-new-unit-wrap";
+    section.innerHTML =
+      '<div class="ff-new-unit-notice">\uD83D\uDCCD <strong>' + escapeHtml(unitName) + "</strong> isn\u2019t on file yet \u2014 snap these two photos to add it:</div>" +
+      '<div class="field-form-fieldwrap">' +
+      '<label class="field-form-label" for="ffNewUnitNameplatePhoto">\uD83D\uDCF8 Unit name tag (model + serial number) <span style="color:#e74c3c">*</span></label>' +
+      '<input type="file" accept="image/*;capture=camera" id="ffNewUnitNameplatePhoto" class="field-form-file"/>' +
+      '<div id="ffNewUnitNameplatePreview" class="ff-new-unit-preview hidden"></div>' +
+      "</div>" +
+      '<div class="field-form-fieldwrap">' +
+      '<label class="field-form-label" for="ffNewUnitOverallPhoto">\uD83D\uDCF8 Overall photo of unit <span style="color:#e74c3c">*</span></label>' +
+      '<input type="file" accept="image/*;capture=camera" id="ffNewUnitOverallPhoto" class="field-form-file"/>' +
+      '<div id="ffNewUnitOverallPreview" class="ff-new-unit-preview hidden"></div>' +
+      "</div>";
+
+    actions.parentNode.insertBefore(section, actions);
+    wireNewUnitPhotoPreview("ffNewUnitNameplatePhoto", "ffNewUnitNameplatePreview");
+    wireNewUnitPhotoPreview("ffNewUnitOverallPhoto", "ffNewUnitOverallPreview");
+
+    var saveBtn = document.getElementById("fieldFormSaveBtn");
+    if (saveBtn) saveBtn.textContent = "Save & Add Unit";
+
+    try { section.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) {}
+  }
+
   function closeFieldFormModal() {
     var m = document.getElementById("fieldFormModal");
     if (m) {
@@ -890,8 +932,16 @@
    * Returns the composite equipment ID ("customerId/locationId/docId") or null on failure.
    */
   async function createNewEquipmentFromOnboarding() {
-    var unitNameEl = document.getElementById("ffNewUnitName");
-    var unitName = unitNameEl ? String(unitNameEl.value || "").trim() : "";
+    /* Read unit name from the synthetic dropdown option (data-unit-name attribute) */
+    var sel = document.getElementById("fieldFormEquipmentSelect");
+    var synOpt = sel && sel.options[sel.selectedIndex];
+    var unitName = synOpt
+      ? String(synOpt.getAttribute("data-unit-name") || synOpt.text || "").replace(/\s*\(not yet on file\)$/i, "").trim()
+      : "";
+    if (!unitName) {
+      var unitNameEl = document.getElementById("ffNewUnitName");
+      unitName = unitNameEl ? String(unitNameEl.value || "").trim() : "";
+    }
     var etSel = document.getElementById("field_equipmentType");
     var equipmentType = etSel && etSel.value ? String(etSel.value) : "";
     var npInp = document.getElementById("ffNewUnitNameplatePhoto");
@@ -1001,8 +1051,8 @@
       "<label class=\"field-form-label\">Select Equipment</label>" +
       "<select id=\"fieldFormEquipmentSelect\" data-smart-equipment=\"true\" class=\"field-form-select\"></select>" +
       "<div id=\"fieldFormEquipmentVerifiedRow\" class=\"field-form-equipment-verified-row hidden\" role=\"status\" aria-live=\"polite\"></div>";
+    html += "<div id=\"ffNewUnitStatusNote\" class=\"hidden\" style=\"font-size:12px;color:#7dd3fc;padding:2px 2px 6px;line-height:1.4;\"></div>";
     html += renderEquipmentFlagsHtml();
-    html += "<div id=\"ffNewUnitOuter\" class=\"hidden\"></div>";
 
     fields.forEach(function (f, idx) {
       var name = f.name || "field_" + idx;
@@ -1174,26 +1224,26 @@
           }
         }
 
-        /* Auto-select detected unit OR show inline new-unit onboarding */
-        var outerEl = document.getElementById("ffNewUnitOuter");
+        /* Auto-select detected unit, or add a synthetic "not yet on file" option */
         if (_intentOpts.detectedUnit) {
           var matched = tryAutoSelectDetectedUnit(sel, _intentOpts.detectedUnit);
-          if (!matched && outerEl) {
-            outerEl.innerHTML = renderNewUnitOnboardingHtml(_intentOpts.detectedUnit);
-            outerEl.classList.remove("hidden");
-            wireNewUnitPhotoPreview("ffNewUnitNameplatePhoto", "ffNewUnitNameplatePreview");
-            wireNewUnitPhotoPreview("ffNewUnitOverallPhoto", "ffNewUnitOverallPreview");
-          }
-          /* Toggle onboarding when user manually changes the equipment select */
-          sel.addEventListener("change", function () {
-            var outer = document.getElementById("ffNewUnitOuter");
-            if (!outer) return;
-            if (sel.value) {
-              outer.classList.add("hidden");
-            } else if (outer.querySelector("#ffNewUnitWrap")) {
-              outer.classList.remove("hidden");
+          if (!matched) {
+            /* Unit not in Firestore — add a synthetic option so the field shows the unit name */
+            var safeName = escapeHtml(String(_intentOpts.detectedUnit));
+            var safeAttr = escapeAttr(String(_intentOpts.detectedUnit));
+            var synOpt = document.createElement("option");
+            synOpt.value = "__FF_NEW_UNIT__";
+            synOpt.setAttribute("data-unit-name", safeAttr);
+            synOpt.textContent = _intentOpts.detectedUnit + " (not yet on file)";
+            sel.appendChild(synOpt);
+            sel.value = "__FF_NEW_UNIT__";
+            /* Show a status note so the tech knows photos will be required on save */
+            var statusNote = document.getElementById("ffNewUnitStatusNote");
+            if (statusNote) {
+              statusNote.textContent = "\uD83D\uDCCD " + _intentOpts.detectedUnit + " \u2014 not on file. Photos will be required when you save.";
+              statusNote.classList.remove("hidden");
             }
-          });
+          }
         }
       });
     } else {
@@ -1585,16 +1635,19 @@
         ? window.SCAN_NEW_EQUIPMENT_VALUE
         : "__TP_SCAN_NEW_EQUIPMENT__";
 
-    /* New-unit onboarding: if the tech is adding a unit not yet in the system,
-       upload the photos and create the Equipment doc before saving the form. */
-    var ffNewUnitOuter = document.getElementById("ffNewUnitOuter");
-    if (ffNewUnitOuter && !ffNewUnitOuter.classList.contains("hidden") && (!equipmentId || equipmentId === scanVal)) {
+    var NEW_UNIT_SENTINEL = "__FF_NEW_UNIT__";
+
+    if (equipmentId === NEW_UNIT_SENTINEL) {
+      /* First Save tap: photo section not shown yet → inject it and scroll to it. */
+      if (!document.getElementById("ffNewUnitPhotoSection")) {
+        injectNewUnitPhotoSection();
+        return;
+      }
+      /* Second Save tap: photos should now be selected — upload, create Equipment, continue. */
       var newEqId = await createNewEquipmentFromOnboarding();
       if (!newEqId) return;
       equipmentId = newEqId;
-    }
-
-    if (!equipmentId || equipmentId === scanVal) {
+    } else if (!equipmentId || equipmentId === scanVal) {
       alert("Select an equipment unit (or scan a new data plate first).");
       return;
     }
