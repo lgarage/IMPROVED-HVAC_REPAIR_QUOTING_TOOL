@@ -2342,18 +2342,54 @@ function allowDrop(ev) {
     ev.preventDefault();
 }
 
-/** Dispatch board timeline is 7:00–17:00 (10 h); snap to 30-minute increments. */
-function snapBoardDecimalHoursToHalfHour(decimalHours) {
-    var d = Math.round(Number(decimalHours) * 2) / 2;
+/** Dispatch board timeline is 7:00–17:00 (10 h); snap to 15-minute increments. */
+function snapBoardDecimalHoursToQuarterHour(decimalHours) {
+    var d = Math.round(Number(decimalHours) * 4) / 4;
     if (d < 7) d = 7;
-    if (d > 16.5) d = 16.5;
+    if (d > 16.75) d = 16.75;
     return d;
 }
 
-function snapBoardDurationToHalfHour(durHours) {
-    var d = Math.round(Number(durHours) * 2) / 2;
-    if (d < 0.5) d = 0.5;
+function snapBoardDurationToQuarterHour(durHours) {
+    var d = Math.round(Number(durHours) * 4) / 4;
+    if (d < 0.25) d = 0.25;
     return d;
+}
+
+function getBoardTimelineSnapMetrics() {
+    var timeline = document.querySelector('.gantt-timeline');
+    if (!timeline || !timeline.parentElement) return null;
+
+    var containerWidth = timeline.parentElement.getBoundingClientRect().width;
+    if (!isFinite(containerWidth) || containerWidth <= 0) return null;
+
+    var segmentCount = 10;
+    if (currentBoardView === 'week') {
+        segmentCount = 7;
+    } else if (currentBoardView === 'month') {
+        var dateInput = document.getElementById('boardDateSelector').value;
+        var safeDate = dateInput ? new Date(dateInput + 'T12:00:00') : new Date();
+        segmentCount = new Date(safeDate.getFullYear(), safeDate.getMonth() + 1, 0).getDate();
+    }
+
+    var segmentWidthPx = containerWidth / segmentCount;
+    var pixelsPerHour = segmentWidthPx / 10;
+    var pixelsPerQuarterHour = pixelsPerHour / 4;
+
+    return {
+        containerWidth: containerWidth,
+        segmentCount: segmentCount,
+        segmentWidthPx: segmentWidthPx,
+        pixelsPerHour: pixelsPerHour,
+        pixelsPerQuarterHour: pixelsPerQuarterHour
+    };
+}
+
+function snapBoardPixelsToQuarterHour(px, metrics) {
+    if (!metrics || !isFinite(metrics.pixelsPerQuarterHour) || metrics.pixelsPerQuarterHour <= 0) {
+        return px;
+    }
+    return Math.round(px / metrics.pixelsPerQuarterHour) * metrics.pixelsPerQuarterHour;
 }
 
 function handleTimelineDrop(e) {
@@ -2413,7 +2449,7 @@ function handleTimelineDrop(e) {
         newDateStr = newD.toISOString().split('T')[0];
     }
 
-    dropTimeDecimal = snapBoardDecimalHoursToHalfHour(dropTimeDecimal);
+    dropTimeDecimal = snapBoardDecimalHoursToQuarterHour(dropTimeDecimal);
 
     let h = Math.floor(dropTimeDecimal);
     let m = Math.round((dropTimeDecimal - h) * 60);
@@ -2461,7 +2497,12 @@ let tlState = {
     startX: 0,
     startLeft: 0,
     startWidth: 0,
-    containerWidth: 0
+    startLeftPx: 0,
+    startWidthPx: 0,
+    currentLeftPx: 0,
+    currentWidthPx: 0,
+    containerWidth: 0,
+    metrics: null
 };
 
 function startTimelineDrag(e, id) {
@@ -2487,6 +2528,11 @@ function initTimelineAction(e) {
     tlState.startLeft = parseFloat(tlState.el.style.left) || 0;
     tlState.startWidth = parseFloat(tlState.el.style.width) || 0;
     tlState.containerWidth = tlState.el.parentElement.getBoundingClientRect().width;
+    tlState.startLeftPx = (tlState.startLeft / 100) * tlState.containerWidth;
+    tlState.startWidthPx = (tlState.startWidth / 100) * tlState.containerWidth;
+    tlState.currentLeftPx = tlState.startLeftPx;
+    tlState.currentWidthPx = tlState.startWidthPx;
+    tlState.metrics = getBoardTimelineSnapMetrics();
     
     window.addEventListener('mousemove', timelineMouseMove);
     window.addEventListener('mouseup', timelineMouseUp);
@@ -2495,34 +2541,58 @@ function initTimelineAction(e) {
 function timelineMouseMove(e) {
     if(!tlState.action) return;
     let deltaX = e.clientX - tlState.startX;
-    let deltaPercent = (deltaX / tlState.containerWidth) * 100;
+    let metrics = tlState.metrics || getBoardTimelineSnapMetrics();
+    let snapPx = metrics && isFinite(metrics.pixelsPerQuarterHour) && metrics.pixelsPerQuarterHour > 0
+        ? metrics.pixelsPerQuarterHour
+        : 0;
 
     if (tlState.action === 'drag') {
-        let newLeft = tlState.startLeft + deltaPercent;
-        if (newLeft < 0) newLeft = 0; 
-        if (newLeft + tlState.startWidth > 100) newLeft = 100 - tlState.startWidth; 
-        tlState.el.style.left = newLeft + '%';
+        let newLeftPx = snapBoardPixelsToQuarterHour(tlState.startLeftPx + deltaX, metrics);
+        if (newLeftPx < 0) newLeftPx = 0;
+        if (newLeftPx + tlState.startWidthPx > tlState.containerWidth) {
+            newLeftPx = tlState.containerWidth - tlState.startWidthPx;
+        }
+        tlState.currentLeftPx = newLeftPx;
+        tlState.currentWidthPx = tlState.startWidthPx;
+        tlState.el.style.left = (newLeftPx / tlState.containerWidth * 100) + '%';
         
     } else if (tlState.action === 'resize-right') {
-        let newWidth = tlState.startWidth + deltaPercent;
-        if (newWidth < 2.5) newWidth = 2.5; 
-        if (tlState.startLeft + newWidth > 100) newWidth = 100 - tlState.startLeft;
-        tlState.el.style.width = newWidth + '%';
+        let newWidthPx = snapBoardPixelsToQuarterHour(tlState.startWidthPx + deltaX, metrics);
+        if (!snapPx) {
+            newWidthPx = tlState.startWidthPx + deltaX;
+        }
+        if (snapPx && newWidthPx < snapPx) newWidthPx = snapPx;
+        if (tlState.startLeftPx + newWidthPx > tlState.containerWidth) {
+            newWidthPx = tlState.containerWidth - tlState.startLeftPx;
+        }
+        tlState.currentLeftPx = tlState.startLeftPx;
+        tlState.currentWidthPx = newWidthPx;
+        tlState.el.style.width = (newWidthPx / tlState.containerWidth * 100) + '%';
         
     } else if (tlState.action === 'resize-left') {
-        let newLeft = tlState.startLeft + deltaPercent;
-        let newWidth = tlState.startWidth - deltaPercent;
-        
-        if (newWidth < 2.5) { 
-            newLeft = tlState.startLeft + tlState.startWidth - 2.5;
-            newWidth = 2.5;
+        let rightEdgePx = tlState.startLeftPx + tlState.startWidthPx;
+        let newLeftPx = snapBoardPixelsToQuarterHour(tlState.startLeftPx + deltaX, metrics);
+        let newWidthPx = rightEdgePx - newLeftPx;
+
+        if (snapPx) {
+            if (newWidthPx < snapPx) {
+                newWidthPx = snapPx;
+                newLeftPx = rightEdgePx - newWidthPx;
+            }
         }
-        if (newLeft < 0) { 
-            newLeft = 0;
-            newWidth = tlState.startLeft + tlState.startWidth;
+
+        if (newLeftPx < 0) {
+            newLeftPx = 0;
+            newWidthPx = rightEdgePx;
         }
-        tlState.el.style.left = newLeft + '%';
-        tlState.el.style.width = newWidth + '%';
+        if (newLeftPx + newWidthPx > tlState.containerWidth) {
+            newWidthPx = tlState.containerWidth - newLeftPx;
+        }
+
+        tlState.currentLeftPx = newLeftPx;
+        tlState.currentWidthPx = newWidthPx;
+        tlState.el.style.left = (newLeftPx / tlState.containerWidth * 100) + '%';
+        tlState.el.style.width = (newWidthPx / tlState.containerWidth * 100) + '%';
     }
 }
 
@@ -2532,10 +2602,10 @@ function timelineMouseUp(e) {
     
     if(!tlState.action) return;
 
-    let finalLeft = parseFloat(tlState.el.style.left);
-    let finalWidth = parseFloat(tlState.el.style.width);
+    let finalLeft = typeof tlState.currentLeftPx === 'number' ? (tlState.currentLeftPx / tlState.containerWidth * 100) : parseFloat(tlState.el.style.left);
+    let finalWidth = typeof tlState.currentWidthPx === 'number' ? (tlState.currentWidthPx / tlState.containerWidth * 100) : parseFloat(tlState.el.style.width);
 
-    if (finalLeft === tlState.startLeft && finalWidth === tlState.startWidth) {
+    if (Math.abs(finalLeft - tlState.startLeft) < 0.001 && Math.abs(finalWidth - tlState.startWidth) < 0.001) {
         tlState.action = null;
         return; 
     }
@@ -2590,8 +2660,8 @@ function timelineMouseUp(e) {
         newDateStr = newD.toISOString().split('T')[0];
     }
 
-    newStartDecimal = snapBoardDecimalHoursToHalfHour(newStartDecimal);
-    newDuration = snapBoardDurationToHalfHour(newDuration);
+    newStartDecimal = snapBoardDecimalHoursToQuarterHour(newStartDecimal);
+    newDuration = snapBoardDurationToQuarterHour(newDuration);
 
     let h = Math.floor(newStartDecimal);
     let m = Math.round((newStartDecimal - h) * 60);
