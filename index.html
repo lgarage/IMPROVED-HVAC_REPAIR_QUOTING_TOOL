@@ -40,7 +40,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "IssueToolbar-2026-05-21";
+      window.VC_BUILD = "OrangeMic-2026-05-21";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -1376,9 +1376,9 @@
       .sc-input-with-voice .sc-voice-btn {
         flex-shrink: 0;
         touch-action: none;
-        background: #0ea5e9;
+        background: #f97316;
         color: #fff;
-        border: 1px solid #0284c7;
+        border: 1px solid #ea580c;
         border-left: none;
         border-radius: 0 8px 8px 0;
         padding: 10px 14px;
@@ -1410,7 +1410,7 @@
       }
       .sc-issue-field-toolbar {
         display: flex;
-        justify-content: flex-end;
+        justify-content: center;
         align-items: center;
         flex-wrap: wrap;
         gap: 10px;
@@ -1467,7 +1467,7 @@
         }
       }
       .sc-issue-field-toolbar .sc-issue-voice-btn {
-        background: #0ea5e9;
+        background: #f97316;
         color: #fff;
         border: none;
         border-radius: 8px;
