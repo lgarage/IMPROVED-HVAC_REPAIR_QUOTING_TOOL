@@ -1142,15 +1142,17 @@
       .vc-drag-handle {
         cursor: grab;
         font-size: 15px;
-        color: rgba(0,0,0,0.22);
-        padding: 0 7px 0 0;
+        color: #aaa;
+        padding: 2px 8px 2px 2px;
         line-height: 1;
         user-select: none;
         flex-shrink: 0;
         letter-spacing: -1px;
+        border-radius: 4px;
+        transition: color 0.1s, background 0.1s;
       }
-      .vc-drag-handle:hover { color: rgba(0,0,0,0.55); }
-      .vc-drag-handle:active { cursor: grabbing; }
+      .vc-drag-handle:hover { color: #555; background: rgba(0,0,0,0.06); }
+      .vc-drag-handle:active { cursor: grabbing; color: #333; }
       .glass-card.vc-panel-dragging {
         opacity: 0.4;
         outline: 2px dashed rgba(52,152,219,0.5);
