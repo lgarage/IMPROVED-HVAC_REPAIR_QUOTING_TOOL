@@ -1153,20 +1153,10 @@
       }
       .vc-drag-handle:hover { color: #555; background: rgba(0,0,0,0.06); }
       .vc-drag-handle:active { cursor: grabbing; color: #333; }
-      .glass-card.vc-panel-dragging {
-        opacity: 0.4;
-        outline: 2px dashed rgba(52,152,219,0.5);
+      /* Cards get will-change during pointer sort for GPU-composited transforms */
+      #serviceRequestList .glass-card {
+        will-change: transform;
       }
-      .vc-panel-drop-placeholder {
-        background: rgba(52,152,219,0.08);
-        border: 2px dashed rgba(52,152,219,0.45);
-        border-radius: 6px;
-        height: 0;
-        overflow: hidden;
-        transition: height 150ms ease;
-        margin-bottom: 4px;
-      }
-      .vc-panel-drop-placeholder.active { height: 54px; }
       .sc-tech-checkboxes {
         display: flex;
         flex-direction: column;

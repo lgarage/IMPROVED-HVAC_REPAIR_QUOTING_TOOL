@@ -1986,10 +1986,7 @@ function renderServiceBoard() {
     listContainer.innerHTML = '';
     let listCount = 0;
 
-    // Wire container for panel reorder drop
-    listContainer.ondragover = panelDragOver;
-    listContainer.ondrop = panelDrop;
-    listContainer.ondragleave = panelDragLeave;
+    // Panel reorder uses pointer events — no container drag handlers needed
 
     // Date window for left panel (same scope as Gantt)
     const ctx = getGanttDateContextForMap();
@@ -2059,9 +2056,9 @@ function renderServiceBoard() {
         const techAvatarsRow = buildSidebarTechAvatarsHtml(sc);
 
         let cardHTML = `
-            <div class="glass-card ${colorClass}" data-id="${sc.id}" data-panel-id="${sc.id}" draggable="true" ondragstart="drag(event, '${sc.id}')" ondragend="panelDragEnd()" ondblclick="openTicketDetails('${sc.id}')">
+            <div class="glass-card ${colorClass}" data-id="${sc.id}" data-panel-id="${sc.id}" draggable="true" ondragstart="drag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')">
                 <div class="tc-title" style="display:flex;align-items:center;">
-                    <span class="vc-drag-handle" draggable="true" ondragstart="panelDragStart(event,'${sc.id}')" title="Drag to reorder">⠿</span>
+                    <span class="vc-drag-handle" onpointerdown="panelPointerDown(event,'${sc.id}')" title="Drag to reorder" style="touch-action:none;">⠿</span>
                     <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 185px;">${sc.customerName}</span>
                     <span style="font-size:10px; color:#aaa;">${sc.ticketNum}${releaseBadge}${quoteBadge}${customerConfirmedBadge}</span>
                 </div>
@@ -2440,84 +2437,140 @@ function updateCurrentTimeLine() {
     }
 }
 
-// --- 0. Left-panel card reorder via drag handle ---
+// --- 0. Left-panel card reorder — pointer-events-based smooth sort ---
+// Uses pointermove/pointerup instead of HTML5 DnD so the card follows
+// the cursor directly and siblings animate with CSS transform transitions.
 
-var _panelDragSourceId = null;
+var _pSort = null; // active sort state
 
-function panelDragStart(event, id) {
-    event.stopPropagation(); // Don't trigger the card's Gantt drag
-    _panelDragSourceId = id;
-    event.dataTransfer.setData('vc-panel-reorder', id);
-    event.dataTransfer.effectAllowed = 'move';
-    // Defer opacity change so the drag ghost still looks normal
-    setTimeout(function () {
-        var card = document.querySelector('.glass-card[data-panel-id="' + id + '"]');
-        if (card) card.classList.add('vc-panel-dragging');
-    }, 0);
-}
-
-function _getPanelPlaceholder() {
-    var el = document.getElementById('vc-panel-placeholder');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'vc-panel-placeholder';
-        el.className = 'vc-panel-drop-placeholder';
-    }
-    return el;
-}
-
-function panelDragOver(event) {
+function panelPointerDown(event, id) {
+    if (event.button !== undefined && event.button !== 0) return; // left-click / touch only
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-    var target = event.target.closest
-        ? event.target.closest('.glass-card[data-panel-id]')
-        : null;
-    if (!target) return;
-    if (target.getAttribute('data-panel-id') === _panelDragSourceId) return;
-    var rect = target.getBoundingClientRect();
-    var insertBefore = event.clientY < rect.top + rect.height / 2;
-    var ph = _getPanelPlaceholder();
-    var ref = insertBefore ? target : target.nextSibling;
-    if (target.parentNode && target.parentNode.contains(ph) && ph.nextSibling === ref) return; // already in position
-    if (target.parentNode) target.parentNode.insertBefore(ph, ref);
-    requestAnimationFrame(function () { ph.classList.add('active'); });
-}
+    event.stopPropagation();
 
-function panelDragLeave(event) {
     var container = document.getElementById('serviceRequestList');
     if (!container) return;
-    if (event.relatedTarget && container.contains(event.relatedTarget)) return;
-    var ph = document.getElementById('vc-panel-placeholder');
-    if (ph) { ph.classList.remove('active'); setTimeout(function () { if (ph.parentNode) ph.remove(); }, 150); }
+
+    // Snapshot all card positions at drag start (before any transforms)
+    var cardEls = Array.from(container.querySelectorAll('.glass-card[data-panel-id]'));
+    if (cardEls.length < 2) return;
+
+    var cards = cardEls.map(function (el) {
+        var r = el.getBoundingClientRect();
+        return { el: el, id: el.getAttribute('data-panel-id'), origTop: r.top, height: r.height, origMid: r.top + r.height / 2 };
+    });
+
+    var srcIdx = cards.findIndex(function (c) { return c.id === id; });
+    if (srcIdx === -1) return;
+
+    var src = cards[srcIdx];
+    // Slot height = gap between consecutive card tops (includes margin)
+    var slotH = cards.length > 1
+        ? (cards[srcIdx < cards.length - 1 ? srcIdx + 1 : srcIdx - 1].origTop - src.origTop) * (srcIdx < cards.length - 1 ? 1 : -1)
+        : src.height + 4;
+
+    // Create floating ghost that follows cursor
+    var ghost = src.el.cloneNode(true);
+    ghost.removeAttribute('data-panel-id');
+    ghost.style.cssText =
+        'position:fixed;left:' + src.el.getBoundingClientRect().left + 'px;' +
+        'top:' + src.origTop + 'px;' +
+        'width:' + src.el.offsetWidth + 'px;' +
+        'z-index:9999;pointer-events:none;margin:0;' +
+        'box-shadow:0 8px 28px rgba(0,0,0,0.18);' +
+        'transform:scale(1.02);opacity:0.96;' +
+        'transition:box-shadow 0.15s,transform 0.15s;border-radius:6px;';
+    document.body.appendChild(ghost);
+
+    // Dim source card in place
+    src.el.style.opacity = '0.25';
+    src.el.style.transition = 'none';
+
+    // Enable smooth transitions on all non-source cards
+    cards.forEach(function (c, i) {
+        if (i === srcIdx) return;
+        c.el.style.transition = 'transform 180ms cubic-bezier(.25,.8,.25,1)';
+        c.el.style.transform = '';
+    });
+
+    _pSort = {
+        id: id, ghost: ghost, container: container,
+        cards: cards, srcIdx: srcIdx, curIdx: srcIdx,
+        startY: event.clientY, ghostStartTop: src.origTop, slotH: slotH
+    };
+
+    // Capture pointer so move/up fire even outside the element
+    try { event.target.setPointerCapture(event.pointerId); } catch (e) {}
+
+    document.addEventListener('pointermove', _panelOnMove, { passive: false });
+    document.addEventListener('pointerup',   _panelOnUp,   { once: true });
+    document.addEventListener('pointercancel', _panelOnUp, { once: true });
 }
 
-function panelDrop(event) {
+function _panelOnMove(event) {
+    if (!_pSort) return;
     event.preventDefault();
-    var sourceId = event.dataTransfer.getData('vc-panel-reorder');
-    if (!sourceId) return;
-    var ph = document.getElementById('vc-panel-placeholder');
-    var container = document.getElementById('serviceRequestList');
-    var sourceCard = container ? container.querySelector('.glass-card[data-panel-id="' + sourceId + '"]') : null;
-    if (sourceCard) sourceCard.classList.remove('vc-panel-dragging');
-    if (ph && sourceCard && ph.parentNode) {
-        ph.parentNode.insertBefore(sourceCard, ph);
-        ph.remove();
-    } else if (ph) {
-        ph.remove();
+
+    var dy = event.clientY - _pSort.startY;
+    _pSort.ghost.style.top = (_pSort.ghostStartTop + dy) + 'px';
+
+    var ghostMid = _pSort.ghostStartTop + dy + _pSort.slotH / 2;
+    var newIdx = 0;
+    _pSort.cards.forEach(function (c, i) {
+        if (i === _pSort.srcIdx) return;
+        if (ghostMid > c.origMid) newIdx = i;
+    });
+    // Clamp
+    newIdx = Math.max(0, Math.min(newIdx, _pSort.cards.length - 1));
+
+    if (newIdx === _pSort.curIdx) return;
+    _pSort.curIdx = newIdx;
+
+    // Shift cards out of the way
+    _pSort.cards.forEach(function (c, i) {
+        if (i === _pSort.srcIdx) return;
+        var shift = 0;
+        if (_pSort.srcIdx < newIdx && i > _pSort.srcIdx && i <= newIdx) shift = -_pSort.slotH;
+        if (_pSort.srcIdx > newIdx && i >= newIdx && i < _pSort.srcIdx) shift = _pSort.slotH;
+        c.el.style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+    });
+}
+
+function _panelOnUp(event) {
+    document.removeEventListener('pointermove', _panelOnMove);
+    if (!_pSort) return;
+
+    var s = _pSort;
+    _pSort = null;
+
+    // Remove ghost with a quick fade
+    s.ghost.style.transition = 'opacity 120ms';
+    s.ghost.style.opacity = '0';
+    setTimeout(function () { s.ghost.remove(); }, 130);
+
+    // Snap siblings back instantly, then reorder DOM
+    s.cards.forEach(function (c) {
+        c.el.style.transition = 'none';
+        c.el.style.transform  = '';
+        c.el.style.opacity    = '';
+    });
+
+    if (s.curIdx !== s.srcIdx) {
+        var srcEl  = s.cards[s.srcIdx].el;
+        var refEl  = s.cards[s.curIdx].el;
+        if (s.curIdx > s.srcIdx) {
+            s.container.insertBefore(srcEl, refEl.nextSibling);
+        } else {
+            s.container.insertBefore(srcEl, refEl);
+        }
     }
-    _panelDragSourceId = null;
+
     savePanelOrder();
 }
 
-function panelDragEnd() {
-    if (_panelDragSourceId) {
-        var card = document.querySelector('.glass-card[data-panel-id="' + _panelDragSourceId + '"]');
-        if (card) card.classList.remove('vc-panel-dragging');
-        _panelDragSourceId = null;
-    }
-    var ph = document.getElementById('vc-panel-placeholder');
-    if (ph) ph.remove();
-}
+// Legacy stubs kept so any remaining ondragend references don't throw
+function panelDragEnd() {}
+function panelDragStart(e) { e && e.preventDefault && e.preventDefault(); }
 
 function savePanelOrder() {
     try {
