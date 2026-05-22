@@ -1229,11 +1229,9 @@
           var matched = tryAutoSelectDetectedUnit(sel, _intentOpts.detectedUnit);
           if (!matched) {
             /* Unit not in Firestore — add a synthetic option so the field shows the unit name */
-            var safeName = escapeHtml(String(_intentOpts.detectedUnit));
-            var safeAttr = escapeAttr(String(_intentOpts.detectedUnit));
             var synOpt = document.createElement("option");
             synOpt.value = "__FF_NEW_UNIT__";
-            synOpt.setAttribute("data-unit-name", safeAttr);
+            synOpt.setAttribute("data-unit-name", String(_intentOpts.detectedUnit));
             synOpt.textContent = _intentOpts.detectedUnit + " (not yet on file)";
             sel.appendChild(synOpt);
             sel.value = "__FF_NEW_UNIT__";
