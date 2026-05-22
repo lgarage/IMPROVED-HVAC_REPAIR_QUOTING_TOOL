@@ -242,7 +242,7 @@
      * Optional: partition by job-day availability (see Settings → service days).
      * @param {HTMLElement} container
      * @param {string[]} techList
-     * @param {{ initialSelected?: string[], leadSelectId?: string|null, jobDateYmd?: string, excludeTicketId?: string, isTechAvailableForJobDate?: function(string): boolean }} options
+     * @param {{ initialSelected?: string[], leadSelectId?: string|null, jobDateYmd?: string, excludeTicketId?: string, isTechAvailableForJobDate?: function(string): boolean, onChange?: function(string[]): void }} options
      */
     function mountTechMultiSelect(container, techList, options) {
         options = options || {};
@@ -369,6 +369,9 @@
             }
             updateTechDropdownSummary(container);
             syncLeadSelectFromCrew(leadSelectId, getSelectedTechsFromContainer(container), leadLabelOpts);
+            if (typeof options.onChange === "function") {
+                options.onChange(getSelectedTechsFromContainer(container));
+            }
         });
 
         if (typeof document !== "undefined" && !docCloseBound) {

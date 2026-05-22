@@ -250,7 +250,7 @@ function gatherAssignedTechsFromServiceForm() {
     return out;
 }
 
-/** Statuses we do not override when syncing crew ↔ Dispatched/Unassigned. */
+/** Statuses we do not override when syncing crew ↔ Assigned/Unassigned. */
 var SC_STATUS_AUTO_SKIP = {
     Completed: true,
     "Client Verified / Ready for Billing": true,
@@ -263,8 +263,11 @@ function applyAutoDispatchStatusFromCrew() {
     var cur = String(sel.value || "").trim();
     if (SC_STATUS_AUTO_SKIP[cur]) return;
     var crew = gatherAssignedTechsFromServiceForm();
-    var next = crew.length > 0 ? "Dispatched" : "Unassigned";
-    if (sel.value !== next) sel.value = next;
+    if (crew.length > 0 && (!cur || cur === "Unassigned")) {
+        sel.value = "Assigned";
+    } else if (!crew.length && cur === "Assigned") {
+        sel.value = "Unassigned";
+    }
 }
 
 /** Options HTML for duration &lt;select&gt;s (main form + ticket modal). */
@@ -645,9 +648,10 @@ function isTicketVisibleOnGanttForMap(sc) {
     return false;
 }
 
-/** Dispatched or explicit In Progress — pulse on map for “live” jobs. */
+/** Assigned, Dispatched, or explicit In Progress — pulse on map for “live” jobs. */
 function shouldPulseMapMarker(sc) {
     var s = (sc.status && String(sc.status).trim()) || "";
+    if (s === "Assigned") return true;
     if (s === "Dispatched") return true;
     if (s.toLowerCase() === "in progress") return true;
     return false;
@@ -1454,6 +1458,75 @@ async function saveServiceCall(isAutoSave = false) {
 // --- MODAL TICKET DETAILS WITH EDITABLE TIME/DATE ---
 // ====================================================================
 
+const TICKET_DETAIL_STATUS_OPTIONS = [
+    "Unassigned",
+    "Assigned",
+    "Dispatched",
+    "In Progress",
+    "Completed",
+];
+
+function getTicketDetailStatusClass(status) {
+    return "status-" + String(status || "Unassigned").replace(/\s+/g, "");
+}
+
+function buildTicketDetailStatusOptions(selectedStatus, allowedStatuses) {
+    var statuses = Array.isArray(allowedStatuses) && allowedStatuses.length
+        ? allowedStatuses
+        : TICKET_DETAIL_STATUS_OPTIONS;
+    var selected = String(selectedStatus || "Unassigned");
+    var html = "";
+    var hasSelected = false;
+
+    for (var i = 0; i < statuses.length; i++) {
+        var status = statuses[i];
+        if (status === selected) hasSelected = true;
+        html +=
+            '<option value="' + escapeHtmlServiceArchive(status) + '"' +
+            (status === selected ? " selected" : "") +
+            ">" +
+            escapeHtmlServiceArchive(status) +
+            "</option>";
+    }
+
+    if (!hasSelected && selected) {
+        html =
+            '<option value="' +
+            escapeHtmlServiceArchive(selected) +
+            '" selected>' +
+            escapeHtmlServiceArchive(selected) +
+            "</option>" +
+            html;
+    }
+
+    return html;
+}
+
+function updateTicketDetailsStatus(newStatus) {
+    if (!currentOpenDetailsId) return;
+
+    let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+    let scIndex = db.findIndex(s => s.id === currentOpenDetailsId);
+    if (scIndex === -1) return;
+
+    db[scIndex].status = newStatus;
+    localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
+
+    if (typeof syncSingleServiceCallToCloud === 'function') {
+        syncSingleServiceCallToCloud(db[scIndex].id, db[scIndex]);
+    }
+
+    var statusSelect = document.getElementById("tdStatusSelect");
+    if (statusSelect) {
+        statusSelect.className =
+            "sc-twin-pillar-select " + getTicketDetailStatusClass(newStatus);
+        statusSelect.value = newStatus;
+    }
+
+    renderServiceBoard();
+    if (typeof showSaveCue === 'function') showSaveCue("✓ Status Updated");
+}
+
 function openTicketDetails(dbId) {
     currentOpenDetailsId = dbId;
     let db = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
@@ -1475,13 +1548,16 @@ function openTicketDetails(dbId) {
     let locNumStr = sc.locationNum ? `<span style="font-size: 12px; color: #7f8c8d;">Loc ID: ${sc.locationNum}</span><br>` : '';
 
     const tdDurOpts = buildDispatcherDurationSelectOptions(sc.duration || "2.0");
+    const tdStatusOpts = buildTicketDetailStatusOptions(sc.status || "Unassigned", TICKET_DETAIL_STATUS_OPTIONS);
 
     // Inject Date and Time inputs directly into the modal
     document.getElementById('tdModalContent').innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <div style="display:flex; align-items:center;">
-                <span class="badge badge-${sc.status.replace(' ','')}">${sc.status}</span>
-                ${trackingStr}
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:15px;">
+            <div style="flex:1; min-width:0;">
+                <label for="tdStatusSelect" style="display:block; margin:0 0 6px; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em;">Status</label>
+                <select id="tdStatusSelect" class="sc-twin-pillar-select ${getTicketDetailStatusClass(sc.status || 'Unassigned')}" style="width:100%;" onchange="updateTicketDetailsStatus(this.value)">
+                    ${tdStatusOpts}
+                </select>
             </div>
             <span class="badge badge-${sc.priority}">Priority: ${sc.priority}</span>
         </div>
@@ -1561,6 +1637,9 @@ function openTicketDetails(dbId) {
                 initialSelected: crewModal,
                 leadSelectId: "tdPrimaryTechSelect",
                 excludeTicketId: sc.id,
+                onChange: function () {
+                    persistTicketDetailsModal({ closeAfter: false, skipStatusInput: true });
+                },
             };
             if (modalYmd && typeof window.getTechAvailabilityForJobDate === "function") {
                 modalOpts.jobDateYmd = modalYmd;
@@ -1702,15 +1781,20 @@ function persistTicketDetailsModal(opts) {
             db[scIndex].primaryTech = newPrimary;
             db[scIndex].assignedTech = newPrimary || "";
 
-            if (newCrew.length && db[scIndex].status === "Unassigned") {
-                db[scIndex].status = "Dispatched";
-            } else if (!newCrew.length && db[scIndex].status === "Dispatched") {
+            var currentStatus = String(db[scIndex].status || "").trim();
+            if (newCrew.length && (!currentStatus || currentStatus === "Unassigned")) {
+                db[scIndex].status = "Assigned";
+            } else if (!newCrew.length && currentStatus === "Assigned") {
                 db[scIndex].status = "Unassigned";
             }
 
             if(dateInput) db[scIndex].date = dateInput.value;
             if(timeInput) db[scIndex].startTime = timeInput.value;
             if(durInput) db[scIndex].duration = durInput.value;
+            if (!opts || opts.skipStatusInput !== true) {
+                const statusInput = document.getElementById('tdStatusSelect');
+                if (statusInput && statusInput.value) db[scIndex].status = statusInput.value;
+            }
             if (typeof DispatcherTicketManager !== "undefined") {
                 db[scIndex].Total_Billable_Hours = DispatcherTicketManager.computeTotalBillableHours(
                     newCrew.length,
@@ -1966,7 +2050,9 @@ function renderServiceBoard() {
                         <div class="tc-tech-strip">${techAvatarsRow}</div>
                         <select class="status-quick-select status-${sc.status.replace(/ /g, '')}" onchange="quickUpdateStatus(event, '${sc.id}', this.value)">
                             <option value="Unassigned" ${sc.status === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
+                            <option value="Assigned" ${sc.status === 'Assigned' ? 'selected' : ''}>Assigned</option>
                             <option value="Dispatched" ${sc.status === 'Dispatched' ? 'selected' : ''}>Dispatched</option>
+                            <option value="In Progress" ${sc.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
                             <option value="Needs Repair Quote" ${sc.status === 'Needs Repair Quote' ? 'selected' : ''}>Needs Repair Quote</option>
                             <option value="Parts on Order" ${sc.status === 'Parts on Order' ? 'selected' : ''}>Parts on Order</option>
                             <option value="Completed" ${sc.status === 'Completed' ? 'selected' : ''}>Completed</option>
@@ -2473,7 +2559,7 @@ function handleTimelineDrop(e) {
         if(newDateStr) db[index].date = newDateStr;
         
         if (db[index].status === 'Unassigned') {
-            db[index].status = 'Dispatched';
+            db[index].status = 'Assigned';
         }
         
         localStorage.setItem('twinPillarsServiceDB', JSON.stringify(db));
@@ -2481,7 +2567,7 @@ function handleTimelineDrop(e) {
         
         renderServiceBoard(); 
         let shortTechName = techId.split(' ')[0];
-        if(typeof showSaveCue === 'function') showSaveCue(`✓ Dispatched to ${shortTechName}`);
+        if(typeof showSaveCue === 'function') showSaveCue(`✓ Assigned to ${shortTechName}`);
     }
 }
 

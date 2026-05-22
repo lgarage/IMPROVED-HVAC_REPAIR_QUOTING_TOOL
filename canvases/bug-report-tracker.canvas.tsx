@@ -418,6 +418,24 @@ const SESSION_BUGS: Bug[] = [
       'Expect: no Chrome Save address? popup',
     ],
   },
+  {
+    id: '41',
+    title: 'Dispatcher ticket modal: crew changes should auto-set status',
+    status: 'pending',
+    file: 'service_call.js, dispatcher/js/ticket_manager.js',
+    lineRef:
+      'service_call.js ~1632-1638 (ticket modal tech multi-select callback), ~1694-1709 (persistTicketDetailsModal status sync); dispatcher/js/ticket_manager.js ~335-374 (multi-select change handler)',
+    model: 'GPT-5.4 Mini (T1 autosave)',
+    rootCause:
+      'The assigned-tech checkbox dropdown updated crew selection, but the ticket modal only saved status when the user clicked Save. That left the sidebar card status stale until a manual save and made the assigned state lag behind the selection.',
+    fix:
+      'Wire the multi-select change handler to auto-persist the ticket modal on every checkbox toggle. Keep the existing state machine: Unassigned → Dispatched when crew is added, Dispatched → Unassigned when crew is cleared, and never downgrade Dispatched/In Progress/Completed.',
+    before:
+      'Checking or unchecking a tech only updated the dropdown summary; ticket status and sidebar badge stayed stale until manual save.',
+    after:
+      'Crew changes immediately save to localStorage + Firestore and rerender the board so the sidebar badge reflects the current status right away.',
+    userTestSteps: [],
+  },
 ];
 
 export default function BugReportTracker() {

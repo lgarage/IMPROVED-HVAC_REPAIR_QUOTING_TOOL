@@ -1550,10 +1550,25 @@
         color: #7f8c8d;
         border-color: #bdc3c7;
       }
+      .status-Assigned {
+        background-color: #eefbf7;
+        color: #0f766e;
+        border-color: #2dd4bf;
+      }
       .status-Dispatched {
         background-color: #e8f8f5;
         color: #27ae60;
         border-color: #2ecc71;
+      }
+      .status-Assigned {
+        background-color: #eef2ff;
+        color: #4f46e5;
+        border-color: #6366f1;
+      }
+      .status-InProgress {
+        background-color: #ecfeff;
+        color: #0f766e;
+        border-color: #14b8a6;
       }
       .status-NeedsRepairQuote {
         background-color: #fef9e7;
@@ -3908,6 +3923,9 @@
                 <select id="scStatusInput">
                   <option value="Unassigned" selected>
                     Unassigned (Needs Dispatch)
+                  </option>
+                  <option value="Assigned">
+                    Assigned (Crew Selected)
                   </option>
                   <option value="Dispatched">
                     Dispatched (Assigned to Tech)
@@ -9921,7 +9939,7 @@
 
       /* ── end Settings inner-nav ─────────────────────────────────────── */
     </script>
-    <script src="service_call.js?v=79"></script>
+    <script src="service_call.js?v=80"></script>
     <script src="dispatcher/js/ai_report_reviewer.js?v=5"></script>
     <script src="dispatcher/js/insights_manager.js?v=4"></script>
     <script src="dispatcher/js/report_builder.js?v=5"></script>
