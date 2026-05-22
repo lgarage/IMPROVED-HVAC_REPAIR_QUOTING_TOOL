@@ -7,14 +7,10 @@
 ## Snapshot
 
 - **Active Phase:** Phase B — Raw Notes → Quote Detection Pipeline shipped.
-- **Last shipped (2026-05-21 ~21:30 CDT):** Fix #43 — Customer tab stuck on "Loading customers…". renderCustomersView + filterCustomersView were defined inside vcSettingsNav IIFE but never exposed globally; switchTab threw ReferenceError. Fixed: window.renderCustomersView + window.filterCustomersView added. VC_BUILD → IndigoBook-2026-05-21b. Deployed + verified via Playwright.
+- **Last shipped (2026-05-21 ~21:40 CDT):** VC_BUILD `ChecklistChip-2026-05-21`. Removed yellow "items to check" reminder card — only the SUGGESTED CHECKLIST chip shows. Fixed Open button reliability via event delegation (`wireChecklistChipHandlers` in CT v87; agent v2 uses `data-open-checklist` + `data-intent-opts` JSON). Playwright verified: 0 yellow cards, Open works, form shows RTU 5 pre-filled.
+- **Prior (2026-05-21 ~21:30 CDT):** Fix #43 — Customer tab loading. VC_BUILD IndigoBook-2026-05-21b.
 - **Prior (2026-05-21 ~21:20 CDT):** Checklist form 2-step unit onboarding (field_forms.js v10).
-- **Prior (2026-05-21 ~21:10 CDT):** Smooth card reorder (service_call.js, index.html).
-- **Prior (2026-05-21 ~21:20 CDT):** Checklist form 2-step unit onboarding (field_forms.js v10).
-- **Prior (2026-05-21 ~21:10 CDT):** Smooth card reorder.
-- **Prior (2026-05-21 ~20:45 CDT):** RTU context awareness (#42). "rt1"/"rt one" normalized. Sonnet-no-gate rule added.
-- **Prior (2026-05-21 ~20:25 CDT):** Phase B quote pipeline.
-- Prior history: see `PROJECT_MAP_HISTORY.md`.
+- **Prior (2026-05-21 ~20:45 CDT):** RTU context awareness (#42). Sonnet-no-gate rule.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -25,7 +21,7 @@ None.
 
 ## Immediate Next Step
 
-Test Customer tab fix (#43): hard-refresh dispatcher → confirm BUILD shows IndigoBook-2026-05-21b → click Customer Directory in left sidebar → cards should render (e.g. Planet Fitness with locations). Also test search box filters by name/address. Then verify prior task: checklist 2-step unit onboarding (see #42 notes).
+Force-reload field app → confirm BUILD shows `ChecklistChip-2026-05-21`. Then type "RTU5 has a failed supply fan motor" in the chat → verify ONLY the SUGGESTED CHECKLIST chip appears (no yellow sticky-note card) → tap Open → form should open with "RTU 5 (not yet on file)" in equipment select + "Standard / RTU" type pre-filled. Also test Open button tapped multiple times — should open form every time.
 
 > **On Deck / future ideas:** `ROADMAP.md` + **`ICEBOX_FUTURE_IMPROVEMENTS.md`**. Next pending: #36 customer info sync everywhere (Opus 4.6). Fix tracker: `canvases/bug-report-tracker.canvas.tsx`.
 
