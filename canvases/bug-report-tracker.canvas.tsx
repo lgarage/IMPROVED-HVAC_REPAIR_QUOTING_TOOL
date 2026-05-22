@@ -466,6 +466,30 @@ const SESSION_BUGS: Bug[] = [
       'If RTU 1 IS on file, no photo prompt should appear',
     ],
   },
+  {
+    id: '43',
+    title: 'Customer tab stuck on "Loading customers…"',
+    status: 'completed',
+    file: 'index.html',
+    lineRef: '~9925-9927 (vcSettingsNav IIFE — window.renderCustomersView + window.filterCustomersView)',
+    model: 'Sonnet 4.6 (Sonnet-direct)',
+    rootCause:
+      'renderCustomersView() and filterCustomersView() were defined inside the vcSettingsNav IIFE but never attached to window. switchTab("customers") called renderCustomersView() globally → ReferenceError → grid innerHTML stayed as the static "Loading customers…" placeholder forever. oninput="filterCustomersView(...)" on the search bar was also broken.',
+    fix:
+      'Added window.renderCustomersView = renderCustomersView and window.filterCustomersView = filterCustomersView inside the IIFE after window.switchSettingsPane, matching the existing pattern. Bumped VC_BUILD to IndigoBook-2026-05-21b.',
+    before:
+      '/* expose globally */\nwindow.switchSettingsPane = switchSettingsPane;\n// renderCustomersView, filterCustomersView NOT exposed',
+    after:
+      'window.switchSettingsPane = switchSettingsPane;\nwindow.renderCustomersView = renderCustomersView;\nwindow.filterCustomersView = filterCustomersView;',
+    userTestSteps: [
+      'Hard-refresh dispatcher (Ctrl+Shift+R) — confirm BUILD shows IndigoBook-2026-05-21b',
+      'Click the Customer Directory item in the left sidebar',
+      'Expect: Customer Directory view loads with customer cards (e.g. Planet Fitness with 2 locations)',
+      'Type in the search box — expect cards to filter live by customer name or address',
+      'Switch to another tab, then back to Customer Directory — cards should still render',
+    ],
+    commit: '698afac',
+  },
 ];
 
 export default function BugReportTracker() {

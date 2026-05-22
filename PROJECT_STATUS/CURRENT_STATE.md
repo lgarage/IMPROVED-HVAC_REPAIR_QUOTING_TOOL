@@ -7,13 +7,14 @@
 ## Snapshot
 
 - **Active Phase:** Phase B — Raw Notes → Quote Detection Pipeline shipped.
-- **Last shipped (2026-05-21 ~21:20 CDT):** Checklist form 2-step unit onboarding (field_forms.js v10). SELECT EQUIPMENT pre-fills "RTU 1 (not yet on file)" from chat. Equipment type auto-fills Standard/RTU. Tech fills checklist → taps Save → if unit not on file: photo section slides in at bottom ("Unit name tag *" + "Overall photo *"), button becomes "Save & Add Unit". Second tap uploads photos + creates Equipment Firestore doc + saves form.
+- **Last shipped (2026-05-21 ~21:30 CDT):** Fix #43 — Customer tab stuck on "Loading customers…". renderCustomersView + filterCustomersView were defined inside vcSettingsNav IIFE but never exposed globally; switchTab threw ReferenceError. Fixed: window.renderCustomersView + window.filterCustomersView added. VC_BUILD → IndigoBook-2026-05-21b. Deployed + verified via Playwright.
+- **Prior (2026-05-21 ~21:20 CDT):** Checklist form 2-step unit onboarding (field_forms.js v10).
 - **Prior (2026-05-21 ~21:10 CDT):** Smooth card reorder (service_call.js, index.html).
-- **Prior (2026-05-21 ~21:00 CDT):** Checklist form inline new-unit onboarding v9 (superseded by v10).
+- **Prior (2026-05-21 ~21:20 CDT):** Checklist form 2-step unit onboarding (field_forms.js v10).
+- **Prior (2026-05-21 ~21:10 CDT):** Smooth card reorder.
 - **Prior (2026-05-21 ~20:45 CDT):** RTU context awareness (#42). "rt1"/"rt one" normalized. Sonnet-no-gate rule added.
-- **Prior (2026-05-21 ~20:45 CDT):** RTU context awareness (#42). "rt1"/"rt one"/etc. normalized before Gemini. Checklist form auto-selects Standard/RTU equipment type. If unit not on file, timeline prompts tech for nameplate + overall unit photos. Also added sonnet-no-gate rule.
-- **Prior (2026-05-21 ~20:25 CDT):** Phase B quote pipeline. Tech raw notes → Gemini compile → `quoteNeeded` signal → dual-path `quote_data_builder.js` (Path A: Gemini+templates, Path B: direct from `quoteRecommendations`) → `autoCreateDraftQuote` writes draft to `office_quotes` + patches `service_calls` on Submit to Office → dispatcher sees "🔖 Quote Ready" badge → tap opens existing draft in quoting UI. Chip shown to tech when quote detected.
-- **Prior (2026-05-21 ~19:40 CDT):** AI Checklist Intent Agent (`agents/checklist_intent_agent.js`).
+- **Prior (2026-05-21 ~20:25 CDT):** Phase B quote pipeline.
+- Prior history: see `PROJECT_MAP_HISTORY.md`.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -24,7 +25,7 @@ None.
 
 ## Immediate Next Step
 
-On-device test for checklist 2-step unit onboarding: type "RT1 has a failed supply fan motor" in chat → checklist chip appears → tap Open → SELECT EQUIPMENT should show "RTU 1 (not yet on file)", EQUIPMENT TYPE "Standard / RTU". Fill in the checklist fields → tap Save → photo section should slide in at the bottom with "Unit name tag (model + serial number) *" and "Overall photo of unit *" → take both photos → tap "Save & Add Unit" → verify Equipment Firestore doc created under Customers/{cust}/Locations/{loc}/Equipment with both photo URLs.
+Test Customer tab fix (#43): hard-refresh dispatcher → confirm BUILD shows IndigoBook-2026-05-21b → click Customer Directory in left sidebar → cards should render (e.g. Planet Fitness with locations). Also test search box filters by name/address. Then verify prior task: checklist 2-step unit onboarding (see #42 notes).
 
 > **On Deck / future ideas:** `ROADMAP.md` + **`ICEBOX_FUTURE_IMPROVEMENTS.md`**. Next pending: #36 customer info sync everywhere (Opus 4.6). Fix tracker: `canvases/bug-report-tracker.canvas.tsx`.
 
