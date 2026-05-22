@@ -1961,15 +1961,17 @@ function renderServiceBoard() {
                     <span style="font-size:10px; color:#aaa;">${sc.ticketNum}${releaseBadge}${quoteBadge}${customerConfirmedBadge}</span>
                 </div>
                 <div class="tc-loc"><i class="fas fa-map-marker-alt" style="color:#c89b53;"></i> ${sc.locationAddress} | ${sc.custCity}, ${sc.custState}</div>
-                <div class="tc-tech-strip">${techAvatarsRow}</div>
                 <div class="tc-footer">
-                    <select class="status-quick-select status-${sc.status.replace(/ /g, '')}" onchange="quickUpdateStatus(event, '${sc.id}', this.value)">
-                        <option value="Unassigned" ${sc.status === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
-                        <option value="Dispatched" ${sc.status === 'Dispatched' ? 'selected' : ''}>Dispatched</option>
-                        <option value="Needs Repair Quote" ${sc.status === 'Needs Repair Quote' ? 'selected' : ''}>Needs Repair Quote</option>
-                        <option value="Parts on Order" ${sc.status === 'Parts on Order' ? 'selected' : ''}>Parts on Order</option>
-                        <option value="Completed" ${sc.status === 'Completed' ? 'selected' : ''}>Completed</option>
-                    </select>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+                        <div class="tc-tech-strip">${techAvatarsRow}</div>
+                        <select class="status-quick-select status-${sc.status.replace(/ /g, '')}" onchange="quickUpdateStatus(event, '${sc.id}', this.value)">
+                            <option value="Unassigned" ${sc.status === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
+                            <option value="Dispatched" ${sc.status === 'Dispatched' ? 'selected' : ''}>Dispatched</option>
+                            <option value="Needs Repair Quote" ${sc.status === 'Needs Repair Quote' ? 'selected' : ''}>Needs Repair Quote</option>
+                            <option value="Parts on Order" ${sc.status === 'Parts on Order' ? 'selected' : ''}>Parts on Order</option>
+                            <option value="Completed" ${sc.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         `;
