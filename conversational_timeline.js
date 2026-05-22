@@ -1712,6 +1712,10 @@
    * surfaced — never blocks the tech or forces form completion.
    */
   function scheduleChecklistReminders(equipment, ticketId) {
+    /* Checklist chip (ct-checklist-suggest) from ChecklistIntent agent handles suggestions.
+       Yellow reminder cards are suppressed to avoid duplicate checklist UIs. */
+    return;
+    /* eslint-disable no-unreachable */
     if (
       !window.ChecklistReminderEngine ||
       typeof window.ChecklistReminderEngine.getReminders !== "function"
@@ -4522,6 +4526,30 @@
   }
 
   /**
+   * wireChecklistChipHandlers — delegated click handler for the "Open" button
+   * on AI checklist suggestion chips (ct-checklist-suggest). Replaces the
+   * fragile inline onclick so the button works reliably even after re-renders.
+   */
+  function wireChecklistChipHandlers() {
+    var list = getListElement();
+    if (!list) return;
+    list.addEventListener("click", function (e) {
+      var btn = e.target.closest ? e.target.closest("[data-open-checklist]") : null;
+      if (!btn) return;
+      e.stopPropagation();
+      var chip = btn.closest("[data-template-id]");
+      if (!chip) return;
+      var templateId = chip.getAttribute("data-template-id");
+      var optsRaw = chip.getAttribute("data-intent-opts") || "{}";
+      var opts = {};
+      try { opts = JSON.parse(optsRaw); } catch (ex) { /* malformed — use empty opts */ }
+      if (typeof renderDynamicForm === "function") {
+        renderDynamicForm(templateId, opts);
+      }
+    });
+  }
+
+  /**
    * wireNameplateHandlers — delegated click handlers for nameplate card buttons.
    */
   function wireNameplateHandlers() {
@@ -4597,6 +4625,7 @@
     wireCompileModal();
     wireNameplateHandlers();
     wireQuoteCardHandlers();
+    wireChecklistChipHandlers();
 
     try {
       window.addEventListener("vc:contextUpdated", function (e) {

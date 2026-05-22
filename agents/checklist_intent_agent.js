@@ -170,26 +170,25 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
 
-      /* Build opts to pass to renderDynamicForm for auto-fill (equipment type + unit name).
-         Values are simple strings — single-quote safe after stripping apostrophes. */
-      var optsArg = "{}";
+      /* Build opts JSON for the data-intent-opts attribute (HTML-escaped for safe embedding). */
+      var optsJson = "{}";
       if (eqCtx) {
-        var safeType = String(eqCtx.type || "").replace(/'/g, "");
-        var safeUnit = String(eqCtx.unitName || "").replace(/'/g, "");
-        optsArg = "{equipmentType:'" + safeType + "',detectedUnit:'" + safeUnit + "'}";
+        try {
+          var raw = JSON.stringify({ equipmentType: eqCtx.type || "", detectedUnit: eqCtx.unitName || "" });
+          optsJson = raw.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+        } catch (e) { /* keep "{}" */ }
       }
 
+      /* data-open-checklist is picked up by wireChecklistChipHandlers() in
+         conversational_timeline.js — no inline onclick needed (avoids re-render failures). */
       var html =
-        '<div class="ct-checklist-suggest" data-template-id="' + safeId + '">' +
+        '<div class="ct-checklist-suggest" data-template-id="' + safeId + '" data-intent-opts="' + optsJson + '">' +
           '<div class="ct-checklist-suggest__icon">\uD83D\uDCCB</div>' +
           '<div class="ct-checklist-suggest__body">' +
             '<div class="ct-checklist-suggest__label">Suggested checklist</div>' +
             '<div class="ct-checklist-suggest__name">' + safeName + '</div>' +
           '</div>' +
-          '<button class="ct-checklist-suggest__btn" ' +
-            'onclick="if(typeof renderDynamicForm===\'function\')renderDynamicForm(\'' + safeId + '\',' + optsArg + ')">' +
-            'Open' +
-          '</button>' +
+          '<button class="ct-checklist-suggest__btn" data-open-checklist="1">Open</button>' +
         '</div>';
 
       addEntryCb(html, "system", ticketId, { isHtml: true, checklistSuggestion: true });

@@ -40,7 +40,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "IndigoBook-2026-05-21";
+      window.VC_BUILD = "IndigoBook-2026-05-21b";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -9924,6 +9924,8 @@
 
         /* expose globally so other code can deep-link into a pane if needed */
         window.switchSettingsPane = switchSettingsPane;
+        window.renderCustomersView = renderCustomersView;
+        window.filterCustomersView = filterCustomersView;
 
         function wireNav() {
           var nav = document.getElementById("vcSettingsNav");
