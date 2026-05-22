@@ -7,8 +7,9 @@
 ## Snapshot
 
 - **Active Phase:** Phase B — Raw Notes → Quote Detection Pipeline shipped.
-- **Last shipped (2026-05-21 ~21:55 CDT):** Invoice Generator — removed yellow paste-notes box; form starts at "1. Client & Site Verification"; Generate Invoice button in ticket modal already prefills all fields via convertToInvoice(). VC_BUILD → IndigoBook-2026-05-21e.
-- **Prior (2026-05-21 ~21:45 CDT):** Fix #44 — Customer Directory: restored modal, merged ticket-only customers. VC_BUILD IndigoBook-2026-05-21c.
+- **Last shipped (2026-05-21 ~21:58 CDT):** Fix #45 — Map: removed tech-only guard from isTicketVisibleOnGanttForMap; all board jobs now candidates for map pins. Geo-failure amber banner added listing ungeocodable jobs. VC_BUILD → IndigoBook-2026-05-21e.
+- **Prior (2026-05-21 ~21:55 CDT):** Invoice Generator cleanup. VC_BUILD IndigoBook-2026-05-21e.
+- **Prior (2026-05-21 ~21:45 CDT):** Fix #44 — Customer Directory modal restored. VC_BUILD IndigoBook-2026-05-21c.
 - **Prior (2026-05-21 ~21:40 CDT):** ChecklistChip-2026-05-21 — removed yellow reminder card, fixed Open button.
 - **Prior (2026-05-21 ~21:30 CDT):** Fix #43 — Customer tab loading. VC_BUILD IndigoBook-2026-05-21b.
 - **Prior (2026-05-21 ~21:20 CDT):** Checklist form 2-step unit onboarding (field_forms.js v10).
@@ -23,7 +24,7 @@ None.
 
 ## Immediate Next Step
 
-Hard-refresh dispatcher → confirm BUILD shows **IndigoBook-2026-05-21e** → click any ticket → click "Generate Invoice" → expect Invoice Generator to open with customer name, address, equip, and notes pre-filled from the ticket (no paste box visible).
+Hard-refresh dispatcher → confirm BUILD shows **IndigoBook-2026-05-21e** → open dispatch board for today → scroll to map → every board job with a valid address should have a pin; any job with a bad address shows in the amber warning banner below the map.
 
 > **On Deck / future ideas:** `ROADMAP.md` + **`ICEBOX_FUTURE_IMPROVEMENTS.md`**. Next pending: #36 customer info sync everywhere (Opus 4.6). Fix tracker: `canvases/bug-report-tracker.canvas.tsx`.
 

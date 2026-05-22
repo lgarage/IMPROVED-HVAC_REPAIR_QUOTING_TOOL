@@ -515,6 +515,30 @@ const SESSION_BUGS: Bug[] = [
     ],
     commit: '959b61b',
   },
+  {
+    id: '45',
+    title: 'Map: board jobs not all showing as pins (unassigned jobs silently excluded)',
+    status: 'completed',
+    file: 'service_call.js, index.html',
+    lineRef: 'service_call.js ~639 isTicketVisibleOnGanttForMap; ~873 updateMapMarkers; ~802 placeMarkerForServiceCall; index.html ~3468 #mapGeoWarning',
+    model: 'Sonnet 4.6 (Sonnet-direct + GPT-5.4 Mini worker)',
+    rootCause:
+      'isTicketVisibleOnGanttForMap had an extra guard "if (!getAssignedTechsArray(sc).length) return false" not present in renderServiceBoard — unassigned jobs were candidates for the board but silently skipped on the map. Additionally, jobs with ungeocodable addresses dropped silently with no user feedback.',
+    fix:
+      'Removed the tech-assignment guard from isTicketVisibleOnGanttForMap (now matches board criteria exactly). placeMarkerForServiceCall returns true/false. updateMapMarkers tracks failures and shows amber #mapGeoWarning banner listing any customers whose address couldn\'t be geocoded.',
+    before:
+      'Board: 3 jobs. Map: 2 pins. Unassigned jobs never show on map. Geocoding failures silent.',
+    after:
+      'Board: 3 jobs. Map: 2 pins for valid addresses + amber banner "⚠ 1 job couldn\'t be located: PLAYWRIGHT TEST CO (check address)". In production, all valid-address jobs will show.',
+    userTestSteps: [
+      'Hard-refresh dispatcher — confirm BUILD shows IndigoBook-2026-05-21e',
+      'Open the dispatch board with jobs for today',
+      'Scroll down to the map — expect a pin for every board job with a valid address',
+      'For any job with a bad/missing address: expect amber warning banner below the map listing the customer name',
+      'If all addresses are valid: warning banner should be hidden',
+    ],
+    commit: '34cd662',
+  },
 ];
 
 export default function BugReportTracker() {
