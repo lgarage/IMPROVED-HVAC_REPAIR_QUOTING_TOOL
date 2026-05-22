@@ -6,9 +6,9 @@
 
 ## Snapshot
 
-- **Active Phase:** Bug batch sprint (#29–#35 all shipped; background agent on #28, #32, #37–#39).
-- **Last shipped (2026-05-21 ~15:30 CDT):** T2 bug batch: #29 compile modal z-index 11k (× tappable), #30 context bubble adds description + dispatch photos, #31 gantt text z-index+fit fix, #33 compact cards, #34 sidebar date-filtered, #35 Generate Invoice from AI report. Background agent (GPT-5.4 Mini) running T0 batch: #28 save closes modal, #32 data-id, #37-#38-#39 icebox F1-F3 nav hides.
-- **Prior (2026-05-21 ~13:15 CDT):** Transparent header + chrome autocomplete off (#40) + icebox F1-F3 registry + ICEBOX_FUTURE_IMPROVEMENTS.md.
+- **Active Phase:** AI Checklist Intent Detection (Phase 63+) — new agent module shipped.
+- **Last shipped (2026-05-21 ~19:40 CDT):** AI Checklist Intent Agent (`agents/checklist_intent_agent.js`). Tech says "RT one has a failed supply fan motor" → Gemini detects intent → suggestion chip appears in chat → tap Open → `renderDynamicForm()`. Non-blocking async, fire-and-forget pattern.
+- **Prior (2026-05-21 ~15:30 CDT):** T2 bug batch #29-#35; background agent T0 batch #28, #32, #37-#39.
 - Prior history: see `PROJECT_MAP_HISTORY.md`.
 - **Note:** `workbench/` is a standalone tool (NOT Vertex) — **paused 2026-05-14**.
 - **Default tenant:** `USA_HEATING_COOLING`. Firebase project: `vertex-core-db`.
@@ -19,7 +19,7 @@ None.
 
 ## Immediate Next Step
 
-Verify background agent T0 batch (#28, #32, #37–#39) completed and deployed. Then: on-device verify key changes — (1) compile modal × is tappable after opening a job, (2) first context bubble shows description + photos, (3) gantt day view shows clean text at rest, (4) sidebar cards are compact, (5) sidebar filters by board day.
+On-device test the AI checklist suggestion: open a job, type "RT one has a failed supply fan motor" → expect a blue "Suggested checklist: supply fan motor replacement — Open" chip within ~5 seconds. Tap Open → should open the full form. Also verify the Vendors tab is hidden in the dispatcher (background agent shipped that).
 
 > **On Deck / future ideas:** `ROADMAP.md` + **`ICEBOX_FUTURE_IMPROVEMENTS.md`**. Next pending: #36 customer info sync everywhere (Opus 4.6). Fix tracker: `canvases/bug-report-tracker.canvas.tsx`.
 

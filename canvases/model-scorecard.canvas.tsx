@@ -27,6 +27,18 @@ export default function ModelScorecardCanvas() {
         rows={[
           [
             "2026-05-21",
+            "AI Checklist Intent Agent: Gemini-powered checklist suggestion from tech chat",
+            "MED",
+            "T3",
+            "Opus 4.6",
+            "88%",
+            "95%",
+            "ok",
+            "ok",
+            "New agent module + processEntry hook + CSS chip; Vertex Core + Gemini API",
+          ],
+          [
+            "2026-05-21",
             "Bug batch #29-#35: field modal z-index, context bubble, gantt CSS, compact cards, date filter, invoice AI",
             "LOW-MED",
             "T2",

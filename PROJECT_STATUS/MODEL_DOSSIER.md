@@ -112,6 +112,7 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 
 | Date | Task (short) | Class | Arch | Tier used | Conf start % | Conf after % | Tier fit | Outcome | Note |
 |------|----------------|-------|------|-----------|--------------|--------------|----------|---------|------|
+| 2026-05-21 | AI Checklist Intent Agent: Gemini-powered checklist suggestion from tech chat | MED | T3 | Strong | 88% | 95% | ok | ok | Cursor: **Opus 4.6**. New agent module + processEntry hook + CSS chip; Vertex Core + Gemini API + field-critical path. |
 | 2026-05-21 | Bug batch #29-#35: field modal z-index, context bubble, gantt CSS, compact cards, date filter, invoice AI | LOW-MED | T2 | Balanced | 90% | 94% | ok | ok | Cursor: **Sonnet 4.6**. 7 T2 fixes; CSS+JS across field+dispatcher. Background subagent (GPT-5.4 Mini) handled T0 batch in parallel. |
 | 2026-05-21 | Rename fix tracker to Bug Report Tracker; update refs in rules/docs/runner | LOW | T1 | Gemini 3 Flash | 92% | 95% | ok | ok | Cursor: Gemini 3 Flash. Renamed canvas + updated 4 files. |
 | 2026-05-21 | 4-issue field bugfix: PWA splash, header bleed, chat overflow, addendum scroll | LOW-MED | T3 | Strong | 88% | 94% | ok | ok | Cursor: **Opus 4.6**. Multi-file; CSS + DOM restructure + PWA manifest. |

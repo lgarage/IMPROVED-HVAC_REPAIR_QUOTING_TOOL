@@ -2905,6 +2905,79 @@ body.vc-admin-workspace #ct-compile-modal {
 .ct-knowledge-chip:active {
   background: rgba(250, 204, 21, 0.18);
 }
+
+/* ── AI Checklist Suggestion Chip (Phase 63+) ────────────────── */
+.ct-message--system:has(.ct-checklist-suggest) {
+  max-width: 100%;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+.ct-message--system:has(.ct-checklist-suggest) .ct-vertex-icon {
+  display: none;
+}
+.ct-message--system:has(.ct-checklist-suggest) .ct-msg-content {
+  max-width: 100%;
+  width: 100%;
+}
+.ct-message--system:has(.ct-checklist-suggest) .ct-message__body {
+  display: block;
+  white-space: normal;
+}
+.ct-message--system:has(.ct-checklist-suggest) .ct-message__meta {
+  display: none;
+}
+.ct-checklist-suggest {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(56, 189, 248, 0.10);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 14px;
+  padding: 12px 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.ct-checklist-suggest__icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.ct-checklist-suggest__body {
+  flex: 1;
+  min-width: 0;
+}
+.ct-checklist-suggest__label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #7dd3fc;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+.ct-checklist-suggest__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f0f9ff;
+  margin-top: 3px;
+  line-height: 1.2;
+}
+.ct-checklist-suggest__btn {
+  flex-shrink: 0;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 10px;
+  background: #38bdf8;
+  color: #0c1426;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ct-checklist-suggest__btn:active {
+  opacity: 0.75;
+}
+
 .ct-knowledge-header {
   display: flex;
   align-items: center;
@@ -13789,6 +13862,7 @@ window.onload = async function(){
     <script src="../agents/conversation_agent.js?v=1"></script>
     <script src="../agents/admin_agent.js?v=6"></script>
     <script src="../agents/location_parts_parser.js?v=1"></script>
+    <script src="../agents/checklist_intent_agent.js?v=1"></script>
     <script src="../equipment_manager.js?v=18"></script>
     <script src="../equipment_smart_select.js?v=2"></script>
     <script src="js/ufx_adapter.js?v=1"></script>
@@ -13804,7 +13878,7 @@ window.onload = async function(){
     <script src="../checklist_reminder_engine.js?v=7"></script>
     <script src="../learning_sync.js?v=2"></script>
     <script src="../teaching_layer.js?v=4"></script>
-    <script src="../conversational_timeline.js?v=85"></script>
+    <script src="../conversational_timeline.js?v=86"></script>
     <script>
     /* ── KI-004: Register outbox hooks for inline field-app upload paths ──
        Runs after all external modules are loaded so VCStorageOutbox is

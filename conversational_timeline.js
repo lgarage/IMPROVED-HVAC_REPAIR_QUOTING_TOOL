@@ -1927,6 +1927,21 @@
       window.ChecklistReminderEngine.updateFromEntry(entry, id, effectiveEquipment);
     }
 
+    /* AI checklist intent — async, non-blocking (Phase 63+).
+       Fires Gemini in the background to detect if the tech's message
+       implies a specific repair checklist. If matched, injects a
+       suggestion chip into the chat. Runs independently of the
+       substring-based scanEntryForWorkflow above. */
+    if (
+      window.VCAgents &&
+      window.VCAgents.ChecklistIntent &&
+      typeof window.VCAgents.ChecklistIntent.suggestFromEntry === "function"
+    ) {
+      try {
+        window.VCAgents.ChecklistIntent.suggestFromEntry(rawText, id, addEntry);
+      } catch (e) { /* swallow — best-effort */ }
+    }
+
     var confidence = (parsed && typeof parsed.confidence === "number") ? parsed.confidence : 1;
 
     /* Low confidence (<0.6) → cloud escalation (Slice 43b) */
