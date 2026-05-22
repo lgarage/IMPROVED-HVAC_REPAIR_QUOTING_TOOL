@@ -28,6 +28,11 @@ async function loadCustomersFromCloud() {
         if (modal && modal.style.display === 'block') {
             renderCustomerDirectory();
         }
+        // If the customers view tab is open, refresh it too
+        const custView = document.getElementById('view-customers');
+        if (custView && custView.classList.contains('active') && typeof renderCustomersView === 'function') {
+            renderCustomersView();
+        }
     } catch (e) {
         console.warn("Cloud CRM load failed. Using local cache.", e);
     }
