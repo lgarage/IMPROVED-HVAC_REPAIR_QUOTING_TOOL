@@ -20,12 +20,41 @@
   var DEDUP_WINDOW_MS = 5 * 60 * 1000;
 
   /**
+   * normalizeRtuAliases — expand shorthand RTU references before Gemini sees them.
+   * "rt1" → "RTU 1", "rt one" → "RTU 1", "rtu2" → "RTU 2", etc.
+   */
+  function normalizeRtuAliases(text) {
+    var WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+    return String(text)
+      .replace(/\brtu?\s*(one|two|three|four|five|six|seven|eight|nine|ten)\b/gi, function (_, w) {
+        return 'RTU ' + (WORDS[w.toLowerCase()] || w);
+      })
+      .replace(/\brtu?(\d+)\b/gi, function (_, n) { return 'RTU ' + n; });
+  }
+
+  /**
+   * extractEquipmentContext — regex-based, no AI call.
+   * Returns {type, unitName} when an equipment reference is found, else null.
+   * type maps to the field_equipmentType select value ("Standard" or "Mini-Split").
+   */
+  function extractEquipmentContext(normalizedText) {
+    var rtuMatch = normalizedText.match(/\bRTU\s+(\d+)\b/i);
+    if (rtuMatch) {
+      return { type: 'Standard', unitName: 'RTU ' + rtuMatch[1] };
+    }
+    if (/\bmini.?split\b/i.test(normalizedText)) {
+      return { type: 'Mini-Split', unitName: '' };
+    }
+    return null;
+  }
+
+  /**
    * detectChecklist — core AI call.
    * Given a tech message, asks Gemini which (if any) available checklist
    * matches the intent. Returns Promise<{templateId, templateName} | null>.
    */
   function detectChecklist(techMessage) {
-    var text = String(techMessage || "").trim();
+    var text = normalizeRtuAliases(String(techMessage || "").trim());
     if (!text || text.length < 5) return Promise.resolve(null);
 
     if (typeof window.getActiveFormTemplates !== "function") {
@@ -117,6 +146,10 @@
   function suggestFromEntry(text, ticketId, addEntryCb) {
     if (typeof addEntryCb !== "function") return;
 
+    /* Normalize aliases before Gemini call and extract equipment context locally */
+    var normalizedText = normalizeRtuAliases(String(text || ""));
+    var eqCtx = extractEquipmentContext(normalizedText);
+
     detectChecklist(text).then(function (result) {
       if (!result) return;
 
@@ -137,6 +170,15 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
 
+      /* Build opts to pass to renderDynamicForm for auto-fill (equipment type + unit name).
+         Values are simple strings — single-quote safe after stripping apostrophes. */
+      var optsArg = "{}";
+      if (eqCtx) {
+        var safeType = String(eqCtx.type || "").replace(/'/g, "");
+        var safeUnit = String(eqCtx.unitName || "").replace(/'/g, "");
+        optsArg = "{equipmentType:'" + safeType + "',detectedUnit:'" + safeUnit + "'}";
+      }
+
       var html =
         '<div class="ct-checklist-suggest" data-template-id="' + safeId + '">' +
           '<div class="ct-checklist-suggest__icon">\uD83D\uDCCB</div>' +
@@ -145,7 +187,7 @@
             '<div class="ct-checklist-suggest__name">' + safeName + '</div>' +
           '</div>' +
           '<button class="ct-checklist-suggest__btn" ' +
-            'onclick="if(typeof renderDynamicForm===\'function\')renderDynamicForm(\'' + safeId + '\')">' +
+            'onclick="if(typeof renderDynamicForm===\'function\')renderDynamicForm(\'' + safeId + '\',' + optsArg + ')">' +
             'Open' +
           '</button>' +
         '</div>';

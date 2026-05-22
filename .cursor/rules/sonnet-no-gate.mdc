@@ -1,0 +1,27 @@
+---
+description: Skip model gate when already on Sonnet 4.6
+alwaysApply: true
+---
+
+# Sonnet Gate Exemption
+
+When the active session model is already **Sonnet 4.6**, skip the §6B model gate entirely and proceed with implementation immediately.
+
+## Rule
+
+If the recommended model from §6B is Sonnet 4.6 (or any tier at or below Sonnet), and the current session IS Sonnet 4.6:
+
+- Do NOT output the §6B block
+- Do NOT ask the user to switch models or say "proceed"
+- Begin implementing in the same turn
+
+## When to still gate
+
+Only pause for the model gate when:
+- The task requires **Opus 4.6** (T3 Vertex Core / Firestore writes / field-critical architecture)
+- The task requires a **cheaper model** and the user should switch down to save cost (T0/T1 only — still ask, but frame it as a cost-save option, not a blocker)
+
+## In practice
+
+If you're on Sonnet and the job is T0–T2: implement now, no gate.
+If you're on Sonnet and the job is T3 Vertex Core: escalate to Opus as a subagent (no user gate needed — spawn Opus via Task tool directly).

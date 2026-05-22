@@ -4656,6 +4656,9 @@
   window.ConversationalTimeline = {
     init: init,
     addEntry: addEntry,
+    addSystemEntry: function (text, ticketId) {
+      addEntry(String(text || ""), "system", ticketId || currentTicketId);
+    },
     renderTimeline: renderTimeline,
     scrollToBottom: scrollToBottom,
     onWorkspaceOpen: onWorkspaceOpen,

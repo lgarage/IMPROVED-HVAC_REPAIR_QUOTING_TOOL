@@ -821,6 +821,23 @@
    * `vc:fieldFormSaved` event. Signature stays backward-compatible: callers
    * that pass only `templateId` keep working.
    */
+  /**
+   * injectEquipmentPhotoPrompt — fires when the equipment select has no units on file
+   * for the current site. Injects a system message into the conversational timeline
+   * asking the tech to photograph the nameplate and overall unit.
+   */
+  function injectEquipmentPhotoPrompt(unitName) {
+    var label = unitName ? unitName : "this unit";
+    var msg = label + " isn\u2019t on file yet. Please take a photo of the unit nameplate " +
+      "(model and serial number) and a photo of the overall unit \u2014 I\u2019ll use those to add it to the system.";
+    try {
+      if (window.ConversationalTimeline &&
+          typeof window.ConversationalTimeline.addSystemEntry === "function") {
+        window.ConversationalTimeline.addSystemEntry(msg);
+      }
+    } catch (e) { /* degrade silently */ }
+  }
+
   async function renderDynamicForm(templateId, opts) {
     pendingTriggeredBy =
       opts && opts.triggeredBy ? String(opts.triggeredBy) : null;
@@ -1007,12 +1024,27 @@
     body.innerHTML = html;
 
     var sel = document.getElementById("fieldFormEquipmentSelect");
+    var _intentOpts = opts || {};
     if (sel && typeof window.refreshSmartEquipmentSelect === "function") {
       window.refreshSmartEquipmentSelect(sel, "").then(function () {
         if (typeof window.bindSmartEquipmentSelect === "function") {
           window.bindSmartEquipmentSelect(sel);
         }
         wireFieldFormEquipmentVerifiedHint();
+
+        /* Auto-set equipment type from checklist intent context (e.g. "Standard" for RTU) */
+        if (_intentOpts.equipmentType) {
+          var etSel = document.getElementById("field_equipmentType");
+          if (etSel) {
+            etSel.value = _intentOpts.equipmentType;
+            wireEquipmentFieldVisibility(body);
+          }
+        }
+
+        /* Unit not on file — prompt tech for nameplate + overall photo */
+        if (_intentOpts.detectedUnit && sel.options.length <= 1) {
+          injectEquipmentPhotoPrompt(_intentOpts.detectedUnit);
+        }
       });
     } else {
       wireFieldFormEquipmentVerifiedHint();

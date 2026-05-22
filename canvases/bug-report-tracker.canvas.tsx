@@ -442,6 +442,30 @@ const SESSION_BUGS: Bug[] = [
     ],
     commit: '7de38f6',
   },
+  {
+    id: '42',
+    title: 'RTU context awareness in checklist form: alias normalization, auto equipment type, photo prompt',
+    status: 'completed',
+    file: 'agents/checklist_intent_agent.js, field_forms.js, conversational_timeline.js',
+    lineRef:
+      'checklist_intent_agent.js: normalizeRtuAliases + extractEquipmentContext; suggestFromEntry chip onclick; field_forms.js ~824 renderDynamicForm opts handling + injectEquipmentPhotoPrompt; conversational_timeline.js ~4656 addSystemEntry export',
+    model: 'Sonnet 4.6',
+    rootCause:
+      '"rt1", "rt one" etc. were passed raw to Gemini and not normalised. Equipment type select was never pre-set from intent context. When the equipment was not on file the tech got no guidance on how to add it.',
+    fix:
+      'normalizeRtuAliases() expands shorthand before Gemini call. extractEquipmentContext() extracts unit name + type from the normalised text. Chip onclick passes opts to renderDynamicForm. After equipment select populates: auto-set field_equipmentType to "Standard" for RTU; if select has no units and detectedUnit is set, injectEquipmentPhotoPrompt fires a system message into the timeline.',
+    before:
+      '"rt1" not matched as RTU 1. Equipment Type stayed at — Select —. No guidance when unit not on file.',
+    after:
+      '"rt1" → "RTU 1" before Gemini. Form opens with Standard / RTU pre-selected. When unit not on file, timeline message: "RTU 1 isn\'t on file yet. Please take a photo of the unit nameplate (model and serial number) and a photo of the overall unit."',
+    userTestSteps: [
+      'Open a job, type "rt1 has a failed supply fan motor and it needs to be replaced" and send',
+      'Expect the SUGGESTED CHECKLIST chip to appear as before',
+      'Tap Open — expect the form to load with Equipment Type already set to Standard / RTU',
+      'If RTU 1 is not in the equipment list (— None —), expect a system message in the chat: "RTU 1 isn\'t on file yet. Please take a photo..."',
+      'If RTU 1 IS on file, no photo prompt should appear',
+    ],
+  },
 ];
 
 export default function BugReportTracker() {
