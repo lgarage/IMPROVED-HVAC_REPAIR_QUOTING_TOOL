@@ -7,7 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase B — Raw Notes → Quote Detection Pipeline shipped.
-- **Last shipped (2026-05-21 ~21:00 CDT):** Checklist form inline new-unit onboarding. When tech opens a checklist and the detected unit (e.g. "RTU 1") isn't in the equipment system, the form now shows an inline blue box with two required photo fields: "Model/serial number tag" and "Overall unit photo". Saving uploads both photos and creates the Equipment Firestore doc automatically. If the unit IS already on file, the dropdown auto-selects it. (field_forms.js v9)
+- **Last shipped (2026-05-21 ~21:10 CDT):** Smooth card reorder — replaced janky HTML5 DnD with pointer-events-based sort. Cards follow cursor directly; siblings animate out of the way with CSS `transform` transitions (180ms cubic-bezier). Ghost clone fades on drop. GPU compositing via `will-change: transform`. (service_call.js, index.html)
+- **Prior (2026-05-21 ~21:00 CDT):** Checklist form inline new-unit onboarding. When tech opens a checklist and the detected unit (e.g. "RTU 1") isn't in the equipment system, the form now shows an inline blue box with two required photo fields: "Model/serial number tag" and "Overall unit photo". Saving uploads both photos and creates the Equipment Firestore doc automatically. If the unit IS already on file, the dropdown auto-selects it. (field_forms.js v9)
 - **Prior (2026-05-21 ~20:45 CDT):** RTU context awareness (#42). "rt1"/"rt one"/etc. normalized before Gemini. Checklist form auto-selects Standard/RTU equipment type. If unit not on file, timeline prompts tech for nameplate + overall unit photos. Also added sonnet-no-gate rule.
 - **Prior (2026-05-21 ~20:25 CDT):** Phase B quote pipeline. Tech raw notes → Gemini compile → `quoteNeeded` signal → dual-path `quote_data_builder.js` (Path A: Gemini+templates, Path B: direct from `quoteRecommendations`) → `autoCreateDraftQuote` writes draft to `office_quotes` + patches `service_calls` on Submit to Office → dispatcher sees "🔖 Quote Ready" badge → tap opens existing draft in quoting UI. Chip shown to tech when quote detected.
 - **Prior (2026-05-21 ~19:40 CDT):** AI Checklist Intent Agent (`agents/checklist_intent_agent.js`).
@@ -21,7 +22,7 @@ None.
 
 ## Immediate Next Step
 
-On-device test: type "rt1 has a failed supply fan motor" → checklist chip appears → tap Open → Equipment Type should pre-select Standard / RTU. If RTU 1 is NOT on file, expect the inline blue box "RTU 1 isn't on file yet — snap these to add it to the system:" with two photo inputs. Take both photos → tap Save → verify Equipment doc created in Firestore (Customers/{customer}/Locations/{location}/Equipment). If RTU 1 IS on file, verify it auto-selects in the dropdown. Also test Phase B quote pipeline: compile notes → dispatcher "🔖 Quote Ready" badge.
+On-device test for smooth card reorder: open dispatcher board → grab a card by its ⠿ handle → drag up or down → sibling cards should slide smoothly out of the way (no flicker, no jump) → release → card snaps into final position. Also verify the order persists after page reload. Prior items: RTU checklist auto-form, Phase B quote pipeline badge.
 
 > **On Deck / future ideas:** `ROADMAP.md` + **`ICEBOX_FUTURE_IMPROVEMENTS.md`**. Next pending: #36 customer info sync everywhere (Opus 4.6). Fix tracker: `canvases/bug-report-tracker.canvas.tsx`.
 
