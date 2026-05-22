@@ -638,7 +638,6 @@ function getGanttDateContextForMap() {
 
 function isTicketVisibleOnGanttForMap(sc) {
     if (sc.archived) return false;
-    if (!getAssignedTechsArray(sc).length) return false;
     if (sc.status === "Completed" || sc.status === "Canceled") return false;
     if (!sc.date) return false;
     var ctx = getGanttDateContextForMap();
@@ -801,7 +800,7 @@ function addCustomPin(coords, sc) {
  */
 async function placeMarkerForServiceCall(sc) {
     var fullAddress = buildFullAddressFromServiceCall(sc);
-    if (!fullAddress || fullAddress.indexOf("UNKNOWN") !== -1) return;
+    if (!fullAddress || fullAddress.indexOf("UNKNOWN") !== -1) return false;
 
     var lat;
     var lng;
@@ -819,23 +818,24 @@ async function placeMarkerForServiceCall(sc) {
             if (isFinite(lat) && isFinite(lng)) {
                 await persistServiceCallGeocode(sc.id, lat, lng);
             } else {
-                return;
+                return false;
             }
         } else if (typeof getCoordinatesForAddress === "function") {
             var resolved = await getCoordinatesForAddress(fullAddress);
-            if (!resolved) return;
+            if (!resolved) return false;
             lat = resolved.lat;
             lng = resolved.lng;
             writeLocalGeoCache(fullAddress, lat, lng);
             await persistServiceCallGeocode(sc.id, lat, lng);
         } else {
-            return;
+            return false;
         }
     }
 
     var ll = [lat, lng];
     dispatchMapMarkerCoords.push(ll);
     addCustomPin(ll, sc);
+    return true;
 }
 
 function centerMapOnTicket(dbId) {
@@ -877,9 +877,25 @@ async function updateMapMarkers() {
 
     var db = JSON.parse(localStorage.getItem("twinPillarsServiceDB") || "[]");
     var active = db.filter(isTicketVisibleOnGanttForMap);
+    var failedNames = [];
 
     for (var i = 0; i < active.length; i++) {
-        await placeMarkerForServiceCall(active[i]);
+        var placed = await placeMarkerForServiceCall(active[i]);
+        if (!placed) failedNames.push(active[i].customerName || "?");
+    }
+
+    var warningEl = document.getElementById("mapGeoWarning");
+    if (warningEl) {
+        if (failedNames.length > 0) {
+            warningEl.textContent =
+                "\u26a0 " + failedNames.length + " job" +
+                (failedNames.length > 1 ? "s" : "") +
+                " couldn\u2019t be located on map (check address): " +
+                failedNames.join(", ");
+            warningEl.style.display = "block";
+        } else {
+            warningEl.style.display = "none";
+        }
     }
 }
 

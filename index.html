@@ -40,7 +40,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "IndigoBook-2026-05-21c";
+      window.VC_BUILD = "IndigoBook-2026-05-21e";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -81,12 +81,12 @@
       }
       input[type="text"]:not(#newRequoteNote):not(#customerSearch):not(
           #invoiceSearch
-        ):not(#scIssueInput):not(#scNotesInput):not(#invPasteArea):not(
+        ):not(#scIssueInput):not(#scNotesInput):not(
           #newTechNameInput
         ):not(#scParentNew):not(.lowercase-input),
       textarea:not(#requoteNoteHistory):not(#scIssueInput):not(
           #scNotesInput
-        ):not(#scTechNotesReadonly):not(#invPasteArea) {
+        ):not(#scTechNotesReadonly) {
         text-transform: uppercase;
       }
       #customerSearch,
@@ -3465,6 +3465,7 @@
                 class="dispatch-map-tech-legend dispatch-map-tech-legend--empty"
                 aria-label="Technician color legend"
               ></div>
+              <div id="mapGeoWarning" style="display:none;font-size:12px;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:6px 12px;margin-top:6px;"></div>
               <div
                 id="dispatchMapContainer"
                 class="dispatch-map-full"
@@ -5183,29 +5184,7 @@
 
           <div class="form-section">
             <h4 style="margin-top: 0; color: #0ea5e9">
-              1. Paste Tech Notes Here
-            </h4>
-            <p style="font-size: 13px; color: #666; margin-top: 2px">
-              Paste Tech Note output and tab out. The app parses first; if the
-              layout is unclear or fields stay empty, Gemini fills in
-              automatically (same Google API key as Maps / Firebase).
-            </p>
-            <textarea
-              id="invPasteArea"
-              placeholder="Paste tech completion output (QUOTED REPAIR, SERVICE CALL, PM, etc.)…"
-              autocomplete="off"
-              style="
-                min-height: 120px;
-                background: #fffde7;
-                border-color: #0ea5e9;
-              "
-              onblur="parsePastedNotes()"
-            ></textarea>
-          </div>
-
-          <div class="form-section">
-            <h4 style="margin-top: 0; color: #0ea5e9">
-              2. Client & Site Verification
+              1. Client & Site Verification
             </h4>
             <div class="form-row">
               <div class="input-group">
@@ -5566,7 +5545,7 @@
 
           <div class="form-section">
             <h4 style="margin-top: 0; color: #0ea5e9">
-              3. Labor & Truck Charges
+              2. Labor & Truck Charges
             </h4>
             <div class="form-row">
               <div class="input-group">
@@ -5604,7 +5583,7 @@
 
           <div class="form-section">
             <h4 style="margin-top: 0; color: #0ea5e9">
-              4. Parts List & Automatic Markup
+              3. Parts List & Automatic Markup
             </h4>
             <div id="invPartsContainer">
               <div class="inv-parts-grid-layout part-header-row">
@@ -10193,7 +10172,7 @@
     </script>
     <script src="dispatcher/js/client_notifications.js?v=2"></script>
     <script src="quoting.js?v=14"></script>
-    <script src="invoice.js?v=41"></script>
+    <script src="invoice.js?v=42"></script>
 
     <div
       id="equipmentManagerModal"

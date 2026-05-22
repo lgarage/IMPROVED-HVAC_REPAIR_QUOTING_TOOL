@@ -7,7 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase B — Raw Notes → Quote Detection Pipeline shipped.
-- **Last shipped (2026-05-21 ~21:45 CDT):** Fix #44 — Customer Directory: restored modal (nav-customers onclick reverted to openCustomerDirectory()), merged ticket-only customers (Acme HVAC, Playwright Test Co) into directory with "from tickets" badge. VC_BUILD → IndigoBook-2026-05-21c.
+- **Last shipped (2026-05-21 ~21:55 CDT):** Invoice Generator — removed yellow paste-notes box; form starts at "1. Client & Site Verification"; Generate Invoice button in ticket modal already prefills all fields via convertToInvoice(). VC_BUILD → IndigoBook-2026-05-21e.
+- **Prior (2026-05-21 ~21:45 CDT):** Fix #44 — Customer Directory: restored modal, merged ticket-only customers. VC_BUILD IndigoBook-2026-05-21c.
 - **Prior (2026-05-21 ~21:40 CDT):** ChecklistChip-2026-05-21 — removed yellow reminder card, fixed Open button.
 - **Prior (2026-05-21 ~21:30 CDT):** Fix #43 — Customer tab loading. VC_BUILD IndigoBook-2026-05-21b.
 - **Prior (2026-05-21 ~21:20 CDT):** Checklist form 2-step unit onboarding (field_forms.js v10).
@@ -22,7 +23,7 @@ None.
 
 ## Immediate Next Step
 
-Hard-refresh dispatcher → confirm BUILD shows IndigoBook-2026-05-21c → click Customer Directory (address book icon) → modal should open → expect Planet Fitness with CST-6580 + Acme HVAC / Playwright Test Co with "from tickets" badge and their addresses.
+Hard-refresh dispatcher → confirm BUILD shows **IndigoBook-2026-05-21e** → click any ticket → click "Generate Invoice" → expect Invoice Generator to open with customer name, address, equip, and notes pre-filled from the ticket (no paste box visible).
 
 > **On Deck / future ideas:** `ROADMAP.md` + **`ICEBOX_FUTURE_IMPROVEMENTS.md`**. Next pending: #36 customer info sync everywhere (Opus 4.6). Fix tracker: `canvases/bug-report-tracker.canvas.tsx`.
 
