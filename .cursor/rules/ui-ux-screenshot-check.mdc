@@ -5,7 +5,11 @@ alwaysApply: true
 
 # UI/UX Change Verification — Playwright Screenshot Required
 
-**Any time a UI or UX change is made to the field app or dispatcher**, you MUST take a Playwright screenshot and visually confirm the result before telling the user the change worked.
+**Any time a UI or UX change is made to the field app OR dispatcher**, you MUST take a Playwright screenshot and visually confirm the result before telling the user the change worked.
+
+## HARD RULE — no exceptions
+
+**Do NOT say "deployed" or "done" for any UI change without first showing the user a screenshot that confirms the change is visible.** If you skip this step, you risk shipping invisible bugs (wrong contrast, wrong selector, change not deployed, etc.).
 
 ## Required steps for every UI/UX change — BEFORE and AFTER
 
@@ -14,7 +18,28 @@ alwaysApply: true
 1. **BEFORE:** Run Playwright, capture the current state, read and inspect the screenshot
 2. Make the code change and deploy
 3. **AFTER:** Run Playwright again, capture the new state, read and inspect
-4. Only report the change as done once the after screenshot confirms the desired result. If it looks wrong, fix it and repeat step 3.
+4. **Show the after screenshot to the user** — embed it in your response
+5. Only report the change as done once the after screenshot confirms the desired result. If it looks wrong, fix it and repeat step 3.
+
+## Dispatcher app script (no auth required)
+
+```js
+// Inline node script — run with: node -e "..."
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
+  const page = await ctx.newPage();
+  await page.goto('https://vertex-core-db.web.app/index.html', { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForTimeout(3500);
+  await page.screenshot({ path: '_ss_dispatcher.png' });
+  // For a zoomed crop of a specific area, use the clip option:
+  // await page.screenshot({ path: '_ss_dispatcher.png', clip: { x: 68, y: 110, width: 320, height: 220 } });
+  await browser.close();
+})();
+```
+
+Run with: `node -e "$(cat _script.js)"` or inline in Shell tool.
 
 ## Login script pattern (app requires auth)
 
