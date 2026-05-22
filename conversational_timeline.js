@@ -3083,6 +3083,8 @@
   var _lastCompiledIndex = 0;   /* number of entries already compiled */
   var _compiledResult = null;   /* merged JSON result so far */
   var _compiledDisplayText = null; /* formatted display string */
+  var _quoteNeeded = false;     /* true when compile output signals a repair quote is warranted */
+  var _quoteData   = null;      /* resolved quote_data payload from QuoteDataBuilder; set async after compile */
   var _isCompiling = false;     /* prevents overlapping compiles */
   var _compileToken = 0;        /* increments each compile start; .finally() guards against stale clears */
   var _compileSubmittedForTicket = null; /* ticketId of last successful cloud submit — used by close prompt */
@@ -3092,6 +3094,10 @@
     _lastCompiledIndex = 0;
     _compiledResult = null;
     _compiledDisplayText = null;
+    _quoteNeeded = false;
+    _quoteData   = null;
+    var quoteChip = document.getElementById("ct-quote-needed-chip");
+    if (quoteChip) quoteChip.style.display = "none";
     _isCompiling = false;
     _compileSubmittedForTicket = null;
     if (_bgDebounceTimer) { clearTimeout(_bgDebounceTimer); _bgDebounceTimer = null; }
@@ -3292,6 +3298,8 @@
     }
     if (submitBtn) submitBtn.style.display = historical ? "none" : "";
     modal.classList.remove("hidden");
+    var quoteChip = document.getElementById("ct-quote-needed-chip");
+    if (quoteChip) quoteChip.style.display = _quoteNeeded ? "block" : "none";
     /* Force layout recalculation — iOS Safari doesn't reliably compute
        fixed-position geometry on first show during a screen transition. */
     void modal.offsetHeight;
@@ -3416,40 +3424,50 @@
       _compiledDisplayText = formatCompileResultForDisplay(_compiledResult);
       _lastCompiledIndex = snapshotIndex;
       _lastCompileResult = _compiledResult;
+      /* Derive quote signal from compile output — used by Slice 2 (dual-path builder) and Slice 4 (auto-draft) */
+      _quoteNeeded = !!(_compiledResult.quoteNeeded ||
+        (_compiledResult.quoteRecommendations && _compiledResult.quoteRecommendations.length > 0));
       /* Persist immediately so the modal auto-opens on the next job-card tap,
          even if the user navigates away before submitting to office. */
       saveCompileCache(compileTicketId, _compiledResult, _compiledDisplayText, _lastCompiledIndex);
       openCompileModal(_compiledDisplayText);
       /* Slice 63f: post-compile equipment classification */
       classifyEquipmentFindings(_compiledResult, entries, compileTicketId);
-      /* Slice 64g: quote data generation.
+      /* Slice 64g / Phase B: quote data generation.
+         Dual-path: (A) Gemini-powered when quoteRelevant templates fired,
+                    (B) lightweight build from quoteRecommendations when _quoteNeeded is true
+                        but no templates matched (Slice 2 adds Path B to QuoteDataBuilder).
          getActiveFormTemplates is async — chain with .then() instead of calling
          synchronously. Calling it synchronously and chaining .filter() on the
          returned Promise throws a TypeError that is silently caught, leaving
          _quoteMatchedTemplates always empty and the quote card never showing. */
       try {
-        if (typeof window.getActiveFormTemplates === "function" &&
+        if ((_quoteNeeded || false) &&
             window.VCAgents && window.VCAgents.QuoteDataBuilder) {
           var _quoteEquipCtx = {
             activeEquipment: (window.VCJobContext && window.VCJobContext.activeEquipment) || "",
             nameplateFields: window._lastNameplateFields || null
           };
           var _quoteTicketId = compileTicketId;
-          window.getActiveFormTemplates().then(function (allTemplates) {
+          var _quoteCapturedResult = _compiledResult;
+          var fetchTemplates = (typeof window.getActiveFormTemplates === "function")
+            ? window.getActiveFormTemplates()
+            : Promise.resolve([]);
+          fetchTemplates.then(function (allTemplates) {
             var _quoteMatchedTemplates = (allTemplates || []).filter(function (t) {
               return t && t.data && t.data.quoteRelevant;
             });
-            if (!_quoteMatchedTemplates.length) return Promise.resolve(null);
             return typeof getGeminiApiKey === "function"
               ? getGeminiApiKey().then(function (apiKey) {
                   if (!apiKey) return null;
                   return window.VCAgents.QuoteDataBuilder.buildQuoteData(
-                    _compiledDisplayText, _quoteMatchedTemplates, _quoteEquipCtx, apiKey
+                    _compiledDisplayText, _quoteMatchedTemplates, _quoteEquipCtx, apiKey, _quoteCapturedResult
                   );
                 })
               : Promise.resolve(null);
           }).then(function (quoteData) {
             if (!quoteData || !quoteData.repairs || !quoteData.repairs.length) return;
+            _quoteData = quoteData;
             showQuoteDataCard(quoteData, _quoteTicketId);
           }).catch(function () {});
         }
@@ -3883,6 +3901,53 @@
     return patch;
   }
 
+  /* ── Phase B: auto-create a Draft office_quotes doc when compile flagged a repair quote.
+        Fire-and-forget — caller does not await. Degrades silently on any failure so the
+        primary submit flow (completed_reports + service_calls patch) is never blocked. ── */
+  function autoCreateDraftQuote(db, ticketId, ticket, techName, compiledResult, quoteData) {
+    if (!db || !ticketId || ticketId === "draft") return Promise.resolve(null);
+    if (typeof firebase === "undefined") return Promise.resolve(null);
+
+    var oqCol;
+    try {
+      oqCol = (typeof VCFirestore !== "undefined" && VCFirestore.officeQuotes)
+        ? VCFirestore.officeQuotes(db)
+        : db.collection("office_quotes");
+    } catch (e) { return Promise.resolve(null); }
+
+    var now = new Date().toISOString();
+    var doc = {
+      status: "Draft",
+      source: "auto_field",
+      ticketId: ticketId,
+      techName: techName || "",
+      customerName: (ticket && ticket.customerName) || "",
+      locationAddress: (ticket && (ticket.address || ticket.locationAddress)) || "",
+      quoteRecommendations: (compiledResult && compiledResult.quoteRecommendations) || [],
+      repairs: (quoteData && quoteData.repairs) || [],
+      totalLaborHours: (quoteData && quoteData.totalLaborHours) || null,
+      quoteNeeded: true,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    return oqCol.add(doc).then(function (docRef) {
+      var scPatch = {
+        quoteNeeded: true,
+        draftQuoteId: docRef.id,
+        draftQuoteCreatedAt: now
+      };
+      try {
+        if (typeof VCFirestore !== "undefined" && VCFirestore.setServiceCallMerged) {
+          VCFirestore.setServiceCallMerged(db, ticketId, scPatch, true);
+        } else {
+          db.collection("service_calls").doc(ticketId).set(scPatch, { merge: true });
+        }
+      } catch (e2) { /* degrade silently — the office_quotes doc already written */ }
+      return docRef.id;
+    }).catch(function () { return null; });
+  }
+
   function submitCompileToOffice() {
     if (!_lastCompileResult) {
       alert("No compiled data to submit. Please compile notes first.");
@@ -4052,6 +4117,14 @@
           });
         }
       } catch (lsErr) { /* degrade silently — learning sync is non-critical */ }
+
+      /* Phase B: auto-create draft office quote when repair recommendations were detected */
+      try {
+        if (_quoteNeeded && db && ticketId && ticketId !== "draft") {
+          autoCreateDraftQuote(db, ticketId, ticket, techName, _lastCompileResult, _quoteData)
+            .catch(function () { /* degrade silently */ });
+        }
+      } catch (_aqErr) {}
 
       /* Auto-close modal after successful submission so tech doesn't have to tap X */
       setTimeout(closeCompileModal, 1500);

@@ -41,6 +41,7 @@
       '  "quoteRecommendations": [',
       '    { "part": "string", "description": "string", "laborEstimate": "string" }',
       '  ],',
+      '  "quoteNeeded": false,',
       '  "unresolvedIssues": [',
       '    { "issue": "string", "severity": "low|medium|high", "notes": "string" }',
       '  ],',
@@ -48,7 +49,8 @@
       '    { "equipment": "string", "dataPoints": "string" }',
       '  ],',
       '  "summary": "string (' + (summaryNote || "1-2 sentence overall summary") + ')"',
-      '}'
+      '}',
+      'Set quoteNeeded to true if any quoteRecommendations were identified, or if the tech describes a repair that was not completed and requires a quote. Set to false for maintenance/PM visits and diagnostic-only calls with no outstanding repair work.'
     ];
   }
 
@@ -156,6 +158,7 @@
     return {
       equipmentFindings: (existing.equipmentFindings || []).concat(delta.equipmentFindings || []),
       quoteRecommendations: (existing.quoteRecommendations || []).concat(delta.quoteRecommendations || []),
+      quoteNeeded: !!(existing.quoteNeeded || delta.quoteNeeded),
       unresolvedIssues: (existing.unresolvedIssues || []).concat(delta.unresolvedIssues || []),
       equipmentHistoryUpdates: (existing.equipmentHistoryUpdates || []).concat(delta.equipmentHistoryUpdates || []),
       summary: delta.summary || existing.summary || ""

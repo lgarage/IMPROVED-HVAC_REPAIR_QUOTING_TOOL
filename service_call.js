@@ -2027,8 +2027,11 @@ function renderServiceBoard() {
         if (sc.priority === 'Routine') colorClass = 'priority-Routine';
 
         const releaseBadge = sc.releasedToTech === false ? `<span style="font-size:9px; background:#fdebd0; color:#ca6f1e; padding:2px 6px; border-radius:4px; font-weight:700; margin-left:4px;">Field: hold</span>` : '';
-        var quoteBadge = sc.quotePending
+        /* Show badge when quotePending (tech-confirmed via quote card) OR when autoCreateDraftQuote
+           wrote quoteNeeded + draftQuoteId at submit time (Phase B auto-draft path). */
+        var quoteBadge = (sc.quotePending || (sc.quoteNeeded && sc.draftQuoteId))
             ? '<span class="vc-quote-ready-badge" data-ticket-id="' + sc.id + '"' +
+              ' data-draft-quote-id="' + (sc.draftQuoteId || '') + '"' +
               ' style="display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#713f12;' +
               'font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;cursor:pointer;' +
               'margin-left:6px;border:1px solid #fde047;">🔖 Quote Ready</span>'
@@ -4221,6 +4224,15 @@ function createDraftQuoteFromTicket(ticketId) {
             return;
         }
         var data = snap.data();
+
+        /* Phase B: if autoCreateDraftQuote already wrote an office_quotes doc, open it directly */
+        if (data.draftQuoteId && typeof loadQuoteForEditing === "function") {
+            if (typeof startNewQuote === "function") startNewQuote();
+            setTimeout(function () { loadQuoteForEditing(data.draftQuoteId); }, 300);
+            return;
+        }
+
+        /* Legacy path: tech-confirmed quote via quote card (quotePending flow) */
         var quoteData = data.quote_data;
         if (!quoteData) {
             alert("No quote data found on this ticket yet.");

@@ -3,7 +3,8 @@
  *
  * Slice 64g: Post-compile quote data extraction.
  * Invoked from conversational_timeline.js after compile when at least one
- * quote-relevant checklist template fired during the session.
+ * quote-relevant checklist template fired during the session, OR when the
+ * compiled result already contains quoteRecommendations (raw-notes path).
  *
  * No DOM access, no state — orchestration remains in conversational_timeline.js.
  * Exposes: window.VCAgents.QuoteDataBuilder
@@ -12,25 +13,100 @@
   "use strict";
 
   /**
-   * buildQuoteData(compiledText, matchedTemplates, equipmentContext, apiKey)
+   * detectEquipmentRef(qr, findings) — match a recommendation to an equipment unit.
+   * If there is exactly one finding, use its equipment name. Otherwise try to find
+   * a finding whose equipment name appears in the recommendation text.
+   */
+  function detectEquipmentRef(qr, findings) {
+    if (!Array.isArray(findings) || !findings.length) return "";
+    if (findings.length === 1) return findings[0].equipment || "";
+    var text = ((qr.part || "") + " " + (qr.description || "")).toLowerCase();
+    for (var i = 0; i < findings.length; i++) {
+      var name = (findings[i].equipment || "").toLowerCase();
+      if (name && text.indexOf(name) !== -1) return findings[i].equipment;
+    }
+    return findings[0].equipment || "";
+  }
+
+  /**
+   * parseLabor(laborEstimate) — parse a human-readable labor string into hours.
+   * Handles: "2 hours", "1.5 hrs", "30 min", "90 minutes", bare numbers.
+   * Returns a number (hours) or null if unparseable.
+   */
+  function parseLabor(laborEstimate) {
+    if (laborEstimate === null || laborEstimate === undefined) return null;
+    var str = String(laborEstimate).toLowerCase().trim();
+    var minMatch = str.match(/(\d+(?:\.\d+)?)\s*min/);
+    if (minMatch) return Math.round((parseFloat(minMatch[1]) / 60) * 100) / 100;
+    var hrMatch = str.match(/(\d+(?:\.\d+)?)\s*h/);
+    if (hrMatch) return parseFloat(hrMatch[1]);
+    var numMatch = str.match(/^(\d+(?:\.\d+)?)$/);
+    if (numMatch) return parseFloat(numMatch[1]);
+    return null;
+  }
+
+  /**
+   * sumLaborHours(repairs) — sum non-null laborHours values across repairs.
+   * Returns the total as a number, or null if no repairs had parseable hours.
+   */
+  function sumLaborHours(repairs) {
+    var total = null;
+    (repairs || []).forEach(function (r) {
+      if (r.laborHours !== null && r.laborHours !== undefined) {
+        total = (total || 0) + r.laborHours;
+      }
+    });
+    return total;
+  }
+
+  /**
+   * buildQuoteData(compiledText, matchedTemplates, equipmentContext, apiKey, compiledResult)
    *
-   * Uses Gemini to parse the compiled service report and extract repair-related data.
-   * Returns a Promise resolving to a quote_data object or null if no repairs detected.
+   * Dual-path quote extraction:
+   *   Path A — quote-relevant templates fired → full Gemini extraction (existing behavior).
+   *   Path B — no templates but compiledResult.quoteRecommendations present → lightweight
+   *             object built directly from the already-structured data (no Gemini call).
    *
    * @param {string} compiledText       - The full compiled service report text
    * @param {Array}  matchedTemplates   - Templates that fired during this session
    *                  Each: { id: string, data: { templateName, quoteRelevant, associatedParts, targetKeyword } }
    * @param {Object} equipmentContext   - { activeEquipment: string, nameplateFields: Object|null }
    * @param {string} apiKey             - Gemini API key
+   * @param {Object} [compiledResult]   - Raw JSON object from notes_parser.js
+   *                  May contain: quoteRecommendations [{part, description, laborEstimate}]
+   *                               equipmentFindings    [{equipment, diagnosis, actionsTaken}]
    * @returns {Promise<Object|null>}
    */
-  function buildQuoteData(compiledText, matchedTemplates, equipmentContext, apiKey) {
+  function buildQuoteData(compiledText, matchedTemplates, equipmentContext, apiKey, compiledResult) {
     if (!compiledText || !apiKey) return Promise.resolve(null);
 
     var quoteTemplates = (matchedTemplates || []).filter(function (t) {
       return t && t.data && t.data.quoteRelevant;
     });
-    if (!quoteTemplates.length) return Promise.resolve(null);
+
+    // Path B — no templates fired but compiled result already has structured recommendations
+    if (!quoteTemplates.length) {
+      var recs = compiledResult && Array.isArray(compiledResult.quoteRecommendations)
+        ? compiledResult.quoteRecommendations : [];
+      if (!recs.length) return Promise.resolve(null);
+
+      var findings = (compiledResult && Array.isArray(compiledResult.equipmentFindings))
+        ? compiledResult.equipmentFindings : [];
+
+      var repairs = recs.map(function (qr) {
+        return {
+          repairType: qr.part || "Repair",
+          equipmentRef: detectEquipmentRef(qr, findings),
+          laborHours: parseLabor(qr.laborEstimate),
+          confirmedParts: [{ description: qr.part || "", specs: qr.description || "" }],
+          suggestedParts: [],
+          fieldNotes: qr.description || ""
+        };
+      });
+
+      if (!repairs.length) return Promise.resolve(null);
+      return Promise.resolve({ repairs: repairs, totalLaborHours: sumLaborHours(repairs) });
+    }
 
     var templateSummary = quoteTemplates.map(function (t) {
       var parts = (t.data.associatedParts || []).map(function (p) {
