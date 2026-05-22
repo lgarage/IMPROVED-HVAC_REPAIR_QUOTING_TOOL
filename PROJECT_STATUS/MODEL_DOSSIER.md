@@ -6,6 +6,8 @@
 
 ## Pick-a-model
 
+> **OWV default (2026-05-21):** When Opus 4.6 is the active chat, it orchestrates via the Orchestrator-Worker-Validator pattern — dispatching the cheapest worker model below, then validating via Sonnet 4.6. See `model-selection.mdc § OWV Pattern` for full flow. Opus only implements directly for T3 Vertex Core / field-critical / UNCERTAIN.
+
 | Archetype | Recommended model | Alternates | Hard rules |
 |-----------|------------------|------------|------------|
 | T0 (exact replace, 1-line) | **GPT-5.4 Mini** | Gemini 3 Flash | — |
@@ -87,7 +89,7 @@ _Avg Conf after % from all logged rows (active + archive, May 2026). **(n)** = r
 | **Sonnet 4.6** | Balanced | Default T2 daily implementation |
 | **GPT-5.2 / GPT-5.4 / GPT-5.5** | Strong | GPT Strong alternatives; 5.5 = flagship |
 | **Codex 5.3** | Strong | Prefer for code-heavy T3 multi-file |
-| **Opus 4.6** | Strong | Current ceiling — T3+ / UNCERTAIN / Vertex Core |
+| **Opus 4.6** | Strong | Current ceiling — T3+ / UNCERTAIN / Vertex Core; **default orchestrator** (OWV: dispatches cheap workers, Sonnet validates) |
 | **Kimi K2.5** | Experimental | T2 only until ≥2 outcome rows |
 | **Opus 4.7** | Last resort | Escalate from Opus 4.6 only after 2+ fails. Never a first choice. |
 | ~~Haiku 4.5~~ | Disabled | Removed after dossier rewrite truncation incident. |

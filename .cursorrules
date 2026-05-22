@@ -209,6 +209,19 @@ git add -A; git commit -m "message"; git push
 
 **Detection:** If your initial prompt is a detailed task description (not from a human user) containing file paths, specific changes to make, and verification steps, you are a subagent. **Skip all gates and implement now.**
 
+### 6§ OWV — Orchestrator-Worker-Validator pattern
+
+**When Opus 4.6 is the active model, it operates as orchestrator-only by default.** Instead of implementing tasks directly, Opus dispatches work to cheaper models (workers) and validates their output via Sonnet 4.6. Full spec in `model-selection.mdc § OWV Pattern`.
+
+**Summary:**
+- **Opus 4.6** = orchestrator (classifies, dispatches, coordinates, commits/pushes/deploys)
+- **Cheap workers** (GPT-5.4 Mini, Gemini 3 Flash, Composer 2.5, Codex 5.3) = implementation
+- **Sonnet 4.6** = validator (reviews worker output, reports pass/fail)
+
+**Exceptions (Opus implements directly):** T3 Vertex Core / Firestore / tenant-critical / field-critical, UNCERTAIN classification, validation failures needing architectural judgment.
+
+**The model gate (§6B) still applies to the orchestrator session.** The user approves Opus 4.6 once at session start; all worker/validator subagents inherit that approval via the subagent exemption above.
+
 ### 6§ Preamble — non‑negotiable (read first)
 
 **Before any change touches this repository, the user must see a model recommendation and must reply with an approved “proceed” line.** That means:

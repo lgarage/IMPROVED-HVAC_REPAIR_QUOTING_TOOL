@@ -16,6 +16,80 @@ See `.cursorrules` **§5B** for full rules and correct patterns.
 
 # Model selection (cost-aware)
 
+## Orchestrator-Worker-Validator (OWV) Pattern
+
+**When Opus 4.6 is the active chat model, it operates as an orchestrator — NOT an implementer.** Opus classifies tasks, dispatches work to cheaper models, and coordinates validation. This maximizes cost efficiency while preserving judgment quality.
+
+### Roles
+
+| Role | Model | Responsibility |
+|------|-------|----------------|
+| **Orchestrator** | Opus 4.6 (this chat) | Classify task, break into subtasks, dispatch workers, interpret validator results, commit/push/deploy, update canvases, communicate with user |
+| **Worker** | Cheapest capable model | Do the actual file edits / implementation. Dispatched via Task tool with explicit `model` param |
+| **Validator** | Sonnet 4.6 (`claude-4.6-sonnet-medium-thinking`) | Review worker output for correctness, completeness, style. Reports pass/fail + notes back to orchestrator |
+
+### Worker model selection (by task tier)
+
+| Task tier | Worker model | Fallback |
+|-----------|-------------|----------|
+| T0 (exact replace, 1-line) | `gpt-5.4-mini-medium` | `gemini-3-flash` |
+| T1 (mechanical multi-step) | `gpt-5.4-mini-medium` | `composer-2.5-fast` |
+| T2 (standard dev, low-risk) | `composer-2.5-fast` | `claude-4.6-sonnet-medium-thinking` |
+| T2 (standard dev, med-risk) | `claude-4.6-sonnet-medium-thinking` | `gpt-5.4-medium` |
+| T3 (code-heavy multi-file) | `gpt-5.3-codex` | `gpt-5.5-medium` |
+| T3 Vertex Core / field-critical | Opus implements directly (no delegation) | — |
+
+### Flow
+
+```
+1. User sends task → Opus classifies (T0–T4, risk level)
+2. Opus writes detailed worker prompt (file paths, exact changes, context)
+3. Opus dispatches worker as background subagent (Task tool, model param set)
+4. Worker completes → Opus dispatches Sonnet 4.6 validator subagent
+   - Validator reads the diff/output
+   - Checks: correctness, completeness, no regressions, style
+   - Returns: pass/fail + notes
+5. If PASS → Opus commits, pushes, deploys, updates canvas
+6. If FAIL (minor) → Opus dispatches Sonnet to fix directly
+7. If FAIL (major) → Opus re-dispatches worker with corrections OR handles directly
+```
+
+### When Opus implements directly (skip OWV)
+
+- T3 Vertex Core / Firestore writes / tenant-critical / field-critical
+- UNCERTAIN classification where judgment > speed
+- Validation failures that need architectural decisions
+- User explicitly requests Opus to handle it
+
+### Orchestrator responsibilities (never delegated)
+
+- `git add` + `git commit` + `git push`
+- `firebase deploy`
+- Canvas updates (`bug-report-tracker`, `current-state`, etc.)
+- `PROJECT_STATUS/` file updates (CURRENT_STATE, MODEL_DOSSIER, ROADMAP)
+- User communication and gate management
+- Final judgment on pass/fail when validator is unsure
+
+### Worker prompt requirements
+
+When dispatching a worker, the orchestrator MUST include:
+1. **Exact file path(s)** to edit
+2. **Before/After** code (or clear description of change)
+3. **Context** — why this change is needed, what the surrounding code does
+4. **Verification** — how the worker should confirm its own work (lints, patterns)
+5. **Scope boundary** — what NOT to touch
+
+### Validator prompt requirements
+
+When dispatching the validator, the orchestrator MUST include:
+1. **What the worker was asked to do** (original task summary)
+2. **Files changed** (paths for the validator to read)
+3. **Expected behavior** after the change
+4. **Known constraints** (don't break X, must preserve Y)
+5. **Pass criteria** — specific things to check
+
+---
+
 ## Subagent exemption (READ FIRST — overrides §6B gate)
 
 **Background subagents spawned by a parent agent via the Task tool are PRE-APPROVED.** The parent (Opus 4.6 orchestrator) already cleared the model gate with the user. If you are a subagent:
@@ -45,7 +119,7 @@ These rules exist so **`MODEL_DOSSIER.md`** stays the agent’s **living notes**
    - **LOW / T0–T1** and chat might be **Strong** → note they may switch **down** to the named cheaper tier for this task.
    - **HIGH / UNCERTAIN / T3+** and minimum is **Strong** → insist on switching **up** before implementation after they clear the gate.
 
-6. **Frontier chats offload cheap background work.** If the current chat is already on a frontier/Strong model (for example `Sonnet 4.6`, `Opus 4.6`, `GPT-5.5`, or `Codex 5.3`) and you can isolate an independent low-risk subtask, delegate it to a cheaper enabled model in the same chat via a background subagent. Keep the frontier model on orchestration, synthesis, and judgment-heavy work.
+6. **Opus 4.6 uses the OWV pattern by default.** When Opus 4.6 is the active model, follow the **Orchestrator-Worker-Validator** pattern (see § OWV above): dispatch implementation to cheap workers, validate with Sonnet 4.6, only implement directly for T3 Vertex Core / field-critical / UNCERTAIN tasks. Other frontier models (Sonnet 4.6, GPT-5.5, Codex 5.3) may also offload independent low-risk subtasks to cheaper background subagents when beneficial.
 
 If `.cursorrules` §6 mandates **§6C** escalation for HIGH/UNCERTAIN, output that block when required; the dossier does not override safety stops. **§6G** still requires the model gate before implementation.
 
