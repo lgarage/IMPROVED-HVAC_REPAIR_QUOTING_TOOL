@@ -40,7 +40,7 @@
        *  tell you in seconds whether the browser is on the latest HTML or still serving a cached copy.
        *  The cache-buster on external assets (`service_call.js?v=N`, `shared/firebase_logic.js?v=N`,
        *  etc.) doesn't help here because `index.html` itself is the entry-point URL and has no `?v=`. */
-      window.VC_BUILD = "CustomerConfirm-2026-05-20";
+      window.VC_BUILD = "IssueToolbar-2026-05-21";
       window.googleMapsPromise = new Promise((resolve) => {
         window.googleMapsCallback = function () {
           resolve();
@@ -3972,50 +3972,6 @@
                     onmousedown="startIssueVoiceInput()"
                   >
                     🎤 Hold to speak reported issue
-                  </button>
-                  <button
-                    type="button"
-                    id="scIssueImproveAiBtn"
-                    class="sc-issue-ai-btn"
-                    onclick="improveIssueTextWithAI()"
-                    title="Rewrite rough notes as an imperative work order (Inspect / Action / Verification)"
-                    onmouseenter="this.style.filter='brightness(1.06)'"
-                    onmouseleave="this.style.filter='none'"
-                  >
-                    ✨ Clean up &amp; structure with AI
-                  </button>
-                  <button
-                    type="button"
-                    id="scClientSummaryAiBtn"
-                    class="sc-issue-ai-btn"
-                    onclick="generateClientSummaryForPortal()"
-                    title="Draft a professional customer letter from technician notes (for the client portal)"
-                    onmouseenter="this.style.filter='brightness(1.06)'"
-                    onmouseleave="this.style.filter='none'"
-                  >
-                    ✉ Generate Client Summary
-                  </button>
-                  <button
-                    type="button"
-                    id="scAiReportReviewerBtn"
-                    class="sc-issue-ai-btn"
-                    onclick="typeof VcAiReportReviewer !== 'undefined' && VcAiReportReviewer.openModal()"
-                    title="Side-by-side AI extraction from Inter-Office Comms with source citations (job-type aware)"
-                    onmouseenter="this.style.filter='brightness(1.06)'"
-                    onmouseleave="this.style.filter='none'"
-                  >
-                    🔍 AI Report Reviewer
-                  </button>
-                  <button
-                    type="button"
-                    id="scFieldAppOfficeBtn"
-                    class="sc-issue-ai-btn"
-                    onclick="typeof openFieldAppOfficeModal === 'function' && openFieldAppOfficeModal()"
-                    title="Open the interactive Field App workspace for this ticket (Office Override)"
-                    onmouseenter="this.style.filter='brightness(1.06)'"
-                    onmouseleave="this.style.filter='none'"
-                  >
-                    📱 Edit in Field App UI
                   </button>
                 </div>
                 <textarea
