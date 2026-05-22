@@ -1986,6 +1986,11 @@ function renderServiceBoard() {
     listContainer.innerHTML = '';
     let listCount = 0;
 
+    // Wire container for panel reorder drop
+    listContainer.ondragover = panelDragOver;
+    listContainer.ondrop = panelDrop;
+    listContainer.ondragleave = panelDragLeave;
+
     // Date window for left panel (same scope as Gantt)
     const ctx = getGanttDateContextForMap();
     const isDateVisible = function(sc) {
@@ -2015,6 +2020,18 @@ function renderServiceBoard() {
         scopeEl.textContent = label ? '· ' + label : '';
     })();
     
+    // Apply saved panel order (persisted per date via drag-to-reorder)
+    const savedPanelOrder = getSavedPanelOrder(dateInput);
+    if (savedPanelOrder && savedPanelOrder.length) {
+        db.sort(function (a, b) {
+            var ai = savedPanelOrder.indexOf(a.id);
+            var bi = savedPanelOrder.indexOf(b.id);
+            if (ai === -1) ai = 9999;
+            if (bi === -1) bi = 9999;
+            return ai - bi;
+        });
+    }
+
     db.forEach(sc => {
         if (sc.archived) return;
         if (sc.status === 'Completed' || sc.status === 'Canceled') return;
@@ -2042,9 +2059,10 @@ function renderServiceBoard() {
         const techAvatarsRow = buildSidebarTechAvatarsHtml(sc);
 
         let cardHTML = `
-            <div class="glass-card ${colorClass}" data-id="${sc.id}" draggable="true" ondragstart="drag(event, '${sc.id}')" ondblclick="openTicketDetails('${sc.id}')">
-                <div class="tc-title">
-                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">${sc.customerName}</span>
+            <div class="glass-card ${colorClass}" data-id="${sc.id}" data-panel-id="${sc.id}" draggable="true" ondragstart="drag(event, '${sc.id}')" ondragend="panelDragEnd()" ondblclick="openTicketDetails('${sc.id}')">
+                <div class="tc-title" style="display:flex;align-items:center;">
+                    <span class="vc-drag-handle" draggable="true" ondragstart="panelDragStart(event,'${sc.id}')" title="Drag to reorder">⠿</span>
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 185px;">${sc.customerName}</span>
                     <span style="font-size:10px; color:#aaa;">${sc.ticketNum}${releaseBadge}${quoteBadge}${customerConfirmedBadge}</span>
                 </div>
                 <div class="tc-loc"><i class="fas fa-map-marker-alt" style="color:#c89b53;"></i> ${sc.locationAddress} | ${sc.custCity}, ${sc.custState}</div>
@@ -2420,6 +2438,106 @@ function updateCurrentTimeLine() {
             </div>
         `;
     }
+}
+
+// --- 0. Left-panel card reorder via drag handle ---
+
+var _panelDragSourceId = null;
+
+function panelDragStart(event, id) {
+    event.stopPropagation(); // Don't trigger the card's Gantt drag
+    _panelDragSourceId = id;
+    event.dataTransfer.setData('vc-panel-reorder', id);
+    event.dataTransfer.effectAllowed = 'move';
+    // Defer opacity change so the drag ghost still looks normal
+    setTimeout(function () {
+        var card = document.querySelector('.glass-card[data-panel-id="' + id + '"]');
+        if (card) card.classList.add('vc-panel-dragging');
+    }, 0);
+}
+
+function _getPanelPlaceholder() {
+    var el = document.getElementById('vc-panel-placeholder');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'vc-panel-placeholder';
+        el.className = 'vc-panel-drop-placeholder';
+    }
+    return el;
+}
+
+function panelDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    var target = event.target.closest
+        ? event.target.closest('.glass-card[data-panel-id]')
+        : null;
+    if (!target) return;
+    if (target.getAttribute('data-panel-id') === _panelDragSourceId) return;
+    var rect = target.getBoundingClientRect();
+    var insertBefore = event.clientY < rect.top + rect.height / 2;
+    var ph = _getPanelPlaceholder();
+    var ref = insertBefore ? target : target.nextSibling;
+    if (target.parentNode && target.parentNode.contains(ph) && ph.nextSibling === ref) return; // already in position
+    if (target.parentNode) target.parentNode.insertBefore(ph, ref);
+    requestAnimationFrame(function () { ph.classList.add('active'); });
+}
+
+function panelDragLeave(event) {
+    var container = document.getElementById('serviceRequestList');
+    if (!container) return;
+    if (event.relatedTarget && container.contains(event.relatedTarget)) return;
+    var ph = document.getElementById('vc-panel-placeholder');
+    if (ph) { ph.classList.remove('active'); setTimeout(function () { if (ph.parentNode) ph.remove(); }, 150); }
+}
+
+function panelDrop(event) {
+    event.preventDefault();
+    var sourceId = event.dataTransfer.getData('vc-panel-reorder');
+    if (!sourceId) return;
+    var ph = document.getElementById('vc-panel-placeholder');
+    var container = document.getElementById('serviceRequestList');
+    var sourceCard = container ? container.querySelector('.glass-card[data-panel-id="' + sourceId + '"]') : null;
+    if (sourceCard) sourceCard.classList.remove('vc-panel-dragging');
+    if (ph && sourceCard && ph.parentNode) {
+        ph.parentNode.insertBefore(sourceCard, ph);
+        ph.remove();
+    } else if (ph) {
+        ph.remove();
+    }
+    _panelDragSourceId = null;
+    savePanelOrder();
+}
+
+function panelDragEnd() {
+    if (_panelDragSourceId) {
+        var card = document.querySelector('.glass-card[data-panel-id="' + _panelDragSourceId + '"]');
+        if (card) card.classList.remove('vc-panel-dragging');
+        _panelDragSourceId = null;
+    }
+    var ph = document.getElementById('vc-panel-placeholder');
+    if (ph) ph.remove();
+}
+
+function savePanelOrder() {
+    try {
+        var container = document.getElementById('serviceRequestList');
+        if (!container) return;
+        var ids = [];
+        container.querySelectorAll('.glass-card[data-panel-id]').forEach(function (c) {
+            ids.push(c.getAttribute('data-panel-id'));
+        });
+        var dateSel = document.getElementById('boardDateSelector');
+        var date = dateSel ? dateSel.value : '';
+        localStorage.setItem('vc_panel_order_' + date, JSON.stringify(ids));
+    } catch (e) {}
+}
+
+function getSavedPanelOrder(date) {
+    try {
+        var raw = localStorage.getItem('vc_panel_order_' + (date || ''));
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
 }
 
 // --- 1. Dragging Cards from Left Panel to Board (Now supports cross-day drop) ---

@@ -1138,6 +1138,33 @@
         transform: scale(1.02);
         z-index: 10;
       }
+      /* Panel reorder drag */
+      .vc-drag-handle {
+        cursor: grab;
+        font-size: 15px;
+        color: rgba(0,0,0,0.22);
+        padding: 0 7px 0 0;
+        line-height: 1;
+        user-select: none;
+        flex-shrink: 0;
+        letter-spacing: -1px;
+      }
+      .vc-drag-handle:hover { color: rgba(0,0,0,0.55); }
+      .vc-drag-handle:active { cursor: grabbing; }
+      .glass-card.vc-panel-dragging {
+        opacity: 0.4;
+        outline: 2px dashed rgba(52,152,219,0.5);
+      }
+      .vc-panel-drop-placeholder {
+        background: rgba(52,152,219,0.08);
+        border: 2px dashed rgba(52,152,219,0.45);
+        border-radius: 6px;
+        height: 0;
+        overflow: hidden;
+        transition: height 150ms ease;
+        margin-bottom: 4px;
+      }
+      .vc-panel-drop-placeholder.active { height: 54px; }
       .sc-tech-checkboxes {
         display: flex;
         flex-direction: column;
