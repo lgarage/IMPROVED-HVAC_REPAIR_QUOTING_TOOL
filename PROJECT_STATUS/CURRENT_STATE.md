@@ -24,7 +24,7 @@ None.
 
 ## Immediate Next Step
 
-Hard-refresh dispatcher → confirm BUILD shows **IndigoBook-2026-05-21e** → open dispatch board for today → scroll to map → every board job with a valid address should have a pin; any job with a bad address shows in the amber warning banner below the map.
+Hard-refresh dispatcher → confirm BUILD shows **IndigoBook-2026-05-21e** → open any ticket → click **Generate Invoice** → Invoice Generator should open with customer name, address, equipment, and notes pre-filled from the ticket (no yellow paste box visible).
 
 > **On Deck / future ideas:** `ROADMAP.md` + **`ICEBOX_FUTURE_IMPROVEMENTS.md`**. Next pending: #36 customer info sync everywhere (Opus 4.6). Fix tracker: `canvases/bug-report-tracker.canvas.tsx`.
 
