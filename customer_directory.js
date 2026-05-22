@@ -364,6 +364,7 @@ function renderCustomerDirectory() {
     const filter = document.getElementById('customerSearch').value.toUpperCase();
     tbody.innerHTML = "";
     let hasResults = false;
+    const shownNames = new Set();
 
     for (const custName in db) {
         const cust = db[custName];
@@ -385,6 +386,7 @@ function renderCustomerDirectory() {
 
         if (customerMatches) {
             hasResults = true;
+            shownNames.add(custName.toUpperCase());
             const safeCustName = custName.replace(/[^a-zA-Z0-9]/g, "_");
             const safeRawName = custName.replace(/'/g, "\\'"); 
             const locCount = locIds.length;
@@ -442,6 +444,38 @@ function renderCustomerDirectory() {
             tbody.innerHTML += locsHTML;
         }
     }
+    // ── Merge in customers that exist only in service tickets (not yet in directory) ──
+    try {
+        const scDb = JSON.parse(localStorage.getItem('twinPillarsServiceDB') || '[]');
+        const scByKey = {};
+        scDb.forEach(sc => {
+            const n = (sc.customerName || '').trim();
+            if (!n || n === 'UNKNOWN CUSTOMER') return;
+            const key = n.toUpperCase();
+            if (shownNames.has(key)) return;
+            if (!scByKey[key]) scByKey[key] = { name: n, custNum: sc.customerNum || '', locations: [] };
+            const addr = [sc.locationAddress, sc.custCity, sc.custState, sc.custZip].filter(Boolean).join(', ');
+            if (addr && !scByKey[key].locations.includes(addr)) scByKey[key].locations.push(addr);
+        });
+        for (const key in scByKey) {
+            const c = scByKey[key];
+            if (filter && !key.includes(filter) && !(c.custNum || '').toUpperCase().includes(filter)) continue;
+            hasResults = true;
+            const locDisplay = c.locations.length
+                ? c.locations.map(a => `<div style="color:#555;font-size:12px;margin:2px 0;">↳ ${a}</div>`).join('')
+                : '<span style="color:#aaa;font-size:12px;">No location on file</span>';
+            tbody.innerHTML += `
+                <tr class="customer-row" style="background-color:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                    <td><strong>${c.name.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</strong>
+                        <span style="font-size:10px;color:#94a3b8;background:#f1f5f9;border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:middle;">from tickets</span>
+                    </td>
+                    <td style="color:#64748b;">${c.custNum || '—'}</td>
+                    <td>${locDisplay}</td>
+                    <td></td>
+                </tr>`;
+        }
+    } catch (e) {}
+
     if (!hasResults) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 20px; color:#777;">No customers found.</td></tr>`;
 }
 
