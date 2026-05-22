@@ -490,6 +490,31 @@ const SESSION_BUGS: Bug[] = [
     ],
     commit: '698afac',
   },
+  {
+    id: '44',
+    title: 'Customer Directory: restore modal + show all ticket customers',
+    status: 'completed',
+    file: 'index.html, customer_directory.js',
+    lineRef: 'index.html ~2923 (nav-customers onclick); customer_directory.js ~361 renderCustomerDirectory()',
+    model: 'Sonnet 4.6 (Sonnet-direct)',
+    rootCause:
+      'nav-customers was changed to switchTab("customers") instead of openCustomerDirectory() (b683d26). Also, renderCustomerDirectory() only read from tp_customers_db (Firestore customers collection), so service-call-only customers (Acme HVAC, Playwright Test Co) were invisible because they were never added to the customers collection.',
+    fix:
+      '(1) Reverted nav-customers onclick to openCustomerDirectory(). (2) renderCustomerDirectory() now adds a shownNames Set, then merges in any customers from twinPillarsServiceDB (service calls) not already shown — labeled "from tickets" badge, with address pulled from the service call fields.',
+    before:
+      'Nav opens tab view (broken, loading forever). Modal only shows customers in Firestore customers collection.',
+    after:
+      'Nav opens modal. Modal shows all directory customers + ticket-only customers (Acme HVAC, Playwright Test Co) with "from tickets" badge and their service-call address.',
+    userTestSteps: [
+      'Hard-refresh dispatcher — confirm BUILD shows IndigoBook-2026-05-21c',
+      'Click Customer Directory (address book icon) in left sidebar',
+      'Expect: modal opens (not a tab view)',
+      'Expect: Planet Fitness with CST-6580 and 2 Locations link',
+      'Expect: Acme HVAC, Playwright Test Co with "from tickets" badge and address below',
+      'Type in search box — should filter all rows including ticket-only customers',
+    ],
+    commit: '959b61b',
+  },
 ];
 
 export default function BugReportTracker() {

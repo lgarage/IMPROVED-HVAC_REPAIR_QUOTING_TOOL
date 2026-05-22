@@ -7,7 +7,8 @@
 ## Snapshot
 
 - **Active Phase:** Phase B — Raw Notes → Quote Detection Pipeline shipped.
-- **Last shipped (2026-05-21 ~21:40 CDT):** VC_BUILD `ChecklistChip-2026-05-21`. Removed yellow "items to check" reminder card — only the SUGGESTED CHECKLIST chip shows. Fixed Open button reliability via event delegation (`wireChecklistChipHandlers` in CT v87; agent v2 uses `data-open-checklist` + `data-intent-opts` JSON). Playwright verified: 0 yellow cards, Open works, form shows RTU 5 pre-filled.
+- **Last shipped (2026-05-21 ~21:45 CDT):** Fix #44 — Customer Directory: restored modal (nav-customers onclick reverted to openCustomerDirectory()), merged ticket-only customers (Acme HVAC, Playwright Test Co) into directory with "from tickets" badge. VC_BUILD → IndigoBook-2026-05-21c.
+- **Prior (2026-05-21 ~21:40 CDT):** ChecklistChip-2026-05-21 — removed yellow reminder card, fixed Open button.
 - **Prior (2026-05-21 ~21:30 CDT):** Fix #43 — Customer tab loading. VC_BUILD IndigoBook-2026-05-21b.
 - **Prior (2026-05-21 ~21:20 CDT):** Checklist form 2-step unit onboarding (field_forms.js v10).
 - **Prior (2026-05-21 ~20:45 CDT):** RTU context awareness (#42). Sonnet-no-gate rule.
@@ -21,7 +22,7 @@ None.
 
 ## Immediate Next Step
 
-Force-reload field app → confirm BUILD shows `ChecklistChip-2026-05-21`. Then type "RTU5 has a failed supply fan motor" in the chat → verify ONLY the SUGGESTED CHECKLIST chip appears (no yellow sticky-note card) → tap Open → form should open with "RTU 5 (not yet on file)" in equipment select + "Standard / RTU" type pre-filled. Also test Open button tapped multiple times — should open form every time.
+Hard-refresh dispatcher → confirm BUILD shows IndigoBook-2026-05-21c → click Customer Directory (address book icon) → modal should open → expect Planet Fitness with CST-6580 + Acme HVAC / Playwright Test Co with "from tickets" badge and their addresses.
 
 > **On Deck / future ideas:** `ROADMAP.md` + **`ICEBOX_FUTURE_IMPROVEMENTS.md`**. Next pending: #36 customer info sync everywhere (Opus 4.6). Fix tracker: `canvases/bug-report-tracker.canvas.tsx`.
 
